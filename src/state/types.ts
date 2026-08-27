@@ -125,6 +125,20 @@ export interface CampaignSummary {
   characterCount: number;
 }
 
+export type RuleBlock =
+  | { type: "heading"; level: number; text: string }
+  | { type: "paragraph"; text: string }
+  | { type: "list"; items: string[] }
+  | { type: "table"; rows: string[][] };
+
+export interface RuleTopic {
+  id: string;
+  category: string;
+  title: string;
+  sourceUrl: string;
+  blocks: RuleBlock[];
+}
+
 export interface RollResult {
   expression: string;
   rolls: number[];

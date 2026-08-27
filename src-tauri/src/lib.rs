@@ -3,11 +3,13 @@ mod combat;
 mod dice;
 mod import;
 mod model;
+mod rules;
 mod storage;
 
 use adventure::{demo_adventure, roll_table, Adventure};
 use combat::MonsterTemplate;
 use model::{AdventureLogEntry, CampaignState};
+use rules::RuleTopic;
 use storage::CampaignSummary;
 use tauri::AppHandle;
 
@@ -155,6 +157,11 @@ fn get_bestiary() -> Vec<MonsterTemplate> {
 }
 
 #[tauri::command]
+fn get_rules(app: AppHandle) -> Result<Vec<RuleTopic>, String> {
+    rules::load_rules(&app)
+}
+
+#[tauri::command]
 fn start_combat(
     app: AppHandle,
     monster_ids: Vec<String>,
@@ -262,6 +269,7 @@ pub fn run() {
             submit_custom_action,
             import_character_sheet,
             get_bestiary,
+            get_rules,
             start_combat,
             move_combatant,
             combat_attack,
