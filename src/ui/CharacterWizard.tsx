@@ -1,11 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../state/CampaignContext";
-import { emptyAbilityScores, type AbilityScores, type Character, type RuleTopic } from "../state/types";
+import {
+  emptyAbilityScores,
+  type AbilityScores,
+  type Character,
+  type InventoryItem,
+  type RuleTopic,
+} from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
+import { BACKGROUNDS, CLASS_EQUIPMENT, CLASS_PROFICIENCIES } from "./characterCreationData";
 import "./CharacterWizard.css";
 
-type Step = "race" | "class" | "abilities" | "review";
+const STEPS = ["race", "class", "background", "abilities", "equipment", "review"] as const;
+type Step = (typeof STEPS)[number];
+const STEP_LABEL: Record<Step, string> = {
+  race: "Раса",
+  class: "Класс",
+  background: "Предыстория",
+  abilities: "Характеристики",
+  equipment: "Снаряжение",
+  review: "Итог",
+};
+
 type AbilityMethod = "standard" | "pointbuy" | "manual";
 type AbilityKey = keyof AbilityScores;
 
@@ -74,6 +91,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<Step>("race");
   const [raceId, setRaceId] = useState<string | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
+  const [backgroundId, setBackgroundId] = useState<string | null>(null);
+  const [classSkills, setClassSkills] = useState<string[]>([]);
+  const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [method, setMethod] = useState<AbilityMethod>("standard");
   const [assignment, setAssignment] = useState<Partial<Record<AbilityKey, number>>>({});
   const [pointBuy, setPointBuy] = useState<AbilityScores>(emptyAbilityScores());
@@ -94,10 +114,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const klass = classes.find((c) => c.id === classId);
   const hitDie = parseHitDie(klass);
   const raceBonus = raceId ? RACE_ABILITY_BONUSES[raceId] : undefined;
+  const classProf = classId ? CLASS_PROFICIENCIES[classId] : undefined;
+  const classEquipment = classId ? CLASS_EQUIPMENT[classId] : undefined;
+  const background = backgroundId ? BACKGROUNDS.find((b) => b.id === backgroundId) : undefined;
 
   function selectRace(id: string) {
     setRaceId(id);
     setChoiceBonusKeys([]);
+  }
+
+  function selectClass(id: string) {
+    setClassId(id);
+    setClassSkills([]);
+    setEquipmentChoice({});
+  }
+
+  function toggleClassSkill(skill: string) {
+    if (!classProf) return;
+    setClassSkills((prev) => {
+      if (prev.includes(skill)) return prev.filter((s) => s !== skill);
+      if (prev.length >= classProf.skillCount) return prev;
+      return [...prev, skill];
+    });
   }
 
   function racialBonusFor(key: AbilityKey): number {
@@ -140,8 +178,6 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   };
 
   const pointsSpent = ABILITY_LABELS.reduce((sum, [key]) => sum + (POINT_BUY_COST[pointBuy[key]] ?? 0), 0);
-  // Значения в STANDARD_ARRAY все разные, поэтому "занято" — просто множество
-  // уже назначенных значений; сама характеристика видит и своё текущее значение.
   const usedStandardValues = new Set(Object.values(assignment));
 
   function assignStandard(key: AbilityKey, value: number | null) {
@@ -163,24 +199,40 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     });
   }
 
+  const allSkillProficiencies = [...new Set([...classSkills, ...(background?.skillProficiencies ?? [])])];
+
+  const inventoryItems: string[] = [
+    ...(classEquipment ?? []).flatMap((s, i) => s.options[equipmentChoice[i] ?? 0]?.items ?? []),
+    ...(background?.equipment ?? []),
+  ];
+
   async function finish() {
     if (!name.trim()) return;
     const conMod = abilityMod(totalAbilities.constitution);
     const dexMod = abilityMod(totalAbilities.dexterity);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod);
+    const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
+      id: crypto.randomUUID(),
+      name: itemName,
+      quantity: 1,
+      notes: "",
+    }));
     const character: Character = {
       id: crypto.randomUUID(),
       name: name.trim(),
       race: race?.title ?? "",
       class: klass?.title ?? "",
+      background: background?.title ?? "",
       level: 1,
       abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,
       armorClass: 10 + dexMod,
       conditions: [],
-      inventory: [],
-      gold: 0,
+      inventory,
+      gold: background?.gold ?? 0,
+      savingThrowProficiencies: classProf?.savingThrowLabels ?? [],
+      skillProficiencies: allSkillProficiencies,
     };
     await addCharacter(character);
     onDone();
@@ -224,12 +276,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     );
   }
 
+  const stepIndex = STEPS.indexOf(step);
+  const canGoNext =
+    (step !== "race" || !!raceId) &&
+    (step !== "class" || !!classId) &&
+    (step !== "background" || !!backgroundId);
+
   return (
     <div className="wizard">
       <div className="wizard__steps">
-        {(["race", "class", "abilities", "review"] as Step[]).map((s, i) => (
+        {STEPS.map((s, i) => (
           <span key={s} className={"wizard__step" + (s === step ? " wizard__step--active" : "")}>
-            {i + 1}. {{ race: "Раса", class: "Класс", abilities: "Характеристики", review: "Итог" }[s]}
+            {i + 1}. {STEP_LABEL[s]}
           </span>
         ))}
         <button className="wizard__close" onClick={onDone}>
@@ -268,7 +326,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               <li key={c.id}>
                 <button
                   className={"wizard__pick-item" + (c.id === classId ? " wizard__pick-item--active" : "")}
-                  onClick={() => setClassId(c.id)}
+                  onClick={() => selectClass(c.id)}
                 >
                   {c.title}
                 </button>
@@ -277,9 +335,76 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           </ul>
           <div className="wizard__pick-detail">
             {klass ? (
-              klass.blocks.map((b, i) => <RuleBlockView key={i} block={b} />)
+              <>
+                {classProf && (
+                  <div className="wizard__class-proficiencies">
+                    <p>
+                      <strong>Спасброски:</strong> {classProf.savingThrowLabels.join(", ")}
+                    </p>
+                    <p>
+                      Навыки — выбери {classProf.skillCount} (выбрано {classSkills.length}/
+                      {classProf.skillCount}):
+                    </p>
+                    <div className="wizard__skill-grid">
+                      {classProf.skillOptions.map((skill) => (
+                        <label key={skill} className="wizard__choice-bonus">
+                          <input
+                            type="checkbox"
+                            checked={classSkills.includes(skill)}
+                            onChange={() => toggleClassSkill(skill)}
+                            disabled={
+                              !classSkills.includes(skill) && classSkills.length >= classProf.skillCount
+                            }
+                          />
+                          {skill}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {klass.blocks.map((b, i) => (
+                  <RuleBlockView key={i} block={b} />
+                ))}
+              </>
             ) : (
               <p className="wizard__hint">Выбери класс слева — здесь появятся его свойства из SRD.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {step === "background" && (
+        <div className="wizard__pick">
+          <ul className="wizard__pick-list">
+            {BACKGROUNDS.map((b) => (
+              <li key={b.id}>
+                <button
+                  className={"wizard__pick-item" + (b.id === backgroundId ? " wizard__pick-item--active" : "")}
+                  onClick={() => setBackgroundId(b.id)}
+                >
+                  {b.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="wizard__pick-detail">
+            {background ? (
+              <>
+                <h3 className="rule-block__heading">{background.title}</h3>
+                <p>
+                  <strong>Навыки:</strong> {background.skillProficiencies.join(", ")}
+                </p>
+                <p>
+                  <strong>Снаряжение:</strong> {background.equipment.join(", ")}; {background.gold} зм
+                </p>
+                <p>{background.feature}</p>
+                <p className="wizard__hint">
+                  SRD 5.1 целиком включает только одну предысторию — остальные из Книги игрока в открытый
+                  документ не входят.
+                </p>
+              </>
+            ) : (
+              <p className="wizard__hint">Выбери предысторию слева.</p>
             )}
           </div>
         </div>
@@ -370,6 +495,40 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
         </div>
       )}
 
+      {step === "equipment" && (
+        <div className="wizard__equipment">
+          {!classEquipment && (
+            <p className="wizard__hint">Для класса «{klass?.title}» снаряжение ещё не занесено.</p>
+          )}
+          {classEquipment?.map((slotDef, i) => (
+            <div key={i} className="wizard__equipment-slot">
+              {slotDef.options.map((opt, optIdx) => (
+                <label key={optIdx} className="wizard__equipment-option">
+                  <input
+                    type="radio"
+                    name={`equip-slot-${i}`}
+                    checked={(equipmentChoice[i] ?? 0) === optIdx}
+                    onChange={() => setEquipmentChoice((prev) => ({ ...prev, [i]: optIdx }))}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          ))}
+          {background && (
+            <>
+              <p className="wizard__hint">Из предыстории «{background.title}» (без выбора):</p>
+              <ul>
+                {background.equipment.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+                <li>{background.gold} зм</li>
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       {step === "review" && (
         <div className="wizard__review">
           <input
@@ -381,9 +540,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
+            <li>Предыстория: {background?.title ?? "не выбрана"}</li>
             <li>
               HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution))} · КД:{" "}
-              {10 + abilityMod(totalAbilities.dexterity)} (безоружный, без брони)
+              {10 + abilityMod(totalAbilities.dexterity)} (безоружный, без брони) · Золото:{" "}
+              {background?.gold ?? 0} зм
             </li>
             {ABILITY_LABELS.map(([key, label]) => (
               <li key={key}>
@@ -393,6 +554,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
               </li>
             ))}
+            <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
+            <li>Навыки: {allSkillProficiencies.join(", ") || "—"}</li>
+            <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
           </ul>
           <button disabled={!name.trim()} onClick={finish}>
             Создать персонажа
@@ -401,22 +565,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       )}
 
       <div className="wizard__nav">
-        {step !== "race" && (
-          <button
-            onClick={() =>
-              setStep(step === "class" ? "race" : step === "abilities" ? "class" : "abilities")
-            }
-          >
-            Назад
-          </button>
-        )}
+        {stepIndex > 0 && <button onClick={() => setStep(STEPS[stepIndex - 1])}>Назад</button>}
         {step !== "review" && (
-          <button
-            disabled={(step === "race" && !raceId) || (step === "class" && !classId)}
-            onClick={() =>
-              setStep(step === "race" ? "class" : step === "class" ? "abilities" : "review")
-            }
-          >
+          <button disabled={!canGoNext} onClick={() => setStep(STEPS[stepIndex + 1])}>
             Далее
           </button>
         )}

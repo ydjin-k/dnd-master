@@ -21,12 +21,13 @@ pub struct InventoryItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Character {
     pub id: String,
     pub name: String,
     pub race: String,
     pub class: String,
+    pub background: String,
     pub level: u32,
     pub abilities: AbilityScores,
     pub max_hp: i32,
@@ -35,6 +36,8 @@ pub struct Character {
     pub conditions: Vec<String>,
     pub inventory: Vec<InventoryItem>,
     pub gold: i64,
+    pub saving_throw_proficiencies: Vec<String>,
+    pub skill_proficiencies: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -100,4 +103,33 @@ pub struct CampaignState {
     pub current_scene_id: Option<String>,
     pub adventure_log: Vec<AdventureLogEntry>,
     pub combat: Option<CombatState>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Персонажи, сохранённые до появления background/владений (эта пачка),
+    /// не должны ломать загрузку — ровно та же ошибка класса, что уже
+    /// однажды ловили на CampaignState (missing field adventureLog).
+    #[test]
+    fn character_without_new_fields_deserializes_with_defaults() {
+        let old_json = r#"{
+            "id": "abc",
+            "name": "Тест",
+            "race": "Орк",
+            "class": "Плут",
+            "level": 1,
+            "abilities": {
+                "strength": 10, "dexterity": 10, "constitution": 10,
+                "intelligence": 10, "wisdom": 10, "charisma": 10
+            },
+            "maxHp": 10, "currentHp": 10, "armorClass": 10,
+            "conditions": [], "inventory": [], "gold": 0
+        }"#;
+        let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert_eq!(character.background, "");
+        assert!(character.saving_throw_proficiencies.is_empty());
+        assert!(character.skill_proficiencies.is_empty());
+    }
 }

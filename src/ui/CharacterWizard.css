@@ -113,6 +113,34 @@
   font-style: normal;
 }
 
+.wizard__class-proficiencies {
+  background: var(--dm-panel-raised);
+  border: 1px solid var(--dm-border);
+  border-radius: 6px;
+  padding: 0.75em;
+  margin-bottom: 1em;
+}
+
+.wizard__skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.25em 0.5em;
+}
+
+.wizard__equipment-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  padding: 0.5em 0;
+  border-bottom: 1px solid var(--dm-border);
+}
+
+.wizard__equipment-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
 .wizard__pointbuy-controls {
   display: flex;
   align-items: center;

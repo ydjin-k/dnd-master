@@ -19,6 +19,7 @@ export interface Character {
   name: string;
   race: string;
   class: string;
+  background: string;
   level: number;
   abilities: AbilityScores;
   maxHp: number;
@@ -27,6 +28,8 @@ export interface Character {
   conditions: string[];
   inventory: InventoryItem[];
   gold: number;
+  savingThrowProficiencies: string[];
+  skillProficiencies: string[];
 }
 
 export interface JournalEntry {

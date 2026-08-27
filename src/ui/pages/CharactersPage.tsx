@@ -10,6 +10,7 @@ function newCharacter(name: string, race: string, klass: string, level: number):
     name,
     race,
     class: klass,
+    background: "",
     level,
     abilities: emptyAbilityScores(),
     maxHp: 10,
@@ -18,6 +19,8 @@ function newCharacter(name: string, race: string, klass: string, level: number):
     conditions: [],
     inventory: [],
     gold: 0,
+    savingThrowProficiencies: [],
+    skillProficiencies: [],
   };
 }
 
@@ -49,11 +52,34 @@ export function CharactersPage() {
           <li key={c.id} className="character-card">
             <div className="character-card__name">{c.name}</div>
             <div className="character-card__meta">
-              {c.race || "раса не указана"} · {c.class || "класс не указан"} · ур. {c.level}
+              {c.race || "раса не указана"} · {c.class || "класс не указан"}
+              {c.background && <> · {c.background}</>} · ур. {c.level}
             </div>
             <div className="character-card__hp">
-              HP {c.currentHp}/{c.maxHp} · КД {c.armorClass}
+              HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · {c.gold} зм
             </div>
+            {c.savingThrowProficiencies.length > 0 && (
+              <div className="character-card__prof">
+                Спасброски: {c.savingThrowProficiencies.join(", ")}
+              </div>
+            )}
+            {c.skillProficiencies.length > 0 && (
+              <div className="character-card__prof">Навыки: {c.skillProficiencies.join(", ")}</div>
+            )}
+            {c.inventory.length > 0 && (
+              <details className="character-card__inventory">
+                <summary>Инвентарь ({c.inventory.length})</summary>
+                <ul>
+                  {c.inventory.map((item) => (
+                    <li key={item.id}>
+                      {item.name}
+                      {item.quantity > 1 ? ` ×${item.quantity}` : ""}
+                      {item.notes && ` — ${item.notes}`}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </li>
         ))}
         {state.characters.length === 0 && (
