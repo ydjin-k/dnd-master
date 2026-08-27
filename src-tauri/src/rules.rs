@@ -54,14 +54,24 @@ mod tests {
         let raw = std::fs::read_to_string(&path).expect("прочитать rules/rules.json");
         let topics: Vec<RuleTopic> = serde_json::from_str(&raw).expect("распарсить rules.json");
 
-        assert!(topics.len() >= 10, "ожидал десяток с лишним тем, получил {}", topics.len());
-        assert!(topics.iter().any(|t| t.id == "appendices-conditions"));
+        assert!(topics.len() >= 50, "ожидал пять десятков с лишним тем, получил {}", topics.len());
+
+        for id in ["appendices-conditions", "races-dwarf", "classes-fighter", "equipment-weapons"] {
+            assert!(topics.iter().any(|t| t.id == id), "не нашёл тему {id}");
+        }
 
         let conditions = topics.iter().find(|t| t.id == "appendices-conditions").unwrap();
         let has_deafened_heading = conditions.blocks.iter().any(|b| {
             matches!(b, RuleBlock::Heading { text, .. } if text == "Оглохшее")
         });
         assert!(has_deafened_heading, "не нашёл состояние «Оглохшее» в разобранных блоках");
+
+        let weapons = topics.iter().find(|t| t.id == "equipment-weapons").unwrap();
+        let has_weapon_table = weapons
+            .blocks
+            .iter()
+            .any(|b| matches!(b, RuleBlock::Table { rows } if rows.len() > 20));
+        assert!(has_weapon_table, "не нашёл таблицу оружия ожидаемого размера");
 
         for topic in &topics {
             assert!(!topic.blocks.is_empty(), "тема {} осталась без блоков", topic.id);

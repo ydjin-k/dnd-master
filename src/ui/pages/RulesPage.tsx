@@ -22,6 +22,11 @@ const CATEGORY_LABEL: Record<string, string> = {
   gameplay: "Игровой процесс",
   combat: "Бой",
   appendices: "Приложения",
+  races: "Расы",
+  classes: "Классы",
+  character: "Персонаж",
+  equipment: "Экипировка",
+  "additional-rules": "Дополнительные правила",
 };
 
 function RuleBlockView({ block }: { block: RuleBlock }) {
