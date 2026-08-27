@@ -1,0 +1,74 @@
+:root {
+  --dm-bg: #1a1410;
+  --dm-panel: #241c15;
+  --dm-panel-raised: #2e2419;
+  --dm-border: #4a3a26;
+  --dm-text: #e8dcc4;
+  --dm-text-muted: #a8977d;
+  --dm-accent: #c9a227;
+  --dm-accent-hover: #e0b830;
+  --dm-danger: #a8402f;
+
+  --dm-font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --dm-font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--dm-bg);
+  color: var(--dm-text);
+  font-family: var(--dm-font-body);
+}
+
+#root {
+  height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--dm-font-display);
+  color: var(--dm-accent);
+  margin: 0 0 0.5em;
+}
+
+button {
+  font-family: var(--dm-font-body);
+  background: var(--dm-panel-raised);
+  color: var(--dm-text);
+  border: 1px solid var(--dm-border);
+  border-radius: 4px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--dm-accent);
+  color: var(--dm-accent-hover);
+}
+
+input,
+textarea {
+  font-family: var(--dm-font-body);
+  background: var(--dm-bg);
+  color: var(--dm-text);
+  border: 1px solid var(--dm-border);
+  border-radius: 4px;
+  padding: 0.4em 0.6em;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--dm-accent);
+}

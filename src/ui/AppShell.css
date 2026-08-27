@@ -1,0 +1,54 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.app-shell__header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  padding: 0.75em 1.25em;
+  background: var(--dm-panel);
+  border-bottom: 1px solid var(--dm-border);
+}
+
+.app-shell__title {
+  font-family: var(--dm-font-display);
+  color: var(--dm-accent);
+  font-size: 1.1em;
+  letter-spacing: 0.04em;
+}
+
+.app-shell__campaign-name {
+  flex: 1;
+  max-width: 320px;
+}
+
+.app-shell__nav {
+  background: var(--dm-panel);
+  border-right: 1px solid var(--dm-border);
+  padding: 1em 0.5em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+.app-shell__nav-item {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.app-shell__nav-item--active {
+  background: var(--dm-panel-raised);
+  border-color: var(--dm-border);
+  color: var(--dm-accent);
+}
+
+.app-shell__content {
+  padding: 1.5em;
+  overflow-y: auto;
+}
