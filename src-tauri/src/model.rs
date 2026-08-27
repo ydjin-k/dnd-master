@@ -93,6 +93,7 @@ pub struct CombatState {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CampaignState {
+    pub id: String,
     pub campaign_name: String,
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,

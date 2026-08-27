@@ -1,0 +1,77 @@
+.launcher {
+  max-width: 32em;
+  margin: 3em auto;
+  padding: 0 1.5em;
+}
+
+.launcher__title {
+  text-align: center;
+  font-size: 2em;
+  margin-bottom: 1em;
+}
+
+.launcher__subtitle {
+  margin-top: 1.5em;
+}
+
+.launcher__error {
+  color: var(--dm-danger);
+}
+
+.launcher__new {
+  display: flex;
+  gap: 0.5em;
+}
+
+.launcher__new input {
+  flex: 1;
+}
+
+.launcher__empty {
+  color: var(--dm-text-muted);
+  font-style: italic;
+}
+
+.launcher__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.launcher__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--dm-panel);
+  border: 1px solid var(--dm-border);
+  border-radius: 6px;
+  padding: 0.75em 1em;
+}
+
+.launcher__item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.launcher__item-name {
+  font-family: var(--dm-font-display);
+  color: var(--dm-accent);
+}
+
+.launcher__item-meta {
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.launcher__item-actions {
+  display: flex;
+  gap: 0.5em;
+}
+
+.launcher__delete:hover {
+  border-color: var(--dm-danger);
+  color: var(--dm-danger);
+}

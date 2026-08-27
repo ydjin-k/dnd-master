@@ -79,6 +79,7 @@ export interface MonsterTemplate {
 }
 
 export interface CampaignState {
+  id: string;
   campaignName: string;
   characters: Character[];
   journal: JournalEntry[];
@@ -118,6 +119,12 @@ export interface Adventure {
   tables: EncounterTable[];
 }
 
+export interface CampaignSummary {
+  id: string;
+  name: string;
+  characterCount: number;
+}
+
 export interface RollResult {
   expression: string;
   rolls: number[];
@@ -136,6 +143,7 @@ export const emptyAbilityScores = (): AbilityScores => ({
 });
 
 export const emptyCampaignState = (): CampaignState => ({
+  id: "",
   campaignName: "",
   characters: [],
   journal: [],

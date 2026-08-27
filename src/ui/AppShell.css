@@ -27,6 +27,10 @@
   max-width: 320px;
 }
 
+.app-shell__switch-campaign {
+  margin-left: auto;
+}
+
 .app-shell__nav {
   background: var(--dm-panel);
   border-right: 1px solid var(--dm-border);

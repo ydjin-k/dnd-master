@@ -8,16 +8,41 @@ mod storage;
 use adventure::{demo_adventure, roll_table, Adventure};
 use combat::MonsterTemplate;
 use model::{AdventureLogEntry, CampaignState};
+use storage::CampaignSummary;
 use tauri::AppHandle;
 
+fn active(app: &AppHandle) -> Result<CampaignState, String> {
+    storage::load_active(app)?.ok_or_else(|| "нет активной кампании".to_string())
+}
+
 #[tauri::command]
-fn load_campaign(app: AppHandle) -> Result<CampaignState, String> {
-    storage::load_state(&app)
+fn load_active_campaign(app: AppHandle) -> Result<Option<CampaignState>, String> {
+    storage::load_active(&app)
+}
+
+#[tauri::command]
+fn list_campaigns(app: AppHandle) -> Result<Vec<CampaignSummary>, String> {
+    storage::list_campaigns(&app)
+}
+
+#[tauri::command]
+fn create_campaign(app: AppHandle, name: String) -> Result<CampaignState, String> {
+    storage::create_campaign(&app, name)
+}
+
+#[tauri::command]
+fn switch_campaign(app: AppHandle, id: String) -> Result<CampaignState, String> {
+    storage::switch_campaign(&app, id)
+}
+
+#[tauri::command]
+fn delete_campaign(app: AppHandle, id: String) -> Result<(), String> {
+    storage::delete_campaign(&app, &id)
 }
 
 #[tauri::command]
 fn save_campaign(app: AppHandle, state: CampaignState) -> Result<(), String> {
-    storage::save_state(&app, &state)
+    storage::save_campaign(&app, &state)
 }
 
 #[tauri::command]
@@ -32,7 +57,7 @@ fn get_adventure() -> Adventure {
 
 #[tauri::command]
 fn start_adventure(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     if state.current_scene_id.is_none() {
         let adventure = demo_adventure();
         let scene = adventure
@@ -42,14 +67,14 @@ fn start_adventure(app: AppHandle) -> Result<CampaignState, String> {
         state
             .adventure_log
             .push(AdventureLogEntry::Scene(scene.text.clone()));
-        storage::save_state(&app, &state)?;
+        storage::save_campaign(&app, &state)?;
     }
     Ok(state)
 }
 
 #[tauri::command]
 fn choose_option(app: AppHandle, option_id: String) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let adventure = demo_adventure();
 
     let current_id = state
@@ -93,15 +118,15 @@ fn choose_option(app: AppHandle, option_id: String) -> Result<CampaignState, Str
         .push(AdventureLogEntry::Scene(next_scene.text.clone()));
     state.current_scene_id = Some(next_scene_id);
 
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn submit_custom_action(app: AppHandle, text: String) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     state.adventure_log.push(AdventureLogEntry::Custom(text));
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
@@ -135,7 +160,7 @@ fn start_combat(
     monster_ids: Vec<String>,
     character_ids: Vec<String>,
 ) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
 
     let bestiary = combat::demo_bestiary();
     let monsters: Vec<MonsterTemplate> = monster_ids
@@ -161,60 +186,60 @@ fn start_combat(
         .collect::<Result<_, String>>()?;
 
     state.combat = Some(combat::start_combat(&monsters, &characters)?);
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
     combat::move_combatant(combat_state, &combatant_id, x, y)?;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
     combat::attack(combat_state, &attacker_id, &target_id)?;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
     combat::apply_damage(combat_state, &target_id, delta)?;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
     combat::end_turn(combat_state)?;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
     combat::monster_auto_turn(combat_state)?;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
 #[tauri::command]
 fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = storage::load_state(&app)?;
+    let mut state = active(&app)?;
     state.combat = None;
-    storage::save_state(&app, &state)?;
+    storage::save_campaign(&app, &state)?;
     Ok(state)
 }
 
@@ -224,7 +249,11 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            load_campaign,
+            load_active_campaign,
+            list_campaigns,
+            create_campaign,
+            switch_campaign,
+            delete_campaign,
             save_campaign,
             roll_dice,
             get_adventure,

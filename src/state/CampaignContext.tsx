@@ -41,8 +41,10 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<CampaignState>("load_campaign")
-      .then(setState)
+    invoke<CampaignState | null>("load_active_campaign")
+      .then((loaded) => {
+        if (loaded) setState(loaded);
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);

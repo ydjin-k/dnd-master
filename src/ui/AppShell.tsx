@@ -13,7 +13,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "journal", label: "Дневник" },
 ];
 
-export function AppShell({ children }: { children: (tab: Tab) => ReactNode }) {
+export function AppShell({
+  children,
+  onSwitchCampaign,
+}: {
+  children: (tab: Tab) => ReactNode;
+  onSwitchCampaign: () => void;
+}) {
   const [tab, setTab] = useState<Tab>("adventure");
   const { state, setCampaignName } = useCampaign();
 
@@ -27,6 +33,9 @@ export function AppShell({ children }: { children: (tab: Tab) => ReactNode }) {
           placeholder="Название кампании"
           onChange={(e) => setCampaignName(e.currentTarget.value)}
         />
+        <button className="app-shell__switch-campaign" onClick={onSwitchCampaign}>
+          Кампании
+        </button>
       </header>
       <nav className="app-shell__nav">
         {TABS.map((t) => (

@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
+import type { CampaignState } from "./state/types";
 import { AppShell } from "./ui/AppShell";
+import { Launcher } from "./ui/Launcher";
 import { AdventurePage } from "./ui/pages/AdventurePage";
 import { CombatPage } from "./ui/pages/CombatPage";
 import { DicePage } from "./ui/pages/DicePage";
@@ -8,7 +12,7 @@ import { ImportPage } from "./ui/pages/ImportPage";
 import { JournalPage } from "./ui/pages/JournalPage";
 import "./ui/theme.css";
 
-function AppContent() {
+function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
   const { loading, error } = useCampaign();
 
   if (loading) {
@@ -18,7 +22,7 @@ function AppContent() {
   return (
     <>
       {error && <p style={{ color: "var(--dm-danger)" }}>Не удалось сохранить: {error}</p>}
-      <AppShell>
+      <AppShell onSwitchCampaign={onSwitchCampaign}>
         {(tab) => {
           switch (tab) {
             case "adventure":
@@ -40,10 +44,36 @@ function AppContent() {
   );
 }
 
+type Phase = "loading" | "launcher" | "playing";
+
 function App() {
+  const [phase, setPhase] = useState<Phase>("loading");
+  // Меняется при каждом входе в кампанию — форсирует пересоздание
+  // CampaignProvider, чтобы он не тащил состояние предыдущей кампании.
+  const [campaignKey, setCampaignKey] = useState(0);
+
+  useEffect(() => {
+    invoke<CampaignState | null>("load_active_campaign")
+      .then((state) => setPhase(state ? "playing" : "launcher"))
+      .catch(() => setPhase("launcher"));
+  }, []);
+
+  function enterCampaign() {
+    setCampaignKey((k) => k + 1);
+    setPhase("playing");
+  }
+
+  if (phase === "loading") {
+    return <p>Загрузка…</p>;
+  }
+
+  if (phase === "launcher") {
+    return <Launcher onEnter={enterCampaign} />;
+  }
+
   return (
-    <CampaignProvider>
-      <AppContent />
+    <CampaignProvider key={campaignKey}>
+      <AppContent onSwitchCampaign={() => setPhase("launcher")} />
     </CampaignProvider>
   );
 }
