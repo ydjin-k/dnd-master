@@ -1,0 +1,20 @@
+.rule-block__heading {
+  color: var(--dm-accent);
+  font-family: var(--dm-font-display);
+  margin-top: 1.2em;
+}
+
+.rule-block__table-wrap {
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.rule-block__table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.rule-block__table-wrap td {
+  border: 1px solid var(--dm-border);
+  padding: 0.4em 0.6em;
+}

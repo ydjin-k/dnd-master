@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import { emptyAbilityScores, type Character } from "../../state/types";
+import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
 function newCharacter(name: string, race: string, klass: string, level: number): Character {
@@ -26,6 +27,8 @@ export function CharactersPage() {
   const [race, setRace] = useState("");
   const [klass, setKlass] = useState("");
   const [level, setLevel] = useState(1);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showQuickForm, setShowQuickForm] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,32 +61,44 @@ export function CharactersPage() {
         )}
       </ul>
 
-      <form className="characters-page__form" onSubmit={handleSubmit}>
-        <h3>Новый персонаж</h3>
-        <input
-          placeholder="Имя"
-          value={name}
-          onChange={(e) => setName(e.currentTarget.value)}
-        />
-        <input
-          placeholder="Раса"
-          value={race}
-          onChange={(e) => setRace(e.currentTarget.value)}
-        />
-        <input
-          placeholder="Класс"
-          value={klass}
-          onChange={(e) => setKlass(e.currentTarget.value)}
-        />
-        <input
-          type="number"
-          min={1}
-          max={20}
-          value={level}
-          onChange={(e) => setLevel(Number(e.currentTarget.value) || 1)}
-        />
-        <button type="submit">Добавить</button>
-      </form>
+      {showWizard ? (
+        <CharacterWizard onDone={() => setShowWizard(false)} />
+      ) : (
+        <button onClick={() => setShowWizard(true)}>Создать персонажа по правилам</button>
+      )}
+
+      <details
+        className="characters-page__quick"
+        open={showQuickForm}
+        onToggle={(e) => setShowQuickForm(e.currentTarget.open)}
+      >
+        <summary>Быстрое добавление (без мастера)</summary>
+        <form className="characters-page__form" onSubmit={handleSubmit}>
+          <input
+            placeholder="Имя"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+          />
+          <input
+            placeholder="Раса"
+            value={race}
+            onChange={(e) => setRace(e.currentTarget.value)}
+          />
+          <input
+            placeholder="Класс"
+            value={klass}
+            onChange={(e) => setKlass(e.currentTarget.value)}
+          />
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={level}
+            onChange={(e) => setLevel(Number(e.currentTarget.value) || 1)}
+          />
+          <button type="submit">Добавить</button>
+        </form>
+      </details>
     </div>
   );
 }

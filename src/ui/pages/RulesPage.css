@@ -43,27 +43,6 @@
   line-height: 1.6;
 }
 
-.rules-page__heading {
-  color: var(--dm-accent);
-  font-family: var(--dm-font-display);
-  margin-top: 1.2em;
-}
-
-.rules-page__table-wrap {
-  overflow-x: auto;
-  margin: 0.75em 0;
-}
-
-.rules-page__content table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.rules-page__content td {
-  border: 1px solid var(--dm-border);
-  padding: 0.4em 0.6em;
-}
-
 .rules-page__error {
   color: var(--dm-danger);
 }

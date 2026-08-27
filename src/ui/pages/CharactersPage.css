@@ -42,10 +42,20 @@
   padding: 1em;
 }
 
-.characters-page__form h3 {
-  flex-basis: 100%;
-}
-
 .characters-page__form input[type="number"] {
   width: 5em;
+}
+
+.characters-page__quick {
+  margin-top: 1em;
+}
+
+.characters-page__quick summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+  margin-bottom: 0.5em;
+}
+
+.characters-page__quick .characters-page__form {
+  margin-top: 0.5em;
 }

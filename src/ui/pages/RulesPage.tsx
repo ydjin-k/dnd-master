@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { RuleBlock, RuleTopic } from "../../state/types";
+import type { RuleTopic } from "../../state/types";
+import { RuleBlockView } from "../RuleBlockView";
 import "./RulesPage.css";
 
 function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
@@ -28,41 +29,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   equipment: "Экипировка",
   "additional-rules": "Дополнительные правила",
 };
-
-function RuleBlockView({ block }: { block: RuleBlock }) {
-  switch (block.type) {
-    case "heading": {
-      const Tag = (`h${Math.min(block.level + 1, 6)}` as unknown) as "h2" | "h3" | "h4" | "h5" | "h6";
-      return <Tag className="rules-page__heading">{block.text}</Tag>;
-    }
-    case "paragraph":
-      return <p>{block.text}</p>;
-    case "list":
-      return (
-        <ul>
-          {block.items.map((item, i) => (
-            <li key={i}>{item}</li>
-          ))}
-        </ul>
-      );
-    case "table":
-      return (
-        <div className="rules-page__table-wrap">
-          <table>
-            <tbody>
-              {block.rows.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-  }
-}
 
 export function RulesPage() {
   const [topics, setTopics] = useState<RuleTopic[]>([]);
