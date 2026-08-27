@@ -45,10 +45,21 @@ pub struct JournalEntry {
     pub text: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "text")]
+pub enum AdventureLogEntry {
+    Scene(String),
+    Choice(String),
+    Roll(String),
+    Custom(String),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct CampaignState {
     pub campaign_name: String,
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
+    pub current_scene_id: Option<String>,
+    pub adventure_log: Vec<AdventureLogEntry>,
 }

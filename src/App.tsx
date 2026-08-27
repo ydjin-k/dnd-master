@@ -1,5 +1,7 @@
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
 import { AppShell } from "./ui/AppShell";
+import { AdventurePage } from "./ui/pages/AdventurePage";
+import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
 import { JournalPage } from "./ui/pages/JournalPage";
 import "./ui/theme.css";
@@ -15,7 +17,18 @@ function AppContent() {
     <>
       {error && <p style={{ color: "var(--dm-danger)" }}>Не удалось сохранить: {error}</p>}
       <AppShell>
-        {(tab) => (tab === "characters" ? <CharactersPage /> : <JournalPage />)}
+        {(tab) => {
+          switch (tab) {
+            case "adventure":
+              return <AdventurePage />;
+            case "dice":
+              return <DicePage />;
+            case "characters":
+              return <CharactersPage />;
+            case "journal":
+              return <JournalPage />;
+          }
+        }}
       </AppShell>
     </>
   );

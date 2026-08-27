@@ -2,15 +2,17 @@ import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
 import "./AppShell.css";
 
-export type Tab = "characters" | "journal";
+export type Tab = "adventure" | "dice" | "characters" | "journal";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "adventure", label: "Приключение" },
+  { id: "dice", label: "Кубики" },
   { id: "characters", label: "Персонажи" },
   { id: "journal", label: "Дневник" },
 ];
 
 export function AppShell({ children }: { children: (tab: Tab) => ReactNode }) {
-  const [tab, setTab] = useState<Tab>("characters");
+  const [tab, setTab] = useState<Tab>("adventure");
   const { state, setCampaignName } = useCampaign();
 
   return (

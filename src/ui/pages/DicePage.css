@@ -1,0 +1,57 @@
+.dice-page__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 1em;
+}
+
+.dice-page__expression,
+.dice-page__manual {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 1em;
+}
+
+.dice-page__expression input,
+.dice-page__manual input {
+  flex: 1;
+}
+
+.dice-page__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+}
+
+.dice-log-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75em;
+  background: var(--dm-panel);
+  border: 1px solid var(--dm-border);
+  border-radius: 4px;
+  padding: 0.4em 0.75em;
+}
+
+.dice-log-entry__expr {
+  color: var(--dm-text-muted);
+  min-width: 5em;
+}
+
+.dice-log-entry__total {
+  font-family: var(--dm-font-display);
+  color: var(--dm-accent);
+  font-size: 1.2em;
+}
+
+.dice-log-entry__detail {
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.dice-log-entry__error {
+  color: var(--dm-danger);
+}

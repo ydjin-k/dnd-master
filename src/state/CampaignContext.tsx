@@ -21,6 +21,9 @@ interface CampaignContextValue {
   addCharacter: (character: Character) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
+  startAdventure: () => Promise<void>;
+  chooseOption: (optionId: string) => Promise<void>;
+  submitCustomAction: (text: string) => Promise<void>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -68,9 +71,48 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [state, persist],
   );
 
+  // Эти три действия сохраняют состояние уже на бэкенде (внутри Rust-команды),
+  // поэтому здесь только применяем результат, не вызываем save_campaign повторно.
+  const startAdventure = useCallback(async () => {
+    try {
+      setState(await invoke<CampaignState>("start_adventure"));
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
+  const chooseOption = useCallback(async (optionId: string) => {
+    try {
+      setState(await invoke<CampaignState>("choose_option", { optionId }));
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
+  const submitCustomAction = useCallback(async (text: string) => {
+    try {
+      setState(await invoke<CampaignState>("submit_custom_action", { text }));
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   return (
     <CampaignContext.Provider
-      value={{ state, loading, error, addCharacter, addJournalEntry, setCampaignName }}
+      value={{
+        state,
+        loading,
+        error,
+        addCharacter,
+        addJournalEntry,
+        setCampaignName,
+        startAdventure,
+        chooseOption,
+        submitCustomAction,
+      }}
     >
       {children}
     </CampaignContext.Provider>

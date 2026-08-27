@@ -1,0 +1,66 @@
+.adventure-page__scene {
+  background: var(--dm-panel);
+  border: 1px solid var(--dm-border);
+  border-radius: 6px;
+  padding: 1em;
+  margin-bottom: 1em;
+}
+
+.adventure-page__scene-text {
+  margin: 0 0 1em;
+  line-height: 1.5;
+}
+
+.adventure-page__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+.adventure-page__custom-form {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.adventure-page__custom-form input {
+  flex: 1;
+}
+
+.adventure-page__log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.adventure-log-entry {
+  padding: 0.4em 0.6em;
+  border-left: 3px solid var(--dm-border);
+  font-size: 0.9em;
+}
+
+.adventure-log-entry--scene {
+  border-left-color: var(--dm-accent);
+  color: var(--dm-text);
+}
+
+.adventure-log-entry--choice {
+  color: var(--dm-text-muted);
+}
+
+.adventure-log-entry--roll {
+  border-left-color: var(--dm-danger);
+  color: var(--dm-text-muted);
+}
+
+.adventure-log-entry--custom {
+  font-style: italic;
+  color: var(--dm-text-muted);
+}
+
+.adventure-log-entry__label {
+  font-weight: bold;
+}
