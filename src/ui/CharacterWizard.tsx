@@ -271,7 +271,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       <input
         type="number"
         value={manual[key]}
-        onChange={(e) => setManual((prev) => ({ ...prev, [key]: Number(e.currentTarget.value) || 0 }))}
+        onChange={(e) => {
+          const value = Number(e.currentTarget.value) || 0;
+          setManual((prev) => ({ ...prev, [key]: value }));
+        }}
       />
     );
   }
