@@ -1,0 +1,22 @@
+.import-page__hint {
+  color: var(--dm-text-muted);
+  max-width: 60em;
+  line-height: 1.5;
+}
+
+.import-page__filename {
+  color: var(--dm-text-muted);
+  font-style: italic;
+  margin-top: 0.5em;
+}
+
+.import-page__error {
+  color: var(--dm-danger);
+}
+
+.import-page__text {
+  width: 100%;
+  margin-top: 1em;
+  font-family: var(--dm-font-body);
+  resize: vertical;
+}

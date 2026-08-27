@@ -1,5 +1,6 @@
 mod adventure;
 mod dice;
+mod import;
 mod model;
 mod storage;
 
@@ -102,10 +103,30 @@ fn submit_custom_action(app: AppHandle, text: String) -> Result<CampaignState, S
     Ok(state)
 }
 
+/// Достаёт текст из PDF/DOCX/TXT или распознаёт его на фото (офлайн-OCR).
+/// Выбор способа — по расширению файла.
+#[tauri::command]
+fn import_character_sheet(app: AppHandle, path: String) -> Result<String, String> {
+    let ext = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+
+    match ext.as_str() {
+        "pdf" => import::extract_text_from_pdf(&path),
+        "docx" => import::extract_text_from_docx(&path),
+        "txt" => import::extract_text_from_txt(&path),
+        "png" | "jpg" | "jpeg" | "bmp" | "webp" => import::extract_text_from_image(&app, &path),
+        other => Err(format!("формат {other:?} не поддерживается (PDF, DOCX, TXT, PNG/JPG)")),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             load_campaign,
             save_campaign,
@@ -113,7 +134,8 @@ pub fn run() {
             get_adventure,
             start_adventure,
             choose_option,
-            submit_custom_action
+            submit_custom_action,
+            import_character_sheet
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
