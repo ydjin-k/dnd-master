@@ -81,12 +81,36 @@
   border-collapse: collapse;
 }
 
+.wizard__ability-table th,
 .wizard__ability-table td {
   padding: 0.3em 0.75em 0.3em 0;
+  text-align: left;
+}
+
+.wizard__ability-table th {
+  color: var(--dm-text-muted);
+  font-weight: normal;
+  font-size: 0.85em;
 }
 
 .wizard__ability-mod {
   color: var(--dm-text-muted);
+}
+
+.wizard__ability-bonus {
+  color: var(--dm-accent);
+}
+
+.wizard__ability-total {
+  font-weight: bold;
+}
+
+.wizard__choice-bonus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  margin-right: 0.75em;
+  font-style: normal;
 }
 
 .wizard__pointbuy-controls {

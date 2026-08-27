@@ -22,8 +22,39 @@ const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const POINT_BUY_BUDGET = 27;
 const POINT_BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 
+/**
+ * Расовые бонусы к характеристикам — сверены вручную с текстом каждой расы
+ * в rules.json (SRD 5.1), а не вытащены регэкспом из прозы: в SRD у части
+ * рас бонус описан в двух местах (базовая раса + единственный подрасовый
+ * вариант, который там есть), у получеловека — часть бонуса игрок выбирает
+ * сам. Раз уж нельзя доверять автопарсингу — таблица проверена глазами один
+ * раз и живёт как обычные данные, а не как результат разбора текста.
+ */
+interface RaceAbilityBonus {
+  fixed: Partial<Record<AbilityKey, number>>;
+  choice?: { count: number; amount: number };
+}
+
+const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
+  "races-dwarf": { fixed: { constitution: 2, wisdom: 1 } }, // + Холмовой дварф
+  "races-halfling": { fixed: { dexterity: 2, charisma: 1 } }, // + Легконогий
+  "races-human": {
+    fixed: { strength: 1, dexterity: 1, constitution: 1, intelligence: 1, wisdom: 1, charisma: 1 },
+  },
+  "races-elf": { fixed: { dexterity: 2, intelligence: 1 } }, // + Высший эльф
+  "races-gnome": { fixed: { intelligence: 2, constitution: 1 } }, // + Скальный гном
+  "races-dragonborn": { fixed: { strength: 2, charisma: 1 } },
+  "races-half-orc": { fixed: { strength: 2, constitution: 1 } },
+  "races-half-elf": { fixed: { charisma: 2 }, choice: { count: 2, amount: 1 } },
+  "races-tiefling": { fixed: { intelligence: 1, charisma: 2 } },
+};
+
 function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2);
+}
+
+function fmtMod(mod: number): string {
+  return (mod >= 0 ? "+" : "") + mod;
 }
 
 function parseHitDie(classTopic: RuleTopic | undefined): number | null {
@@ -47,6 +78,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [assignment, setAssignment] = useState<Partial<Record<AbilityKey, number>>>({});
   const [pointBuy, setPointBuy] = useState<AbilityScores>(emptyAbilityScores());
   const [manual, setManual] = useState<AbilityScores>(emptyAbilityScores());
+  const [choiceBonusKeys, setChoiceBonusKeys] = useState<AbilityKey[]>([]);
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -61,8 +93,30 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const race = races.find((r) => r.id === raceId);
   const klass = classes.find((c) => c.id === classId);
   const hitDie = parseHitDie(klass);
+  const raceBonus = raceId ? RACE_ABILITY_BONUSES[raceId] : undefined;
 
-  const abilities: AbilityScores =
+  function selectRace(id: string) {
+    setRaceId(id);
+    setChoiceBonusKeys([]);
+  }
+
+  function racialBonusFor(key: AbilityKey): number {
+    if (!raceBonus) return 0;
+    const fixed = raceBonus.fixed[key] ?? 0;
+    const chosen = raceBonus.choice && choiceBonusKeys.includes(key) ? raceBonus.choice.amount : 0;
+    return fixed + chosen;
+  }
+
+  function toggleChoiceBonus(key: AbilityKey) {
+    if (!raceBonus?.choice) return;
+    setChoiceBonusKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((k) => k !== key);
+      if (prev.length >= raceBonus.choice!.count) return prev;
+      return [...prev, key];
+    });
+  }
+
+  const baseAbilities: AbilityScores =
     method === "standard"
       ? {
           strength: assignment.strength ?? 10,
@@ -75,6 +129,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       : method === "pointbuy"
         ? pointBuy
         : manual;
+
+  const totalAbilities: AbilityScores = {
+    strength: baseAbilities.strength + racialBonusFor("strength"),
+    dexterity: baseAbilities.dexterity + racialBonusFor("dexterity"),
+    constitution: baseAbilities.constitution + racialBonusFor("constitution"),
+    intelligence: baseAbilities.intelligence + racialBonusFor("intelligence"),
+    wisdom: baseAbilities.wisdom + racialBonusFor("wisdom"),
+    charisma: baseAbilities.charisma + racialBonusFor("charisma"),
+  };
 
   const pointsSpent = ABILITY_LABELS.reduce((sum, [key]) => sum + (POINT_BUY_COST[pointBuy[key]] ?? 0), 0);
   // Значения в STANDARD_ARRAY все разные, поэтому "занято" — просто множество
@@ -102,8 +165,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   async function finish() {
     if (!name.trim()) return;
-    const conMod = abilityMod(abilities.constitution);
-    const dexMod = abilityMod(abilities.dexterity);
+    const conMod = abilityMod(totalAbilities.constitution);
+    const dexMod = abilityMod(totalAbilities.dexterity);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod);
     const character: Character = {
       id: crypto.randomUUID(),
@@ -111,7 +174,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       race: race?.title ?? "",
       class: klass?.title ?? "",
       level: 1,
-      abilities,
+      abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,
       armorClass: 10 + dexMod,
@@ -121,6 +184,44 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     };
     await addCharacter(character);
     onDone();
+  }
+
+  function baseCell(key: AbilityKey) {
+    if (method === "standard") {
+      return (
+        <select
+          value={assignment[key] ?? ""}
+          onChange={(e) => assignStandard(key, e.currentTarget.value ? Number(e.currentTarget.value) : null)}
+        >
+          <option value="">—</option>
+          {STANDARD_ARRAY.filter((v) => v === assignment[key] || !usedStandardValues.has(v)).map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    if (method === "pointbuy") {
+      return (
+        <div className="wizard__pointbuy-controls">
+          <button type="button" onClick={() => adjustPointBuy(key, -1)}>
+            −
+          </button>
+          <span>{pointBuy[key]}</span>
+          <button type="button" onClick={() => adjustPointBuy(key, 1)}>
+            +
+          </button>
+        </div>
+      );
+    }
+    return (
+      <input
+        type="number"
+        value={manual[key]}
+        onChange={(e) => setManual((prev) => ({ ...prev, [key]: Number(e.currentTarget.value) || 0 }))}
+      />
+    );
   }
 
   return (
@@ -143,7 +244,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               <li key={r.id}>
                 <button
                   className={"wizard__pick-item" + (r.id === raceId ? " wizard__pick-item--active" : "")}
-                  onClick={() => setRaceId(r.id)}
+                  onClick={() => selectRace(r.id)}
                 >
                   {r.title}
                 </button>
@@ -209,92 +310,63 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             </label>
           </div>
 
-          {method === "standard" && (
-            <table className="wizard__ability-table">
-              <tbody>
-                {ABILITY_LABELS.map(([key, label]) => (
-                  <tr key={key}>
-                    <td>{label}</td>
-                    <td>
-                      <select
-                        value={assignment[key] ?? ""}
-                        onChange={(e) =>
-                          assignStandard(key, e.currentTarget.value ? Number(e.currentTarget.value) : null)
-                        }
-                      >
-                        <option value="">—</option>
-                        {STANDARD_ARRAY.filter(
-                          (v) => v === assignment[key] || !usedStandardValues.has(v),
-                        ).map((v) => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="wizard__ability-mod">
-                      {assignment[key] !== undefined ? `модификатор ${abilityMod(assignment[key]!) >= 0 ? "+" : ""}${abilityMod(assignment[key]!)}` : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
           {method === "pointbuy" && (
-            <>
-              <p className="wizard__hint">
-                Потрачено {pointsSpent} из {POINT_BUY_BUDGET} очков.
-              </p>
-              <table className="wizard__ability-table">
-                <tbody>
-                  {ABILITY_LABELS.map(([key, label]) => (
-                    <tr key={key}>
-                      <td>{label}</td>
-                      <td className="wizard__pointbuy-controls">
-                        <button type="button" onClick={() => adjustPointBuy(key, -1)}>
-                          −
-                        </button>
-                        <span>{pointBuy[key]}</span>
-                        <button type="button" onClick={() => adjustPointBuy(key, 1)}>
-                          +
-                        </button>
-                      </td>
-                      <td className="wizard__ability-mod">
-                        модификатор {abilityMod(pointBuy[key]) >= 0 ? "+" : ""}
-                        {abilityMod(pointBuy[key])}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
+            <p className="wizard__hint">
+              Потрачено {pointsSpent} из {POINT_BUY_BUDGET} очков.
+            </p>
           )}
 
-          {method === "manual" && (
-            <table className="wizard__ability-table">
-              <tbody>
-                {ABILITY_LABELS.map(([key, label]) => (
+          {race && !raceBonus && (
+            <p className="wizard__hint">
+              Для расы «{race.title}» бонусы к характеристикам ещё не занесены — прибавь их сама(сам) по
+              тексту расы с первого шага.
+            </p>
+          )}
+
+          {raceBonus?.choice && (
+            <p className="wizard__hint">
+              {race?.title}: выбери {raceBonus.choice.count} характеристики для бонуса +{raceBonus.choice.amount}{" "}
+              (выбрано {choiceBonusKeys.length}/{raceBonus.choice.count}) —{" "}
+              {ABILITY_LABELS.filter(([key]) => key !== "charisma").map(([key, label]) => (
+                <label key={key} className="wizard__choice-bonus">
+                  <input
+                    type="checkbox"
+                    checked={choiceBonusKeys.includes(key)}
+                    onChange={() => toggleChoiceBonus(key)}
+                    disabled={!choiceBonusKeys.includes(key) && choiceBonusKeys.length >= raceBonus.choice!.count}
+                  />
+                  {label}
+                </label>
+              ))}
+            </p>
+          )}
+
+          <table className="wizard__ability-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>База</th>
+                <th>Бонус расы</th>
+                <th>Итого</th>
+                <th>Модификатор</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ABILITY_LABELS.map(([key, label]) => {
+                const bonus = racialBonusFor(key);
+                const total = baseAbilities[key] + bonus;
+                return (
                   <tr key={key}>
                     <td>{label}</td>
-                    <td>
-                      <input
-                        type="number"
-                        value={manual[key]}
-                        onChange={(e) =>
-                          setManual((prev) => ({ ...prev, [key]: Number(e.currentTarget.value) || 0 }))
-                        }
-                      />
-                    </td>
-                    <td className="wizard__ability-mod">
-                      модификатор {abilityMod(manual[key]) >= 0 ? "+" : ""}
-                      {abilityMod(manual[key])}
-                    </td>
+                    <td>{baseCell(key)}</td>
+                    <td className="wizard__ability-bonus">{bonus > 0 ? `+${bonus}` : "—"}</td>
+                    <td className="wizard__ability-total">{total}</td>
+                    <td className="wizard__ability-mod">{fmtMod(abilityMod(total))}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -310,20 +382,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
             <li>
-              HP: {Math.max(1, (hitDie ?? 8) + abilityMod(abilities.constitution))} · КД:{" "}
-              {10 + abilityMod(abilities.dexterity)} (безоружный, без брони)
+              HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution))} · КД:{" "}
+              {10 + abilityMod(totalAbilities.dexterity)} (безоружный, без брони)
             </li>
             {ABILITY_LABELS.map(([key, label]) => (
               <li key={key}>
-                {label}: {abilities[key]} ({abilityMod(abilities[key]) >= 0 ? "+" : ""}
-                {abilityMod(abilities[key])})
+                {label}: {totalAbilities[key]} ({fmtMod(abilityMod(totalAbilities[key]))})
+                {racialBonusFor(key) > 0 && (
+                  <span className="wizard__ability-bonus"> — включая бонус расы +{racialBonusFor(key)}</span>
+                )}
               </li>
             ))}
           </ul>
-          <p className="wizard__hint">
-            Расовые бонусы к характеристикам применяются вручную — см. текст расы на предыдущем шаге и
-            учти их при выборе значений выше.
-          </p>
           <button disabled={!name.trim()} onClick={finish}>
             Создать персонажа
           </button>
