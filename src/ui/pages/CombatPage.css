@@ -1,0 +1,138 @@
+.combat-start__hint {
+  color: var(--dm-text-muted);
+}
+
+.combat-start__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  margin-bottom: 1em;
+}
+
+.combat-start__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.combat-start__empty {
+  color: var(--dm-text-muted);
+  font-style: italic;
+}
+
+.combat-page__layout {
+  display: flex;
+  gap: 1em;
+  align-items: flex-start;
+}
+
+.combat-grid {
+  display: grid;
+  gap: 2px;
+  background: var(--dm-border);
+  border: 1px solid var(--dm-border);
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 12 / 10;
+}
+
+.combat-grid__cell {
+  background: var(--dm-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  min-width: 0;
+  min-height: 0;
+}
+
+.combat-grid__cell:hover {
+  background: var(--dm-panel);
+}
+
+.combat-token {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  font-weight: bold;
+  color: var(--dm-bg);
+}
+
+.combat-token--player {
+  background: var(--dm-accent);
+}
+
+.combat-token--monster {
+  background: var(--dm-danger);
+}
+
+.combat-token--selected {
+  outline: 2px solid var(--dm-text);
+}
+
+.combat-token--current {
+  box-shadow: 0 0 0 3px var(--dm-text);
+}
+
+.combat-token--down {
+  opacity: 0.35;
+}
+
+.combat-sidebar {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.combat-sidebar__round {
+  color: var(--dm-text-muted);
+  margin: 0;
+}
+
+.combat-sidebar__turn {
+  margin: 0;
+}
+
+.combat-sidebar__order {
+  list-style: none;
+  margin: 0 0 1em;
+  padding: 0;
+  font-size: 0.9em;
+  color: var(--dm-text-muted);
+}
+
+.combat-sidebar__order-item--current {
+  color: var(--dm-accent);
+  font-weight: bold;
+}
+
+.combat-sidebar__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+
+.combat-sidebar__actions select {
+  margin-left: 0.4em;
+}
+
+.combat-sidebar__hp-controls {
+  display: flex;
+  gap: 0.4em;
+}
+
+.combat-log {
+  list-style: none;
+  margin: 1em 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  font-size: 0.9em;
+  color: var(--dm-text-muted);
+}

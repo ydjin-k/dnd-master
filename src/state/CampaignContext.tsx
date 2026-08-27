@@ -24,6 +24,13 @@ interface CampaignContextValue {
   startAdventure: () => Promise<void>;
   chooseOption: (optionId: string) => Promise<void>;
   submitCustomAction: (text: string) => Promise<void>;
+  startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
+  moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
+  combatAttack: (attackerId: string, targetId: string) => Promise<void>;
+  applyDamage: (targetId: string, delta: number) => Promise<void>;
+  endTurn: () => Promise<void>;
+  monsterAutoTurn: () => Promise<void>;
+  endCombat: () => Promise<void>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -100,6 +107,46 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Бой: тоже сохраняется на бэкенде внутри команды — тут только применяем
+  // результат. Общий враппер вместо семи одинаковых try/catch.
+  const runServerAction = useCallback(
+    async (command: string, args?: Record<string, unknown>) => {
+      try {
+        setState(await invoke<CampaignState>(command, args));
+        setError(null);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [],
+  );
+
+  const startCombat = useCallback(
+    (monsterIds: string[], characterIds: string[]) =>
+      runServerAction("start_combat", { monsterIds, characterIds }),
+    [runServerAction],
+  );
+  const moveCombatant = useCallback(
+    (combatantId: string, x: number, y: number) =>
+      runServerAction("move_combatant", { combatantId, x, y }),
+    [runServerAction],
+  );
+  const combatAttack = useCallback(
+    (attackerId: string, targetId: string) =>
+      runServerAction("combat_attack", { attackerId, targetId }),
+    [runServerAction],
+  );
+  const applyDamage = useCallback(
+    (targetId: string, delta: number) => runServerAction("apply_damage", { targetId, delta }),
+    [runServerAction],
+  );
+  const endTurn = useCallback(() => runServerAction("end_turn"), [runServerAction]);
+  const monsterAutoTurn = useCallback(
+    () => runServerAction("monster_auto_turn"),
+    [runServerAction],
+  );
+  const endCombat = useCallback(() => runServerAction("end_combat"), [runServerAction]);
+
   return (
     <CampaignContext.Provider
       value={{
@@ -112,6 +159,13 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         startAdventure,
         chooseOption,
         submitCustomAction,
+        startCombat,
+        moveCombatant,
+        combatAttack,
+        applyDamage,
+        endTurn,
+        monsterAutoTurn,
+        endCombat,
       }}
     >
       {children}

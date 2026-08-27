@@ -1,10 +1,12 @@
 mod adventure;
+mod combat;
 mod dice;
 mod import;
 mod model;
 mod storage;
 
 use adventure::{demo_adventure, roll_table, Adventure};
+use combat::MonsterTemplate;
 use model::{AdventureLogEntry, CampaignState};
 use tauri::AppHandle;
 
@@ -122,6 +124,100 @@ fn import_character_sheet(app: AppHandle, path: String) -> Result<String, String
     }
 }
 
+#[tauri::command]
+fn get_bestiary() -> Vec<MonsterTemplate> {
+    combat::demo_bestiary()
+}
+
+#[tauri::command]
+fn start_combat(
+    app: AppHandle,
+    monster_ids: Vec<String>,
+    character_ids: Vec<String>,
+) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+
+    let bestiary = combat::demo_bestiary();
+    let monsters: Vec<MonsterTemplate> = monster_ids
+        .iter()
+        .map(|id| {
+            bestiary
+                .iter()
+                .find(|m| &m.id == id)
+                .cloned()
+                .ok_or_else(|| format!("монстр {id:?} не найден в бестиарии"))
+        })
+        .collect::<Result<_, String>>()?;
+    let characters: Vec<model::Character> = character_ids
+        .iter()
+        .map(|id| {
+            state
+                .characters
+                .iter()
+                .find(|c| &c.id == id)
+                .cloned()
+                .ok_or_else(|| format!("персонаж {id:?} не найден"))
+        })
+        .collect::<Result<_, String>>()?;
+
+    state.combat = Some(combat::start_combat(&monsters, &characters)?);
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::move_combatant(combat_state, &combatant_id, x, y)?;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::attack(combat_state, &attacker_id, &target_id)?;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::apply_damage(combat_state, &target_id, delta)?;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::end_turn(combat_state)?;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::monster_auto_turn(combat_state)?;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
+    let mut state = storage::load_state(&app)?;
+    state.combat = None;
+    storage::save_state(&app, &state)?;
+    Ok(state)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -135,7 +231,15 @@ pub fn run() {
             start_adventure,
             choose_option,
             submit_custom_action,
-            import_character_sheet
+            import_character_sheet,
+            get_bestiary,
+            start_combat,
+            move_combatant,
+            combat_attack,
+            apply_damage,
+            end_turn,
+            monster_auto_turn,
+            end_combat
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

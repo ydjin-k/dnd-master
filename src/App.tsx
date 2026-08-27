@@ -1,6 +1,7 @@
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
 import { AppShell } from "./ui/AppShell";
 import { AdventurePage } from "./ui/pages/AdventurePage";
+import { CombatPage } from "./ui/pages/CombatPage";
 import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
 import { ImportPage } from "./ui/pages/ImportPage";
@@ -22,6 +23,8 @@ function AppContent() {
           switch (tab) {
             case "adventure":
               return <AdventurePage />;
+            case "combat":
+              return <CombatPage />;
             case "dice":
               return <DicePage />;
             case "characters":

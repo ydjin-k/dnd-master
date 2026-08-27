@@ -55,6 +55,42 @@ pub enum AdventureLogEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Combatant {
+    pub id: String,
+    pub name: String,
+    pub is_monster: bool,
+    pub x: i32,
+    pub y: i32,
+    pub speed_feet: i32,
+    pub max_hp: i32,
+    pub current_hp: i32,
+    pub armor_class: i32,
+    /// Плоский бонус атаки и кости урона — для монстров из бестиария; для
+    /// игровых персонажей это грубая заглушка (полноценных бонусов от оружия
+    /// и владения в модели персонажа пока нет). Игрок может вместо `attack`
+    /// бросить свою настоящую атаку на вкладке «Кубики» и применить урон
+    /// через apply_damage — движок это не запрещает.
+    pub attack_bonus: i32,
+    pub damage_dice: String,
+    pub initiative: i32,
+    pub feet_moved_this_turn: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CombatState {
+    pub grid_width: i32,
+    pub grid_height: i32,
+    pub combatants: Vec<Combatant>,
+    pub turn_order: Vec<String>,
+    pub current_turn_index: usize,
+    pub round: i32,
+    pub log: Vec<String>,
+    pub finished: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CampaignState {
     pub campaign_name: String,
@@ -62,4 +98,5 @@ pub struct CampaignState {
     pub journal: Vec<JournalEntry>,
     pub current_scene_id: Option<String>,
     pub adventure_log: Vec<AdventureLogEntry>,
+    pub combat: Option<CombatState>,
 }

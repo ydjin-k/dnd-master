@@ -2,10 +2,11 @@ import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
 import "./AppShell.css";
 
-export type Tab = "adventure" | "dice" | "characters" | "import" | "journal";
+export type Tab = "adventure" | "combat" | "dice" | "characters" | "import" | "journal";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "adventure", label: "Приключение" },
+  { id: "combat", label: "Бой" },
   { id: "dice", label: "Кубики" },
   { id: "characters", label: "Персонажи" },
   { id: "import", label: "Импорт" },

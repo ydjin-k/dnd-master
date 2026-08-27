@@ -41,12 +41,50 @@ export type AdventureLogEntry =
   | { kind: "roll"; text: string }
   | { kind: "custom"; text: string };
 
+export interface Combatant {
+  id: string;
+  name: string;
+  isMonster: boolean;
+  x: number;
+  y: number;
+  speedFeet: number;
+  maxHp: number;
+  currentHp: number;
+  armorClass: number;
+  attackBonus: number;
+  damageDice: string;
+  initiative: number;
+  feetMovedThisTurn: number;
+}
+
+export interface CombatState {
+  gridWidth: number;
+  gridHeight: number;
+  combatants: Combatant[];
+  turnOrder: string[];
+  currentTurnIndex: number;
+  round: number;
+  log: string[];
+  finished: boolean;
+}
+
+export interface MonsterTemplate {
+  id: string;
+  name: string;
+  maxHp: number;
+  armorClass: number;
+  speedFeet: number;
+  attackBonus: number;
+  damageDice: string;
+}
+
 export interface CampaignState {
   campaignName: string;
   characters: Character[];
   journal: JournalEntry[];
   currentSceneId: string | null;
   adventureLog: AdventureLogEntry[];
+  combat: CombatState | null;
 }
 
 export interface SceneOption {
@@ -103,4 +141,5 @@ export const emptyCampaignState = (): CampaignState => ({
   journal: [],
   currentSceneId: null,
   adventureLog: [],
+  combat: null,
 });

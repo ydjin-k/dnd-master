@@ -1,0 +1,210 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useCampaign } from "../../state/CampaignContext";
+import type { MonsterTemplate } from "../../state/types";
+import "./CombatPage.css";
+
+function StartCombatPanel() {
+  const { state, startCombat } = useCampaign();
+  const [bestiary, setBestiary] = useState<MonsterTemplate[]>([]);
+  const [monsterIds, setMonsterIds] = useState<string[]>([]);
+  const [characterIds, setCharacterIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    invoke<MonsterTemplate[]>("get_bestiary").then(setBestiary);
+  }, []);
+
+  function toggle(list: string[], set: (v: string[]) => void, id: string) {
+    set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  }
+
+  return (
+    <div className="combat-start">
+      <h2>Бой</h2>
+      <p className="combat-start__hint">Выбери противников и участников, затем начни бой.</p>
+
+      <h3>Противники</h3>
+      <div className="combat-start__list">
+        {bestiary.map((m) => (
+          <label key={m.id} className="combat-start__option">
+            <input
+              type="checkbox"
+              checked={monsterIds.includes(m.id)}
+              onChange={() => toggle(monsterIds, setMonsterIds, m.id)}
+            />
+            {m.name} (КД {m.armorClass}, {m.maxHp} HP)
+          </label>
+        ))}
+      </div>
+
+      <h3>Персонажи</h3>
+      <div className="combat-start__list">
+        {state.characters.map((c) => (
+          <label key={c.id} className="combat-start__option">
+            <input
+              type="checkbox"
+              checked={characterIds.includes(c.id)}
+              onChange={() => toggle(characterIds, setCharacterIds, c.id)}
+            />
+            {c.name} ({c.currentHp}/{c.maxHp} HP)
+          </label>
+        ))}
+        {state.characters.length === 0 && (
+          <p className="combat-start__empty">
+            Персонажей нет — добавь их на вкладке «Персонажи».
+          </p>
+        )}
+      </div>
+
+      <button
+        disabled={monsterIds.length === 0 || characterIds.length === 0}
+        onClick={() => startCombat(monsterIds, characterIds)}
+      >
+        Начать бой
+      </button>
+    </div>
+  );
+}
+
+export function CombatPage() {
+  const { state, moveCombatant, combatAttack, applyDamage, endTurn, monsterAutoTurn, endCombat } =
+    useCampaign();
+  const combat = state.combat;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState<string>("");
+
+  if (!combat) {
+    return <StartCombatPanel />;
+  }
+
+  const currentId = combat.turnOrder[combat.currentTurnIndex];
+  const current = combat.combatants.find((c) => c.id === currentId);
+  const cells = Array.from({ length: combat.gridWidth * combat.gridHeight });
+
+  function combatantAt(x: number, y: number) {
+    return combat!.combatants.find((c) => c.x === x && c.y === y);
+  }
+
+  function handleCellClick(x: number, y: number) {
+    const occupant = combatantAt(x, y);
+    if (occupant) {
+      setSelectedId(occupant.id);
+      return;
+    }
+    if (selectedId) {
+      moveCombatant(selectedId, x, y);
+    }
+  }
+
+  return (
+    <div className="combat-page">
+      <div className="combat-page__layout">
+        <div
+          className="combat-grid"
+          style={{
+            gridTemplateColumns: `repeat(${combat.gridWidth}, 1fr)`,
+            gridTemplateRows: `repeat(${combat.gridHeight}, 1fr)`,
+          }}
+        >
+          {cells.map((_, i) => {
+            const x = i % combat.gridWidth;
+            const y = Math.floor(i / combat.gridWidth);
+            const occupant = combatantAt(x, y);
+            return (
+              <div
+                key={i}
+                className="combat-grid__cell"
+                onClick={() => handleCellClick(x, y)}
+              >
+                {occupant && (
+                  <div
+                    className={
+                      "combat-token" +
+                      (occupant.isMonster ? " combat-token--monster" : " combat-token--player") +
+                      (occupant.id === selectedId ? " combat-token--selected" : "") +
+                      (occupant.id === currentId ? " combat-token--current" : "") +
+                      (occupant.currentHp <= 0 ? " combat-token--down" : "")
+                    }
+                    title={`${occupant.name}: ${occupant.currentHp}/${occupant.maxHp} HP`}
+                  >
+                    {occupant.name.slice(0, 2)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <aside className="combat-sidebar">
+          <p className="combat-sidebar__round">
+            Раунд {combat.round} {combat.finished && "— бой завершён"}
+          </p>
+          <p className="combat-sidebar__turn">
+            Ходит: <strong>{current?.name ?? "—"}</strong>
+          </p>
+
+          <h3>Порядок хода</h3>
+          <ul className="combat-sidebar__order">
+            {combat.turnOrder.map((id) => {
+              const c = combat.combatants.find((c) => c.id === id);
+              if (!c) return null;
+              return (
+                <li
+                  key={id}
+                  className={id === currentId ? "combat-sidebar__order-item--current" : ""}
+                >
+                  {c.name} ({c.currentHp}/{c.maxHp}) — иниц. {c.initiative}
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="combat-sidebar__actions">
+            {current?.isMonster && !combat.finished && (
+              <button onClick={() => monsterAutoTurn()}>Авто-ход существа</button>
+            )}
+
+            <label>
+              Цель:
+              <select value={targetId} onChange={(e) => setTargetId(e.currentTarget.value)}>
+                <option value="">—</option>
+                {combat.combatants
+                  .filter((c) => c.id !== selectedId)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              disabled={!selectedId || !targetId || combat.finished}
+              onClick={() => selectedId && targetId && combatAttack(selectedId, targetId)}
+            >
+              Атаковать выбранным
+            </button>
+
+            {selectedId && (
+              <div className="combat-sidebar__hp-controls">
+                <button onClick={() => applyDamage(selectedId, 5)}>−5 HP</button>
+                <button onClick={() => applyDamage(selectedId, -5)}>+5 HP</button>
+              </div>
+            )}
+
+            <button disabled={combat.finished} onClick={() => endTurn()}>
+              Закончить ход
+            </button>
+            <button onClick={() => endCombat()}>Завершить бой</button>
+          </div>
+        </aside>
+      </div>
+
+      <h3>Журнал боя</h3>
+      <ul className="combat-log">
+        {combat.log.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
