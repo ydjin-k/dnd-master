@@ -7,3 +7,5 @@
 3. bug-dead-combatant-occupancy — ab671d3 — клик по клетке с поверженным бойцом двигает выбранного бойца туда, а не выбирает труп.
 4. characters-name-suggestions — 60057c5 — кнопка «🎲 Предложить имя» на шаге «Итог» мастера персонажа, `NAME_SUGGESTIONS` по расам + общий список, реролл без повтора.
 5. characters-gender-and-age — 5c5e5a9 — поля `gender`/`age` в `Character` (TS + Rust), выбор на шаге «Итог», дефолт при импорте, показ в карточке персонажа.
+6. bug-characters-dwarf-tool-horizontal-scroll (находка) — 54e5ee4 — QA нашла двойную горизонтальную прокрутку на выборе набора дварфа.
+7. bug-characters-dwarf-tool-horizontal-scroll (починка) — `.wizard__pick-detail` получил `min-width: 0` + `overflow-x: hidden`, `.wizard__hint select` — `max-width: 100%`: гибкий контейнер больше не раздвигается длинным `<option>` (flexbug #1).

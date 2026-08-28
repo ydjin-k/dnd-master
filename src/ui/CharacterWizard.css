@@ -60,6 +60,8 @@
 
 .wizard__pick-detail {
   flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding-right: 0.5em;
   line-height: 1.5;
@@ -68,6 +70,10 @@
 .wizard__hint {
   color: var(--dm-text-muted);
   font-style: italic;
+}
+
+.wizard__hint select {
+  max-width: 100%;
 }
 
 .wizard__method {
