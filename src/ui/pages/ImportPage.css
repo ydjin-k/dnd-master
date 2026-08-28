@@ -20,3 +20,18 @@
   font-family: var(--dm-font-body);
   resize: vertical;
 }
+
+.import-page__save-row {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.75em;
+}
+
+.import-page__save-row input {
+  flex: 1;
+}
+
+.import-page__saved {
+  color: var(--dm-accent);
+  margin-top: 0.5em;
+}

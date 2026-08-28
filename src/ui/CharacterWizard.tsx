@@ -13,6 +13,7 @@ import { RuleBlockView } from "./RuleBlockView";
 import {
   ADVENTURING_GEAR,
   ALIGNMENTS,
+  ALIGNMENT_DESCRIPTIONS,
   ALL_LANGUAGES,
   ALL_SKILLS,
   BACKGROUNDS,
@@ -861,6 +862,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               ))}
             </select>
           </label>
+          {alignment && <p className="wizard__hint">{ALIGNMENT_DESCRIPTIONS[alignment]}</p>}
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
