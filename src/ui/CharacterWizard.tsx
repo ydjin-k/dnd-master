@@ -21,11 +21,15 @@ import {
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
+  DWARF_TOOL_CHOICES,
+  FIGHTER_FIGHTING_STYLES,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
   RACE_SKILL_CHOICE_COUNT,
   RACE_TRAITS,
+  RANGER_FAVORED_ENEMIES,
+  RANGER_TERRAIN_TYPES,
   equipmentChoiceFor,
   type BackgroundData,
 } from "./characterCreationData";
@@ -140,6 +144,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [alignment, setAlignment] = useState("Нейтральный");
   const [chosenLanguage, setChosenLanguage] = useState("");
   const [raceSkillChoices, setRaceSkillChoices] = useState<string[]>([]);
+  const [chosenDwarfTool, setChosenDwarfTool] = useState("");
+  const [fightingStyle, setFightingStyle] = useState("");
+  const [favoredEnemy, setFavoredEnemy] = useState("");
+  const [rangerTerrain, setRangerTerrain] = useState("");
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
@@ -172,6 +180,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const raceSkillChoiceCount = raceId ? (RACE_SKILL_CHOICE_COUNT[raceId] ?? 0) : 0;
   const raceTraits = raceId ? (RACE_TRAITS[raceId] ?? []) : [];
   const spellAbility = classId ? CLASS_SPELLCASTING_ABILITY[classId] : undefined;
+  const dwarfToolChoices = raceId === "races-dwarf" ? DWARF_TOOL_CHOICES : [];
+  const fighterFightingStyles = classId === "classes-fighter" ? FIGHTER_FIGHTING_STYLES : [];
+  const isRanger = classId === "classes-ranger";
+  const finalDwarfTool = dwarfToolChoices.length > 0 ? chosenDwarfTool || dwarfToolChoices[0].name : undefined;
+  const displayedRaceTraits = raceTraits.map((t) =>
+    t.name === "Владение инструментами" && finalDwarfTool
+      ? { ...t, description: `Инструменты кузнеца, пивовара или каменщика — выбрано: ${finalDwarfTool}.` }
+      : t,
+  );
   const raceLanguages = raceId ? RACE_LANGUAGES[raceId] : undefined;
   const availableLanguageChoices = raceLanguages
     ? ALL_LANGUAGES.filter((l) => !raceLanguages.fixed.includes(l))
@@ -229,6 +246,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setChoiceBonusKeys([]);
     setChosenLanguage("");
     setRaceSkillChoices([]);
+    setChosenDwarfTool("");
   }
 
   function toggleRaceSkillChoice(skill: string) {
@@ -243,6 +261,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setClassId(id);
     setClassSkills([]);
     setEquipmentChoice({});
+    setFightingStyle("");
+    setFavoredEnemy("");
+    setRangerTerrain("");
   }
 
   function toggleClassSkill(skill: string) {
@@ -520,6 +541,38 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     ))}
                   </p>
                 )}
+                {raceBonus?.choice && (
+                  <p className="wizard__hint">
+                    Увеличение характеристик по выбору: выбери {raceBonus.choice.count} характеристики для
+                    бонуса +{raceBonus.choice.amount} (выбрано {choiceBonusKeys.length}/{raceBonus.choice.count}) —{" "}
+                    {ABILITY_LABELS.filter(([key]) => !(key in raceBonus.fixed)).map(([key, label]) => (
+                      <label key={key} className="wizard__choice-bonus">
+                        <input
+                          type="checkbox"
+                          checked={choiceBonusKeys.includes(key)}
+                          onChange={() => toggleChoiceBonus(key)}
+                          disabled={!choiceBonusKeys.includes(key) && choiceBonusKeys.length >= raceBonus.choice!.count}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </p>
+                )}
+                {dwarfToolChoices.length > 0 && (
+                  <p className="wizard__hint">
+                    Владение инструментами (на выбор):{" "}
+                    <select
+                      value={chosenDwarfTool || dwarfToolChoices[0]?.name || ""}
+                      onChange={(e) => setChosenDwarfTool(e.currentTarget.value)}
+                    >
+                      {dwarfToolChoices.map((tool) => (
+                        <option key={tool.name} value={tool.name}>
+                          {tool.name} ({tool.cost}, {tool.weight})
+                        </option>
+                      ))}
+                    </select>
+                  </p>
+                )}
               </>
             ) : (
               <p className="wizard__hint">Выбери расу слева — здесь появятся её особенности из SRD.</p>
@@ -570,6 +623,51 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                       ))}
                     </div>
                   </div>
+                )}
+                {fighterFightingStyles.length > 0 && (
+                  <p className="wizard__hint">
+                    Боевой стиль:{" "}
+                    <select
+                      value={fightingStyle || fighterFightingStyles[0]?.name || ""}
+                      onChange={(e) => setFightingStyle(e.currentTarget.value)}
+                    >
+                      {fighterFightingStyles.map((s) => (
+                        <option key={s.name} value={s.name}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </p>
+                )}
+                {isRanger && (
+                  <>
+                    <p className="wizard__hint">
+                      Избранный враг:{" "}
+                      <select
+                        value={favoredEnemy || RANGER_FAVORED_ENEMIES[0]}
+                        onChange={(e) => setFavoredEnemy(e.currentTarget.value)}
+                      >
+                        {RANGER_FAVORED_ENEMIES.map((f) => (
+                          <option key={f} value={f}>
+                            {f}
+                          </option>
+                        ))}
+                      </select>
+                    </p>
+                    <p className="wizard__hint">
+                      Известная местность:{" "}
+                      <select
+                        value={rangerTerrain || RANGER_TERRAIN_TYPES[0]}
+                        onChange={(e) => setRangerTerrain(e.currentTarget.value)}
+                      >
+                        {RANGER_TERRAIN_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </p>
+                  </>
                 )}
                 {klass.blocks.map((b, i) => (
                   <RuleBlockView key={i} block={b} />
@@ -774,24 +872,6 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             </p>
           )}
 
-          {raceBonus?.choice && (
-            <p className="wizard__hint">
-              {race?.title}: выбери {raceBonus.choice.count} характеристики для бонуса +{raceBonus.choice.amount}{" "}
-              (выбрано {choiceBonusKeys.length}/{raceBonus.choice.count}) —{" "}
-              {ABILITY_LABELS.filter(([key]) => key !== "charisma").map(([key, label]) => (
-                <label key={key} className="wizard__choice-bonus">
-                  <input
-                    type="checkbox"
-                    checked={choiceBonusKeys.includes(key)}
-                    onChange={() => toggleChoiceBonus(key)}
-                    disabled={!choiceBonusKeys.includes(key) && choiceBonusKeys.length >= raceBonus.choice!.count}
-                  />
-                  {label}
-                </label>
-              ))}
-            </p>
-          )}
-
           <table className="wizard__ability-table">
             <thead>
               <tr>
@@ -932,16 +1012,32 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
             <li>Навыки: {allSkillProficiencies.join(", ") || "—"}</li>
             <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
-            {raceTraits.length > 0 && (
+            {displayedRaceTraits.length > 0 && (
               <li>
                 Расовые особенности:
                 <ul className="wizard__traits">
-                  {raceTraits.map((t) => (
+                  {displayedRaceTraits.map((t) => (
                     <li key={t.name}>
                       <strong>{t.name}</strong> — {t.description}
                     </li>
                   ))}
                 </ul>
+              </li>
+            )}
+            {fighterFightingStyles.length > 0 && (
+              <li>
+                Боевой стиль:{" "}
+                <strong>{fightingStyle || fighterFightingStyles[0].name}</strong> —{" "}
+                {
+                  fighterFightingStyles.find((s) => s.name === (fightingStyle || fighterFightingStyles[0].name))
+                    ?.description
+                }
+              </li>
+            )}
+            {isRanger && (
+              <li>
+                Избранный враг: {favoredEnemy || RANGER_FAVORED_ENEMIES[0]} · Известная местность:{" "}
+                {rangerTerrain || RANGER_TERRAIN_TYPES[0]}
               </li>
             )}
             {spellAbility && (

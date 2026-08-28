@@ -29,6 +29,13 @@ const topics: RuleTopic[] = [
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к6 за уровень волшебника" }],
   },
+  {
+    id: "classes-ranger",
+    category: "classes",
+    title: "Следопыт",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к10 за уровень следопыта" }],
+  },
 ];
 
 const abilityRolls: AbilityScoreRoll[] = [
@@ -418,5 +425,97 @@ describe("CharacterWizard", () => {
     expect(
       screen.getByText(/владеет заклинаниями \(заклинательная характеристика — Интеллект\)/),
     ).toBeInTheDocument();
+  });
+
+  it("lets a Half-Elf pick their +1 ability bonuses right on the race step (not buried on abilities)", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Полуэльф"));
+    await screen.findByText(/Увеличение характеристик по выбору/);
+    // Charisma already has a fixed +2 from this race and must not appear as a choice.
+    expect(screen.queryByText("Харизма")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Сила"));
+    fireEvent.click(screen.getByText("Ловкость"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep base 10s, just the racial bonuses matter
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Крепкий Полуэльф" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.abilities.strength).toBe(11);
+    expect(character.abilities.dexterity).toBe(11);
+    expect(character.abilities.charisma).toBe(12);
+  });
+
+  it("lets a Dwarf choose which craft tool they're proficient with, reflected in the review text", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дварф"));
+    const toolSelect = await screen.findByDisplayValue(/^Инструменты кузнеца /);
+    fireEvent.change(toolSelect, { target: { value: "Инструменты пивовара" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/выбрано: Инструменты пивовара/)).toBeInTheDocument();
+  });
+
+  it("lets a Fighter choose a fighting style, shown by name and description on review", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    const styleSelect = await screen.findByDisplayValue(/^Стрельба из лука$/);
+    fireEvent.change(styleSelect, { target: { value: "Оборона" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Оборона/)).toBeInTheDocument();
+    expect(screen.getByText(/бонус \+1 к КД/)).toBeInTheDocument();
+  });
+
+  it("lets a Ranger pick a favored enemy and known terrain (previously not offered at all)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Следопыт"));
+    const enemySelect = await screen.findByDisplayValue(/^Аберрации$/);
+    fireEvent.change(enemySelect, { target: { value: "Драконы" } });
+    const terrainSelect = await screen.findByDisplayValue(/^Арктика$/);
+    fireEvent.change(terrainSelect, { target: { value: "Горы" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Избранный враг: Драконы/)).toBeInTheDocument();
+    expect(screen.getByText(/Известная местность: Горы/)).toBeInTheDocument();
   });
 });
