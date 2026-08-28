@@ -12,5 +12,10 @@ Tauri 2 (Rust) + React/TypeScript.
 
 ```sh
 npm install
+bash src-tauri/models/fetch-models.sh
+bash src-tauri/pdfium/fetch-pdfium.sh
 npm run tauri dev
 ```
+
+Модели OCR и библиотека PDFium не лежат в git (см. `.gitignore`) — без этих двух скриптов импорт
+листа персонажа (фото/PDF) не заработает, а часть `cargo test` не соберётся.
