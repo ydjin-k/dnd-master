@@ -87,7 +87,7 @@ export function CombatPage() {
 
   function handleCellClick(x: number, y: number) {
     const occupant = combatantAt(x, y);
-    if (occupant) {
+    if (occupant && occupant.currentHp > 0) {
       setSelectedId(occupant.id);
       return;
     }
