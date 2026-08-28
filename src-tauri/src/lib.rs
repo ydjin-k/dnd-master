@@ -3,12 +3,14 @@ mod combat;
 mod dice;
 mod import;
 mod model;
+mod oracle;
 mod rules;
 mod storage;
 
 use adventure::{demo_adventure, roll_table, Adventure};
 use combat::MonsterTemplate;
 use model::{AdventureLogEntry, CampaignState};
+use oracle::{LikelihoodOption, Likelihood, OracleResult};
 use rules::RuleTopic;
 use storage::CampaignSummary;
 use tauri::AppHandle;
@@ -50,6 +52,11 @@ fn save_campaign(app: AppHandle, state: CampaignState) -> Result<(), String> {
 #[tauri::command]
 fn roll_dice(expression: String) -> Result<dice::RollResult, String> {
     dice::roll_expression(&expression)
+}
+
+#[tauri::command]
+fn roll_ability_scores() -> Vec<dice::AbilityScoreRoll> {
+    dice::roll_ability_scores()
 }
 
 #[tauri::command]
@@ -128,6 +135,46 @@ fn choose_option(app: AppHandle, option_id: String) -> Result<CampaignState, Str
 fn submit_custom_action(app: AppHandle, text: String) -> Result<CampaignState, String> {
     let mut state = active(&app)?;
     state.adventure_log.push(AdventureLogEntry::Custom(text));
+    storage::save_campaign(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn get_oracle_likelihoods() -> Vec<LikelihoodOption> {
+    oracle::likelihood_options()
+}
+
+#[tauri::command]
+fn ask_oracle(
+    app: AppHandle,
+    question: String,
+    likelihood: Likelihood,
+) -> Result<CampaignState, String> {
+    let mut state = active(&app)?;
+    let result: OracleResult = oracle::ask(likelihood, state.chaos_factor as i32);
+
+    let mut text = format!(
+        "«{}» ({}) → {} (бросок {})",
+        question.trim(),
+        likelihood.label(),
+        result.answer.label(),
+        result.roll
+    );
+    if let Some(focus) = &result.random_event {
+        text.push_str(&format!(". Случайное событие: {focus}"));
+    }
+    state.adventure_log.push(AdventureLogEntry::Oracle(text));
+
+    storage::save_campaign(&app, &state)?;
+    Ok(state)
+}
+
+#[tauri::command]
+fn adjust_chaos_factor(app: AppHandle, delta: i32) -> Result<CampaignState, String> {
+    let mut state = active(&app)?;
+    let next = (state.chaos_factor as i32 + delta)
+        .clamp(oracle::MIN_CHAOS_FACTOR, oracle::MAX_CHAOS_FACTOR);
+    state.chaos_factor = next as u8;
     storage::save_campaign(&app, &state)?;
     Ok(state)
 }
@@ -263,10 +310,14 @@ pub fn run() {
             delete_campaign,
             save_campaign,
             roll_dice,
+            roll_ability_scores,
             get_adventure,
             start_adventure,
             choose_option,
             submit_custom_action,
+            get_oracle_likelihoods,
+            ask_oracle,
+            adjust_chaos_factor,
             import_character_sheet,
             get_bestiary,
             get_rules,

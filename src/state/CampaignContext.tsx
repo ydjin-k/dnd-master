@@ -11,6 +11,7 @@ import {
   type CampaignState,
   type Character,
   type JournalEntry,
+  type Likelihood,
   emptyCampaignState,
 } from "./types";
 
@@ -20,11 +21,14 @@ interface CampaignContextValue {
   error: string | null;
   addCharacter: (character: Character) => Promise<void>;
   removeCharacter: (id: string) => Promise<void>;
+  updateCharacter: (id: string, updater: (character: Character) => Character) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
   startAdventure: () => Promise<void>;
   chooseOption: (optionId: string) => Promise<void>;
   submitCustomAction: (text: string) => Promise<void>;
+  askOracle: (question: string, likelihood: Likelihood) => Promise<void>;
+  adjustChaosFactor: (delta: number) => Promise<void>;
   startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
   combatAttack: (attackerId: string, targetId: string) => Promise<void>;
@@ -70,6 +74,16 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const removeCharacter = useCallback(
     async (id: string) => {
       await persist({ ...state, characters: state.characters.filter((c) => c.id !== id) });
+    },
+    [state, persist],
+  );
+
+  const updateCharacter = useCallback(
+    async (id: string, updater: (character: Character) => Character) => {
+      await persist({
+        ...state,
+        characters: state.characters.map((c) => (c.id === id ? updater(c) : c)),
+      });
     },
     [state, persist],
   );
@@ -131,6 +145,16 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const askOracle = useCallback(
+    (question: string, likelihood: Likelihood) =>
+      runServerAction("ask_oracle", { question, likelihood }),
+    [runServerAction],
+  );
+  const adjustChaosFactor = useCallback(
+    (delta: number) => runServerAction("adjust_chaos_factor", { delta }),
+    [runServerAction],
+  );
+
   const startCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
       runServerAction("start_combat", { monsterIds, characterIds }),
@@ -165,11 +189,14 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         error,
         addCharacter,
         removeCharacter,
+        updateCharacter,
         addJournalEntry,
         setCampaignName,
         startAdventure,
         chooseOption,
         submitCustomAction,
+        askOracle,
+        adjustChaosFactor,
         startCombat,
         moveCombatant,
         combatAttack,

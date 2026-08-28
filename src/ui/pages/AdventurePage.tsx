@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import type { Adventure } from "../../state/types";
+import type { Adventure, Likelihood, LikelihoodOption } from "../../state/types";
 import "./AdventurePage.css";
 
 const LOG_LABEL: Record<string, string> = {
@@ -9,15 +9,21 @@ const LOG_LABEL: Record<string, string> = {
   choice: "Выбор:",
   roll: "Бросок:",
   custom: "Своё действие:",
+  oracle: "Оракул:",
 };
 
 export function AdventurePage() {
-  const { state, startAdventure, chooseOption, submitCustomAction } = useCampaign();
+  const { state, startAdventure, chooseOption, submitCustomAction, askOracle, adjustChaosFactor } =
+    useCampaign();
   const [adventure, setAdventure] = useState<Adventure | null>(null);
   const [customText, setCustomText] = useState("");
+  const [likelihoods, setLikelihoods] = useState<LikelihoodOption[]>([]);
+  const [oracleQuestion, setOracleQuestion] = useState("");
+  const [oracleLikelihood, setOracleLikelihood] = useState<Likelihood>("even");
 
   useEffect(() => {
     invoke<Adventure>("get_adventure").then(setAdventure);
+    invoke<LikelihoodOption[]>("get_oracle_likelihoods").then(setLikelihoods);
   }, []);
 
   useEffect(() => {
@@ -33,6 +39,13 @@ export function AdventurePage() {
     if (!customText.trim()) return;
     await submitCustomAction(customText.trim());
     setCustomText("");
+  }
+
+  async function handleOracleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!oracleQuestion.trim()) return;
+    await askOracle(oracleQuestion.trim(), oracleLikelihood);
+    setOracleQuestion("");
   }
 
   return (
@@ -53,6 +66,38 @@ export function AdventurePage() {
           </div>
         </div>
       )}
+
+      <h3>Оракул</h3>
+      <p className="adventure-page__hint">
+        Задай да/нет-вопрос, оцени его вероятность на глаз — дальше решает бросок.
+      </p>
+      <div className="adventure-page__chaos">
+        Коэффициент хаоса: {state.chaosFactor}
+        <button type="button" onClick={() => adjustChaosFactor(-1)} disabled={state.chaosFactor <= 1}>
+          −
+        </button>
+        <button type="button" onClick={() => adjustChaosFactor(1)} disabled={state.chaosFactor >= 9}>
+          +
+        </button>
+      </div>
+      <form className="adventure-page__oracle-form" onSubmit={handleOracleSubmit}>
+        <input
+          placeholder="Например: прячется ли кто-то за дверью?"
+          value={oracleQuestion}
+          onChange={(e) => setOracleQuestion(e.currentTarget.value)}
+        />
+        <select
+          value={oracleLikelihood}
+          onChange={(e) => setOracleLikelihood(e.currentTarget.value as Likelihood)}
+        >
+          {likelihoods.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Спросить</button>
+      </form>
 
       <form className="adventure-page__custom-form" onSubmit={handleCustomSubmit}>
         <input

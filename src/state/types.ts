@@ -20,6 +20,8 @@ export interface Character {
   race: string;
   class: string;
   background: string;
+  alignment: string;
+  languages: string[];
   level: number;
   abilities: AbilityScores;
   maxHp: number;
@@ -45,7 +47,22 @@ export type AdventureLogEntry =
   | { kind: "scene"; text: string }
   | { kind: "choice"; text: string }
   | { kind: "roll"; text: string }
-  | { kind: "custom"; text: string };
+  | { kind: "custom"; text: string }
+  | { kind: "oracle"; text: string };
+
+export type Likelihood =
+  | "almost-never"
+  | "unlikely"
+  | "some-chance"
+  | "even"
+  | "likely"
+  | "very-likely"
+  | "almost-sure";
+
+export interface LikelihoodOption {
+  id: Likelihood;
+  label: string;
+}
 
 export interface Combatant {
   id: string;
@@ -92,6 +109,7 @@ export interface CampaignState {
   currentSceneId: string | null;
   adventureLog: AdventureLogEntry[];
   combat: CombatState | null;
+  chaosFactor: number;
 }
 
 export interface SceneOption {
@@ -145,6 +163,12 @@ export interface RuleTopic {
   blocks: RuleBlock[];
 }
 
+export interface AbilityScoreRoll {
+  dice: number[];
+  droppedIndex: number;
+  total: number;
+}
+
 export interface RollResult {
   expression: string;
   rolls: number[];
@@ -170,4 +194,5 @@ export const emptyCampaignState = (): CampaignState => ({
   currentSceneId: null,
   adventureLog: [],
   combat: null,
+  chaosFactor: 5,
 });

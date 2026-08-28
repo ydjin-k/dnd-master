@@ -17,6 +17,29 @@
   gap: 0.5em;
 }
 
+.adventure-page__hint {
+  color: var(--dm-text-muted);
+  font-size: 0.9em;
+  margin: 0 0 0.5em;
+}
+
+.adventure-page__chaos {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.75em;
+}
+
+.adventure-page__oracle-form {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.adventure-page__oracle-form input {
+  flex: 1;
+}
+
 .adventure-page__custom-form {
   display: flex;
   gap: 0.5em;
@@ -25,6 +48,11 @@
 
 .adventure-page__custom-form input {
   flex: 1;
+}
+
+.adventure-log-entry--oracle {
+  border-left-color: var(--dm-accent);
+  color: var(--dm-text);
 }
 
 .adventure-page__log {

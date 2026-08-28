@@ -2,14 +2,13 @@ import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
 import "./AppShell.css";
 
-export type Tab = "adventure" | "combat" | "dice" | "characters" | "import" | "journal" | "rules";
+export type Tab = "adventure" | "combat" | "dice" | "characters" | "journal" | "rules";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "adventure", label: "Приключение" },
   { id: "combat", label: "Бой" },
   { id: "dice", label: "Кубики" },
   { id: "characters", label: "Персонажи" },
-  { id: "import", label: "Импорт" },
   { id: "journal", label: "Дневник" },
   { id: "rules", label: "Правила" },
 ];

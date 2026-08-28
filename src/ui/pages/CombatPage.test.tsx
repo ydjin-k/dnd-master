@@ -25,6 +25,8 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         race: "",
         class: "",
         background: "",
+        alignment: "",
+        languages: [],
         level: 1,
         abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
         maxHp: 12,
@@ -44,6 +46,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
     currentSceneId: null,
     adventureLog: [],
     combat: null,
+    chaosFactor: 5,
     ...overrides,
   };
 }

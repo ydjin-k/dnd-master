@@ -19,6 +19,7 @@ describe("JournalPage", () => {
       currentSceneId: null,
       adventureLog: [],
       combat: null,
+      chaosFactor: 5,
     };
     render(<JournalPage />);
 

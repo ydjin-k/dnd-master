@@ -156,6 +156,7 @@ fn create_campaign_in(base: &Path, name: String) -> Result<CampaignState, String
     let mut state = CampaignState::default();
     state.id = generate_id();
     state.campaign_name = name;
+    state.chaos_factor = 5;
     save_campaign_in(base, &state)?;
     write_active_pointer(base, &ActivePointer { active_id: Some(state.id.clone()) })?;
     Ok(state)

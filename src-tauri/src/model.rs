@@ -28,6 +28,8 @@ pub struct Character {
     pub race: String,
     pub class: String,
     pub background: String,
+    pub alignment: String,
+    pub languages: Vec<String>,
     pub level: u32,
     pub abilities: AbilityScores,
     pub max_hp: i32,
@@ -58,6 +60,7 @@ pub enum AdventureLogEntry {
     Choice(String),
     Roll(String),
     Custom(String),
+    Oracle(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -106,6 +109,15 @@ pub struct CampaignState {
     pub current_scene_id: Option<String>,
     pub adventure_log: Vec<AdventureLogEntry>,
     pub combat: Option<CombatState>,
+    /// 1-9, нейтральное значение 5 — см. oracle.rs. Сериализуемый дефолт
+    /// нужен отдельно от общего `default` на структуре: он даёт 0, а не
+    /// нейтральные 5, для кампаний, сохранённых до этой пачки.
+    #[serde(default = "default_chaos_factor")]
+    pub chaos_factor: u8,
+}
+
+fn default_chaos_factor() -> u8 {
+    5
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
-import type { Character, RuleTopic } from "../state/types";
+import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
@@ -12,10 +12,29 @@ const topics: RuleTopic[] = [
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к10 за уровень воина" }],
   },
+  {
+    id: "classes-bard",
+    category: "classes",
+    title: "Бард",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень барда" }],
+  },
+];
+
+const abilityRolls: AbilityScoreRoll[] = [
+  { dice: [6, 5, 4, 1], droppedIndex: 3, total: 15 },
+  { dice: [5, 5, 4, 2], droppedIndex: 3, total: 14 },
+  { dice: [6, 4, 3, 1], droppedIndex: 3, total: 13 },
+  { dice: [4, 4, 3, 2], droppedIndex: 3, total: 11 },
+  { dice: [3, 3, 3, 1], droppedIndex: 3, total: 9 },
+  { dice: [3, 2, 2, 1], droppedIndex: 3, total: 7 },
 ];
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(async () => topics),
+  invoke: vi.fn(async (command: string) => {
+    if (command === "roll_ability_scores") return abilityRolls;
+    return topics;
+  }),
 }));
 
 const addCharacter = vi.fn();
@@ -68,9 +87,8 @@ describe("CharacterWizard", () => {
     fireEvent.change(titleInput, { target: { value: "Бродяга" } });
     await waitFor(() => expect((titleInput as HTMLInputElement).value).toBe("Бродяга"));
 
-    const equipmentInput = screen.getByPlaceholderText("Снаряжение (через запятую)");
-    fireEvent.change(equipmentInput, { target: { value: "Верёвка, Фонарь" } });
-    await waitFor(() => expect((equipmentInput as HTMLInputElement).value).toBe("Верёвка, Фонарь"));
+    fireEvent.click(screen.getByText("Добавить"));
+    await screen.findByText(/1\/5/);
 
     const goldInput = document.querySelector('input[type="number"]') as HTMLInputElement;
     fireEvent.change(goldInput, { target: { value: "25" } });
@@ -97,9 +115,12 @@ describe("CharacterWizard", () => {
     fireEvent.change(await screen.findByPlaceholderText("Название предыстории"), {
       target: { value: "Бродяга" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Снаряжение (через запятую)"), {
-      target: { value: "Верёвка, Фонарь" },
-    });
+    await screen.findByText("Добавить");
+    const gearSelect = document.querySelector("select") as HTMLSelectElement;
+    fireEvent.change(gearSelect, { target: { value: "Верёвка, пеньковая (50 футов)" } });
+    fireEvent.click(screen.getByText("Добавить"));
+    fireEvent.change(gearSelect, { target: { value: "Факел" } });
+    fireEvent.click(screen.getByText("Добавить"));
     fireEvent.change(document.querySelector('input[type="number"]') as HTMLInputElement, {
       target: { value: "25" },
     });
@@ -118,8 +139,30 @@ describe("CharacterWizard", () => {
     expect(character.background).toBe("Бродяга");
     expect(character.gold).toBe(25);
     expect(character.inventory.map((i) => i.name)).toEqual(
-      expect.arrayContaining(["Верёвка", "Фонарь"]),
+      expect.arrayContaining(["Верёвка, пеньковая (50 футов)", "Факел"]),
     );
+  });
+
+  it("caps custom background equipment at the limit and lets you remove an item", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Своя предыстория"));
+
+    const addButton = await screen.findByText("Добавить");
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(addButton);
+    }
+    expect(await screen.findByText(/5\/5/)).toBeInTheDocument();
+    expect(addButton).toBeDisabled();
+
+    // Removing one frees up a slot again.
+    fireEvent.click(screen.getAllByText("✕")[0]);
+    await screen.findByText(/4\/5/);
+    expect(addButton).not.toBeDisabled();
   });
 
   it("carries class saving throws/skills and background skills/equipment through to the finished character", async () => {
@@ -159,5 +202,112 @@ describe("CharacterWizard", () => {
     );
     expect(character.gold).toBe(15);
     expect(character.inventory.length).toBeGreaterThan(0);
+  });
+
+  it("rolling ability scores fills the manual fields, which stay freely editable afterward", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(screen.getByText("Бросить кубики"));
+    await screen.findByText(/Выпало/);
+
+    // abilityRolls fixture totals are [15, 14, 13, 11, 9, 7], filled in
+    // ABILITY_LABELS order: strength, dexterity, constitution, intelligence,
+    // wisdom, charisma.
+    const numberInputs = document.querySelectorAll('input[type="number"]');
+    expect(numberInputs.length).toBe(6);
+    expect((numberInputs[0] as HTMLInputElement).value).toBe("15"); // Сила
+    expect((numberInputs[1] as HTMLInputElement).value).toBe("14"); // Ловкость
+    expect((numberInputs[4] as HTMLInputElement).value).toBe("9"); // Мудрость
+
+    // A rolled value is not final — it's still a plain editable number field.
+    fireEvent.change(numberInputs[4], { target: { value: "12" } });
+    await waitFor(() => expect((numberInputs[4] as HTMLInputElement).value).toBe("12"));
+
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Кубик Кубикович" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    // +1 к каждой характеристике — расовый бонус человека (races-human).
+    expect(character.abilities.strength).toBe(16);
+    expect(character.abilities.dexterity).toBe(15);
+    expect(character.abilities.wisdom).toBe(13); // отредактированное вручную значение 12 + 1
+  });
+
+  it("picking 'any other instrument' for the bard resolves to a concrete instrument, not a vague placeholder", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Бард"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+
+    // Equipment step: pick "Любой другой музыкальный инструмент" over "Лютня"
+    // (second radio in the "equip-slot-2" group).
+    await screen.findByText("Любой другой музыкальный инструмент");
+    const instrumentSlotRadios = document.querySelectorAll('input[name="equip-slot-2"]');
+    expect(instrumentSlotRadios.length).toBe(2);
+    fireEvent.click(instrumentSlotRadios[1]);
+    const instrumentSelect = await screen.findByDisplayValue(/^Волынка /);
+    fireEvent.change(instrumentSelect, { target: { value: "Барабан" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Менестрель" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.inventory.map((i) => i.name)).toContain("Барабан");
+    expect(character.inventory.map((i) => i.name)).not.toContain("Музыкальный инструмент (на выбор)");
+  });
+
+  it("lets a Human pick a bonus language and records the chosen alignment", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    // Human gets a language of choice on top of Общий — pick a non-default one.
+    const languageSelect = await screen.findByDisplayValue("Великаний");
+    fireEvent.change(languageSelect, { target: { value: "Эльфийский" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Многоязыкий Герой" },
+    });
+    const alignmentSelect = screen.getByDisplayValue("не выбрано");
+    fireEvent.change(alignmentSelect, { target: { value: "Хаотично-добрый" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.languages).toEqual(["Общий", "Эльфийский"]);
+    expect(character.alignment).toBe("Хаотично-добрый");
   });
 });

@@ -90,6 +90,38 @@ fn roll_set(count: i32, sides: i32) -> Vec<i32> {
     (0..count).map(|_| rng.gen_range(1..=sides)).collect()
 }
 
+/// Классический метод генерации характеристик: 4к6, отбросить наименьший
+/// кубик, сложить оставшиеся три. Показываем все 4 кубика и какой отброшен,
+/// чтобы бросок был прозрачным, а не «просто число».
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AbilityScoreRoll {
+    pub dice: Vec<i32>,
+    pub dropped_index: usize,
+    pub total: i32,
+}
+
+pub fn roll_ability_score() -> AbilityScoreRoll {
+    let dice = roll_set(4, 6);
+    let dropped_index = dice
+        .iter()
+        .enumerate()
+        .min_by_key(|&(_, &v)| v)
+        .map(|(i, _)| i)
+        .expect("roll_set(4, 6) всегда возвращает 4 значения");
+    let total = dice
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != dropped_index)
+        .map(|(_, &v)| v)
+        .sum();
+    AbilityScoreRoll { dice, dropped_index, total }
+}
+
+pub fn roll_ability_scores() -> Vec<AbilityScoreRoll> {
+    (0..6).map(|_| roll_ability_score()).collect()
+}
+
 pub fn roll_expression(expr: &str) -> Result<RollResult, String> {
     let parsed = parse(expr)?;
 
@@ -120,4 +152,39 @@ pub fn roll_expression(expr: &str) -> Result<RollResult, String> {
         total,
         dropped,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ability_score_roll_drops_exactly_the_lowest_of_four_d6() {
+        for _ in 0..500 {
+            let roll = roll_ability_score();
+            assert_eq!(roll.dice.len(), 4);
+            assert!(roll.dice.iter().all(|&d| (1..=6).contains(&d)));
+
+            let min = *roll.dice.iter().min().unwrap();
+            assert_eq!(
+                roll.dice[roll.dropped_index], min,
+                "отброшенный индекс должен указывать на наименьшее значение"
+            );
+
+            let expected_total: i32 = roll
+                .dice
+                .iter()
+                .enumerate()
+                .filter(|&(i, _)| i != roll.dropped_index)
+                .map(|(_, &v)| v)
+                .sum();
+            assert_eq!(roll.total, expected_total);
+            assert!((3..=18).contains(&roll.total));
+        }
+    }
+
+    #[test]
+    fn ability_score_rolls_generates_six_scores() {
+        assert_eq!(roll_ability_scores().len(), 6);
+    }
 }

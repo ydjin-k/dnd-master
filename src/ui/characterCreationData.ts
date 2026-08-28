@@ -170,7 +170,7 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
   "classes-bard": [
     slot(["Рапира", ["Рапира"]], ["Длинный меч", ["Длинный меч"]], ["Любое простое оружие", ["Простое оружие (на выбор)"]]),
     slot(["Набор дипломата", ["Набор дипломата"]], ["Набор артиста", ["Набор артиста"]]),
-    slot(["Лютня", ["Лютня"]], ["Другой музыкальный инструмент", ["Музыкальный инструмент (на выбор)"]]),
+    slot(["Лютня", ["Лютня"]], ["Любой другой музыкальный инструмент", ["Музыкальный инструмент (на выбор)"]]),
     slot(["Кожаный доспех и кинжал", ["Кожаный доспех", "Кинжал"]]),
   ],
   "classes-barbarian": [
@@ -363,3 +363,245 @@ export function weaponChoiceFor(item: string): WeaponChoicePattern | undefined {
 export function weaponsInCategory(categories: WeaponCategory[]): WeaponData[] {
   return WEAPONS.filter((w) => categories.includes(w.category));
 }
+
+export interface InstrumentData {
+  name: string;
+  cost: string;
+  weight: string;
+}
+
+/** Музыкальные инструменты из таблицы «Инструменты» SRD 5.1 (rules.json → equipment-tools). */
+export const INSTRUMENTS: InstrumentData[] = [
+  { name: "Волынка", cost: "30 зм", weight: "6 фнт." },
+  { name: "Барабан", cost: "6 зм", weight: "3 фнт." },
+  { name: "Цимбалы", cost: "25 зм", weight: "10 фнт." },
+  { name: "Флейта", cost: "2 зм", weight: "1 фнт." },
+  { name: "Лютня", cost: "35 зм", weight: "2 фнт." },
+  { name: "Лира", cost: "30 зм", weight: "2 фнт." },
+  { name: "Рожок", cost: "3 зм", weight: "2 фнт." },
+  { name: "Свирель", cost: "12 зм", weight: "2 фнт." },
+  { name: "Шалмей", cost: "2 зм", weight: "1 фнт." },
+  { name: "Виола", cost: "30 зм", weight: "1 фнт." },
+];
+
+export interface EquipmentChoiceOption {
+  name: string;
+  detail: string;
+}
+
+export interface EquipmentChoice {
+  count: number;
+  options: EquipmentChoiceOption[];
+}
+
+/**
+ * Единая точка входа для плейсхолдеров вида «Любое ... (на выбор)» /
+ * «Другой ...» в CLASS_EQUIPMENT — оружие и музыкальные инструменты решаются
+ * общим механизмом в мастере персонажа вместо голого текста без вариантов.
+ */
+export function equipmentChoiceFor(item: string): EquipmentChoice | undefined {
+  const weaponChoice = weaponChoiceFor(item);
+  if (weaponChoice) {
+    return {
+      count: weaponChoice.count,
+      options: weaponsInCategory(weaponChoice.categories).map((w) => ({
+        name: w.name,
+        detail: `${w.damage}${w.properties && w.properties !== "—" ? `, ${w.properties}` : ""}`,
+      })),
+    };
+  }
+  if (item === "Музыкальный инструмент (на выбор)") {
+    return {
+      count: 1,
+      options: INSTRUMENTS.map((i) => ({ name: i.name, detail: `${i.cost}, ${i.weight}` })),
+    };
+  }
+  return undefined;
+}
+
+export interface GearData {
+  name: string;
+  cost: string;
+  weight: string;
+}
+
+/** Снаряжение искателя приключений из SRD 5.1 (rules.json → equipment-adventuring-gear). */
+export const ADVENTURING_GEAR: GearData[] = [
+  { name: "Алхимический огонь (фляга)", cost: "50 зм", weight: "1 фнт." },
+  { name: "Блок и лебёдка", cost: "1 зм", weight: "5 фнт." },
+  { name: "Арбалетные болты (20)", cost: "1 зм", weight: "1,5 фнт." },
+  { name: "Иглы для духовой трубки (50)", cost: "1 зм", weight: "1 фнт." },
+  { name: "Снаряды для пращи (20)", cost: "4 мм", weight: "1,5 фнт." },
+  { name: "Стрелы (20)", cost: "1 зм", weight: "1 фнт." },
+  { name: "Бочка", cost: "2 зм", weight: "70 фнт." },
+  { name: "Бумага (один лист)", cost: "2 см", weight: "—" },
+  { name: "Бурдюк", cost: "2 см", weight: "5 фнт. (полный)" },
+  { name: "Бутылка, стеклянная", cost: "2 зм", weight: "2 фнт." },
+  { name: "Ведро", cost: "5 мм", weight: "2 фнт." },
+  { name: "Верёвка, пеньковая (50 футов)", cost: "1 зм", weight: "10 фнт." },
+  { name: "Верёвка, шёлковая (50 футов)", cost: "10 зм", weight: "5 фнт." },
+  { name: "Весы, купеческие", cost: "5 зм", weight: "3 фнт." },
+  { name: "Гвозди, железные (10)", cost: "1 зм", weight: "5 фнт." },
+  { name: "Горшок, железный", cost: "2 зм", weight: "10 фнт." },
+  { name: "Духи (флакон)", cost: "5 зм", weight: "—" },
+  { name: "Замок", cost: "10 зм", weight: "1 фнт." },
+  { name: "Зелье лечения", cost: "50 зм", weight: "1/2 фнт." },
+  { name: "Зеркало, стальное", cost: "5 зм", weight: "1/2 фнт." },
+  { name: "Кандалы", cost: "2 зм", weight: "6 фнт." },
+  { name: "Кирка, горняцкая", cost: "2 зм", weight: "10 фнт." },
+  { name: "Кислота (флакон)", cost: "25 зм", weight: "1 фнт." },
+  { name: "Книга", cost: "25 зм", weight: "5 фнт." },
+  { name: "Книга заклинаний", cost: "50 зм", weight: "3 фнт." },
+  { name: "Колокольчик", cost: "1 зм", weight: "—" },
+  { name: "Колчан", cost: "1 зм", weight: "1 фнт." },
+  { name: "Кольцо-печатка", cost: "5 зм", weight: "—" },
+  { name: "Комплект для рыбалки", cost: "1 зм", weight: "4 фнт." },
+  { name: "Контейнер для арбалетных болтов", cost: "1 зм", weight: "1 фнт." },
+  { name: "Контейнер для карт и свитков", cost: "1 зм", weight: "1 фнт." },
+  { name: "Корзина", cost: "4 см", weight: "2 фнт." },
+  { name: "Кошель", cost: "5 см", weight: "1 фнт." },
+  { name: "Крюк-кошка", cost: "2 зм", weight: "4 фнт." },
+  { name: "Кувшин или графин", cost: "2 мм", weight: "4 фнт." },
+  { name: "Лампа", cost: "5 см", weight: "1 фнт." },
+  { name: "Лестница (10 футов)", cost: "1 см", weight: "25 фнт." },
+  { name: "Ломик", cost: "2 зм", weight: "5 фнт." },
+  { name: "Лопата", cost: "2 зм", weight: "5 фнт." },
+  { name: "Жезл", cost: "10 зм", weight: "2 фнт." },
+  { name: "Кристалл", cost: "10 зм", weight: "1 фнт." },
+  { name: "Палочка", cost: "10 зм", weight: "1 фнт." },
+  { name: "Посох", cost: "5 зм", weight: "4 фнт." },
+  { name: "Шар", cost: "20 зм", weight: "3 фнт." },
+  { name: "Масло (колба)", cost: "1 см", weight: "1 фнт." },
+  { name: "Мел (1 кусочек)", cost: "1 мм", weight: "—" },
+  { name: "Металлические шарики (1 000 шт. в сумке)", cost: "1 зм", weight: "2 фнт." },
+  { name: "Мешок", cost: "1 мм", weight: "1/2 фнт." },
+  { name: "Мешочек с компонентами", cost: "25 зм", weight: "2 фнт." },
+  { name: "Молот, кузнечный", cost: "2 зм", weight: "10 фнт." },
+  { name: "Молоток", cost: "1 зм", weight: "3 фнт." },
+  { name: "Мыло", cost: "2 мм", weight: "—" },
+  { name: "Набор альпиниста", cost: "25 зм", weight: "12 фнт." },
+  { name: "Набор целителя", cost: "5 зм", weight: "3 фнт." },
+  { name: "Одежда, дорожная", cost: "2 зм", weight: "4 фнт." },
+  { name: "Одежда, костюм", cost: "5 зм", weight: "4 фнт." },
+  { name: "Одежда, обычная", cost: "5 см", weight: "3 фнт." },
+  { name: "Одежда, отличная", cost: "15 зм", weight: "6 фнт." },
+  { name: "Одеяло", cost: "5 см", weight: "3 фнт." },
+  { name: "Охотничий капкан", cost: "5 зм", weight: "25 фнт." },
+  { name: "Палатка, двухместная", cost: "2 зм", weight: "20 фнт." },
+  { name: "Пергамент (один лист)", cost: "1 см", weight: "—" },
+  { name: "Песочные часы", cost: "25 зм", weight: "1 фнт." },
+  { name: "Писчее перо", cost: "2 мм", weight: "—" },
+  { name: "Подзорная труба", cost: "1,000 зм", weight: "1 фнт." },
+  { name: "Противоядие (флакон)", cost: "50 зм", weight: "—" },
+  { name: "Рационы (1 день)", cost: "5 см", weight: "2 фнт." },
+  { name: "Роба", cost: "1 зм", weight: "4 фнт." },
+  { name: "Рюкзак", cost: "2 зм", weight: "5 фнт." },
+  { name: "Свеча", cost: "1 мм", weight: "—" },
+  { name: "Святая вода (фляга)", cost: "25 зм", weight: "1 фнт." },
+  { name: "Амулет", cost: "5 зм", weight: "1 фнт." },
+  { name: "Ковчег", cost: "5 зм", weight: "2 фнт." },
+  { name: "Эмблема", cost: "5 зм", weight: "—" },
+  { name: "Сигнальный свисток", cost: "5 мм", weight: "—" },
+  { name: "Спальник", cost: "1 зм", weight: "7 фнт." },
+  { name: "Столовый набор", cost: "2 см", weight: "1 фнт." },
+  { name: "Сундук", cost: "5 зм", weight: "25 фнт." },
+  { name: "Сургуч", cost: "5 см", weight: "—" },
+  { name: "Счеты", cost: "2 зм", weight: "2 фнт." },
+  { name: "Таран, портативный", cost: "4 зм", weight: "35 фнт." },
+  { name: "Точильный камень", cost: "1 мм", weight: "1 фнт." },
+  { name: "Трутница", cost: "5 см", weight: "1 фнт." },
+  { name: "Увеличительное стекло", cost: "100 зм", weight: "—" },
+  { name: "Факел", cost: "1 мм", weight: "1 фнт." },
+  { name: "Флакон", cost: "1 зм", weight: "—" },
+  { name: "Фляжка или кружка", cost: "2 мм", weight: "1 фнт." },
+  { name: "Веточка омелы", cost: "1 зм", weight: "—" },
+  { name: "Деревянный посох", cost: "5 зм", weight: "4 фнт." },
+  { name: "Тисовая палочка", cost: "10 зм", weight: "1 фнт." },
+  { name: "Тотем", cost: "1 зм", weight: "—" },
+  { name: "Фонарь, «Бычий глаз»", cost: "10 зм", weight: "2 фнт." },
+  { name: "Фонарь, закрытый", cost: "5 зм", weight: "2 фнт." },
+  { name: "Цепь (10 футов)", cost: "5 зм", weight: "10 фнт." },
+  { name: "Чернила (бутылочка 30 грамм)", cost: "10 зм", weight: "—" },
+  { name: "Чеснок (шипы) (20 штук в сумке)", cost: "1 зм", weight: "2 фнт." },
+  { name: "Шест (10 футов)", cost: "5 мм", weight: "7 фнт." },
+  { name: "Шлямбур", cost: "5 мм", weight: "1/4 фнт." },
+  { name: "Яд, базовый (флакон)", cost: "100 зм", weight: "—" },
+];
+
+/** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
+export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 5;
+
+/** Девять мировоззрений SRD 5.1 (rules.json → character-alignment). */
+export const ALIGNMENTS = [
+  "Законно-добрый",
+  "Нейтрально-добрый",
+  "Хаотично-добрый",
+  "Законно-нейтральный",
+  "Нейтральный",
+  "Хаотично-нейтральный",
+  "Законно-злой",
+  "Нейтрально-злой",
+  "Хаотично-злой",
+];
+
+/** Стандартные + экзотические языки SRD 5.1 (rules.json → character-languages). */
+export const ALL_LANGUAGES = [
+  "Великаний",
+  "Гномий",
+  "Гоблинский",
+  "Дварфский",
+  "Общий",
+  "Орочий",
+  "Полуросликов",
+  "Эльфийский",
+  "Бездны",
+  "Глубинная Речь",
+  "Драконий",
+  "Инфернальный",
+  "Небесный",
+  "Первичный",
+  "Подземный",
+  "Сильван",
+];
+
+export interface RaceLanguages {
+  fixed: string[];
+  /** Кол-во дополнительных языков на выбор игрока (Человек, Полуэльф). */
+  choiceCount?: number;
+}
+
+/**
+ * Языки — сверены вручную с абзацем «Языки.» в тексте каждой расы (rules.json).
+ * Только Человек и Полуэльф дают язык «по вашему выбору» — у остальных рас
+ * список полностью фиксирован.
+ */
+export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
+  "races-dwarf": { fixed: ["Общий", "Дварфский"] },
+  "races-halfling": { fixed: ["Общий", "Полуросликов"] },
+  "races-human": { fixed: ["Общий"], choiceCount: 1 },
+  "races-elf": { fixed: ["Общий", "Эльфийский"] },
+  "races-gnome": { fixed: ["Общий", "Гномий"] },
+  "races-dragonborn": { fixed: ["Общий", "Драконий"] },
+  "races-half-orc": { fixed: ["Общий", "Орочий"] },
+  "races-half-elf": { fixed: ["Общий", "Эльфийский"], choiceCount: 1 },
+  "races-tiefling": { fixed: ["Общий", "Инфернальный"] },
+};
+
+/** 14 состояний + истощение из SRD 5.1 (rules.json → appendices-conditions). */
+export const CONDITIONS = [
+  "Ослеплённое",
+  "Заворожённое",
+  "Оглохшее",
+  "Испуганное",
+  "Схваченное",
+  "Недееспособное",
+  "Невидимое",
+  "Парализованное",
+  "Окаменевшее",
+  "Отравленное",
+  "Сбитый с ног",
+  "Опутанный",
+  "Оглушенное",
+  "Бессознательный",
+  "Истощение",
+];
