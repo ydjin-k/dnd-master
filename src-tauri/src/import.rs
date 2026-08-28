@@ -117,13 +117,25 @@ fn pdfium_instance(pdfium_dir: &Path) -> Result<&'static Pdfium, String> {
 /// Ядро без Tauri — так это можно проверить юнит-тестом без запуска приложения
 /// (как extract_text_from_image_with_models() для OCR выше).
 ///
-/// pdf_extract (использовался раньше) не восстанавливает порядок чтения в
-/// сложных многоколоночных макетах — на заполняемых листах персонажа D&D
-/// (сами по себе AcroForm-таблицы) значения полей перемешивались с чужими
-/// подписями. PDFium — движок Chromium, тот же, что стоит за «выделить всё» в
-/// PDF-просмотрщике браузера — восстанавливает порядок чтения намного лучше
-/// (хотя сам API честно предупреждает, что для нестандартных макетов порядок
-/// в документе и порядок чтения глазами всё ещё могут не совпадать).
+/// Два независимых источника текста, оба добавляются в вывод:
+///
+/// 1. Значения AcroForm-полей — по ИМЕНИ поля, а не по позиции на странице.
+///    Это единственный надёжный способ развести соседние поля в плотных
+///    сетках (шапка листа персонажа: имя/класс/раса/предыстория в одну
+///    визуальную строку, узел КЗ/Инициатива/Скорость) — там даже
+///    сортировка по X/Y координатам путает, какое значение к какой подписи
+///    относится. Работает, только если в PDF есть ДЕЙСТВУЮЩАЯ форма:
+///    document.form() возвращает None для PDF, где форма уже расплющена в
+///    статический текст (частый случай для сохранённых/распечатанных
+///    листов — проверено на реальном пользовательском файле «Гоблин
+///    варвар.pdf»: там form() == None, значения живут только как обычный
+///    текст страницы, см. п.2).
+/// 2. pdf_extract (использовался раньше) не восстанавливает порядок чтения в
+///    сложных многоколоночных макетах. PDFium — движок Chromium, тот же, что
+///    стоит за «выделить всё» в PDF-просмотрщике браузера — восстанавливает
+///    порядок чтения намного лучше (хотя сам API честно предупреждает, что
+///    для нестандартных макетов порядок в документе и порядок чтения
+///    глазами всё ещё могут не совпадать — см. плотные сетки выше).
 pub fn extract_text_from_pdf_with_library_dir(
     path: &str,
     pdfium_dir: &Path,
@@ -134,6 +146,23 @@ pub fn extract_text_from_pdf_with_library_dir(
         .map_err(|e| format!("не удалось открыть PDF {path:?}: {e}"))?;
 
     let mut out = String::new();
+
+    if let Some(form) = document.form() {
+        let values = form.field_values(document.pages());
+        let mut names: Vec<&String> = values.keys().collect();
+        names.sort();
+        for name in names {
+            if let Some(value) = values.get(name).and_then(|v| v.as_deref()) {
+                if !value.is_empty() && value != "false" {
+                    out.push_str(name);
+                    out.push_str(": ");
+                    out.push_str(value);
+                    out.push('\n');
+                }
+            }
+        }
+    }
+
     for page in document.pages().iter() {
         let text = page
             .text()
@@ -246,6 +275,52 @@ mod tests {
         assert!(
             label_pos < value_pos,
             "подпись должна идти раньше значения (порядок чтения), получил: {text:?}"
+        );
+    }
+
+    #[test]
+    fn extracts_acroform_field_values_by_field_name() {
+        // Фикстура — вручную собранный минимальный PDF с ДЕЙСТВУЮЩИМ (не расплющенным)
+        // AcroForm-полем: одно текстовое поле с именем "CharacterName" и значением
+        // "Torin Ironbeard", плюс обычный статический текст на странице. Байтовые
+        // смещения xref посчитаны скриптом (не угадывались руками), см. историю
+        // разработки этого коммита. Проверяет путь, которого нет в
+        // extracts_pdf_text_in_visual_reading_order_not_source_order выше: чтение
+        // значения ПО ИМЕНИ ПОЛЯ, не по позиции текста на странице.
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let pdfium_dir = manifest_dir.join("pdfium");
+        let pdf = manifest_dir.join("tests/fixtures/acroform-sample.pdf");
+
+        let text = extract_text_from_pdf_with_library_dir(pdf.to_str().unwrap(), &pdfium_dir)
+            .expect("PDFium должен прочитать фикстуру с формой без ошибок");
+
+        assert!(
+            text.contains("CharacterName: Torin Ironbeard"),
+            "ожидал значение поля по имени, получил: {text:?}"
+        );
+        assert!(
+            text.contains("Static label text"),
+            "обычный текст страницы должен остаться в выводе тоже, получил: {text:?}"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_page_text_when_pdf_has_no_live_form() {
+        // layout-order-sample.pdf сгенерирован Chromium'ом (print-to-pdf), который
+        // всегда расплющивает формы в статический текст — то есть document.form()
+        // для него уже == None. Это ровно тот же случай, что и с реальным
+        // пользовательским PDF (сохранённый/распечатанный лист персонажа): нет живой
+        // формы, значит единственный путь — текст страницы, и падать тут нельзя.
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let pdfium_dir = manifest_dir.join("pdfium");
+        let pdf = manifest_dir.join("tests/fixtures/layout-order-sample.pdf");
+
+        let text = extract_text_from_pdf_with_library_dir(pdf.to_str().unwrap(), &pdfium_dir)
+            .expect("PDF без формы должен читаться через обычный текст страницы");
+
+        assert!(
+            text.contains("ПОДПИСЬ") && text.contains("СЕКРЕТНОЕ"),
+            "получил: {text:?}"
         );
     }
 }
