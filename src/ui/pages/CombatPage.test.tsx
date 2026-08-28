@@ -149,4 +149,59 @@ describe("CombatPage", () => {
     fireEvent.click(screen.getByText("Завершить бой"));
     expect(endCombat).toHaveBeenCalled();
   });
+
+  it("clicking a cell with a downed combatant moves the selected combatant there instead of selecting the body", async () => {
+    mockState = baseState({
+      combat: {
+        gridWidth: 3,
+        gridHeight: 3,
+        combatants: [
+          {
+            id: "hero",
+            name: "Герой",
+            isMonster: false,
+            x: 0,
+            y: 0,
+            speedFeet: 30,
+            maxHp: 12,
+            currentHp: 12,
+            armorClass: 14,
+            attackBonus: 4,
+            damageDice: "1d8",
+            initiative: 15,
+            feetMovedThisTurn: 0,
+          },
+          {
+            id: "wolf",
+            name: "Волк",
+            isMonster: true,
+            x: 2,
+            y: 2,
+            speedFeet: 40,
+            maxHp: 11,
+            currentHp: 0,
+            armorClass: 13,
+            attackBonus: 4,
+            damageDice: "2d4+2",
+            initiative: 10,
+            feetMovedThisTurn: 0,
+          },
+        ],
+        turnOrder: ["hero", "wolf"],
+        currentTurnIndex: 0,
+        round: 1,
+        log: ["Бой начался."],
+        finished: false,
+      },
+    });
+    render(<CombatPage />);
+
+    const heroToken = await screen.findByTitle(/Герой: 12\/12 HP/);
+    fireEvent.click(heroToken);
+
+    const deadWolfToken = screen.getByTitle(/Волк: 0\/11 HP/);
+    fireEvent.click(deadWolfToken);
+
+    expect(moveCombatant).toHaveBeenCalledWith("hero", 2, 2);
+  });
 });

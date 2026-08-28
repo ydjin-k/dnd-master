@@ -98,7 +98,7 @@ fn migrate_legacy_if_needed(base: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut state = read_campaign_file(&legacy_path).unwrap_or_default();
+    let mut state = read_campaign_file(&legacy_path)?;
     let id = generate_id();
     state.id = id.clone();
     if state.campaign_name.trim().is_empty() {
@@ -216,6 +216,20 @@ fn delete_campaign_locked(base: &Path, id: &str) -> Result<(), String> {
     delete_campaign_in(base, id)
 }
 
+/// Читает активную кампанию, применяет мутацию и сохраняет — всё под одним
+/// удержанием `STORAGE_LOCK`, без окна между чтением и записью, в котором
+/// два параллельных вызова могли бы затереть мутацию друг друга.
+fn with_active_locked_in<F>(base: &Path, mutate: F) -> Result<CampaignState, String>
+where
+    F: FnOnce(&mut CampaignState) -> Result<(), String>,
+{
+    let _guard = STORAGE_LOCK.lock().unwrap();
+    let mut state = load_active_in(base)?.ok_or_else(|| "нет активной кампании".to_string())?;
+    mutate(&mut state)?;
+    save_campaign_in(base, &state)?;
+    Ok(state)
+}
+
 // ── тонкие обёртки для Tauri-команд ──────────────────────────────────────────
 
 pub fn load_active(app: &AppHandle) -> Result<Option<CampaignState>, String> {
@@ -242,10 +256,17 @@ pub fn delete_campaign(app: &AppHandle, id: &str) -> Result<(), String> {
     delete_campaign_locked(&app_data_dir(app)?, id)
 }
 
+pub fn with_active_locked<F>(app: &AppHandle, mutate: F) -> Result<CampaignState, String>
+where
+    F: FnOnce(&mut CampaignState) -> Result<(), String>,
+{
+    with_active_locked_in(&app_data_dir(app)?, mutate)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Character;
+    use crate::model::{AdventureLogEntry, Character};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dnd-master-storage-test-{name}-{}", generate_id()));
@@ -335,6 +356,57 @@ mod tests {
 
         // Повторная миграция не создаёт вторую кампанию из того же старого файла.
         assert_eq!(list_campaigns_in(&base).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn corrupted_legacy_file_fails_migration_without_touching_it() {
+        let base = temp_dir("legacy-corrupt");
+        fs::write(base.join(LEGACY_FILE), "это не json").unwrap();
+
+        let result = load_active_in(&base);
+        assert!(
+            result.is_err(),
+            "повреждённый campaign.json должен вернуть ошибку, а не пустую кампанию"
+        );
+        assert!(
+            base.join(LEGACY_FILE).exists(),
+            "оригинальный campaign.json не должен быть тронут при неудачной миграции"
+        );
+        assert!(!base.join("campaign.json.migrated").exists());
+    }
+
+    #[test]
+    fn with_active_locked_concurrent_mutations_both_survive() {
+        let base = temp_dir("atomic-write");
+        create_campaign_in(&base, "Атомарность".into()).unwrap();
+
+        let base_a = base.clone();
+        let base_b = base.clone();
+        let a = std::thread::spawn(move || {
+            with_active_locked_in(&base_a, |state| {
+                state
+                    .adventure_log
+                    .push(AdventureLogEntry::Custom("A".into()));
+                Ok(())
+            })
+        });
+        let b = std::thread::spawn(move || {
+            with_active_locked_in(&base_b, |state| {
+                state
+                    .adventure_log
+                    .push(AdventureLogEntry::Custom("B".into()));
+                Ok(())
+            })
+        });
+        a.join().unwrap().unwrap();
+        b.join().unwrap().unwrap();
+
+        let saved = load_active_in(&base).unwrap().unwrap();
+        assert_eq!(
+            saved.adventure_log.len(),
+            2,
+            "обе параллельные мутации должны быть сохранены, а не одна затёрта другой"
+        );
     }
 
     #[test]
