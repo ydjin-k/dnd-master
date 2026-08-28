@@ -208,6 +208,11 @@
   padding: 0;
 }
 
+.wizard__traits {
+  margin: 0.3em 0 0;
+  padding-left: 1.2em;
+}
+
 .wizard__nav {
   display: flex;
   gap: 0.5em;

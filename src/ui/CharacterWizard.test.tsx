@@ -5,6 +5,9 @@ import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
+  { id: "races-dwarf", category: "races", title: "Дварф", sourceUrl: "", blocks: [] },
+  { id: "races-elf", category: "races", title: "Эльф", sourceUrl: "", blocks: [] },
+  { id: "races-half-elf", category: "races", title: "Полуэльф", sourceUrl: "", blocks: [] },
   {
     id: "classes-fighter",
     category: "classes",
@@ -18,6 +21,13 @@ const topics: RuleTopic[] = [
     title: "Бард",
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень барда" }],
+  },
+  {
+    id: "classes-wizard",
+    category: "classes",
+    title: "Волшебник",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к6 за уровень волшебника" }],
   },
 ];
 
@@ -301,7 +311,7 @@ describe("CharacterWizard", () => {
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
       target: { value: "Многоязыкий Герой" },
     });
-    const alignmentSelect = screen.getByDisplayValue("не выбрано");
+    const alignmentSelect = screen.getByDisplayValue("Нейтральный");
     fireEvent.change(alignmentSelect, { target: { value: "Хаотично-добрый" } });
     fireEvent.click(screen.getByText("Создать персонажа"));
 
@@ -309,5 +319,104 @@ describe("CharacterWizard", () => {
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.languages).toEqual(["Общий", "Эльфийский"]);
     expect(character.alignment).toBe("Хаотично-добрый");
+  });
+
+  it("applies the Dwarf's +1 max HP racial bonus (previously silently dropped)", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дварф"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults (base 10 everywhere)
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Крепкий Дварф" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    // Fighter hit die 1к10 + Dwarf CON+2 (base 10 -> 12, mod +1) + Dwarven
+    // Toughness +1 = 12, not 11.
+    expect(character.maxHp).toBe(12);
+  });
+
+  it("grants the Elf's automatic Perception proficiency without spending a class skill slot", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Эльф"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Атлетика"));
+    fireEvent.click(screen.getByText("История"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Востроглазый Эльф" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.skillProficiencies).toEqual(
+      expect.arrayContaining(["Атлетика", "История", "Восприятие", "Религия"]),
+    );
+  });
+
+  it("lets a Half-Elf pick 2 bonus skills (Гибкость навыков)", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Полуэльф"));
+    await screen.findByText(/Гибкость навыков/);
+    fireEvent.click(screen.getByText("Магия"));
+    fireEvent.click(screen.getByText("Обман"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Разносторонний Полуэльф" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.skillProficiencies).toEqual(expect.arrayContaining(["Магия", "Обман"]));
+  });
+
+  it("shows the full portrait on the review step: race traits as text and a spellcasting note", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дварф"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Волшебник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Дварфская стойкость/)).toBeInTheDocument();
+    expect(screen.getByText(/Знание камня/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/владеет заклинаниями \(заклинательная характеристика — Интеллект\)/),
+    ).toBeInTheDocument();
   });
 });

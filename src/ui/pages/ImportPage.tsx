@@ -50,7 +50,7 @@ export function ImportPage() {
       race: "",
       class: "",
       background: "",
-      alignment: "",
+      alignment: "Нейтральный",
       languages: [],
       level: 1,
       abilities: emptyAbilityScores(),

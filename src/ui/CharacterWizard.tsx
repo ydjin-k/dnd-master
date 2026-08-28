@@ -19,8 +19,13 @@ import {
   BACKGROUNDS,
   CLASS_EQUIPMENT,
   CLASS_PROFICIENCIES,
+  CLASS_SPELLCASTING_ABILITY,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
+  RACE_FIXED_SKILLS,
+  RACE_HP_BONUS,
   RACE_LANGUAGES,
+  RACE_SKILL_CHOICE_COUNT,
+  RACE_TRAITS,
   equipmentChoiceFor,
   type BackgroundData,
 } from "./characterCreationData";
@@ -132,8 +137,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     feature: "",
   });
   const [gearToAdd, setGearToAdd] = useState(ADVENTURING_GEAR[0]?.name ?? "");
-  const [alignment, setAlignment] = useState("");
+  const [alignment, setAlignment] = useState("Нейтральный");
   const [chosenLanguage, setChosenLanguage] = useState("");
+  const [raceSkillChoices, setRaceSkillChoices] = useState<string[]>([]);
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
@@ -161,6 +167,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const klass = classes.find((c) => c.id === classId);
   const hitDie = parseHitDie(klass);
   const raceBonus = raceId ? RACE_ABILITY_BONUSES[raceId] : undefined;
+  const raceHpBonus = raceId ? (RACE_HP_BONUS[raceId] ?? 0) : 0;
+  const raceFixedSkills = raceId ? (RACE_FIXED_SKILLS[raceId] ?? []) : [];
+  const raceSkillChoiceCount = raceId ? (RACE_SKILL_CHOICE_COUNT[raceId] ?? 0) : 0;
+  const raceTraits = raceId ? (RACE_TRAITS[raceId] ?? []) : [];
+  const spellAbility = classId ? CLASS_SPELLCASTING_ABILITY[classId] : undefined;
   const raceLanguages = raceId ? RACE_LANGUAGES[raceId] : undefined;
   const availableLanguageChoices = raceLanguages
     ? ALL_LANGUAGES.filter((l) => !raceLanguages.fixed.includes(l))
@@ -217,6 +228,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setRaceId(id);
     setChoiceBonusKeys([]);
     setChosenLanguage("");
+    setRaceSkillChoices([]);
+  }
+
+  function toggleRaceSkillChoice(skill: string) {
+    setRaceSkillChoices((prev) => {
+      if (prev.includes(skill)) return prev.filter((s) => s !== skill);
+      if (prev.length >= raceSkillChoiceCount) return prev;
+      return [...prev, skill];
+    });
   }
 
   function selectClass(id: string) {
@@ -320,7 +340,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     });
   }
 
-  const allSkillProficiencies = [...new Set([...classSkills, ...(background?.skillProficiencies ?? [])])];
+  const allSkillProficiencies = [
+    ...new Set([
+      ...classSkills,
+      ...(background?.skillProficiencies ?? []),
+      ...raceFixedSkills,
+      ...raceSkillChoices,
+    ]),
+  ];
 
   const speedFeet = raceId ? (RACE_SPEED_FEET[raceId] ?? 30) : 30;
   const initiative = abilityMod(totalAbilities.dexterity);
@@ -347,7 +374,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   async function finish() {
     if (!name.trim()) return;
     const conMod = abilityMod(totalAbilities.constitution);
-    const maxHp = Math.max(1, (hitDie ?? 8) + conMod);
+    const maxHp = Math.max(1, (hitDie ?? 8) + conMod + raceHpBonus);
     const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
       id: crypto.randomUUID(),
       name: itemName,
@@ -474,6 +501,25 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </select>
                   </p>
                 ) : null}
+                {raceSkillChoiceCount > 0 && (
+                  <p className="wizard__hint">
+                    Гибкость навыков: выбери {raceSkillChoiceCount} навыка (выбрано{" "}
+                    {raceSkillChoices.length}/{raceSkillChoiceCount}) —{" "}
+                    {ALL_SKILLS.map((skill) => (
+                      <label key={skill} className="wizard__choice-bonus">
+                        <input
+                          type="checkbox"
+                          checked={raceSkillChoices.includes(skill)}
+                          onChange={() => toggleRaceSkillChoice(skill)}
+                          disabled={
+                            !raceSkillChoices.includes(skill) && raceSkillChoices.length >= raceSkillChoiceCount
+                          }
+                        />
+                        {skill}
+                      </label>
+                    ))}
+                  </p>
+                )}
               </>
             ) : (
               <p className="wizard__hint">Выбери расу слева — здесь появятся её особенности из SRD.</p>
@@ -854,7 +900,6 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <label className="wizard__hint">
             Мировоззрение:{" "}
             <select value={alignment} onChange={(e) => setAlignment(e.currentTarget.value)}>
-              <option value="">не выбрано</option>
               {ALIGNMENTS.map((a) => (
                 <option key={a} value={a}>
                   {a}
@@ -869,7 +914,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Предыстория: {background?.title ?? "не выбрана"}</li>
             <li>Языки: {finalLanguages.join(", ") || "—"}</li>
             <li>
-              HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution))} · КД:{" "}
+              HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution) + raceHpBonus)} · КД:{" "}
               {10 + initiative} (безоружный, без брони) · Золото: {background?.gold ?? 0} зм
             </li>
             <li>
@@ -887,6 +932,25 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
             <li>Навыки: {allSkillProficiencies.join(", ") || "—"}</li>
             <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
+            {raceTraits.length > 0 && (
+              <li>
+                Расовые особенности:
+                <ul className="wizard__traits">
+                  {raceTraits.map((t) => (
+                    <li key={t.name}>
+                      <strong>{t.name}</strong> — {t.description}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )}
+            {spellAbility && (
+              <li>
+                Заклинания: класс «{klass?.title}» владеет заклинаниями (заклинательная характеристика —{" "}
+                {spellAbility}). Списка заклинаний в приложении пока нет — заговоры и заклинания 1 уровня
+                выбираешь сам по книге.
+              </li>
+            )}
           </ul>
           <button disabled={!name.trim()} onClick={finish}>
             Создать персонажа
