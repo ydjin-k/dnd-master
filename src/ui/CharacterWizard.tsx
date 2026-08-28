@@ -9,8 +9,18 @@ import {
   type RuleTopic,
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
-import { BACKGROUNDS, CLASS_EQUIPMENT, CLASS_PROFICIENCIES } from "./characterCreationData";
+import {
+  ALL_SKILLS,
+  BACKGROUNDS,
+  CLASS_EQUIPMENT,
+  CLASS_PROFICIENCIES,
+  weaponChoiceFor,
+  weaponsInCategory,
+  type BackgroundData,
+} from "./characterCreationData";
 import "./CharacterWizard.css";
+
+const CUSTOM_BACKGROUND_ID = "custom";
 
 const STEPS = ["race", "class", "background", "abilities", "equipment", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -66,6 +76,22 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   "races-tiefling": { fixed: { intelligence: 1, charisma: 2 } },
 };
 
+// Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
+// [ходьбы|перемещения] — N футов.» в rules.json для каждой расы.
+const RACE_SPEED_FEET: Record<string, number> = {
+  "races-dwarf": 25,
+  "races-halfling": 25,
+  "races-human": 30,
+  "races-elf": 30,
+  "races-gnome": 25,
+  "races-dragonborn": 30,
+  "races-half-orc": 30,
+  "races-half-elf": 30,
+  "races-tiefling": 30,
+};
+
+const PROFICIENCY_BONUS_LEVEL_1 = 2;
+
 function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2);
 }
@@ -92,8 +118,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [raceId, setRaceId] = useState<string | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
   const [backgroundId, setBackgroundId] = useState<string | null>(null);
+  const [customBackground, setCustomBackground] = useState({
+    title: "",
+    skillProficiencies: [] as string[],
+    equipment: "",
+    gold: 0,
+    feature: "",
+  });
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
+  const [weaponPicks, setWeaponPicks] = useState<Record<string, string[]>>({});
   const [method, setMethod] = useState<AbilityMethod>("standard");
   const [assignment, setAssignment] = useState<Partial<Record<AbilityKey, number>>>({});
   const [pointBuy, setPointBuy] = useState<AbilityScores>(emptyAbilityScores());
@@ -116,7 +150,32 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const raceBonus = raceId ? RACE_ABILITY_BONUSES[raceId] : undefined;
   const classProf = classId ? CLASS_PROFICIENCIES[classId] : undefined;
   const classEquipment = classId ? CLASS_EQUIPMENT[classId] : undefined;
-  const background = backgroundId ? BACKGROUNDS.find((b) => b.id === backgroundId) : undefined;
+  const background: BackgroundData | undefined =
+    backgroundId === CUSTOM_BACKGROUND_ID
+      ? {
+          id: CUSTOM_BACKGROUND_ID,
+          title: customBackground.title.trim() || "Своя предыстория",
+          skillProficiencies: customBackground.skillProficiencies,
+          equipment: customBackground.equipment
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+          gold: customBackground.gold,
+          feature: customBackground.feature,
+        }
+      : backgroundId
+        ? BACKGROUNDS.find((b) => b.id === backgroundId)
+        : undefined;
+
+  function toggleCustomBackgroundSkill(skill: string) {
+    setCustomBackground((prev) => {
+      if (prev.skillProficiencies.includes(skill)) {
+        return { ...prev, skillProficiencies: prev.skillProficiencies.filter((s) => s !== skill) };
+      }
+      if (prev.skillProficiencies.length >= 2) return prev;
+      return { ...prev, skillProficiencies: [...prev.skillProficiencies, skill] };
+    });
+  }
 
   function selectRace(id: string) {
     setRaceId(id);
@@ -201,15 +260,32 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   const allSkillProficiencies = [...new Set([...classSkills, ...(background?.skillProficiencies ?? [])])];
 
+  const speedFeet = raceId ? (RACE_SPEED_FEET[raceId] ?? 30) : 30;
+  const initiative = abilityMod(totalAbilities.dexterity);
+  const passivePerception =
+    10 +
+    abilityMod(totalAbilities.wisdom) +
+    (allSkillProficiencies.includes("Восприятие") ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+
+  function resolveEquipmentItem(slotIndex: number, itemIndex: number, item: string): string[] {
+    const choice = weaponChoiceFor(item);
+    if (!choice) return [item];
+    const weaponOptions = weaponsInCategory(choice.categories);
+    const picks = weaponPicks[`${slotIndex}:${itemIndex}`] ?? [];
+    return Array.from({ length: choice.count }, (_, i) => picks[i] ?? weaponOptions[0]?.name ?? item);
+  }
+
   const inventoryItems: string[] = [
-    ...(classEquipment ?? []).flatMap((s, i) => s.options[equipmentChoice[i] ?? 0]?.items ?? []),
+    ...(classEquipment ?? []).flatMap((s, slotIndex) => {
+      const opt = s.options[equipmentChoice[slotIndex] ?? 0];
+      return opt?.items.flatMap((item, itemIndex) => resolveEquipmentItem(slotIndex, itemIndex, item)) ?? [];
+    }),
     ...(background?.equipment ?? []),
   ];
 
   async function finish() {
     if (!name.trim()) return;
     const conMod = abilityMod(totalAbilities.constitution);
-    const dexMod = abilityMod(totalAbilities.dexterity);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod);
     const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
       id: crypto.randomUUID(),
@@ -227,7 +303,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,
-      armorClass: 10 + dexMod,
+      armorClass: 10 + initiative,
+      speedFeet,
+      initiative,
+      passivePerception,
       conditions: [],
       inventory,
       gold: background?.gold ?? 0,
@@ -389,9 +468,70 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 </button>
               </li>
             ))}
+            <li>
+              <button
+                className={
+                  "wizard__pick-item" + (backgroundId === CUSTOM_BACKGROUND_ID ? " wizard__pick-item--active" : "")
+                }
+                onClick={() => setBackgroundId(CUSTOM_BACKGROUND_ID)}
+              >
+                Своя предыстория
+              </button>
+            </li>
           </ul>
           <div className="wizard__pick-detail">
-            {background ? (
+            {backgroundId === CUSTOM_BACKGROUND_ID ? (
+              <div className="wizard__custom-background">
+                <input
+                  placeholder="Название предыстории"
+                  value={customBackground.title}
+                  onChange={(e) =>
+                    setCustomBackground((prev) => ({ ...prev, title: e.currentTarget.value }))
+                  }
+                />
+                <p className="wizard__hint">Навыки (до 2):</p>
+                <div className="wizard__skill-grid">
+                  {ALL_SKILLS.map((skill) => (
+                    <label key={skill} className="wizard__equipment-option">
+                      <input
+                        type="checkbox"
+                        checked={customBackground.skillProficiencies.includes(skill)}
+                        onChange={() => toggleCustomBackgroundSkill(skill)}
+                      />
+                      {skill}
+                    </label>
+                  ))}
+                </div>
+                <input
+                  placeholder="Снаряжение (через запятую)"
+                  value={customBackground.equipment}
+                  onChange={(e) =>
+                    setCustomBackground((prev) => ({ ...prev, equipment: e.currentTarget.value }))
+                  }
+                />
+                <label>
+                  Золото:{" "}
+                  <input
+                    type="number"
+                    min={0}
+                    value={customBackground.gold}
+                    onChange={(e) =>
+                      setCustomBackground((prev) => ({
+                        ...prev,
+                        gold: Number(e.currentTarget.value) || 0,
+                      }))
+                    }
+                  />
+                </label>
+                <textarea
+                  placeholder="Особенность предыстории"
+                  value={customBackground.feature}
+                  onChange={(e) =>
+                    setCustomBackground((prev) => ({ ...prev, feature: e.currentTarget.value }))
+                  }
+                />
+              </div>
+            ) : background ? (
               <>
                 <h3 className="rule-block__heading">{background.title}</h3>
                 <p>
@@ -402,8 +542,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 </p>
                 <p>{background.feature}</p>
                 <p className="wizard__hint">
-                  SRD 5.1 целиком включает только одну предысторию — остальные из Книги игрока в открытый
-                  документ не входят.
+                  SRD 5.1 целиком включает только одну готовую предысторию — остальные из Книги игрока в
+                  открытый документ не входят. Свою предысторию можно завести через «Своя предыстория» слева.
                 </p>
               </>
             ) : (
@@ -503,21 +643,57 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           {!classEquipment && (
             <p className="wizard__hint">Для класса «{klass?.title}» снаряжение ещё не занесено.</p>
           )}
-          {classEquipment?.map((slotDef, i) => (
-            <div key={i} className="wizard__equipment-slot">
-              {slotDef.options.map((opt, optIdx) => (
-                <label key={optIdx} className="wizard__equipment-option">
-                  <input
-                    type="radio"
-                    name={`equip-slot-${i}`}
-                    checked={(equipmentChoice[i] ?? 0) === optIdx}
-                    onChange={() => setEquipmentChoice((prev) => ({ ...prev, [i]: optIdx }))}
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-          ))}
+          {classEquipment?.map((slotDef, i) => {
+            const selectedOpt = slotDef.options[equipmentChoice[i] ?? 0];
+            return (
+              <div key={i} className="wizard__equipment-slot">
+                {slotDef.options.map((opt, optIdx) => (
+                  <label key={optIdx} className="wizard__equipment-option">
+                    <input
+                      type="radio"
+                      name={`equip-slot-${i}`}
+                      checked={(equipmentChoice[i] ?? 0) === optIdx}
+                      onChange={() => setEquipmentChoice((prev) => ({ ...prev, [i]: optIdx }))}
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+                {selectedOpt?.items.map((item, itemIndex) => {
+                  const choice = weaponChoiceFor(item);
+                  if (!choice) return null;
+                  const weaponOptions = weaponsInCategory(choice.categories);
+                  const key = `${i}:${itemIndex}`;
+                  const picks = weaponPicks[key] ?? [];
+                  return (
+                    <div key={itemIndex} className="wizard__weapon-choice">
+                      {Array.from({ length: choice.count }).map((_, pickIdx) => (
+                        <select
+                          key={pickIdx}
+                          className="wizard__weapon-select"
+                          value={picks[pickIdx] ?? weaponOptions[0]?.name ?? ""}
+                          onChange={(e) => {
+                            const value = e.currentTarget.value;
+                            setWeaponPicks((prev) => {
+                              const nextPicks = [...(prev[key] ?? [])];
+                              nextPicks[pickIdx] = value;
+                              return { ...prev, [key]: nextPicks };
+                            });
+                          }}
+                        >
+                          {weaponOptions.map((w) => (
+                            <option key={w.name} value={w.name}>
+                              {w.name} ({w.damage}
+                              {w.properties && w.properties !== "—" ? `, ${w.properties}` : ""})
+                            </option>
+                          ))}
+                        </select>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
           {background && (
             <>
               <p className="wizard__hint">Из предыстории «{background.title}» (без выбора):</p>
@@ -546,8 +722,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Предыстория: {background?.title ?? "не выбрана"}</li>
             <li>
               HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution))} · КД:{" "}
-              {10 + abilityMod(totalAbilities.dexterity)} (безоружный, без брони) · Золото:{" "}
-              {background?.gold ?? 0} зм
+              {10 + initiative} (безоружный, без брони) · Золото: {background?.gold ?? 0} зм
+            </li>
+            <li>
+              Скорость: {speedFeet} фт · Инициатива: {fmtMod(initiative)} · Пассивная внимательность:{" "}
+              {passivePerception}
             </li>
             {ABILITY_LABELS.map(([key, label]) => (
               <li key={key}>

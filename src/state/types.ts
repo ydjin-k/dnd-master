@@ -25,6 +25,9 @@ export interface Character {
   maxHp: number;
   currentHp: number;
   armorClass: number;
+  speedFeet: number;
+  initiative: number;
+  passivePerception: number;
   conditions: string[];
   inventory: InventoryItem[];
   gold: number;

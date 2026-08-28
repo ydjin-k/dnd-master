@@ -141,6 +141,27 @@
   gap: 0.4em;
 }
 
+.wizard__custom-background {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.wizard__custom-background textarea {
+  min-height: 4em;
+  font-family: inherit;
+}
+
+.wizard__weapon-choice {
+  display: flex;
+  gap: 0.5em;
+  padding-left: 1.6em;
+}
+
+.wizard__weapon-select {
+  flex: 1;
+}
+
 .wizard__pointbuy-controls {
   display: flex;
   align-items: center;

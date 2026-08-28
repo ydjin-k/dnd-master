@@ -16,6 +16,9 @@ function newCharacter(name: string, race: string, klass: string, level: number):
     maxHp: 10,
     currentHp: 10,
     armorClass: 10,
+    speedFeet: 30,
+    initiative: 0,
+    passivePerception: 10,
     conditions: [],
     inventory: [],
     gold: 0,
@@ -25,7 +28,7 @@ function newCharacter(name: string, race: string, klass: string, level: number):
 }
 
 export function CharactersPage() {
-  const { state, addCharacter } = useCampaign();
+  const { state, addCharacter, removeCharacter } = useCampaign();
   const [name, setName] = useState("");
   const [race, setRace] = useState("");
   const [klass, setKlass] = useState("");
@@ -50,13 +53,28 @@ export function CharactersPage() {
       <ul className="characters-page__list">
         {state.characters.map((c) => (
           <li key={c.id} className="character-card">
-            <div className="character-card__name">{c.name}</div>
+            <div className="character-card__name">
+              {c.name}
+              <button
+                className="character-card__delete"
+                title="Удалить персонажа"
+                onClick={() => {
+                  if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
+                    removeCharacter(c.id);
+                  }
+                }}
+              >
+                ✕
+              </button>
+            </div>
             <div className="character-card__meta">
               {c.race || "раса не указана"} · {c.class || "класс не указан"}
               {c.background && <> · {c.background}</>} · ур. {c.level}
             </div>
             <div className="character-card__hp">
-              HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · {c.gold} зм
+              HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {c.speedFeet} фт · Иниц.{" "}
+              {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
+              {c.passivePerception} · {c.gold} зм
             </div>
             {c.savingThrowProficiencies.length > 0 && (
               <div className="character-card__prof">

@@ -23,6 +23,27 @@
   font-family: var(--dm-font-display);
   color: var(--dm-accent);
   font-size: 1.1em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.character-card__delete {
+  font-family: inherit;
+  font-size: 0.8em;
+  color: var(--dm-text-muted);
+  background: transparent;
+  border: 1px solid var(--dm-border);
+  border-radius: 4px;
+  line-height: 1;
+  padding: 0.2em 0.5em;
+  cursor: pointer;
+}
+
+.character-card__delete:hover {
+  color: var(--dm-accent);
+  border-color: var(--dm-accent);
 }
 
 .character-card__meta,

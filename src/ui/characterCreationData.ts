@@ -277,3 +277,89 @@ export const BACKGROUNDS: BackgroundData[] = [
       "Приют для верующих: вы и спутники можете рассчитывать на бесплатное исцеление и уход в храме вашей веры, скромный образ жизни обеспечен.",
   },
 ];
+
+export type WeaponCategory = "simple-melee" | "simple-ranged" | "martial-melee" | "martial-ranged";
+
+export interface WeaponData {
+  name: string;
+  category: WeaponCategory;
+  cost: string;
+  damage: string;
+  weight: string;
+  properties: string;
+}
+
+/**
+ * Таблица «Оружие» из SRD 5.1 (rules.json → equipment-weapons) — строки уже
+ * были готовыми данными в исходном документе, просто разложены по полям
+ * вместо одного текстового блока таблицы.
+ */
+export const WEAPONS: WeaponData[] = [
+  { name: "Боевой посох", category: "simple-melee", cost: "2 см", damage: "1к6 дробящий", weight: "4 фнт.", properties: "Универсальное (1к8)" },
+  { name: "Булава", category: "simple-melee", cost: "5 зм", damage: "1к6 дробящий", weight: "4 фнт.", properties: "—" },
+  { name: "Дубинка", category: "simple-melee", cost: "1 см", damage: "1к4 дробящее", weight: "2 фнт.", properties: "Лёгкое" },
+  { name: "Кинжал", category: "simple-melee", cost: "2 зм", damage: "1к4 колющий", weight: "1 фнт.", properties: "Лёгкое, метательное (дистанция 20/60), фехтовальное" },
+  { name: "Копье", category: "simple-melee", cost: "1 зм", damage: "1к6 колющий", weight: "3 фнт.", properties: "Метательное (дистанция 20/60), универсальное (1к8)" },
+  { name: "Лёгкий молот", category: "simple-melee", cost: "2 зм", damage: "1к4 дробящее", weight: "2 фнт.", properties: "Лёгкое, метательное (дистанция 20/60)" },
+  { name: "Метательное копье", category: "simple-melee", cost: "5 см", damage: "1к6 колющий", weight: "2 фнт.", properties: "Метательное (дистанция 30/120)" },
+  { name: "Палица", category: "simple-melee", cost: "2 см", damage: "1к8 дробящий", weight: "10 фнт.", properties: "Двуручное" },
+  { name: "Ручной топор", category: "simple-melee", cost: "5 зм", damage: "1к6 рубящий", weight: "2 фнт.", properties: "Лёгкое, метательное (дистанция 20/60)" },
+  { name: "Серп", category: "simple-melee", cost: "1 зм", damage: "1к4 рубящий", weight: "2 фнт.", properties: "Лёгкое" },
+
+  { name: "Арбалет, лёгкий", category: "simple-ranged", cost: "25 зм", damage: "1к8 колющий", weight: "5 фнт.", properties: "Боеприпас (дистанция 80/320), двуручное, перезарядка" },
+  { name: "Дротик", category: "simple-ranged", cost: "5 мм", damage: "1к4 колющий", weight: "1/4 фнт.", properties: "Метательное (дистанция 20/60), фехтовальное" },
+  { name: "Короткий лук", category: "simple-ranged", cost: "25 зм", damage: "1к6 колющий", weight: "2 фнт.", properties: "Боеприпас (дистанция 80/320), двуручное" },
+  { name: "Праща", category: "simple-ranged", cost: "1 см", damage: "1к4 дробящее", weight: "—", properties: "Боеприпас (дистанция 30/120)" },
+
+  { name: "Алебарда", category: "martial-melee", cost: "20 зм", damage: "1к10 рубящий", weight: "6 фнт.", properties: "Двуручное, досягаемость, тяжёлое" },
+  { name: "Боевая кирка", category: "martial-melee", cost: "5 зм", damage: "1к8 колющий", weight: "2 фнт.", properties: "—" },
+  { name: "Боевой молот", category: "martial-melee", cost: "15 зм", damage: "1к8 дробящий", weight: "2 фнт.", properties: "Универсальное (1к10)" },
+  { name: "Боевой топор", category: "martial-melee", cost: "10 зм", damage: "1к8 рубящий", weight: "4 фнт.", properties: "Универсальное (1к10)" },
+  { name: "Глефа", category: "martial-melee", cost: "20 зм", damage: "1к10 рубящий", weight: "6 фнт.", properties: "Двуручное, досягаемость, тяжёлое" },
+  { name: "Двуручный меч", category: "martial-melee", cost: "50 зм", damage: "2к6 рубящий", weight: "6 фнт.", properties: "Двуручное, тяжёлое" },
+  { name: "Длинное копьё", category: "martial-melee", cost: "10 зм", damage: "1к12 колющий", weight: "6 фнт.", properties: "Досягаемость, особое" },
+  { name: "Длинный меч", category: "martial-melee", cost: "15 зм", damage: "1к8 рубящий", weight: "3 фнт.", properties: "Универсальное (1к10)" },
+  { name: "Кнут", category: "martial-melee", cost: "2 зм", damage: "1к4 рубящий", weight: "3 фнт.", properties: "Досягаемость, фехтовальное" },
+  { name: "Короткий меч", category: "martial-melee", cost: "10 зм", damage: "1к6 колющий", weight: "2 фнт.", properties: "Лёгкое, фехтовальное" },
+  { name: "Кувалда", category: "martial-melee", cost: "10 зм", damage: "2к6 дробящий", weight: "10 фнт.", properties: "Двуручное, тяжёлое" },
+  { name: "Моргенштерн", category: "martial-melee", cost: "15 зм", damage: "1к8 колющий", weight: "4 фнт.", properties: "—" },
+  { name: "Пика", category: "martial-melee", cost: "5 зм", damage: "1к10 колющий", weight: "18 фнт.", properties: "Двуручное, досягаемость, тяжёлое" },
+  { name: "Рапира", category: "martial-melee", cost: "25 зм", damage: "1к8 колющий", weight: "2 фнт.", properties: "Фехтовальное" },
+  { name: "Секира", category: "martial-melee", cost: "30 зм", damage: "1к12 рубящий", weight: "7 фнт.", properties: "Двуручное, тяжёлое" },
+  { name: "Скимитар", category: "martial-melee", cost: "25 зм", damage: "1к6 рубящий", weight: "3 фнт.", properties: "Лёгкое, фехтовальное" },
+  { name: "Трезубец", category: "martial-melee", cost: "5 зм", damage: "1к6 колющий", weight: "4 фнт.", properties: "Метательное (дистанция 20/60), универсальное (1к8)" },
+  { name: "Цеп", category: "martial-melee", cost: "10 зм", damage: "1к8 дробящий", weight: "2 фнт.", properties: "—" },
+
+  { name: "Арбалет, ручной", category: "martial-ranged", cost: "75 зм", damage: "1к6 колющий", weight: "3 фнт.", properties: "Боеприпас (дистанция 30/120), лёгкое, перезарядка" },
+  { name: "Арбалет, тяжёлый", category: "martial-ranged", cost: "50 зм", damage: "1к10 колющий", weight: "18 фнт.", properties: "Боеприпас (дистанция 100/400), двуручное, перезарядка, тяжёлое" },
+  { name: "Длинный лук", category: "martial-ranged", cost: "50 зм", damage: "1к8 колющий", weight: "2 фнт.", properties: "Боеприпас (дистанция 150/600), двуручное, тяжёлое" },
+  { name: "Духовая трубка", category: "martial-ranged", cost: "10 зм", damage: "1 колющий", weight: "1 фнт.", properties: "Боеприпас (дистанция 25/100), перезарядка" },
+  { name: "Сеть", category: "martial-ranged", cost: "1 зм", damage: "—", weight: "3 фнт.", properties: "Метательное (дистанция 5/15), особое" },
+];
+
+interface WeaponChoicePattern {
+  pattern: RegExp;
+  categories: WeaponCategory[];
+  count: number;
+}
+
+/**
+ * Плейсхолдеры вида «Простое оружие (на выбор)» в CLASS_EQUIPMENT выше —
+ * узнаём их по точному тексту (см. список мест использования) и разворачиваем
+ * в реальный выбор из WEAPONS нужной категории.
+ */
+const WEAPON_CHOICE_PATTERNS: WeaponChoicePattern[] = [
+  { pattern: /^Воинское оружие ближнего боя \(на выбор\)$/, categories: ["martial-melee"], count: 1 },
+  { pattern: /^Воинское оружие \(на выбор\) ×2$/, categories: ["martial-melee", "martial-ranged"], count: 2 },
+  { pattern: /^Воинское оружие \(на выбор\)$/, categories: ["martial-melee", "martial-ranged"], count: 1 },
+  { pattern: /^Простое оружие ближнего боя \(на выбор\)$/, categories: ["simple-melee"], count: 1 },
+  { pattern: /^Простое оружие \(на выбор\)$/, categories: ["simple-melee", "simple-ranged"], count: 1 },
+];
+
+export function weaponChoiceFor(item: string): WeaponChoicePattern | undefined {
+  return WEAPON_CHOICE_PATTERNS.find((p) => p.pattern.test(item));
+}
+
+export function weaponsInCategory(categories: WeaponCategory[]): WeaponData[] {
+  return WEAPONS.filter((w) => categories.includes(w.category));
+}

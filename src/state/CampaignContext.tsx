@@ -19,6 +19,7 @@ interface CampaignContextValue {
   loading: boolean;
   error: string | null;
   addCharacter: (character: Character) => Promise<void>;
+  removeCharacter: (id: string) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
   startAdventure: () => Promise<void>;
@@ -62,6 +63,13 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const addCharacter = useCallback(
     async (character: Character) => {
       await persist({ ...state, characters: [...state.characters, character] });
+    },
+    [state, persist],
+  );
+
+  const removeCharacter = useCallback(
+    async (id: string) => {
+      await persist({ ...state, characters: state.characters.filter((c) => c.id !== id) });
     },
     [state, persist],
   );
@@ -156,6 +164,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         loading,
         error,
         addCharacter,
+        removeCharacter,
         addJournalEntry,
         setCampaignName,
         startAdventure,
