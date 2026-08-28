@@ -98,7 +98,7 @@ fn migrate_legacy_if_needed(base: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut state = read_campaign_file(&legacy_path).unwrap_or_default();
+    let mut state = read_campaign_file(&legacy_path)?;
     let id = generate_id();
     state.id = id.clone();
     if state.campaign_name.trim().is_empty() {
@@ -335,6 +335,23 @@ mod tests {
 
         // Повторная миграция не создаёт вторую кампанию из того же старого файла.
         assert_eq!(list_campaigns_in(&base).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn corrupted_legacy_file_fails_migration_without_touching_it() {
+        let base = temp_dir("legacy-corrupt");
+        fs::write(base.join(LEGACY_FILE), "это не json").unwrap();
+
+        let result = load_active_in(&base);
+        assert!(
+            result.is_err(),
+            "повреждённый campaign.json должен вернуть ошибку, а не пустую кампанию"
+        );
+        assert!(
+            base.join(LEGACY_FILE).exists(),
+            "оригинальный campaign.json не должен быть тронут при неудачной миграции"
+        );
+        assert!(!base.join("campaign.json.migrated").exists());
     }
 
     #[test]
