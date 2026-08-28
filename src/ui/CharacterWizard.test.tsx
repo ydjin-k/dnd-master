@@ -52,6 +52,76 @@ describe("CharacterWizard", () => {
     expect(screen.getByText("Далее")).toBeInTheDocument();
   });
 
+  it("typing in the custom background fields (including gold) does not crash the tree", async () => {
+    // Regression test: the custom-background inputs read e.currentTarget.value
+    // *inside* the setCustomBackground updater callback — same bug class as
+    // above, reintroduced when custom backgrounds were added.
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Своя предыстория"));
+    const titleInput = await screen.findByPlaceholderText("Название предыстории");
+    fireEvent.change(titleInput, { target: { value: "Бродяга" } });
+    await waitFor(() => expect((titleInput as HTMLInputElement).value).toBe("Бродяга"));
+
+    const equipmentInput = screen.getByPlaceholderText("Снаряжение (через запятую)");
+    fireEvent.change(equipmentInput, { target: { value: "Верёвка, Фонарь" } });
+    await waitFor(() => expect((equipmentInput as HTMLInputElement).value).toBe("Верёвка, Фонарь"));
+
+    const goldInput = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(goldInput, { target: { value: "25" } });
+    await waitFor(() => expect(goldInput.value).toBe("25"));
+
+    const featureInput = screen.getByPlaceholderText("Особенность предыстории");
+    fireEvent.change(featureInput, { target: { value: "Знает все закоулки города" } });
+    await waitFor(() => expect((featureInput as HTMLTextAreaElement).value).toBe("Знает все закоулки города"));
+
+    // A crash unmounts everything; the step navigation must still be present.
+    expect(screen.getByText("Далее")).toBeInTheDocument();
+  });
+
+  it("carries a custom background (title/gold/equipment) through to the finished character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Своя предыстория"));
+    fireEvent.change(await screen.findByPlaceholderText("Название предыстории"), {
+      target: { value: "Бродяга" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Снаряжение (через запятую)"), {
+      target: { value: "Верёвка, Фонарь" },
+    });
+    fireEvent.change(document.querySelector('input[type="number"]') as HTMLInputElement, {
+      target: { value: "25" },
+    });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Тестовый Бродяга" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.background).toBe("Бродяга");
+    expect(character.gold).toBe(25);
+    expect(character.inventory.map((i) => i.name)).toEqual(
+      expect.arrayContaining(["Верёвка", "Фонарь"]),
+    );
+  });
+
   it("carries class saving throws/skills and background skills/equipment through to the finished character", async () => {
     addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);

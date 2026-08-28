@@ -485,9 +485,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 <input
                   placeholder="Название предыстории"
                   value={customBackground.title}
-                  onChange={(e) =>
-                    setCustomBackground((prev) => ({ ...prev, title: e.currentTarget.value }))
-                  }
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    setCustomBackground((prev) => ({ ...prev, title: value }));
+                  }}
                 />
                 <p className="wizard__hint">Навыки (до 2):</p>
                 <div className="wizard__skill-grid">
@@ -505,9 +506,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 <input
                   placeholder="Снаряжение (через запятую)"
                   value={customBackground.equipment}
-                  onChange={(e) =>
-                    setCustomBackground((prev) => ({ ...prev, equipment: e.currentTarget.value }))
-                  }
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    setCustomBackground((prev) => ({ ...prev, equipment: value }));
+                  }}
                 />
                 <label>
                   Золото:{" "}
@@ -515,20 +517,19 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     type="number"
                     min={0}
                     value={customBackground.gold}
-                    onChange={(e) =>
-                      setCustomBackground((prev) => ({
-                        ...prev,
-                        gold: Number(e.currentTarget.value) || 0,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const value = Number(e.currentTarget.value) || 0;
+                      setCustomBackground((prev) => ({ ...prev, gold: value }));
+                    }}
                   />
                 </label>
                 <textarea
                   placeholder="Особенность предыстории"
                   value={customBackground.feature}
-                  onChange={(e) =>
-                    setCustomBackground((prev) => ({ ...prev, feature: e.currentTarget.value }))
-                  }
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    setCustomBackground((prev) => ({ ...prev, feature: value }));
+                  }}
                 />
               </div>
             ) : background ? (
