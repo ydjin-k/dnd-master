@@ -33,6 +33,7 @@
     ],
     "resources": {
       "models/*": "models/",
+      "pdfium/*": "pdfium/",
       "rules/*": "rules/"
     }
   }

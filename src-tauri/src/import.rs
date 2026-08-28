@@ -1,7 +1,9 @@
 use std::path::Path;
+use std::sync::OnceLock;
 
 use image::DynamicImage;
 use ocrs::{DimOrder, ImageSource, OcrEngine, OcrEngineParams};
+use pdfium_render::prelude::Pdfium;
 use rten::Model;
 use rten_tensor::prelude::*;
 use rten_tensor::NdTensor;
@@ -80,8 +82,70 @@ pub fn extract_text_from_image(app: &AppHandle, path: &str) -> Result<String, St
     )
 }
 
-pub fn extract_text_from_pdf(path: &str) -> Result<String, String> {
-    pdf_extract::extract_text(path).map_err(|e| format!("не удалось прочитать PDF {path:?}: {e}"))
+/// Как и models_dir() для OCR: в dev-сборке библиотека читается прямо из
+/// src-tauri/pdfium (скачана fetch-pdfium.sh), в установленном приложении —
+/// из каталога ресурсов установщика (см. tauri.conf.json `bundle.resources`).
+fn pdfium_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    if cfg!(debug_assertions) {
+        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("pdfium"));
+    }
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("не найден каталог ресурсов приложения: {e}"))?;
+    Ok(resource_dir.join("pdfium"))
+}
+
+/// Pdfium::new() паникует, если вызвать её дважды в одном процессе (глобальные
+/// биндинги можно установить только один раз) — OnceLock::get_or_init
+/// гарантирует ровно один вызов даже при параллельных импортах.
+fn pdfium_instance(pdfium_dir: &Path) -> Result<&'static Pdfium, String> {
+    static PDFIUM: OnceLock<Result<Pdfium, String>> = OnceLock::new();
+    PDFIUM
+        .get_or_init(|| {
+            let bindings =
+                Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(pdfium_dir))
+                    .map_err(|e| {
+                        format!("не удалось загрузить библиотеку PDFium из {pdfium_dir:?}: {e}")
+                    })?;
+            Ok(Pdfium::new(bindings))
+        })
+        .as_ref()
+        .map_err(|e| e.clone())
+}
+
+/// Ядро без Tauri — так это можно проверить юнит-тестом без запуска приложения
+/// (как extract_text_from_image_with_models() для OCR выше).
+///
+/// pdf_extract (использовался раньше) не восстанавливает порядок чтения в
+/// сложных многоколоночных макетах — на заполняемых листах персонажа D&D
+/// (сами по себе AcroForm-таблицы) значения полей перемешивались с чужими
+/// подписями. PDFium — движок Chromium, тот же, что стоит за «выделить всё» в
+/// PDF-просмотрщике браузера — восстанавливает порядок чтения намного лучше
+/// (хотя сам API честно предупреждает, что для нестандартных макетов порядок
+/// в документе и порядок чтения глазами всё ещё могут не совпадать).
+pub fn extract_text_from_pdf_with_library_dir(
+    path: &str,
+    pdfium_dir: &Path,
+) -> Result<String, String> {
+    let pdfium = pdfium_instance(pdfium_dir)?;
+    let document = pdfium
+        .load_pdf_from_file(path, None)
+        .map_err(|e| format!("не удалось открыть PDF {path:?}: {e}"))?;
+
+    let mut out = String::new();
+    for page in document.pages().iter() {
+        let text = page
+            .text()
+            .map_err(|e| format!("не удалось извлечь текст страницы: {e}"))?;
+        out.push_str(&text.all());
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+pub fn extract_text_from_pdf(app: &AppHandle, path: &str) -> Result<String, String> {
+    extract_text_from_pdf_with_library_dir(path, &pdfium_dir(app)?)
 }
 
 pub fn extract_text_from_docx(path: &str) -> Result<String, String> {
@@ -160,5 +224,28 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn extracts_pdf_text_in_visual_reading_order_not_source_order() {
+        // Фикстура сгенерирована headless-Chromium'ом (msedge --print-to-pdf) из HTML,
+        // где div со «значением» идёт в исходнике ПЕРВЫМ, но абсолютно спозиционирован
+        // ПРАВЕЕ подписи на той же строке — ровно так же, как в реальных заполняемых
+        // листах персонажа перепутывались подпись поля и его значение (см. коммит с
+        // диагнозом бага pdf_extract). PDFium восстанавливает порядок чтения по
+        // положению на странице, а не по порядку объявления в PDF-потоке.
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let pdfium_dir = manifest_dir.join("pdfium");
+        let pdf = manifest_dir.join("tests/fixtures/layout-order-sample.pdf");
+
+        let text = extract_text_from_pdf_with_library_dir(pdf.to_str().unwrap(), &pdfium_dir)
+            .expect("PDFium должен прочитать фикстуру без ошибок");
+
+        let label_pos = text.find("ПОДПИСЬ").expect("подпись должна быть в тексте");
+        let value_pos = text.find("СЕКРЕТНОЕ").expect("значение должно быть в тексте");
+        assert!(
+            label_pos < value_pos,
+            "подпись должна идти раньше значения (порядок чтения), получил: {text:?}"
+        );
     }
 }

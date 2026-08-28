@@ -50,3 +50,9 @@ dist-ssr
 # Скачиваются src-tauri/models/fetch-models.sh (часть INSTALL_CMD), не в git —
 # ~12 МБ бинарников, публично доступны по стабильному URL.
 /src-tauri/models/*.rten
+
+# ── нативная библиотека PDFium ───────────────────────────────────────────────
+# Скачивается src-tauri/pdfium/fetch-pdfium.sh (часть INSTALL_CMD), не в git —
+# ~7 МБ бинарник + лицензия, публично доступны по стабильному URL релиза.
+/src-tauri/pdfium/pdfium.dll
+/src-tauri/pdfium/PDFIUM-LICENSE

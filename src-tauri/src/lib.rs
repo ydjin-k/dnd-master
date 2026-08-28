@@ -143,7 +143,7 @@ fn import_character_sheet(app: AppHandle, path: String) -> Result<String, String
         .unwrap_or_default();
 
     match ext.as_str() {
-        "pdf" => import::extract_text_from_pdf(&path),
+        "pdf" => import::extract_text_from_pdf(&app, &path),
         "docx" => import::extract_text_from_docx(&path),
         "txt" => import::extract_text_from_txt(&path),
         "png" | "jpg" | "jpeg" | "bmp" | "webp" => import::extract_text_from_image(&app, &path),
