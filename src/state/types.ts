@@ -21,6 +21,8 @@ export interface Character {
   class: string;
   background: string;
   alignment: string;
+  gender: string;
+  age: number;
   languages: string[];
   level: number;
   abilities: AbilityScores;

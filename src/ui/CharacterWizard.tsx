@@ -23,6 +23,7 @@ import {
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   DWARF_TOOL_CHOICES,
   FIGHTER_FIGHTING_STYLES,
+  NAME_SUGGESTIONS,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
@@ -107,6 +108,9 @@ const RACE_SPEED_FEET: Record<string, number> = {
 
 const PROFICIENCY_BONUS_LEVEL_1 = 2;
 
+// Ровно два варианта — владелец продукта явно попросил не добавлять третий.
+const GENDERS = ["Мужской", "Женский"] as const;
+
 function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2);
 }
@@ -161,6 +165,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [manual, setManual] = useState<AbilityScores>(emptyAbilityScores());
   const [choiceBonusKeys, setChoiceBonusKeys] = useState<AbilityKey[]>([]);
   const [name, setName] = useState("");
+  const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
+  const [gender, setGender] = useState<(typeof GENDERS)[number]>(GENDERS[0]);
+  const [age, setAge] = useState(0);
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -239,6 +246,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       ...prev,
       equipment: prev.equipment.filter((_, i) => i !== index),
     }));
+  }
+
+  /** Реролл никогда не повторяет последний предложенный вариант (если в списке > 1 имени). */
+  function suggestName() {
+    const list = (raceId && NAME_SUGGESTIONS[raceId]) || NAME_SUGGESTIONS.general;
+    const pool = list.length > 1 ? list.filter((n) => n !== lastSuggestedName) : list;
+    const suggestion = pool[Math.floor(Math.random() * pool.length)];
+    setLastSuggestedName(suggestion);
+    setName(suggestion);
   }
 
   function selectRace(id: string) {
@@ -409,6 +425,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       class: klass?.title ?? "",
       background: background?.title ?? "",
       alignment,
+      gender,
+      age,
       languages: finalLanguages,
       level: 1,
       abilities: totalAbilities,
@@ -971,12 +989,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
       {step === "review" && (
         <div className="wizard__review">
-          <input
-            className="wizard__name-input"
-            placeholder="Имя персонажа"
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-          />
+          <div className="wizard__name-row">
+            <input
+              className="wizard__name-input"
+              placeholder="Имя персонажа"
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+            <button type="button" className="wizard__suggest-name" onClick={suggestName}>
+              🎲 Предложить имя
+            </button>
+          </div>
           <label className="wizard__hint">
             Мировоззрение:{" "}
             <select value={alignment} onChange={(e) => setAlignment(e.currentTarget.value)}>
@@ -988,6 +1011,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             </select>
           </label>
           {alignment && <p className="wizard__hint">{ALIGNMENT_DESCRIPTIONS[alignment]}</p>}
+          <label className="wizard__hint">
+            Пол:{" "}
+            <select value={gender} onChange={(e) => setGender(e.currentTarget.value as (typeof GENDERS)[number])}>
+              {GENDERS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="wizard__hint">
+            Возраст:{" "}
+            <input
+              type="number"
+              value={age === 0 ? "" : age}
+              onChange={(e) => {
+                const raw = e.currentTarget.value;
+                const value = raw === "" ? 0 : Number(raw) || 0;
+                setAge(value);
+              }}
+            />
+          </label>
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>

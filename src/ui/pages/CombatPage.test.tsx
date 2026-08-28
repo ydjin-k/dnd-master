@@ -26,6 +26,8 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         class: "",
         background: "",
         alignment: "",
+        gender: "",
+        age: 0,
         languages: [],
         level: 1,
         abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },

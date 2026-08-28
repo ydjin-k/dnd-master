@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
+import { NAME_SUGGESTIONS } from "./characterCreationData";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
@@ -517,5 +518,61 @@ describe("CharacterWizard", () => {
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Избранный враг: Драконы/)).toBeInTheDocument();
     expect(screen.getByText(/Известная местность: Горы/)).toBeInTheDocument();
+  });
+
+  it("suggests a name from the selected race's list, and rerolling gives a different one", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дварф"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    const nameInput = (await screen.findByPlaceholderText("Имя персонажа")) as HTMLInputElement;
+    const suggestButton = screen.getByText("🎲 Предложить имя");
+
+    fireEvent.click(suggestButton);
+    const first = nameInput.value;
+    expect(NAME_SUGGESTIONS["races-dwarf"]).toContain(first);
+
+    fireEvent.click(suggestButton);
+    const second = nameInput.value;
+    expect(NAME_SUGGESTIONS["races-dwarf"]).toContain(second);
+    expect(second).not.toBe(first);
+
+    // The field stays a normal, freely editable input after the suggestion.
+    fireEvent.change(nameInput, { target: { value: "Своё Имя" } });
+    await waitFor(() => expect(nameInput.value).toBe("Своё Имя"));
+  });
+
+  it("carries gender and age chosen on the review step into the finished character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Возрастной Герой" },
+    });
+    fireEvent.change(screen.getByDisplayValue("Мужской"), { target: { value: "Женский" } });
+    const ageInput = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(ageInput, { target: { value: "134" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.gender).toBe("Женский");
+    expect(character.age).toBe(134);
   });
 });
