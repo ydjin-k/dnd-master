@@ -23,6 +23,7 @@ import {
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   DWARF_TOOL_CHOICES,
   FIGHTER_FIGHTING_STYLES,
+  NAME_SUGGESTIONS,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
@@ -161,6 +162,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [manual, setManual] = useState<AbilityScores>(emptyAbilityScores());
   const [choiceBonusKeys, setChoiceBonusKeys] = useState<AbilityKey[]>([]);
   const [name, setName] = useState("");
+  const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -239,6 +241,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       ...prev,
       equipment: prev.equipment.filter((_, i) => i !== index),
     }));
+  }
+
+  /** Реролл никогда не повторяет последний предложенный вариант (если в списке > 1 имени). */
+  function suggestName() {
+    const list = (raceId && NAME_SUGGESTIONS[raceId]) || NAME_SUGGESTIONS.general;
+    const pool = list.length > 1 ? list.filter((n) => n !== lastSuggestedName) : list;
+    const suggestion = pool[Math.floor(Math.random() * pool.length)];
+    setLastSuggestedName(suggestion);
+    setName(suggestion);
   }
 
   function selectRace(id: string) {
@@ -971,12 +982,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
       {step === "review" && (
         <div className="wizard__review">
-          <input
-            className="wizard__name-input"
-            placeholder="Имя персонажа"
-            value={name}
-            onChange={(e) => setName(e.currentTarget.value)}
-          />
+          <div className="wizard__name-row">
+            <input
+              className="wizard__name-input"
+              placeholder="Имя персонажа"
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+            <button type="button" className="wizard__suggest-name" onClick={suggestName}>
+              🎲 Предложить имя
+            </button>
+          </div>
           <label className="wizard__hint">
             Мировоззрение:{" "}
             <select value={alignment} onChange={(e) => setAlignment(e.currentTarget.value)}>
