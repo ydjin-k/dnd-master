@@ -29,6 +29,8 @@ pub struct Character {
     pub class: String,
     pub background: String,
     pub alignment: String,
+    pub gender: String,
+    pub age: u32,
     pub languages: Vec<String>,
     pub level: u32,
     pub abilities: AbilityScores,
@@ -146,5 +148,7 @@ mod tests {
         assert_eq!(character.background, "");
         assert!(character.saving_throw_proficiencies.is_empty());
         assert!(character.skill_proficiencies.is_empty());
+        assert_eq!(character.gender, "");
+        assert_eq!(character.age, 0);
     }
 }

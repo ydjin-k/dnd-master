@@ -108,6 +108,9 @@ const RACE_SPEED_FEET: Record<string, number> = {
 
 const PROFICIENCY_BONUS_LEVEL_1 = 2;
 
+// Ровно два варианта — владелец продукта явно попросил не добавлять третий.
+const GENDERS = ["Мужской", "Женский"] as const;
+
 function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2);
 }
@@ -163,6 +166,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [choiceBonusKeys, setChoiceBonusKeys] = useState<AbilityKey[]>([]);
   const [name, setName] = useState("");
   const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
+  const [gender, setGender] = useState<(typeof GENDERS)[number]>(GENDERS[0]);
+  const [age, setAge] = useState(0);
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -420,6 +425,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       class: klass?.title ?? "",
       background: background?.title ?? "",
       alignment,
+      gender,
+      age,
       languages: finalLanguages,
       level: 1,
       abilities: totalAbilities,
@@ -1004,6 +1011,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             </select>
           </label>
           {alignment && <p className="wizard__hint">{ALIGNMENT_DESCRIPTIONS[alignment]}</p>}
+          <label className="wizard__hint">
+            Пол:{" "}
+            <select value={gender} onChange={(e) => setGender(e.currentTarget.value as (typeof GENDERS)[number])}>
+              {GENDERS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="wizard__hint">
+            Возраст:{" "}
+            <input
+              type="number"
+              value={age === 0 ? "" : age}
+              onChange={(e) => {
+                const raw = e.currentTarget.value;
+                const value = raw === "" ? 0 : Number(raw) || 0;
+                setAge(value);
+              }}
+            />
+          </label>
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>

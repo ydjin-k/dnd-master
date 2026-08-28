@@ -66,6 +66,8 @@ function CharacterCard({
         {c.race || "раса не указана"} · {c.class || "класс не указан"}
         {c.background && <> · {c.background}</>} · ур. {c.level}
         {c.alignment && <> · {c.alignment}</>}
+        {c.gender && <> · {c.gender}</>}
+        {c.age > 0 && <> · {c.age} л.</>}
       </div>
       <div className="character-card__hp">
         HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {c.speedFeet} фт · Иниц.{" "}

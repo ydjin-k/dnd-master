@@ -51,6 +51,8 @@ export function ImportPage() {
       class: "",
       background: "",
       alignment: "Нейтральный",
+      gender: "Мужской",
+      age: 30,
       languages: [],
       level: 1,
       abilities: emptyAbilityScores(),
