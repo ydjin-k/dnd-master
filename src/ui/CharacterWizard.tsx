@@ -161,6 +161,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [rangerTerrain, setRangerTerrain] = useState("");
   const [monkToolCategory, setMonkToolCategory] = useState<"craft" | "music">("craft");
   const [chosenMonkTool, setChosenMonkTool] = useState("");
+  const [bardInstruments, setBardInstruments] = useState<string[]>([]);
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
@@ -200,6 +201,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const fighterFightingStyles = classId === "classes-fighter" ? FIGHTER_FIGHTING_STYLES : [];
   const isRanger = classId === "classes-ranger";
   const isMonk = classId === "classes-monk";
+  const isBard = classId === "classes-bard";
   const monkToolOptions = monkToolCategory === "craft" ? ARTISAN_TOOLS : INSTRUMENTS;
   const finalMonkTool = isMonk ? chosenMonkTool || monkToolOptions[0]?.name : undefined;
   const finalDwarfTool = dwarfToolChoices.length > 0 ? chosenDwarfTool || dwarfToolChoices[0].name : undefined;
@@ -296,11 +298,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setRangerTerrain("");
     setMonkToolCategory("craft");
     setChosenMonkTool("");
+    setBardInstruments(id === "classes-bard" ? INSTRUMENTS.slice(0, 3).map((i) => i.name) : []);
   }
 
   function changeMonkToolCategory(category: "craft" | "music") {
     setMonkToolCategory(category);
     setChosenMonkTool("");
+  }
+
+  function setBardInstrumentAt(index: number, instrumentName: string) {
+    setBardInstruments((prev) => prev.map((v, i) => (i === index ? instrumentName : v)));
   }
 
   function toggleClassSkill(skill: string) {
@@ -707,6 +714,26 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                       </select>
                     </p>
                   </>
+                )}
+                {isBard && (
+                  <p className="wizard__hint">
+                    Владение музыкальными инструментами (3 на выбор, без повторов):{" "}
+                    {bardInstruments.map((chosen, index) => (
+                      <select
+                        key={index}
+                        value={chosen}
+                        onChange={(e) => setBardInstrumentAt(index, e.currentTarget.value)}
+                      >
+                        {INSTRUMENTS.filter((inst) => inst.name === chosen || !bardInstruments.includes(inst.name)).map(
+                          (inst) => (
+                            <option key={inst.name} value={inst.name}>
+                              {inst.name}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    ))}
+                  </p>
                 )}
                 {isMonk && (
                   <p className="wizard__hint">
@@ -1129,6 +1156,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             )}
             {isMonk && <li>Владение инструментами: {finalMonkTool}</li>}
+            {isBard && <li>Владение музыкальными инструментами: {bardInstruments.join(", ")}</li>}
             {spellAbility && (
               <li>
                 Заклинания: класс «{klass?.title}» владеет заклинаниями (заклинательная характеристика —{" "}

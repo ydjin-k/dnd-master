@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
-import { BACKGROUNDS, NAME_SUGGESTIONS } from "./characterCreationData";
+import { BACKGROUNDS, INSTRUMENTS, NAME_SUGGESTIONS } from "./characterCreationData";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
@@ -718,5 +718,40 @@ describe("CharacterWizard", () => {
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Владение инструментами: Лютня/)).toBeInTheDocument();
+  });
+
+  it("lets a Bard choose 3 distinct musical instrument proficiencies, shown on review", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Бард"));
+
+    const instrumentNames = INSTRUMENTS.map((i) => i.name);
+    const selects = Array.from(document.querySelectorAll("select")).filter((s) =>
+      instrumentNames.includes((s as HTMLSelectElement).value),
+    ) as HTMLSelectElement[];
+    expect(selects.length).toBe(3);
+    // Default picks are the first three instruments, already distinct.
+    expect(new Set(selects.map((s) => s.value)).size).toBe(3);
+
+    // Changing the first select to a value already used by another select is
+    // impossible — that option isn't offered there — so pick a free one.
+    const thirdSelectOptions = Array.from(selects[2].options).map((o) => o.value);
+    expect(thirdSelectOptions).not.toContain(selects[0].value);
+    expect(thirdSelectOptions).not.toContain(selects[1].value);
+
+    fireEvent.change(selects[0], { target: { value: "Лютня" } });
+    fireEvent.change(selects[1], { target: { value: "Лира" } });
+    fireEvent.change(selects[2], { target: { value: "Рожок" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Владение музыкальными инструментами: Лютня, Лира, Рожок/)).toBeInTheDocument();
   });
 });
