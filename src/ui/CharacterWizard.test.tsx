@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
 import { BACKGROUNDS, NAME_SUGGESTIONS } from "./characterCreationData";
@@ -640,5 +640,48 @@ describe("CharacterWizard", () => {
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.gender).toBe("Женский");
     expect(character.age).toBe(134);
+  });
+
+  it("АС on the review step tracks Dexterity for a Human, across all three ability-score methods (regression: owner saw AC stuck at 9)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Беспризорник"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    // Standard array, Dexterity = 8 (the value that reproduces the reported "9").
+    const dexSelect = () => document.querySelectorAll("table.wizard__ability-table select")[1] as HTMLSelectElement;
+    fireEvent.change(dexSelect(), { target: { value: "8" } });
+    await waitFor(() => expect(dexSelect().value).toBe("8"));
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 9\b/);
+
+    // Back to abilities, switch to point buy, raise Dexterity to 14.
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(await screen.findByLabelText(/Покупка очков/));
+    const dexPlusButton = () => {
+      const rows = document.querySelectorAll("table.wizard__ability-table tbody tr");
+      return within(rows[1] as HTMLElement).getByText("+");
+    };
+    for (let i = 0; i < 4; i++) fireEvent.click(dexPlusButton()); // 10 -> 14
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 12\b/);
+
+    // Back to abilities, switch to manual entry, set Dexterity to 18.
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    const manualDexInput = () => document.querySelectorAll('input[type="number"]')[1] as HTMLInputElement;
+    fireEvent.change(manualDexInput(), { target: { value: "18" } });
+    await waitFor(() => expect(manualDexInput().value).toBe("18"));
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 14\b/);
   });
 });
