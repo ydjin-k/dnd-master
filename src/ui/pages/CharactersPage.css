@@ -116,6 +116,20 @@
   flex: 1;
 }
 
+.character-card__spells {
+  margin-top: 0.4em;
+  font-size: 0.9em;
+}
+
+.character-card__spells summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+}
+
+.character-card__spell-group {
+  margin: 0.3em 0 0;
+}
+
 .characters-page__actions {
   display: flex;
   gap: 0.5em;

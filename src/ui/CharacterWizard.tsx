@@ -8,6 +8,7 @@ import {
   type Character,
   type InventoryItem,
   type RuleTopic,
+  type Spell,
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import {
@@ -22,6 +23,8 @@ import {
   CLASS_EQUIPMENT,
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
+  CLASS_SPELLCASTING_ABILITY_KEY,
+  CLASS_SPELL_PROGRESSION,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   DWARF_TOOL_CHOICES,
   FIGHTER_FIGHTING_STYLES,
@@ -141,6 +144,7 @@ function parseHitDie(classTopic: RuleTopic | undefined): number | null {
 export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const { addCharacter } = useCampaign();
   const [topics, setTopics] = useState<RuleTopic[]>([]);
+  const [spells, setSpells] = useState<Spell[]>([]);
   const [step, setStep] = useState<Step>("race");
   const [raceId, setRaceId] = useState<string | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
@@ -180,9 +184,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
   const [gender, setGender] = useState<(typeof GENDERS)[number]>(GENDERS[0]);
   const [age, setAge] = useState(0);
+  const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
+  const [knownSpells, setKnownSpells] = useState<string[]>([]);
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
+    invoke<Spell[]>("get_spells").then(setSpells);
   }, []);
 
   const races = useMemo(
@@ -331,6 +338,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setMonkToolCategory("craft");
     setChosenMonkTool("");
     setBardInstruments(id === "classes-bard" ? INSTRUMENTS.slice(0, 3).map((i) => i.name) : []);
+    setKnownCantrips([]);
+    setKnownSpells([]);
   }
 
   function changeMonkToolCategory(category: "craft" | "music") {
@@ -389,6 +398,35 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     wisdom: baseAbilities.wisdom + racialBonusFor("wisdom"),
     charisma: baseAbilities.charisma + racialBonusFor("charisma"),
   };
+
+  const spellProgression = classId ? CLASS_SPELL_PROGRESSION[classId] : undefined;
+  const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId)) : [];
+  const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && sp.classes.includes(classId)) : [];
+  const requiredCantrips = spellProgression?.cantripsKnown ?? 0;
+  // Волшебник/Друид/Жрец «подготавливают» заклинания: мод. заклинательной
+  // характеристики + уровень персонажа (всегда 1, см. решение отложить
+  // систему уровней), минимум одно — не фиксированное число из таблицы.
+  const requiredSpells =
+    spellProgression?.spellsKnownFixed ??
+    (classId && spellProgression
+      ? Math.max(1, abilityMod(totalAbilities[CLASS_SPELLCASTING_ABILITY_KEY[classId]]) + 1)
+      : 0);
+
+  function toggleCantrip(id: string) {
+    setKnownCantrips((prev) => {
+      if (prev.includes(id)) return prev.filter((c) => c !== id);
+      if (prev.length >= requiredCantrips) return prev;
+      return [...prev, id];
+    });
+  }
+
+  function toggleKnownSpell(id: string) {
+    setKnownSpells((prev) => {
+      if (prev.includes(id)) return prev.filter((s) => s !== id);
+      if (prev.length >= requiredSpells) return prev;
+      return [...prev, id];
+    });
+  }
 
   const pointsSpent = ABILITY_LABELS.reduce((sum, [key]) => sum + (POINT_BUY_COST[pointBuy[key]] ?? 0), 0);
   const usedStandardValues = new Set(Object.values(assignment));
@@ -470,6 +508,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   async function finish() {
     if (!name.trim()) return;
+    if (spellAbility && (knownCantrips.length !== requiredCantrips || knownSpells.length !== requiredSpells)) return;
     const conMod = abilityMod(totalAbilities.constitution);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod + raceHpBonus);
     const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
@@ -501,6 +540,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       gold: background?.gold ?? 0,
       savingThrowProficiencies: classProf?.savingThrowLabels ?? [],
       skillProficiencies: allSkillProficiencies,
+      knownCantrips: spellAbility ? knownCantrips : [],
+      knownSpells: spellAbility ? knownSpells : [],
+      spellSlotsLevel1Max: spellAbility ? (spellProgression?.spellSlotsLevel1 ?? 0) : 0,
+      spellSlotsLevel1Current: spellAbility ? (spellProgression?.spellSlotsLevel1 ?? 0) : 0,
     };
     await addCharacter(character);
     onDone();
@@ -1242,12 +1285,58 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             {spellAbility && (
               <li>
                 Заклинания: класс «{klass?.title}» владеет заклинаниями (заклинательная характеристика —{" "}
-                {spellAbility}). Списка заклинаний в приложении пока нет — заговоры и заклинания 1 уровня
-                выбираешь сам по книге.
+                {spellAbility}).
+                <div className="wizard__spell-picker">
+                  <p className="wizard__hint">
+                    Заговоры ({knownCantrips.length}/{requiredCantrips}):
+                  </p>
+                  <ul className="wizard__traits">
+                    {classCantrips.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={knownCantrips.includes(sp.id)}
+                            disabled={!knownCantrips.includes(sp.id) && knownCantrips.length >= requiredCantrips}
+                            onChange={() => toggleCantrip(sp.id)}
+                          />{" "}
+                          {sp.name}
+                        </label>
+                      </li>
+                    ))}
+                    {classCantrips.length === 0 && <li>Загрузка списка заговоров…</li>}
+                  </ul>
+                  <p className="wizard__hint">
+                    Заклинания 1 уровня ({knownSpells.length}/{requiredSpells}):
+                  </p>
+                  <ul className="wizard__traits">
+                    {classLevel1Spells.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={knownSpells.includes(sp.id)}
+                            disabled={!knownSpells.includes(sp.id) && knownSpells.length >= requiredSpells}
+                            onChange={() => toggleKnownSpell(sp.id)}
+                          />{" "}
+                          {sp.name}
+                        </label>
+                      </li>
+                    ))}
+                    {classLevel1Spells.length === 0 && <li>Загрузка списка заклинаний…</li>}
+                  </ul>
+                  <p className="wizard__hint">Ячейки заклинаний 1 уровня: {spellProgression?.spellSlotsLevel1 ?? 0}</p>
+                </div>
               </li>
             )}
           </ul>
-          <button disabled={!name.trim()} onClick={finish}>
+          <button
+            disabled={
+              !name.trim() ||
+              (!!spellAbility && (knownCantrips.length !== requiredCantrips || knownSpells.length !== requiredSpells))
+            }
+            onClick={finish}
+          >
             Создать персонажа
           </button>
         </div>

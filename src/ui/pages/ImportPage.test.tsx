@@ -74,4 +74,23 @@ describe("ImportPage", () => {
     expect(character.gender).not.toBe("");
     expect(character.age).toBeGreaterThan(0);
   });
+
+  it("defaults spellcasting fields (empty lists, zero slots) when saving an imported character, instead of leaving them unset", async () => {
+    addCharacter.mockClear();
+    openMock.mockResolvedValue("C:\\sheets\\hero.txt");
+    invoke.mockResolvedValue("Торин Железнобород\nКласс: Воин");
+
+    render(<ImportPage />);
+    fireEvent.click(screen.getByText("Выбрать файл"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    fireEvent.click(screen.getByText("Сохранить как персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.knownCantrips).toEqual([]);
+    expect(character.knownSpells).toEqual([]);
+    expect(character.spellSlotsLevel1Max).toBe(0);
+    expect(character.spellSlotsLevel1Current).toBe(0);
+  });
 });

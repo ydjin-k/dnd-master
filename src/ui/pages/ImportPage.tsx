@@ -74,6 +74,10 @@ export function ImportPage() {
       gold: 0,
       savingThrowProficiencies: [],
       skillProficiencies: [],
+      knownCantrips: [],
+      knownSpells: [],
+      spellSlotsLevel1Max: 0,
+      spellSlotsLevel1Current: 0,
     };
     await addCharacter(character);
     setSaved(true);

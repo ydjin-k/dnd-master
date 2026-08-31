@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
 import { CONDITIONS } from "../characterCreationData";
-import type { Character } from "../../state/types";
+import type { Character, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { ImportPage } from "./ImportPage";
 import "./CharactersPage.css";
@@ -10,10 +11,12 @@ type Panel = "none" | "import" | "wizard";
 
 function CharacterCard({
   character: c,
+  spells,
   onRemove,
   onUpdate,
 }: {
   character: Character;
+  spells: Spell[];
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -53,6 +56,16 @@ function CharacterCard({
   function removeCondition(condition: string) {
     onUpdate((ch) => ({ ...ch, conditions: ch.conditions.filter((cond) => cond !== condition) }));
   }
+
+  function spellName(id: string): string {
+    return spells.find((sp) => sp.id === id)?.name ?? id;
+  }
+
+  function restoreSpellSlots() {
+    onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: ch.spellSlotsLevel1Max }));
+  }
+
+  const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
 
   return (
     <li className="character-card">
@@ -148,6 +161,28 @@ function CharacterCard({
           </button>
         </div>
       </details>
+
+      {isSpellcaster && (
+        <details className="character-card__spells" open>
+          <summary>Заклинания</summary>
+          {c.knownCantrips.length > 0 && (
+            <div className="character-card__spell-group">
+              Заговоры: {c.knownCantrips.map(spellName).join(", ")}
+            </div>
+          )}
+          {c.knownSpells.length > 0 && (
+            <div className="character-card__spell-group">
+              Заклинания 1 уровня: {c.knownSpells.map(spellName).join(", ")}
+            </div>
+          )}
+          <div className="character-card__spell-group">
+            Ячейки 1 уровня: {c.spellSlotsLevel1Current}/{c.spellSlotsLevel1Max}{" "}
+            <button type="button" onClick={restoreSpellSlots} disabled={c.spellSlotsLevel1Current >= c.spellSlotsLevel1Max}>
+              Восстановить все ячейки
+            </button>
+          </div>
+        </details>
+      )}
     </li>
   );
 }
@@ -155,6 +190,11 @@ function CharacterCard({
 export function CharactersPage() {
   const { state, removeCharacter, updateCharacter } = useCampaign();
   const [panel, setPanel] = useState<Panel>("none");
+  const [spells, setSpells] = useState<Spell[]>([]);
+
+  useEffect(() => {
+    invoke<Spell[]>("get_spells").then(setSpells);
+  }, []);
 
   return (
     <div className="characters-page">
@@ -165,6 +205,7 @@ export function CharactersPage() {
           <CharacterCard
             key={c.id}
             character={c}
+            spells={spells}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);
