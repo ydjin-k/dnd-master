@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
-import { BACKGROUNDS, NAME_SUGGESTIONS } from "./characterCreationData";
+import { BACKGROUNDS, INSTRUMENTS, NAME_SUGGESTIONS } from "./characterCreationData";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
@@ -36,6 +36,13 @@ const topics: RuleTopic[] = [
     title: "Следопыт",
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к10 за уровень следопыта" }],
+  },
+  {
+    id: "classes-monk",
+    category: "classes",
+    title: "Монах",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень монаха" }],
   },
 ];
 
@@ -363,7 +370,9 @@ describe("CharacterWizard", () => {
 
     fireEvent.click(await screen.findByText("Воин"));
     fireEvent.click(screen.getByText("Далее"));
-    fireEvent.click(await screen.findByText("Послушник"));
+    // Criminal has no bonus language of its own (unlike e.g. Acolyte/Sage) —
+    // keeps this test focused on the race's language mechanism alone.
+    fireEvent.click(await screen.findByText("Преступник"));
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
@@ -640,5 +649,162 @@ describe("CharacterWizard", () => {
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.gender).toBe("Женский");
     expect(character.age).toBe(134);
+  });
+
+  it("АС on the review step tracks Dexterity for a Human, across all three ability-score methods (regression: owner saw AC stuck at 9)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Беспризорник"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    // Standard array, Dexterity = 8 (the value that reproduces the reported "9").
+    const dexSelect = () => document.querySelectorAll("table.wizard__ability-table select")[1] as HTMLSelectElement;
+    fireEvent.change(dexSelect(), { target: { value: "8" } });
+    await waitFor(() => expect(dexSelect().value).toBe("8"));
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 9\b/);
+
+    // Back to abilities, switch to point buy, raise Dexterity to 14.
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(await screen.findByLabelText(/Покупка очков/));
+    const dexPlusButton = () => {
+      const rows = document.querySelectorAll("table.wizard__ability-table tbody tr");
+      return within(rows[1] as HTMLElement).getByText("+");
+    };
+    for (let i = 0; i < 4; i++) fireEvent.click(dexPlusButton()); // 10 -> 14
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 12\b/);
+
+    // Back to abilities, switch to manual entry, set Dexterity to 18.
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(screen.getByText("Назад"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    const manualDexInput = () => document.querySelectorAll('input[type="number"]')[1] as HTMLInputElement;
+    fireEvent.change(manualDexInput(), { target: { value: "18" } });
+    await waitFor(() => expect(manualDexInput().value).toBe("18"));
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 14\b/);
+  });
+
+  it("lets a Monk choose one artisan's or musical instrument tool, reflected in the review text", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Монах"));
+
+    // Craft tool is the default category.
+    const toolSelect = await screen.findByDisplayValue(/^Инструменты алхимика /);
+    fireEvent.change(toolSelect, { target: { value: "Инструменты каменщика" } });
+
+    // Switch category to musical instrument.
+    fireEvent.change(screen.getByDisplayValue("Инструмент ремесленника"), {
+      target: { value: "music" },
+    });
+    const instrumentSelect = await screen.findByDisplayValue(/^Волынка /);
+    fireEvent.change(instrumentSelect, { target: { value: "Лютня" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Владение инструментами: Лютня/)).toBeInTheDocument();
+  });
+
+  it("lets a Bard choose 3 distinct musical instrument proficiencies, shown on review", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Бард"));
+
+    const instrumentNames = INSTRUMENTS.map((i) => i.name);
+    const selects = Array.from(document.querySelectorAll("select")).filter((s) =>
+      instrumentNames.includes((s as HTMLSelectElement).value),
+    ) as HTMLSelectElement[];
+    expect(selects.length).toBe(3);
+    // Default picks are the first three instruments, already distinct.
+    expect(new Set(selects.map((s) => s.value)).size).toBe(3);
+
+    // Changing the first select to a value already used by another select is
+    // impossible — that option isn't offered there — so pick a free one.
+    const thirdSelectOptions = Array.from(selects[2].options).map((o) => o.value);
+    expect(thirdSelectOptions).not.toContain(selects[0].value);
+    expect(thirdSelectOptions).not.toContain(selects[1].value);
+
+    fireEvent.change(selects[0], { target: { value: "Лютня" } });
+    fireEvent.change(selects[1], { target: { value: "Лира" } });
+    fireEvent.change(selects[2], { target: { value: "Рожок" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Владение музыкальными инструментами: Лютня, Лира, Рожок/)).toBeInTheDocument();
+  });
+
+  it("lets a Sage pick 2 bonus languages, distinct from the race's, ending up in the finished character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    // Human's own bonus language — pick Гномий, so we can prove the two
+    // background language slots avoid it and each other.
+    fireEvent.change(await screen.findByDisplayValue("Великаний"), { target: { value: "Гномий" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Мудрец"));
+    const languageSelects = await screen.findAllByRole("combobox");
+    // Only the two background-language selects are on this step (no race
+    // select here) — both must offer real, non-overlapping languages.
+    expect(languageSelects.length).toBe(2);
+    const values = languageSelects.map((s) => (s as HTMLSelectElement).value);
+    expect(new Set(values).size).toBe(2);
+    expect(values).not.toContain("Гномий");
+    fireEvent.change(languageSelects[0], { target: { value: "Дварфский" } });
+    fireEvent.change(languageSelects[1], { target: { value: "Орочий" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Всезнающий Мудрец" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.languages).toEqual(["Общий", "Гномий", "Дварфский", "Орочий"]);
+  });
+
+  it("does not show a language choice for a background without one (e.g. Urchin)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Беспризорник"));
+    await screen.findByText(/Городское дно/);
+    expect(screen.queryByText(/Дополнительный язык/)).not.toBeInTheDocument();
   });
 });
