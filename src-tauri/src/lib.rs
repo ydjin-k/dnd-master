@@ -302,6 +302,70 @@ fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
     Ok(state)
 }
 
+/// Владелец списания ячейки заклинания: `combat::cast_spell` не видит `Character`
+/// (ячейки — ресурс персонажа между боями, не боевого состояния), поэтому проверка
+/// «известно ли заклинание» и списание ячейки 1 круга происходят здесь, на уровне
+/// команды. Слот проверяется и тратится вокруг единственного резолва эффекта — если
+/// `combat::cast_spell` вернёт ошибку (нет цели, заклинатель повержен и т.п.), ячейка
+/// не будет потрачена впустую.
+fn cast_spell_action(
+    state: &mut CampaignState,
+    caster_id: &str,
+    spell: &Spell,
+    target_id: Option<&str>,
+) -> Result<(), String> {
+    let character = state
+        .characters
+        .iter()
+        .find(|c| c.id == caster_id)
+        .ok_or_else(|| format!("персонаж {caster_id:?} не найден"))?;
+
+    if spell.level == 0 {
+        if !character.known_cantrips.contains(&spell.id) {
+            return Err(format!("заговор «{}» не изучен персонажем", spell.name));
+        }
+    } else {
+        if !character.known_spells.contains(&spell.id) {
+            return Err(format!("заклинание «{}» не изучено персонажем", spell.name));
+        }
+        if character.spell_slots_level1_current <= 0 {
+            return Err("нет свободных ячеек заклинаний 1 уровня".into());
+        }
+    }
+
+    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+    combat::cast_spell(combat_state, caster_id, spell, target_id)?;
+
+    if spell.level > 0 {
+        let caster = state
+            .characters
+            .iter_mut()
+            .find(|c| c.id == caster_id)
+            .unwrap();
+        caster.spell_slots_level1_current -= 1;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn combat_cast_spell(
+    app: AppHandle,
+    caster_id: String,
+    spell_id: String,
+    target_id: Option<String>,
+) -> Result<CampaignState, String> {
+    let spells = spells::load_spells(&app)?;
+    let spell = spells
+        .into_iter()
+        .find(|s| s.id == spell_id)
+        .ok_or_else(|| format!("заклинание {spell_id:?} не найдено"))?;
+
+    storage::with_active_locked(&app, |state| {
+        cast_spell_action(state, &caster_id, &spell, target_id.as_deref())
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -330,6 +394,7 @@ pub fn run() {
             start_combat,
             move_combatant,
             combat_attack,
+            combat_cast_spell,
             apply_damage,
             end_turn,
             monster_auto_turn,
@@ -337,4 +402,128 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use model::{CombatState, Combatant};
+
+    fn combatant(id: &str) -> Combatant {
+        Combatant {
+            id: id.into(),
+            name: id.into(),
+            is_monster: false,
+            x: 0,
+            y: 0,
+            speed_feet: 30,
+            max_hp: 10,
+            current_hp: 10,
+            armor_class: 10,
+            attack_bonus: 3,
+            damage_dice: "1d6".into(),
+            initiative: 0,
+            feet_moved_this_turn: 0,
+        }
+    }
+
+    fn combat_state_with(combatant: Combatant) -> CombatState {
+        CombatState {
+            grid_width: 12,
+            grid_height: 10,
+            turn_order: vec![combatant.id.clone()],
+            combatants: vec![combatant],
+            current_turn_index: 0,
+            round: 1,
+            log: Vec::new(),
+            finished: false,
+        }
+    }
+
+    fn test_spell(level: u8) -> Spell {
+        Spell {
+            id: "test-spell".into(),
+            name: "Тестовое заклинание".into(),
+            level,
+            school: "Testing".into(),
+            casting_time: "1 действие".into(),
+            range: "60 футов".into(),
+            components: "В, С".into(),
+            duration: "Мгновенная".into(),
+            concentration: false,
+            ritual: false,
+            classes: vec![],
+            description: String::new(),
+            damage_dice: None,
+            damage_type: None,
+            attack_roll: false,
+            saving_throw: None,
+        }
+    }
+
+    #[test]
+    fn cast_spell_action_rejects_unknown_spell() {
+        let mut state = CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "pc".into(),
+                ..Default::default()
+            }],
+            combat: Some(combat_state_with(combatant("pc"))),
+            ..Default::default()
+        };
+        let spell = test_spell(1);
+
+        let err = cast_spell_action(&mut state, "pc", &spell, None).unwrap_err();
+        assert!(err.contains("не изучено"));
+    }
+
+    #[test]
+    fn cast_spell_action_second_cast_with_no_slots_left_is_rejected_and_slot_stays_at_zero() {
+        let mut state = CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "pc".into(),
+                known_spells: vec!["test-spell".into()],
+                spell_slots_level1_max: 1,
+                spell_slots_level1_current: 1,
+                ..Default::default()
+            }],
+            combat: Some(combat_state_with(combatant("pc"))),
+            ..Default::default()
+        };
+        let spell = test_spell(1);
+
+        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
+        assert_eq!(state.characters[0].spell_slots_level1_current, 0);
+
+        let err = cast_spell_action(&mut state, "pc", &spell, None).unwrap_err();
+        assert!(err.contains("ячеек"));
+        assert_eq!(
+            state.characters[0].spell_slots_level1_current, 0,
+            "ячейка не должна уйти в минус"
+        );
+    }
+
+    #[test]
+    fn cast_spell_action_cantrip_never_touches_slots() {
+        let mut state = CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "pc".into(),
+                known_cantrips: vec!["test-spell".into()],
+                spell_slots_level1_max: 1,
+                spell_slots_level1_current: 1,
+                ..Default::default()
+            }],
+            combat: Some(combat_state_with(combatant("pc"))),
+            ..Default::default()
+        };
+        let spell = test_spell(0);
+
+        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
+        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
+
+        assert_eq!(state.characters[0].spell_slots_level1_current, 1);
+    }
 }
