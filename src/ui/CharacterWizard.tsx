@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../state/CampaignContext";
 import {
@@ -884,10 +884,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   <input
                     type="number"
                     min={0}
+                    max={30}
                     value={customBackground.gold === 0 ? "" : customBackground.gold}
                     onChange={(e) => {
                       const raw = e.currentTarget.value;
-                      const value = raw === "" ? 0 : Number(raw) || 0;
+                      const value = raw === "" ? 0 : Math.min(30, Number(raw) || 0);
                       setCustomBackground((prev) => ({ ...prev, gold: value }));
                     }}
                   />
@@ -905,10 +906,23 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               <>
                 <h3 className="rule-block__heading">{background.title}</h3>
                 <p>
-                  <strong>Навыки:</strong> {background.skillProficiencies.join(", ")}
+                  <strong>Навыки:</strong>{" "}
+                  {background.skillProficiencies.map((skill, i) => (
+                    <Fragment key={skill}>
+                      {i > 0 ? ", " : ""}
+                      <strong>{skill}</strong>
+                    </Fragment>
+                  ))}
                 </p>
                 <p>
-                  <strong>Снаряжение:</strong> {background.equipment.join(", ")}; {background.gold} зм
+                  <strong>Снаряжение:</strong>{" "}
+                  {background.equipment.map((item, i) => (
+                    <Fragment key={item}>
+                      {i > 0 ? ", " : ""}
+                      <strong>{item}</strong>
+                    </Fragment>
+                  ))}
+                  ; {background.gold} зм
                 </p>
                 <p>{background.feature}</p>
                 {backgroundLanguageCount > 0 && (
