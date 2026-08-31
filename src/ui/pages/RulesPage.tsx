@@ -38,6 +38,7 @@ export function RulesPage() {
   const [spells, setSpells] = useState<Spell[]>([]);
   const [active, setActive] = useState<ActiveSelection>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules")
@@ -55,20 +56,47 @@ export function RulesPage() {
 
   const activeTopic = active?.kind === "topic" ? topics.find((t) => t.id === active.id) : undefined;
   const activeSpell = active?.kind === "spell" ? spells.find((sp) => sp.id === active.id) : undefined;
-  const categories = [...new Set(topics.map((t) => t.category))];
+
+  const query = search.trim().toLowerCase();
+  const visibleTopics = query ? topics.filter((t) => t.title.toLowerCase().includes(query)) : topics;
+  const categories = [...new Set(visibleTopics.map((t) => t.category))];
 
   const cantrips = spells.filter((sp) => sp.level === 0).sort((a, b) => a.name.localeCompare(b.name, "ru"));
   const firstLevelSpells = spells
     .filter((sp) => sp.level === 1)
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+  const visibleCantrips = query ? cantrips.filter((sp) => sp.name.toLowerCase().includes(query)) : cantrips;
+  const visibleFirstLevelSpells = query
+    ? firstLevelSpells.filter((sp) => sp.name.toLowerCase().includes(query))
+    : firstLevelSpells;
+
+  useEffect(() => {
+    if (!query) return;
+    const matches: ActiveSelection[] = [
+      ...visibleTopics.map((t): ActiveSelection => ({ kind: "topic", id: t.id })),
+      ...visibleCantrips.map((sp): ActiveSelection => ({ kind: "spell", id: sp.id })),
+      ...visibleFirstLevelSpells.map((sp): ActiveSelection => ({ kind: "spell", id: sp.id })),
+    ];
+    if (matches.length === 1) setActive(matches[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   return (
     <div className="rules-page">
       <nav className="rules-page__nav">
+        <input
+          type="text"
+          className="rules-page__search"
+          placeholder="Поиск по темам и заклинаниям..."
+          aria-label="Поиск по темам и заклинаниям"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
         {categories.map((cat) => (
           <div key={cat}>
             <div className="rules-page__nav-category">{CATEGORY_LABEL[cat] ?? cat}</div>
-            {topics
+            {visibleTopics
               .filter((t) => t.category === cat)
               .map((t) => (
                 <button
@@ -85,39 +113,39 @@ export function RulesPage() {
           </div>
         ))}
 
-        {spells.length > 0 && (
-          <>
-            <div>
-              <div className="rules-page__nav-category">Заговоры</div>
-              {cantrips.map((sp) => (
-                <button
-                  key={sp.id}
-                  className={
-                    "rules-page__nav-item" +
-                    (active?.kind === "spell" && active.id === sp.id ? " rules-page__nav-item--active" : "")
-                  }
-                  onClick={() => setActive({ kind: "spell", id: sp.id })}
-                >
-                  {sp.name}
-                </button>
-              ))}
-            </div>
-            <div>
-              <div className="rules-page__nav-category">Заклинания 1 уровня</div>
-              {firstLevelSpells.map((sp) => (
-                <button
-                  key={sp.id}
-                  className={
-                    "rules-page__nav-item" +
-                    (active?.kind === "spell" && active.id === sp.id ? " rules-page__nav-item--active" : "")
-                  }
-                  onClick={() => setActive({ kind: "spell", id: sp.id })}
-                >
-                  {sp.name}
-                </button>
-              ))}
-            </div>
-          </>
+        {visibleCantrips.length > 0 && (
+          <div>
+            <div className="rules-page__nav-category">Заговоры</div>
+            {visibleCantrips.map((sp) => (
+              <button
+                key={sp.id}
+                className={
+                  "rules-page__nav-item" +
+                  (active?.kind === "spell" && active.id === sp.id ? " rules-page__nav-item--active" : "")
+                }
+                onClick={() => setActive({ kind: "spell", id: sp.id })}
+              >
+                {sp.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {visibleFirstLevelSpells.length > 0 && (
+          <div>
+            <div className="rules-page__nav-category">Заклинания 1 уровня</div>
+            {visibleFirstLevelSpells.map((sp) => (
+              <button
+                key={sp.id}
+                className={
+                  "rules-page__nav-item" +
+                  (active?.kind === "spell" && active.id === sp.id ? " rules-page__nav-item--active" : "")
+                }
+                onClick={() => setActive({ kind: "spell", id: sp.id })}
+              >
+                {sp.name}
+              </button>
+            ))}
+          </div>
         )}
       </nav>
 

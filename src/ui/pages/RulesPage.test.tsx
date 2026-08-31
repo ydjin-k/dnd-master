@@ -20,4 +20,16 @@ describe("RulesPage", () => {
     fireEvent.click(screen.getByText("Воин"));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Воин" })).toBeInTheDocument());
   });
+
+  it("filters the topic list by search input", async () => {
+    render(<RulesPage />);
+
+    await waitFor(() => expect(screen.getByText("Воин")).toBeInTheDocument());
+    expect(screen.getByText("Человек")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Поиск/), { target: { value: "воин" } });
+
+    await waitFor(() => expect(screen.queryByText("Человек")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Воин" })).toBeInTheDocument();
+  });
 });
