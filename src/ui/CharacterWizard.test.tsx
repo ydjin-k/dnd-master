@@ -520,7 +520,7 @@ describe("CharacterWizard", () => {
     expect(screen.getByText(/Известная местность: Горы/)).toBeInTheDocument();
   });
 
-  it("suggests a name from the selected race's list, and rerolling gives a different one", async () => {
+  it("suggests a name from the selected race's list for the current gender, and rerolling gives a different one", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Дварф"));
@@ -535,18 +535,32 @@ describe("CharacterWizard", () => {
     const nameInput = (await screen.findByPlaceholderText("Имя персонажа")) as HTMLInputElement;
     const suggestButton = screen.getByText("🎲 Предложить имя");
 
+    // Gender defaults to GENDERS[0] ("Мужской") on the review step.
     fireEvent.click(suggestButton);
     const first = nameInput.value;
-    expect(NAME_SUGGESTIONS["races-dwarf"]).toContain(first);
+    expect(NAME_SUGGESTIONS["races-dwarf"].male).toContain(first);
 
     fireEvent.click(suggestButton);
     const second = nameInput.value;
-    expect(NAME_SUGGESTIONS["races-dwarf"]).toContain(second);
+    expect(NAME_SUGGESTIONS["races-dwarf"].male).toContain(second);
     expect(second).not.toBe(first);
+
+    // Switching gender changes which list the button draws from.
+    const genderSelect = screen.getByDisplayValue("Мужской");
+    fireEvent.change(genderSelect, { target: { value: "Женский" } });
+    fireEvent.click(suggestButton);
+    expect(NAME_SUGGESTIONS["races-dwarf"].female).toContain(nameInput.value);
 
     // The field stays a normal, freely editable input after the suggestion.
     fireEvent.change(nameInput, { target: { value: "Своё Имя" } });
     await waitFor(() => expect(nameInput.value).toBe("Своё Имя"));
+  });
+
+  it("has distinct male and female name lists per race (regression: gender used to be ignored)", () => {
+    for (const key of Object.keys(NAME_SUGGESTIONS)) {
+      const { male, female } = NAME_SUGGESTIONS[key];
+      expect(male).not.toEqual(female);
+    }
   });
 
   it("carries gender and age chosen on the review step into the finished character", async () => {
