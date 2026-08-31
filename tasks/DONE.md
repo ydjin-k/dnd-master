@@ -10,3 +10,4 @@
 6. bug-characters-dwarf-tool-horizontal-scroll (находка) — 54e5ee4 — QA нашла двойную горизонтальную прокрутку на выборе набора дварфа.
 7. bug-characters-dwarf-tool-horizontal-scroll (починка) — `.wizard__pick-detail` получил `min-width: 0` + `overflow-x: hidden`, `.wizard__hint select` — `max-width: 100%`: гибкий контейнер больше не раздвигается длинным `<option>` (flexbug #1).
 8. characters-name-suggestions-by-gender — e274bcf — `NAME_SUGGESTIONS` разбит на `male`/`female` (по 20 имён на пол на расу + general), `suggestName()` учитывает выбранный пол вместо того, чтобы его игнорировать.
+9. rules-spells-data — тип `Spell` (TS + Rust), `src-tauri/rules/spells.json` (24 заговора + 47 заклинаний 1 круга шести классов, официальный SRD 5.1 от WotC, CC BY 4.0 — раздел заклинаний на longstoryshort.app по-прежнему пуст), команда `get_spells`, просмотр заклинаний в разделе «Правила».
