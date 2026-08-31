@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
-import { NAME_SUGGESTIONS } from "./characterCreationData";
+import { BACKGROUNDS, NAME_SUGGESTIONS } from "./characterCreationData";
 
 const topics: RuleTopic[] = [
   { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] },
@@ -219,6 +219,58 @@ describe("CharacterWizard", () => {
       expect.arrayContaining(["Атлетика", "Восприятие", "Проницательность", "Религия"]),
     );
     expect(character.gold).toBe(15);
+    expect(character.inventory.length).toBeGreaterThan(0);
+  });
+
+  it("has the full Acolyte-plus-12-archetypes set of backgrounds", () => {
+    expect(BACKGROUNDS.length).toBe(13);
+    expect(BACKGROUNDS.map((b) => b.id)).toEqual(
+      expect.arrayContaining([
+        "acolyte",
+        "charlatan",
+        "criminal",
+        "entertainer",
+        "folk-hero",
+        "guild-artisan",
+        "hermit",
+        "noble",
+        "outlander",
+        "sage",
+        "sailor",
+        "soldier",
+        "urchin",
+      ]),
+    );
+  });
+
+  it("carries a newly added background's own skills/equipment/gold through to the finished character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Солдат"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее"));
+    // equipment: keep defaults
+    fireEvent.click(await screen.findByText("Далее"));
+
+    const nameInput = await screen.findByPlaceholderText("Имя персонажа");
+    fireEvent.change(nameInput, { target: { value: "Тестовый Солдат" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.background).toBe("Солдат");
+    expect(character.skillProficiencies).toEqual(
+      expect.arrayContaining(["Запугивание", "Восприятие"]),
+    );
+    expect(character.gold).toBe(10);
     expect(character.inventory.length).toBeGreaterThan(0);
   });
 
