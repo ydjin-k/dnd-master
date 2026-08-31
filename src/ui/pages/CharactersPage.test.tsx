@@ -61,6 +61,10 @@ describe("CharactersPage", () => {
       gold: 0,
       savingThrowProficiencies: [],
       skillProficiencies: [],
+      knownCantrips: [],
+      knownSpells: [],
+      spellSlotsLevel1Max: 0,
+      spellSlotsLevel1Current: 0,
     };
   }
 
@@ -90,6 +94,10 @@ describe("CharactersPage", () => {
           gold: 0,
           savingThrowProficiencies: [],
           skillProficiencies: [],
+          knownCantrips: [],
+          knownSpells: [],
+          spellSlotsLevel1Max: 0,
+          spellSlotsLevel1Current: 0,
         },
       ],
     });

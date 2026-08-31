@@ -37,6 +37,10 @@ export interface Character {
   gold: number;
   savingThrowProficiencies: string[];
   skillProficiencies: string[];
+  knownCantrips: string[];
+  knownSpells: string[];
+  spellSlotsLevel1Max: number;
+  spellSlotsLevel1Current: number;
 }
 
 export interface JournalEntry {

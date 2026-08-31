@@ -45,6 +45,10 @@ pub struct Character {
     pub gold: i64,
     pub saving_throw_proficiencies: Vec<String>,
     pub skill_proficiencies: Vec<String>,
+    pub known_cantrips: Vec<String>,
+    pub known_spells: Vec<String>,
+    pub spell_slots_level1_max: i32,
+    pub spell_slots_level1_current: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -150,5 +154,9 @@ mod tests {
         assert!(character.skill_proficiencies.is_empty());
         assert_eq!(character.gender, "");
         assert_eq!(character.age, 0);
+        assert!(character.known_cantrips.is_empty());
+        assert!(character.known_spells.is_empty());
+        assert_eq!(character.spell_slots_level1_max, 0);
+        assert_eq!(character.spell_slots_level1_current, 0);
     }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
-import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
+import type { AbilityScoreRoll, Character, RuleTopic, Spell } from "../state/types";
 import { BACKGROUNDS, INSTRUMENTS, NAME_SUGGESTIONS } from "./characterCreationData";
 
 const topics: RuleTopic[] = [
@@ -46,6 +46,41 @@ const topics: RuleTopic[] = [
   },
 ];
 
+function makeSpell(id: string, name: string, level: 0 | 1, classes: string[]): Spell {
+  return {
+    id,
+    name,
+    level,
+    school: "Вызов",
+    castingTime: "1 действие",
+    range: "60 футов",
+    components: "В, С",
+    duration: "Мгновенная",
+    concentration: false,
+    ritual: false,
+    classes,
+    description: "Тестовое описание.",
+    damageDice: null,
+    damageType: null,
+    attackRoll: false,
+    savingThrow: null,
+  };
+}
+
+const spells: Spell[] = [
+  makeSpell("bard-cantrip-1", "Заговор Барда 1", 0, ["classes-bard"]),
+  makeSpell("bard-cantrip-2", "Заговор Барда 2", 0, ["classes-bard"]),
+  makeSpell("bard-spell-1", "Заклинание Барда 1", 1, ["classes-bard"]),
+  makeSpell("bard-spell-2", "Заклинание Барда 2", 1, ["classes-bard"]),
+  makeSpell("bard-spell-3", "Заклинание Барда 3", 1, ["classes-bard"]),
+  makeSpell("bard-spell-4", "Заклинание Барда 4", 1, ["classes-bard"]),
+  makeSpell("wizard-cantrip-1", "Заговор Волшебника 1", 0, ["classes-wizard"]),
+  makeSpell("wizard-cantrip-2", "Заговор Волшебника 2", 0, ["classes-wizard"]),
+  makeSpell("wizard-cantrip-3", "Заговор Волшебника 3", 0, ["classes-wizard"]),
+  makeSpell("wizard-spell-1", "Заклинание Волшебника 1", 1, ["classes-wizard"]),
+  makeSpell("wizard-spell-2", "Заклинание Волшебника 2", 1, ["classes-wizard"]),
+];
+
 const abilityRolls: AbilityScoreRoll[] = [
   { dice: [6, 5, 4, 1], droppedIndex: 3, total: 15 },
   { dice: [5, 5, 4, 2], droppedIndex: 3, total: 14 },
@@ -58,6 +93,7 @@ const abilityRolls: AbilityScoreRoll[] = [
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (command: string) => {
     if (command === "roll_ability_scores") return abilityRolls;
+    if (command === "get_spells") return spells;
     return topics;
   }),
 }));
@@ -350,6 +386,14 @@ describe("CharacterWizard", () => {
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
       target: { value: "Менестрель" },
     });
+    // Бард на 1 уровне: ровно 2 заговора и 4 заклинания 1 круга — иначе
+    // «Создать персонажа» остаётся заблокированной (см. отдельный тест на это).
+    await screen.findByText("Заговор Барда 1");
+    const spellCheckboxes = Array.from(
+      document.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    expect(spellCheckboxes.length).toBe(6);
+    spellCheckboxes.forEach((box) => fireEvent.click(box));
     fireEvent.click(screen.getByText("Создать персонажа"));
 
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
@@ -826,5 +870,69 @@ describe("CharacterWizard", () => {
     fireEvent.click(await screen.findByText("Беспризорник"));
     await screen.findByText(/Городское дно/);
     expect(screen.queryByText(/Дополнительный язык/)).not.toBeInTheDocument();
+  });
+
+  it("Wizard spellcasting: Create stays disabled until exactly the required cantrips/spells are chosen, then they land on the character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Волшебник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults (Int mod 0 -> 1 known spell)
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Тестовый Волшебник" },
+    });
+    const createButton = screen.getByText("Создать персонажа");
+    expect(createButton).toBeDisabled();
+
+    await screen.findByText("Заговор Волшебника 1");
+    const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    // 3 заговора (Волшебник знает 3 на 1 уровне) + 2 заклинания 1 круга в фикстуре.
+    expect(boxes.length).toBe(5);
+
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[1]);
+    expect(createButton).toBeDisabled(); // ещё не все 3 заговора выбраны
+    fireEvent.click(boxes[2]);
+    expect(createButton).toBeDisabled(); // заговоры выбраны, но нет заклинания
+
+    // Волшебник на 1 уровне "подготавливает" мод.Интеллекта + уровень (мин 1)
+    // заклинаний — при базовых характеристиках это 1, а не фиксированное число.
+    fireEvent.click(boxes[3]);
+    expect(createButton).not.toBeDisabled();
+
+    fireEvent.click(createButton);
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(new Set(character.knownCantrips)).toEqual(
+      new Set(["wizard-cantrip-1", "wizard-cantrip-2", "wizard-cantrip-3"]),
+    );
+    expect(character.knownSpells).toEqual(["wizard-spell-1"]);
+    expect(character.spellSlotsLevel1Max).toBe(2);
+    expect(character.spellSlotsLevel1Current).toBe(2);
+  });
+
+  it("a non-spellcaster (Воин) shows no spellcasting UI at all on the review step", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(document.body.textContent).not.toMatch(/заклинани/i);
+    expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(0);
   });
 });

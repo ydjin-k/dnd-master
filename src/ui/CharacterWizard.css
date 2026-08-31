@@ -226,6 +226,14 @@
   padding-left: 1.2em;
 }
 
+.wizard__spell-picker {
+  margin-top: 0.3em;
+}
+
+.wizard__spell-picker .wizard__traits {
+  margin-bottom: 0.5em;
+}
+
 .wizard__nav {
   display: flex;
   gap: 0.5em;
