@@ -9,3 +9,4 @@
 5. characters-gender-and-age — 5c5e5a9 — поля `gender`/`age` в `Character` (TS + Rust), выбор на шаге «Итог», дефолт при импорте, показ в карточке персонажа.
 6. bug-characters-dwarf-tool-horizontal-scroll (находка) — 54e5ee4 — QA нашла двойную горизонтальную прокрутку на выборе набора дварфа.
 7. bug-characters-dwarf-tool-horizontal-scroll (починка) — `.wizard__pick-detail` получил `min-width: 0` + `overflow-x: hidden`, `.wizard__hint select` — `max-width: 100%`: гибкий контейнер больше не раздвигается длинным `<option>` (flexbug #1).
+8. characters-name-suggestions-by-gender — e274bcf — `NAME_SUGGESTIONS` разбит на `male`/`female` (по 20 имён на пол на расу + general), `suggestName()` учитывает выбранный пол вместо того, чтобы его игнорировать.
