@@ -581,6 +581,26 @@ describe("CharacterWizard", () => {
     expect(screen.getByText(/Известная местность: Горы/)).toBeInTheDocument();
   });
 
+  it("shows the chosen background's feature (bold name + description) on the review step", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Дворянин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Предыстория: Дворянин/)).toBeInTheDocument();
+    expect(screen.getByText(/Право голоса/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/вас принимают без очереди и выслушивают на аудиенциях/),
+    ).toBeInTheDocument();
+  });
+
   it("suggests a name from the selected race's list for the current gender, and rerolling gives a different one", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 
