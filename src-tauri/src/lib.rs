@@ -5,6 +5,7 @@ mod import;
 mod model;
 mod oracle;
 mod rules;
+mod spells;
 mod storage;
 
 use adventure::{demo_adventure, roll_table, Adventure};
@@ -12,6 +13,7 @@ use combat::MonsterTemplate;
 use model::{AdventureLogEntry, CampaignState};
 use oracle::{LikelihoodOption, Likelihood, OracleResult};
 use rules::RuleTopic;
+use spells::Spell;
 use storage::CampaignSummary;
 use tauri::AppHandle;
 
@@ -207,6 +209,11 @@ fn get_rules(app: AppHandle) -> Result<Vec<RuleTopic>, String> {
 }
 
 #[tauri::command]
+fn get_spells(app: AppHandle) -> Result<Vec<Spell>, String> {
+    spells::load_spells(&app)
+}
+
+#[tauri::command]
 fn start_combat(
     app: AppHandle,
     monster_ids: Vec<String>,
@@ -319,6 +326,7 @@ pub fn run() {
             import_character_sheet,
             get_bestiary,
             get_rules,
+            get_spells,
             start_combat,
             move_combatant,
             combat_attack,

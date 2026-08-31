@@ -165,6 +165,25 @@ export interface RuleTopic {
   blocks: RuleBlock[];
 }
 
+export interface Spell {
+  id: string;
+  name: string;
+  level: number;
+  school: string;
+  castingTime: string;
+  range: string;
+  components: string;
+  duration: string;
+  concentration: boolean;
+  ritual: boolean;
+  classes: string[];
+  description: string;
+  damageDice: string | null;
+  damageType: string | null;
+  attackRoll: boolean;
+  savingThrow: string | null;
+}
+
 export interface AbilityScoreRoll {
   dice: number[];
   droppedIndex: number;

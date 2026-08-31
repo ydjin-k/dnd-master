@@ -9,3 +9,4 @@
 5. characters-gender-and-age — 5c5e5a9 — поля `gender`/`age` в `Character` (TS + Rust), выбор на шаге «Итог», дефолт при импорте, показ в карточке персонажа.
 6. bug-characters-dwarf-tool-horizontal-scroll (находка) — 54e5ee4 — QA нашла двойную горизонтальную прокрутку на выборе набора дварфа.
 7. bug-characters-dwarf-tool-horizontal-scroll (починка) — `.wizard__pick-detail` получил `min-width: 0` + `overflow-x: hidden`, `.wizard__hint select` — `max-width: 100%`: гибкий контейнер больше не раздвигается длинным `<option>` (flexbug #1).
+8. rules-spells-data — тип `Spell` (TS + Rust), `src-tauri/rules/spells.json` (24 заговора + 47 заклинаний 1 круга шести классов, официальный SRD 5.1 от WotC, CC BY 4.0 — раздел заклинаний на longstoryshort.app по-прежнему пуст), команда `get_spells`, просмотр заклинаний в разделе «Правила».
