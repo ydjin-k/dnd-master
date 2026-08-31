@@ -1203,6 +1203,20 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 }
               </li>
             )}
+            {background?.feature && (
+              <li>
+                Особенность предыстории:{" "}
+                {(() => {
+                  const [featureName, ...rest] = background.feature.split(":");
+                  const featureDescription = rest.join(":").trim();
+                  return (
+                    <>
+                      <strong>{featureName}</strong> — {featureDescription}
+                    </>
+                  );
+                })()}
+              </li>
+            )}
             {isRanger && (
               <li>
                 Избранный враг: {favoredEnemy || RANGER_FAVORED_ENEMIES[0]} · Известная местность:{" "}
