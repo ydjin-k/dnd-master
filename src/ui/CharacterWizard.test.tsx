@@ -370,7 +370,9 @@ describe("CharacterWizard", () => {
 
     fireEvent.click(await screen.findByText("Воин"));
     fireEvent.click(screen.getByText("Далее"));
-    fireEvent.click(await screen.findByText("Послушник"));
+    // Criminal has no bonus language of its own (unlike e.g. Acolyte/Sage) —
+    // keeps this test focused on the race's language mechanism alone.
+    fireEvent.click(await screen.findByText("Преступник"));
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
@@ -753,5 +755,56 @@ describe("CharacterWizard", () => {
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Владение музыкальными инструментами: Лютня, Лира, Рожок/)).toBeInTheDocument();
+  });
+
+  it("lets a Sage pick 2 bonus languages, distinct from the race's, ending up in the finished character", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    // Human's own bonus language — pick Гномий, so we can prove the two
+    // background language slots avoid it and each other.
+    fireEvent.change(await screen.findByDisplayValue("Великаний"), { target: { value: "Гномий" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Мудрец"));
+    const languageSelects = await screen.findAllByRole("combobox");
+    // Only the two background-language selects are on this step (no race
+    // select here) — both must offer real, non-overlapping languages.
+    expect(languageSelects.length).toBe(2);
+    const values = languageSelects.map((s) => (s as HTMLSelectElement).value);
+    expect(new Set(values).size).toBe(2);
+    expect(values).not.toContain("Гномий");
+    fireEvent.change(languageSelects[0], { target: { value: "Дварфский" } });
+    fireEvent.change(languageSelects[1], { target: { value: "Орочий" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Всезнающий Мудрец" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.languages).toEqual(["Общий", "Гномий", "Дварфский", "Орочий"]);
+  });
+
+  it("does not show a language choice for a background without one (e.g. Urchin)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Беспризорник"));
+    await screen.findByText(/Городское дно/);
+    expect(screen.queryByText(/Дополнительный язык/)).not.toBeInTheDocument();
   });
 });

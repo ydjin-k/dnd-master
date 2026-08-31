@@ -18,6 +18,7 @@ import {
   ALL_SKILLS,
   ARTISAN_TOOLS,
   BACKGROUNDS,
+  BACKGROUND_LANGUAGES,
   CLASS_EQUIPMENT,
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
@@ -162,6 +163,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [monkToolCategory, setMonkToolCategory] = useState<"craft" | "music">("craft");
   const [chosenMonkTool, setChosenMonkTool] = useState("");
   const [bardInstruments, setBardInstruments] = useState<string[]>([]);
+  const [chosenBackgroundLanguages, setChosenBackgroundLanguages] = useState<string[]>([]);
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
@@ -214,7 +216,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const availableLanguageChoices = raceLanguages
     ? ALL_LANGUAGES.filter((l) => !raceLanguages.fixed.includes(l))
     : [];
-  const finalLanguages: string[] = raceLanguages
+  const raceFinalLanguages: string[] = raceLanguages
     ? [
         ...raceLanguages.fixed,
         ...(raceLanguages.choiceCount
@@ -222,6 +224,21 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           : []),
       ]
     : [];
+  const backgroundLanguageCount = backgroundId ? (BACKGROUND_LANGUAGES[backgroundId] ?? 0) : 0;
+  function backgroundLanguageOptions(index: number): string[] {
+    return ALL_LANGUAGES.filter(
+      (l) =>
+        !raceFinalLanguages.includes(l) &&
+        (l === chosenBackgroundLanguages[index] ||
+          !chosenBackgroundLanguages.some((v, i) => i !== index && v === l)),
+    );
+  }
+  const finalBackgroundLanguages: string[] = Array.from({ length: backgroundLanguageCount }, (_, i) => {
+    const chosen = chosenBackgroundLanguages[i];
+    const options = backgroundLanguageOptions(i);
+    return chosen && options.includes(chosen) ? chosen : options[0];
+  }).filter((l): l is string => !!l);
+  const finalLanguages: string[] = [...new Set([...raceFinalLanguages, ...finalBackgroundLanguages])];
   const classProf = classId ? CLASS_PROFICIENCIES[classId] : undefined;
   const classEquipment = classId ? CLASS_EQUIPMENT[classId] : undefined;
   const background: BackgroundData | undefined =
@@ -287,6 +304,21 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       if (prev.length >= raceSkillChoiceCount) return prev;
       return [...prev, skill];
     });
+  }
+
+  function selectBackground(id: string) {
+    setBackgroundId(id);
+    const count = BACKGROUND_LANGUAGES[id] ?? 0;
+    const defaults: string[] = [];
+    for (const lang of ALL_LANGUAGES) {
+      if (defaults.length >= count) break;
+      if (!raceFinalLanguages.includes(lang)) defaults.push(lang);
+    }
+    setChosenBackgroundLanguages(defaults);
+  }
+
+  function setBackgroundLanguageAt(index: number, lang: string) {
+    setChosenBackgroundLanguages((prev) => prev.map((v, i) => (i === index ? lang : v)));
   }
 
   function selectClass(id: string) {
@@ -775,7 +807,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               <li key={b.id}>
                 <button
                   className={"wizard__pick-item" + (b.id === backgroundId ? " wizard__pick-item--active" : "")}
-                  onClick={() => setBackgroundId(b.id)}
+                  onClick={() => selectBackground(b.id)}
                 >
                   {b.title}
                 </button>
@@ -786,7 +818,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 className={
                   "wizard__pick-item" + (backgroundId === CUSTOM_BACKGROUND_ID ? " wizard__pick-item--active" : "")
                 }
-                onClick={() => setBackgroundId(CUSTOM_BACKGROUND_ID)}
+                onClick={() => selectBackground(CUSTOM_BACKGROUND_ID)}
               >
                 Своя предыстория
               </button>
@@ -879,6 +911,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   <strong>Снаряжение:</strong> {background.equipment.join(", ")}; {background.gold} зм
                 </p>
                 <p>{background.feature}</p>
+                {backgroundLanguageCount > 0 && (
+                  <p className="wizard__hint">
+                    Дополнительный язык{backgroundLanguageCount > 1 ? "и" : ""} по выбору:{" "}
+                    {Array.from({ length: backgroundLanguageCount }, (_, index) => {
+                      const options = backgroundLanguageOptions(index);
+                      const value = chosenBackgroundLanguages[index] ?? options[0] ?? "";
+                      return (
+                        <select
+                          key={index}
+                          value={value}
+                          onChange={(e) => setBackgroundLanguageAt(index, e.currentTarget.value)}
+                        >
+                          {options.map((l) => (
+                            <option key={l} value={l}>
+                              {l}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })}
+                  </p>
+                )}
                 <p className="wizard__hint">
                   SRD 5.1 целиком включает только одну готовую предысторию — остальные из Книги игрока в
                   открытый документ не входят. Свою предысторию можно завести через «Своя предыстория» слева.
