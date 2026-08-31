@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import type { MonsterTemplate } from "../../state/types";
+import type { MonsterTemplate, Spell } from "../../state/types";
 import "./CombatPage.css";
 
 function StartCombatPanel() {
@@ -67,11 +67,25 @@ function StartCombatPanel() {
 }
 
 export function CombatPage() {
-  const { state, moveCombatant, combatAttack, applyDamage, endTurn, monsterAutoTurn, endCombat } =
-    useCampaign();
+  const {
+    state,
+    moveCombatant,
+    combatAttack,
+    combatCastSpell,
+    applyDamage,
+    endTurn,
+    monsterAutoTurn,
+    endCombat,
+  } = useCampaign();
   const combat = state.combat;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [targetId, setTargetId] = useState<string>("");
+  const [spells, setSpells] = useState<Spell[]>([]);
+  const [castSpellId, setCastSpellId] = useState<string>("");
+
+  useEffect(() => {
+    invoke<Spell[] | null>("get_spells").then((s) => setSpells(s ?? []));
+  }, []);
 
   if (!combat) {
     return <StartCombatPanel />;
@@ -79,6 +93,18 @@ export function CombatPage() {
 
   const currentId = combat.turnOrder[combat.currentTurnIndex];
   const current = combat.combatants.find((c) => c.id === currentId);
+  const currentCharacter =
+    current && !current.isMonster ? state.characters.find((c) => c.id === current.id) : undefined;
+  const knownSpellIds = currentCharacter
+    ? [...currentCharacter.knownCantrips, ...currentCharacter.knownSpells]
+    : [];
+  const knownSpellList = spells.filter((s) => knownSpellIds.includes(s.id));
+  const selectedSpell = knownSpellList.find((s) => s.id === castSpellId);
+  const spellNeedsTarget = !!selectedSpell && (selectedSpell.attackRoll || !!selectedSpell.savingThrow);
+  const spellBlockedBySlot =
+    !!selectedSpell &&
+    selectedSpell.level > 0 &&
+    (currentCharacter?.spellSlotsLevel1Current ?? 0) <= 0;
   const cells = Array.from({ length: combat.gridWidth * combat.gridHeight });
 
   function combatantAt(x: number, y: number) {
@@ -183,6 +209,47 @@ export function CombatPage() {
             >
               Атаковать выбранным
             </button>
+
+            {currentCharacter && knownSpellList.length > 0 && (
+              <div className="combat-sidebar__spellcasting">
+                <label>
+                  Заклинание:
+                  <select
+                    value={castSpellId}
+                    onChange={(e) => setCastSpellId(e.currentTarget.value)}
+                  >
+                    <option value="">—</option>
+                    {knownSpellList.map((s) => {
+                      const noSlots = s.level > 0 && currentCharacter.spellSlotsLevel1Current <= 0;
+                      return (
+                        <option key={s.id} value={s.id} disabled={noSlots}>
+                          {s.name}
+                          {noSlots ? " (нет свободных ячеек)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <button
+                  disabled={
+                    !selectedSpell ||
+                    combat.finished ||
+                    spellBlockedBySlot ||
+                    (spellNeedsTarget && !targetId)
+                  }
+                  onClick={() =>
+                    selectedSpell &&
+                    combatCastSpell(
+                      currentId,
+                      selectedSpell.id,
+                      spellNeedsTarget ? targetId : null,
+                    )
+                  }
+                >
+                  Сотворить
+                </button>
+              </div>
+            )}
 
             {selectedId && (
               <div className="combat-sidebar__hp-controls">

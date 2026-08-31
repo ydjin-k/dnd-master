@@ -2,11 +2,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::dice;
 use crate::model::{Character, CombatState, Combatant};
+use crate::spells::Spell;
 
 const GRID_WIDTH: i32 = 12;
 const GRID_HEIGHT: i32 = 10;
 const PLAYER_ATTACK_BONUS_PLACEHOLDER: i32 = 3;
 const PLAYER_DAMAGE_DICE_PLACEHOLDER: &str = "1d6";
+/// Как и PLAYER_ATTACK_BONUS_PLACEHOLDER выше — грубая заглушка вместо расчёта
+/// от заклинательной характеристики и бонуса мастерства; полноценный расчёт
+/// появится вместе с починкой боевых бонусов, не в этой карточке.
+const PLAYER_SPELL_ATTACK_BONUS_PLACEHOLDER: i32 = 5;
+const PLAYER_SPELL_SAVE_DC_PLACEHOLDER: i32 = 13;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -300,6 +306,123 @@ pub fn apply_damage(state: &mut CombatState, target_id: &str, delta: i32) -> Res
     Ok(())
 }
 
+fn apply_spell_damage(state: &mut CombatState, target_id: &str, amount: i32) -> bool {
+    let target = state
+        .combatants
+        .iter_mut()
+        .find(|c| c.id == target_id)
+        .unwrap();
+    target.current_hp = (target.current_hp - amount).max(0);
+    target.current_hp == 0
+}
+
+/// Резолвит эффект заклинания в бою — не знает о `Character` и ячейках заклинаний:
+/// это ресурс персонажа между боями, а не боевого состояния, поэтому списание
+/// ячейки — забота стороны, вызывающей эту функцию (см. `cast_spell_action` в `lib.rs`).
+pub fn cast_spell(
+    state: &mut CombatState,
+    caster_id: &str,
+    spell: &Spell,
+    target_id: Option<&str>,
+) -> Result<(), String> {
+    require_ongoing(state)?;
+    let caster_name = {
+        let caster = state
+            .combatants
+            .iter()
+            .find(|c| c.id == caster_id)
+            .ok_or("заклинатель не найден")?;
+        if caster.current_hp <= 0 {
+            return Err("заклинатель повержен".into());
+        }
+        caster.name.clone()
+    };
+
+    // Утилитарное заклинание без урона: без бросков и без цели, просто факт применения.
+    if spell.damage_dice.is_none() && !spell.attack_roll && spell.saving_throw.is_none() {
+        state
+            .log
+            .push(format!("{caster_name} сотворяет «{}».", spell.name));
+        return Ok(());
+    }
+
+    let target_id = target_id.ok_or("это заклинание требует цель")?;
+    let (target_name, target_ac) = {
+        let t = state
+            .combatants
+            .iter()
+            .find(|c| c.id == target_id)
+            .ok_or("цель не найдена")?;
+        (t.name.clone(), t.armor_class)
+    };
+    let damage_type = spell.damage_type.as_deref().unwrap_or("магический");
+
+    let message = if spell.attack_roll {
+        let to_hit = dice::roll_expression("1d20")?.total + PLAYER_SPELL_ATTACK_BONUS_PLACEHOLDER;
+        if to_hit >= target_ac {
+            let dmg = dice::roll_expression(spell.damage_dice.as_deref().unwrap_or("1d4"))?.total;
+            let defeated = apply_spell_damage(state, target_id, dmg);
+            let mut msg = format!(
+                "{caster_name} сотворяет «{}» на {target_name}: бросок {to_hit} против КД {target_ac} — попадание, урон {dmg} ({damage_type}).",
+                spell.name
+            );
+            if defeated {
+                msg.push_str(&format!(" {target_name} повержен(а)."));
+            }
+            msg
+        } else {
+            format!(
+                "{caster_name} сотворяет «{}» на {target_name}: бросок {to_hit} против КД {target_ac} — промах.",
+                spell.name
+            )
+        }
+    } else if let Some(ability) = &spell.saving_throw {
+        let roll = dice::roll_expression("1d20")?.total;
+        let dc = PLAYER_SPELL_SAVE_DC_PLACEHOLDER;
+        let success = roll >= dc;
+        let outcome = if success { "успех" } else { "провал" };
+        match &spell.damage_dice {
+            Some(expr) => {
+                let full = dice::roll_expression(expr)?.total;
+                let dealt = if success { full / 2 } else { full };
+                let defeated = apply_spell_damage(state, target_id, dealt);
+                let mut msg = format!(
+                    "{caster_name} сотворяет «{}» на {target_name}: спасбросок {ability} {roll} против СЛ {dc} — {outcome}, урон {dealt} ({damage_type}).",
+                    spell.name
+                );
+                if defeated {
+                    msg.push_str(&format!(" {target_name} повержен(а)."));
+                }
+                msg
+            }
+            None => format!(
+                "{caster_name} сотворяет «{}» на {target_name}: спасбросок {ability} {roll} против СЛ {dc} — {outcome}.",
+                spell.name
+            ),
+        }
+    } else {
+        // Ни броска атаки, ни спасброска — автоматическое попадание (например, «Волшебная стрела»).
+        let expr = spell
+            .damage_dice
+            .as_deref()
+            .ok_or("заклинанию не задан урон")?;
+        let dmg = dice::roll_expression(expr)?.total;
+        let defeated = apply_spell_damage(state, target_id, dmg);
+        let mut msg = format!(
+            "{caster_name} сотворяет «{}» на {target_name}: автоматическое попадание, урон {dmg} ({damage_type}).",
+            spell.name
+        );
+        if defeated {
+            msg.push_str(&format!(" {target_name} повержен(а)."));
+        }
+        msg
+    };
+
+    state.log.push(message);
+    check_side_defeated(state);
+    Ok(())
+}
+
 pub fn end_turn(state: &mut CombatState) -> Result<(), String> {
     require_ongoing(state)?;
     let next = next_alive_index(state, state.current_turn_index);
@@ -439,6 +562,33 @@ mod tests {
         }
     }
 
+    fn test_spell(
+        level: u8,
+        damage_dice: Option<&str>,
+        damage_type: Option<&str>,
+        attack_roll: bool,
+        saving_throw: Option<&str>,
+    ) -> Spell {
+        Spell {
+            id: "test-spell".into(),
+            name: "Тестовое заклинание".into(),
+            level,
+            school: "Testing".into(),
+            casting_time: "1 действие".into(),
+            range: "60 футов".into(),
+            components: "В, С".into(),
+            duration: "Мгновенная".into(),
+            concentration: false,
+            ritual: false,
+            classes: vec![],
+            description: String::new(),
+            damage_dice: damage_dice.map(|s| s.to_string()),
+            damage_type: damage_type.map(|s| s.to_string()),
+            attack_roll,
+            saving_throw: saving_throw.map(|s| s.to_string()),
+        }
+    }
+
     fn state_with(combatants: Vec<Combatant>) -> CombatState {
         let turn_order = combatants.iter().map(|c| c.id.clone()).collect();
         CombatState {
@@ -528,6 +678,67 @@ mod tests {
 
         // После конца боя действия отклоняются.
         assert!(attack(&mut state, "pc", "monster").is_err());
+    }
+
+    #[test]
+    fn cast_spell_with_attack_roll_keeps_hp_within_bounds() {
+        for _ in 0..30 {
+            let mut state = state_with(vec![
+                combatant("caster", false, 0, 0, 30, 20),
+                combatant("target", true, 0, 1, 30, 10),
+            ]);
+            let s = test_spell(0, Some("1d10"), Some("огонь"), true, None);
+            cast_spell(&mut state, "caster", &s, Some("target")).unwrap();
+            let target = state.combatants.iter().find(|c| c.id == "target").unwrap();
+            assert!(target.current_hp >= 0 && target.current_hp <= target.max_hp);
+            assert!(!state.log.is_empty());
+        }
+    }
+
+    #[test]
+    fn cast_spell_with_saving_throw_deals_half_damage_on_success() {
+        // 2d1 всегда даёт 2 — детерминированный урон, чтобы проверить именно
+        // округление половины вниз, а не саму случайность броска.
+        let mut saw_success = false;
+        let mut saw_failure = false;
+        for _ in 0..60 {
+            let mut state = state_with(vec![
+                combatant("caster", false, 0, 0, 30, 20),
+                combatant("target", true, 0, 1, 30, 100),
+            ]);
+            let s = test_spell(0, Some("2d1"), Some("яд"), false, Some("Телосложение"));
+            cast_spell(&mut state, "caster", &s, Some("target")).unwrap();
+            let target = state.combatants.iter().find(|c| c.id == "target").unwrap();
+            let dealt = 100 - target.current_hp;
+            let message = state.log.last().unwrap().clone();
+            if message.contains("успех") {
+                assert_eq!(dealt, 1, "успешный спасбросок должен наносить половину урона (округление вниз)");
+                saw_success = true;
+            } else {
+                assert!(message.contains("провал"));
+                assert_eq!(dealt, 2, "провал спасброска должен наносить полный урон");
+                saw_failure = true;
+            }
+        }
+        assert!(saw_success && saw_failure, "за 60 попыток должны встретиться оба исхода");
+    }
+
+    #[test]
+    fn cast_spell_without_damage_dice_is_utility_and_touches_no_hp() {
+        let mut state = state_with(vec![combatant("caster", false, 0, 0, 30, 20)]);
+        let s = test_spell(0, None, None, false, None);
+        cast_spell(&mut state, "caster", &s, None).unwrap();
+        let caster = state.combatants.iter().find(|c| c.id == "caster").unwrap();
+        assert_eq!(caster.current_hp, caster.max_hp);
+        assert!(state.log.last().unwrap().contains("Тестовое заклинание"));
+    }
+
+    #[test]
+    fn cast_spell_requires_target_when_it_has_an_attack_roll() {
+        let mut state = state_with(vec![combatant("caster", false, 0, 0, 30, 20)]);
+        let s = test_spell(0, Some("1d10"), Some("огонь"), true, None);
+        let err = cast_spell(&mut state, "caster", &s, None).unwrap_err();
+        assert!(err.contains("цель"));
     }
 
     #[test]

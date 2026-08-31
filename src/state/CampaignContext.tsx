@@ -32,6 +32,7 @@ interface CampaignContextValue {
   startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
   combatAttack: (attackerId: string, targetId: string) => Promise<void>;
+  combatCastSpell: (casterId: string, spellId: string, targetId: string | null) => Promise<void>;
   applyDamage: (targetId: string, delta: number) => Promise<void>;
   endTurn: () => Promise<void>;
   monsterAutoTurn: () => Promise<void>;
@@ -170,6 +171,11 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       runServerAction("combat_attack", { attackerId, targetId }),
     [runServerAction],
   );
+  const combatCastSpell = useCallback(
+    (casterId: string, spellId: string, targetId: string | null) =>
+      runServerAction("combat_cast_spell", { casterId, spellId, targetId }),
+    [runServerAction],
+  );
   const applyDamage = useCallback(
     (targetId: string, delta: number) => runServerAction("apply_damage", { targetId, delta }),
     [runServerAction],
@@ -200,6 +206,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         startCombat,
         moveCombatant,
         combatAttack,
+        combatCastSpell,
         applyDamage,
         endTurn,
         monsterAutoTurn,

@@ -1,15 +1,37 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CombatPage } from "./CombatPage";
-import type { CampaignState, MonsterTemplate } from "../../state/types";
+import type { CampaignState, MonsterTemplate, Spell } from "../../state/types";
 
 const bestiary: MonsterTemplate[] = [
   { id: "wolf", name: "Волк", maxHp: 11, armorClass: 13, speedFeet: 40, attackBonus: 4, damageDice: "2d4+2" },
 ];
 
+const spells: Spell[] = [
+  {
+    id: "fire-bolt",
+    name: "Огненный снаряд",
+    level: 0,
+    school: "Воплощение",
+    castingTime: "1 действие",
+    range: "120 футов",
+    components: "В, С",
+    duration: "Мгновенная",
+    concentration: false,
+    ritual: false,
+    classes: ["classes-wizard"],
+    description: "",
+    damageDice: "1d10",
+    damageType: "огонь",
+    attackRoll: true,
+    savingThrow: null,
+  },
+];
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string) => {
     if (cmd === "get_bestiary") return bestiary;
+    if (cmd === "get_spells") return spells;
     return null;
   }),
 }));
@@ -60,6 +82,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
 const startCombat = vi.fn();
 const moveCombatant = vi.fn();
 const combatAttack = vi.fn();
+const combatCastSpell = vi.fn();
 const applyDamage = vi.fn();
 const endTurn = vi.fn();
 const monsterAutoTurn = vi.fn();
@@ -72,6 +95,7 @@ vi.mock("../../state/CampaignContext", () => ({
     startCombat,
     moveCombatant,
     combatAttack,
+    combatCastSpell,
     applyDamage,
     endTurn,
     monsterAutoTurn,
@@ -209,5 +233,74 @@ describe("CombatPage", () => {
     fireEvent.click(deadWolfToken);
 
     expect(moveCombatant).toHaveBeenCalledWith("hero", 2, 2);
+  });
+
+  it("lets the current spellcaster pick a target and cast a known cantrip", async () => {
+    mockState = baseState({
+      characters: [
+        {
+          ...baseState().characters[0],
+          knownCantrips: ["fire-bolt"],
+        },
+      ],
+      combat: {
+        gridWidth: 3,
+        gridHeight: 3,
+        combatants: [
+          {
+            id: "hero",
+            name: "Герой",
+            isMonster: false,
+            x: 0,
+            y: 0,
+            speedFeet: 30,
+            maxHp: 12,
+            currentHp: 12,
+            armorClass: 14,
+            attackBonus: 4,
+            damageDice: "1d8",
+            initiative: 15,
+            feetMovedThisTurn: 0,
+          },
+          {
+            id: "wolf",
+            name: "Волк",
+            isMonster: true,
+            x: 1,
+            y: 1,
+            speedFeet: 40,
+            maxHp: 11,
+            currentHp: 11,
+            armorClass: 13,
+            attackBonus: 4,
+            damageDice: "2d4+2",
+            initiative: 10,
+            feetMovedThisTurn: 0,
+          },
+        ],
+        turnOrder: ["hero", "wolf"],
+        currentTurnIndex: 0,
+        round: 1,
+        log: ["Бой начался."],
+        finished: false,
+      },
+    });
+    render(<CombatPage />);
+
+    const spellSelect = await screen.findByText("Заклинание:");
+    const select = spellSelect.closest("label")!.querySelector("select")!;
+    fireEvent.change(select, { target: { value: "fire-bolt" } });
+
+    const castButton = screen.getByText("Сотворить");
+    // Заговор с броском атаки требует цель — без неё кнопка недоступна.
+    expect(castButton).toBeDisabled();
+
+    const targetLabel = screen.getByText("Цель:");
+    const targetSelectEl = targetLabel.closest("label")!.querySelector("select")!;
+    fireEvent.change(targetSelectEl, { target: { value: "wolf" } });
+
+    await waitFor(() => expect(castButton).not.toBeDisabled());
+    fireEvent.click(castButton);
+    expect(combatCastSpell).toHaveBeenCalledWith("hero", "fire-bolt", "wolf");
   });
 });
