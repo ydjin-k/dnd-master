@@ -16,6 +16,7 @@ import {
   ALIGNMENT_DESCRIPTIONS,
   ALL_LANGUAGES,
   ALL_SKILLS,
+  ARTISAN_TOOLS,
   BACKGROUNDS,
   CLASS_EQUIPMENT,
   CLASS_PROFICIENCIES,
@@ -23,6 +24,7 @@ import {
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   DWARF_TOOL_CHOICES,
   FIGHTER_FIGHTING_STYLES,
+  INSTRUMENTS,
   NAME_SUGGESTIONS,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
@@ -157,6 +159,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [fightingStyle, setFightingStyle] = useState("");
   const [favoredEnemy, setFavoredEnemy] = useState("");
   const [rangerTerrain, setRangerTerrain] = useState("");
+  const [monkToolCategory, setMonkToolCategory] = useState<"craft" | "music">("craft");
+  const [chosenMonkTool, setChosenMonkTool] = useState("");
   const [classSkills, setClassSkills] = useState<string[]>([]);
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
@@ -195,6 +199,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const dwarfToolChoices = raceId === "races-dwarf" ? DWARF_TOOL_CHOICES : [];
   const fighterFightingStyles = classId === "classes-fighter" ? FIGHTER_FIGHTING_STYLES : [];
   const isRanger = classId === "classes-ranger";
+  const isMonk = classId === "classes-monk";
+  const monkToolOptions = monkToolCategory === "craft" ? ARTISAN_TOOLS : INSTRUMENTS;
+  const finalMonkTool = isMonk ? chosenMonkTool || monkToolOptions[0]?.name : undefined;
   const finalDwarfTool = dwarfToolChoices.length > 0 ? chosenDwarfTool || dwarfToolChoices[0].name : undefined;
   const displayedRaceTraits = raceTraits.map((t) =>
     t.name === "Владение инструментами" && finalDwarfTool
@@ -287,6 +294,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setFightingStyle("");
     setFavoredEnemy("");
     setRangerTerrain("");
+    setMonkToolCategory("craft");
+    setChosenMonkTool("");
+  }
+
+  function changeMonkToolCategory(category: "craft" | "music") {
+    setMonkToolCategory(category);
+    setChosenMonkTool("");
   }
 
   function toggleClassSkill(skill: string) {
@@ -694,6 +708,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </p>
                   </>
                 )}
+                {isMonk && (
+                  <p className="wizard__hint">
+                    Владение инструментами:{" "}
+                    <select
+                      value={monkToolCategory}
+                      onChange={(e) => changeMonkToolCategory(e.currentTarget.value as "craft" | "music")}
+                    >
+                      <option value="craft">Инструмент ремесленника</option>
+                      <option value="music">Музыкальный инструмент</option>
+                    </select>{" "}
+                    <select
+                      value={chosenMonkTool || monkToolOptions[0]?.name || ""}
+                      onChange={(e) => setChosenMonkTool(e.currentTarget.value)}
+                    >
+                      {monkToolOptions.map((tool) => (
+                        <option key={tool.name} value={tool.name}>
+                          {tool.name} ({tool.cost}, {tool.weight})
+                        </option>
+                      ))}
+                    </select>
+                  </p>
+                )}
                 {klass.blocks.map((b, i) => (
                   <RuleBlockView key={i} block={b} />
                 ))}
@@ -1092,6 +1128,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 {rangerTerrain || RANGER_TERRAIN_TYPES[0]}
               </li>
             )}
+            {isMonk && <li>Владение инструментами: {finalMonkTool}</li>}
             {spellAbility && (
               <li>
                 Заклинания: класс «{klass?.title}» владеет заклинаниями (заклинательная характеристика —{" "}

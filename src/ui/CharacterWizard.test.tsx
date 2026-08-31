@@ -37,6 +37,13 @@ const topics: RuleTopic[] = [
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к10 за уровень следопыта" }],
   },
+  {
+    id: "classes-monk",
+    category: "classes",
+    title: "Монах",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень монаха" }],
+  },
 ];
 
 const abilityRolls: AbilityScoreRoll[] = [
@@ -683,5 +690,33 @@ describe("CharacterWizard", () => {
     fireEvent.click(screen.getByText("Далее")); // -> equipment
     fireEvent.click(await screen.findByText("Далее")); // -> review
     expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 14\b/);
+  });
+
+  it("lets a Monk choose one artisan's or musical instrument tool, reflected in the review text", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Монах"));
+
+    // Craft tool is the default category.
+    const toolSelect = await screen.findByDisplayValue(/^Инструменты алхимика /);
+    fireEvent.change(toolSelect, { target: { value: "Инструменты каменщика" } });
+
+    // Switch category to musical instrument.
+    fireEvent.change(screen.getByDisplayValue("Инструмент ремесленника"), {
+      target: { value: "music" },
+    });
+    const instrumentSelect = await screen.findByDisplayValue(/^Волынка /);
+    fireEvent.change(instrumentSelect, { target: { value: "Лютня" } });
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    expect(screen.getByText(/Владение инструментами: Лютня/)).toBeInTheDocument();
   });
 });
