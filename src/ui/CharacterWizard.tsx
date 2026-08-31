@@ -111,6 +111,11 @@ const PROFICIENCY_BONUS_LEVEL_1 = 2;
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.
 const GENDERS = ["Мужской", "Женский"] as const;
 
+const GENDER_TO_NAME_KEY: Record<(typeof GENDERS)[number], "male" | "female"> = {
+  Мужской: "male",
+  Женский: "female",
+};
+
 function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2);
 }
@@ -250,7 +255,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   /** Реролл никогда не повторяет последний предложенный вариант (если в списке > 1 имени). */
   function suggestName() {
-    const list = (raceId && NAME_SUGGESTIONS[raceId]) || NAME_SUGGESTIONS.general;
+    const byGender = (raceId && NAME_SUGGESTIONS[raceId]) || NAME_SUGGESTIONS.general;
+    const genderKey = GENDER_TO_NAME_KEY[gender];
+    const list = byGender[genderKey];
     const pool = list.length > 1 ? list.filter((n) => n !== lastSuggestedName) : list;
     const suggestion = pool[Math.floor(Math.random() * pool.length)];
     setLastSuggestedName(suggestion);
