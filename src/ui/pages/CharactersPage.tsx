@@ -88,6 +88,15 @@ function CharacterCard({
     return spells.find((sp) => sp.id === id)?.name ?? id;
   }
 
+  function findSpell(id: string): Spell | undefined {
+    return spells.find((sp) => sp.id === id);
+  }
+
+  function truncateDescription(text: string, max = 90): string {
+    if (text.length <= max) return text;
+    return `${text.slice(0, max).trimEnd()}…`;
+  }
+
   function restoreSpellSlots() {
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: ch.spellSlotsLevel1Max }));
   }
@@ -217,11 +226,19 @@ function CharacterCard({
             <div className="character-card__spell-group">
               Заговоры:
               <ul className="character-card__spell-list">
-                {c.knownCantrips.map((id) => (
-                  <li key={id}>
-                    {spellName(id)} <button type="button">Использовать</button>
-                  </li>
-                ))}
+                {c.knownCantrips.map((id) => {
+                  const spell = findSpell(id);
+                  return (
+                    <li key={id}>
+                      <div>{spellName(id)}</div>
+                      {spell && (
+                        <div className="character-card__spell-info">
+                          {spell.castingTime} · {spell.range} · {truncateDescription(spell.description)}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage } from "./CharactersPage";
-import type { CampaignState, Character, RuleTopic } from "../../state/types";
+import type { CampaignState, Character, RuleTopic, Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -278,7 +278,7 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     const useButtons = screen.getAllByText("Использовать");
-    fireEvent.click(useButtons[1]); // second group rendered is knownSpells (level 1)
+    fireEvent.click(useButtons[0]); // only group with a button now is knownSpells (level 1)
 
     expect(updateCharacter).toHaveBeenCalledTimes(1);
     const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
@@ -291,21 +291,39 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     const useButtons = screen.getAllByText("Использовать");
-    expect(useButtons[1]).toBeDisabled();
+    expect(useButtons[0]).toBeDisabled();
 
     // Belt-and-suspenders: even if the button were somehow clicked, the
     // decrement logic itself must not go below 0.
-    fireEvent.click(useButtons[1]);
+    fireEvent.click(useButtons[0]);
     expect(updateCharacter).not.toHaveBeenCalled();
   });
 
-  it("using a cantrip's 'Использовать' button does not change the spell slot counter", async () => {
+  it("a cantrip has no 'Использовать' button, only usage info; the level-1 spell keeps its button", async () => {
+    const cantripSpell: Spell = {
+      id: "cantrip-1",
+      name: "Свет",
+      level: 0,
+      school: "Преобразование",
+      castingTime: "1 действие",
+      range: "Касание",
+      components: "В, М",
+      duration: "1 час",
+      concentration: false,
+      ritual: false,
+      classes: [],
+      description: "Вы касаетесь предмета, который начинает испускать яркий свет.",
+      damageDice: null,
+      damageType: null,
+      attackRoll: false,
+      savingThrow: null,
+    };
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_spells" ? [cantripSpell] : []));
     mockState = baseState({ characters: [spellcaster()] });
     render(<CharactersPage />);
 
-    const useButtons = screen.getAllByText("Использовать");
-    fireEvent.click(useButtons[0]); // first group rendered is knownCantrips
-
-    expect(updateCharacter).not.toHaveBeenCalled();
+    await screen.findByText(/Касание/);
+    expect(screen.getAllByText("Использовать")).toHaveLength(1);
+    expect(screen.getByText(/1 действие · Касание/)).toBeInTheDocument();
   });
 });
