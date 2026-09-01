@@ -4,7 +4,23 @@ import { CombatPage } from "./CombatPage";
 import type { CampaignState, MonsterTemplate, Spell } from "../../state/types";
 
 const bestiary: MonsterTemplate[] = [
-  { id: "wolf", name: "Волк", maxHp: 11, armorClass: 13, speedFeet: 40, attackBonus: 4, damageDice: "2d4+2" },
+  {
+    id: "wolf",
+    name: "Волк",
+    maxHp: 11,
+    armorClass: 13,
+    speedFeet: 40,
+    attackBonus: 4,
+    damageDice: "2d4+2",
+    challengeRating: "1/4",
+    creatureType: "зверь",
+    size: "Средний",
+    description: "",
+    traits: [],
+    actions: [],
+    imageAsset: null,
+    imageAttribution: null,
+  },
 ];
 
 const spells: Spell[] = [

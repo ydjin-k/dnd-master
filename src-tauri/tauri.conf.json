@@ -34,7 +34,9 @@
     "resources": {
       "models/*": "models/",
       "pdfium/*": "pdfium/",
-      "rules/*": "rules/"
+      "rules/*": "rules/",
+      "bestiary/*.json": "bestiary/",
+      "bestiary/images/*": "bestiary/images/"
     }
   }
 }
