@@ -1,10 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage } from "./CharactersPage";
-import type { CampaignState, Character } from "../../state/types";
+import type { CampaignState, Character, RuleTopic } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+
+const CONDITIONS_TOPIC: RuleTopic = {
+  id: "appendices-conditions",
+  category: "appendices",
+  title: "Состояния",
+  sourceUrl: "",
+  blocks: [
+    { type: "heading", level: 2, text: "Ослеплённое" },
+    {
+      type: "list",
+      items: [
+        "Ослеплённое существо не может видеть и автоматически проваливает любую проверку характеристик, зависящую от зрения.",
+        "Броски атаки против существа совершаются с преимуществом, а броски атаки существа совершаются с помехой.",
+      ],
+    },
+    { type: "heading", level: 2, text: "Парализованное" },
+    { type: "list", items: ["Парализованное существо недееспособно и не может двигаться или говорить."] },
+  ],
+};
 
 const addCharacter = vi.fn();
 const removeCharacter = vi.fn();
@@ -35,7 +55,18 @@ describe("CharactersPage", () => {
     removeCharacter.mockClear();
     updateCharacter.mockClear();
     window.confirm = vi.fn(() => true);
+    vi.mocked(invoke).mockImplementation(async () => []);
   });
+
+  function spellcaster(): CampaignState["characters"][number] {
+    return {
+      ...characterWithInventory(),
+      knownCantrips: ["cantrip-1"],
+      knownSpells: ["spell-1"],
+      spellSlotsLevel1Max: 2,
+      spellSlotsLevel1Current: 2,
+    };
+  }
 
   function characterWithInventory(): CampaignState["characters"][number] {
     return {
@@ -109,19 +140,22 @@ describe("CharactersPage", () => {
     await waitFor(() => expect(removeCharacter).toHaveBeenCalledWith("hero"));
   });
 
-  it("toggles between the Import and rules-wizard panels without crashing", async () => {
+  it("has no Import button or panel (feature removed)", async () => {
     mockState = baseState();
     render(<CharactersPage />);
 
+    expect(screen.queryByText("Импорт")).not.toBeInTheDocument();
     expect(screen.queryByText("Выбрать файл")).not.toBeInTheDocument();
-    expect(screen.queryByText("Раса")).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByText("Импорт"));
-    expect(await screen.findByText("Выбрать файл")).toBeInTheDocument();
+  it("toggles the rules-wizard panel without crashing", async () => {
+    mockState = baseState();
+    render(<CharactersPage />);
+
+    expect(screen.queryByText("Раса")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Создать персонажа по правилам"));
     expect(await screen.findByText(/Выбери расу слева/)).toBeInTheDocument();
-    expect(screen.queryByText("Выбрать файл")).not.toBeInTheDocument();
 
     // Clicking the active panel's own button again closes it.
     fireEvent.click(screen.getByText("Создать персонажа по правилам"));
@@ -187,5 +221,91 @@ describe("CharactersPage", () => {
     const addConditionUpdater = updateCharacter.mock.calls[1][1] as (c: Character) => Character;
     const afterCondition = addConditionUpdater(characterWithInventory());
     expect(afterCondition.conditions).toEqual(["Отравленное"]);
+  });
+
+  it("a character with a known condition renders its SRD effect text; each active condition shows its own effect", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [CONDITIONS_TOPIC] : []));
+    const char = { ...characterWithInventory(), conditions: ["Ослеплённое", "Парализованное"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText(/не может видеть/)).toBeInTheDocument();
+    expect(screen.getByText(/недееспособно и не может двигаться/)).toBeInTheDocument();
+  });
+
+  it("removing a condition removes it from the character (and with it, its effect plate)", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [CONDITIONS_TOPIC] : []));
+    const char = { ...characterWithInventory(), conditions: ["Ослеплённое"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+    await screen.findByText(/не может видеть/);
+
+    const conditionItem = screen.getByText("Ослеплённое").closest("li") as HTMLElement;
+    fireEvent.click(within(conditionItem).getByText("✕"));
+
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater(char).conditions).toEqual([]);
+  });
+
+  it("the item add-row offers datalist suggestions from multiple catalog categories (weapons, armor, ...)", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    const { container } = render(<CharactersPage />);
+
+    const options = Array.from(container.querySelectorAll('datalist[id^="items-"] option')).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(options).toContain("Кинжал"); // WEAPONS
+    expect(options).toContain("Кожаный доспех"); // ARMOR
+  });
+
+  it("a free-typed item name (not in the catalog) is still added on click", async () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Новый предмет"), {
+      target: { value: "Совершенно случайное имя" },
+    });
+    fireEvent.click(screen.getAllByText("Добавить")[0]);
+
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater(characterWithInventory()).inventory.map((i) => i.name)).toContain(
+      "Совершенно случайное имя",
+    );
+  });
+
+  it("using a level-1 spell decrements the slot counter by exactly 1 through onUpdate", async () => {
+    mockState = baseState({ characters: [spellcaster()] });
+    render(<CharactersPage />);
+
+    const useButtons = screen.getAllByText("Использовать");
+    fireEvent.click(useButtons[1]); // second group rendered is knownSpells (level 1)
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater(spellcaster()).spellSlotsLevel1Current).toBe(1);
+  });
+
+  it("the level-1 'Использовать' button is disabled at 0 slots, and the updater itself floors at 0 too", async () => {
+    const empty = { ...spellcaster(), spellSlotsLevel1Current: 0 };
+    mockState = baseState({ characters: [empty] });
+    render(<CharactersPage />);
+
+    const useButtons = screen.getAllByText("Использовать");
+    expect(useButtons[1]).toBeDisabled();
+
+    // Belt-and-suspenders: even if the button were somehow clicked, the
+    // decrement logic itself must not go below 0.
+    fireEvent.click(useButtons[1]);
+    expect(updateCharacter).not.toHaveBeenCalled();
+  });
+
+  it("using a cantrip's 'Использовать' button does not change the spell slot counter", async () => {
+    mockState = baseState({ characters: [spellcaster()] });
+    render(<CharactersPage />);
+
+    const useButtons = screen.getAllByText("Использовать");
+    fireEvent.click(useButtons[0]); // first group rendered is knownCantrips
+
+    expect(updateCharacter).not.toHaveBeenCalled();
   });
 });

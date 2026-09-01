@@ -13,6 +13,7 @@ import {
 import { RuleBlockView } from "./RuleBlockView";
 import {
   ADVENTURING_GEAR,
+  AGE_LIMIT,
   ALIGNMENTS,
   ALIGNMENT_DESCRIPTIONS,
   ALL_LANGUAGES,
@@ -26,10 +27,13 @@ import {
   CLASS_SPELLCASTING_ABILITY_KEY,
   CLASS_SPELL_PROGRESSION,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
+  CUSTOM_BACKGROUND_GOLD_LIMIT,
   DWARF_TOOL_CHOICES,
   FIGHTER_FIGHTING_STYLES,
   INSTRUMENTS,
   NAME_SUGGESTIONS,
+  PROFICIENCY_BONUS_HINT,
+  PROFICIENCY_BONUS_LEVEL_1,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
@@ -111,8 +115,6 @@ const RACE_SPEED_FEET: Record<string, number> = {
   "races-half-elf": 30,
   "races-tiefling": 30,
 };
-
-const PROFICIENCY_BONUS_LEVEL_1 = 2;
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.
 const GENDERS = ["Мужской", "Женский"] as const;
@@ -923,15 +925,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   </button>
                 </div>
                 <label>
-                  Золото:{" "}
+                  Золото (максимум {CUSTOM_BACKGROUND_GOLD_LIMIT} зм):{" "}
                   <input
                     type="number"
                     min={0}
-                    max={30}
+                    max={CUSTOM_BACKGROUND_GOLD_LIMIT}
                     value={customBackground.gold === 0 ? "" : customBackground.gold}
                     onChange={(e) => {
                       const raw = e.currentTarget.value;
-                      const value = raw === "" ? 0 : Math.min(30, Number(raw) || 0);
+                      const value = raw === "" ? 0 : Math.min(CUSTOM_BACKGROUND_GOLD_LIMIT, Number(raw) || 0);
                       setCustomBackground((prev) => ({ ...prev, gold: value }));
                     }}
                   />
@@ -1203,13 +1205,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             </select>
           </label>
           <label className="wizard__hint">
-            Возраст:{" "}
+            Возраст (до {AGE_LIMIT} лет):{" "}
             <input
               type="number"
+              max={AGE_LIMIT}
               value={age === 0 ? "" : age}
               onChange={(e) => {
                 const raw = e.currentTarget.value;
-                const value = raw === "" ? 0 : Number(raw) || 0;
+                const value = raw === "" ? 0 : Math.min(AGE_LIMIT, Number(raw) || 0);
                 setAge(value);
               }}
             />
@@ -1236,7 +1239,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             ))}
             <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
-            <li>Навыки: {allSkillProficiencies.join(", ") || "—"}</li>
+            <li>
+              Навыки: {allSkillProficiencies.join(", ") || "—"}
+              {allSkillProficiencies.length > 0 && (
+                <span className="wizard__ability-bonus"> — {PROFICIENCY_BONUS_HINT}</span>
+              )}
+            </li>
             <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
             {displayedRaceTraits.length > 0 && (
               <li>

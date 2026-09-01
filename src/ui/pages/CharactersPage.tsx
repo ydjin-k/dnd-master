@@ -1,22 +1,49 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import { CONDITIONS } from "../characterCreationData";
-import type { Character, Spell } from "../../state/types";
+import { ALL_ITEM_NAMES, CONDITIONS, PROFICIENCY_BONUS_HINT } from "../characterCreationData";
+import type { Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
-import { ImportPage } from "./ImportPage";
 import "./CharactersPage.css";
 
-type Panel = "none" | "import" | "wizard";
+type Panel = "none" | "wizard";
+
+const EXHAUSTION_EFFECT = [
+  "Эффект зависит от уровня истощения (см. Правила → Состояния).",
+];
+
+/**
+ * Карта «состояние → строки эффекта», извлечённая из appendices-conditions:
+ * у каждого состояния из CONDITIONS (кроме «Истощение», см. EXHAUSTION_EFFECT)
+ * в rules.json заголовок 2 уровня с точным именем состояния, а следом —
+ * list-блок с текстом эффекта.
+ */
+function extractConditionEffects(topics: RuleTopic[]): Record<string, string[]> {
+  const topic = topics.find((t) => t.id === "appendices-conditions");
+  if (!topic) return {};
+  const effects: Record<string, string[]> = {};
+  const blocks = topic.blocks;
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    if (block.type !== "heading" || block.level !== 2) continue;
+    if (!CONDITIONS.includes(block.text)) continue;
+    const next = blocks[i + 1];
+    if (next?.type === "list") effects[block.text] = next.items;
+  }
+  effects["Истощение"] = EXHAUSTION_EFFECT;
+  return effects;
+}
 
 function CharacterCard({
   character: c,
   spells,
+  conditionEffects,
   onRemove,
   onUpdate,
 }: {
   character: Character;
   spells: Spell[];
+  conditionEffects: Record<string, string[]>;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -65,6 +92,10 @@ function CharacterCard({
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: ch.spellSlotsLevel1Max }));
   }
 
+  function useSpellSlot() {
+    onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: Math.max(0, ch.spellSlotsLevel1Current - 1) }));
+  }
+
   const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
 
   return (
@@ -89,11 +120,13 @@ function CharacterCard({
       </div>
       {c.savingThrowProficiencies.length > 0 && (
         <div className="character-card__prof">
-          Спасброски: {c.savingThrowProficiencies.join(", ")}
+          Спасброски: {c.savingThrowProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
         </div>
       )}
       {c.skillProficiencies.length > 0 && (
-        <div className="character-card__prof">Навыки: {c.skillProficiencies.join(", ")}</div>
+        <div className="character-card__prof">
+          Навыки: {c.skillProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
+        </div>
       )}
       {c.languages.length > 0 && (
         <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
@@ -120,10 +153,16 @@ function CharacterCard({
         </ul>
         <div className="character-card__add-row">
           <input
+            list={`items-${c.id}`}
             placeholder="Новый предмет"
             value={newItemName}
             onChange={(e) => setNewItemName(e.currentTarget.value)}
           />
+          <datalist id={`items-${c.id}`}>
+            {ALL_ITEM_NAMES.map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
           <button type="button" onClick={addItem}>
             Добавить
           </button>
@@ -136,10 +175,19 @@ function CharacterCard({
           <ul className="character-card__condition-list">
             {c.conditions.map((condition) => (
               <li key={condition}>
-                {condition}{" "}
-                <button type="button" onClick={() => removeCondition(condition)}>
-                  ✕
-                </button>
+                <div className="character-card__condition-row">
+                  {condition}{" "}
+                  <button type="button" onClick={() => removeCondition(condition)}>
+                    ✕
+                  </button>
+                </div>
+                {conditionEffects[condition] && (
+                  <ul className="character-card__condition-effect">
+                    {conditionEffects[condition].map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
@@ -167,12 +215,29 @@ function CharacterCard({
           <summary>Заклинания</summary>
           {c.knownCantrips.length > 0 && (
             <div className="character-card__spell-group">
-              Заговоры: {c.knownCantrips.map(spellName).join(", ")}
+              Заговоры:
+              <ul className="character-card__spell-list">
+                {c.knownCantrips.map((id) => (
+                  <li key={id}>
+                    {spellName(id)} <button type="button">Использовать</button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {c.knownSpells.length > 0 && (
             <div className="character-card__spell-group">
-              Заклинания 1 уровня: {c.knownSpells.map(spellName).join(", ")}
+              Заклинания 1 уровня:
+              <ul className="character-card__spell-list">
+                {c.knownSpells.map((id) => (
+                  <li key={id}>
+                    {spellName(id)}{" "}
+                    <button type="button" onClick={useSpellSlot} disabled={c.spellSlotsLevel1Current === 0}>
+                      Использовать
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           <div className="character-card__spell-group">
@@ -191,9 +256,11 @@ export function CharactersPage() {
   const { state, removeCharacter, updateCharacter } = useCampaign();
   const [panel, setPanel] = useState<Panel>("none");
   const [spells, setSpells] = useState<Spell[]>([]);
+  const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     invoke<Spell[]>("get_spells").then(setSpells);
+    invoke<RuleTopic[]>("get_rules").then((topics) => setConditionEffects(extractConditionEffects(topics)));
   }, []);
 
   return (
@@ -206,6 +273,7 @@ export function CharactersPage() {
             key={c.id}
             character={c}
             spells={spells}
+            conditionEffects={conditionEffects}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);
@@ -221,12 +289,6 @@ export function CharactersPage() {
 
       <div className="characters-page__actions">
         <button
-          className={"characters-page__action" + (panel === "import" ? " characters-page__action--active" : "")}
-          onClick={() => setPanel(panel === "import" ? "none" : "import")}
-        >
-          Импорт
-        </button>
-        <button
           className={"characters-page__action" + (panel === "wizard" ? " characters-page__action--active" : "")}
           onClick={() => setPanel(panel === "wizard" ? "none" : "wizard")}
         >
@@ -234,7 +296,6 @@ export function CharactersPage() {
         </button>
       </div>
 
-      {panel === "import" && <ImportPage />}
       {panel === "wizard" && <CharacterWizard onDone={() => setPanel("none")} />}
     </div>
   );
