@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import { ALL_ITEM_NAMES, CONDITIONS, PROFICIENCY_BONUS_HINT } from "../characterCreationData";
+import { ALL_ITEM_NAMES, CONDITIONS, HEALING_POTIONS, PROFICIENCY_BONUS_HINT } from "../characterCreationData";
 import type { Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
@@ -198,9 +198,14 @@ function CharacterCard({
             onChange={(e) => setNewItemName(e.currentTarget.value)}
           />
           <datalist id={`items-${c.id}`}>
-            {ALL_ITEM_NAMES.map((name) => (
-              <option key={name} value={name} />
-            ))}
+            {ALL_ITEM_NAMES.map((name) => {
+              const potion = HEALING_POTIONS.find((p) => p.name === name);
+              return (
+                <option key={name} value={name}>
+                  {potion ? `${name} — лечит ${potion.healingDice}` : name}
+                </option>
+              );
+            })}
           </datalist>
           <button type="button" onClick={addItem}>
             Добавить

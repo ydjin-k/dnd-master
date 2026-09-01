@@ -1246,10 +1246,55 @@ export const CONDITIONS = [
   "Истощение (ур. 6)",
 ];
 
+export interface HealingPotionData {
+  name: string;
+  /** Кости лечения в нотации проекта, например «2к4+2». */
+  healingDice: string;
+  rarity: string;
+  description: string;
+}
+
+/**
+ * Зелья лечения — таблица «Potions of Healing» из официального SRD 5.1 PDF
+ * (media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf, раздел Magic
+ * Items → Potion of Healing), сверено по тексту PDF в этой сессии.
+ * `rules.json` (перевод longstoryshort.app) раздела о магических предметах
+ * не содержит вообще, поэтому источник — сам PDF, не rules.json.
+ * Официальная цена в gp для зелий лечения в SRD не указана (по редкости, не
+ * по фиксированной цене) — `cost` оставлен «—», как и у прочих предметов без
+ * заданного значения в этом файле.
+ */
+export const HEALING_POTIONS: HealingPotionData[] = [
+  {
+    name: "Зелье лечения",
+    healingDice: "2к4+2",
+    rarity: "обычная",
+    description: "Магическая красная жидкость. При выпивании восстанавливает 2к4+2 хитов.",
+  },
+  {
+    name: "Зелье большого лечения",
+    healingDice: "4к4+4",
+    rarity: "необычная",
+    description: "При выпивании восстанавливает 4к4+4 хитов.",
+  },
+  {
+    name: "Зелье превосходного лечения",
+    healingDice: "8к4+8",
+    rarity: "редкая",
+    description: "При выпивании восстанавливает 8к4+8 хитов.",
+  },
+  {
+    name: "Зелье наивысшего лечения",
+    healingDice: "10к4+20",
+    rarity: "очень редкая",
+    description: "При выпивании восстанавливает 10к4+20 хитов.",
+  },
+];
+
 /**
  * Полный каталог имён предметов для подсказок инвентаря — оружие, доспехи,
- * снаряжение авантюриста, музыкальные инструменты и инструменты ремесленника,
- * объединённые и без дублей по name.
+ * снаряжение авантюриста, музыкальные инструменты, инструменты ремесленника
+ * и зелья лечения, объединённые и без дублей по name.
  */
 export const ALL_ITEM_NAMES: string[] = [
   ...new Set([
@@ -1259,6 +1304,7 @@ export const ALL_ITEM_NAMES: string[] = [
     ...INSTRUMENTS.map((i) => i.name),
     ...ARTISAN_TOOLS.map((t) => t.name),
     ...DWARF_TOOL_CHOICES.map((t) => t.name),
+    ...HEALING_POTIONS.map((p) => p.name),
   ]),
 ];
 
@@ -1279,6 +1325,9 @@ export const ALL_ITEMS_WITH_COST: GearData[] = (() => {
     ...INSTRUMENTS,
     ...ARTISAN_TOOLS,
     ...DWARF_TOOL_CHOICES,
+    // Зелья лечения — цена в SRD не задана числом (по редкости, не по gp), «—» как и у прочих
+    // предметов этого файла без известного значения.
+    ...HEALING_POTIONS.map((p) => ({ name: p.name, cost: "—", weight: "—" })),
   ]) {
     if (seen.has(item.name)) continue;
     seen.add(item.name);

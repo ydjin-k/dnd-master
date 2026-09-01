@@ -293,6 +293,19 @@ describe("CharactersPage", () => {
     expect(options).toContain("Кожаный доспех"); // ARMOR
   });
 
+  it("the item add-row datalist includes healing potion tiers with their healing dice shown as a hint", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    const { container } = render(<CharactersPage />);
+
+    const options = Array.from(container.querySelectorAll('datalist[id^="items-"] option'));
+    const potionOption = options.find((o) => (o as HTMLOptionElement).value === "Зелье лечения") as
+      | HTMLOptionElement
+      | undefined;
+    expect(potionOption).toBeDefined();
+    expect(potionOption!.textContent).toContain("2к4+2");
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toContain("Зелье наивысшего лечения");
+  });
+
   it("a free-typed item name (not in the catalog) is still added on click", async () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     render(<CharactersPage />);
