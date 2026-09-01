@@ -35,6 +35,7 @@ import {
   NAME_SUGGESTIONS,
   PROFICIENCY_BONUS_HINT,
   PROFICIENCY_BONUS_LEVEL_1,
+  parseHitDie,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
@@ -117,17 +118,6 @@ const GENDER_TO_NAME_KEY: Record<(typeof GENDERS)[number], "male" | "female"> = 
   Мужской: "male",
   Женский: "female",
 };
-
-function parseHitDie(classTopic: RuleTopic | undefined): number | null {
-  if (!classTopic) return null;
-  for (const b of classTopic.blocks) {
-    if (b.type === "paragraph" && b.text.includes("Кость хитов")) {
-      const m = b.text.match(/1к(\d+)/);
-      if (m) return Number(m[1]);
-    }
-  }
-  return null;
-}
 
 export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const { addCharacter } = useCampaign();

@@ -7,17 +7,24 @@ import {
   ALL_SKILLS,
   CONDITIONS,
   HEALING_POTIONS,
-  PROFICIENCY_BONUS_HINT,
-  PROFICIENCY_BONUS_LEVEL_1,
+  RACE_HP_BONUS,
   SKILL_ABILITY,
   abilityMod,
   fmtMod,
+  maxHpForLevel,
+  parseHitDie,
+  parseHitDieAverage,
+  proficiencyBonusForLevel,
+  proficiencyBonusHint,
 } from "../characterCreationData";
 import type { Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
 type Panel = "none" | "wizard";
+
+/** Левелинг в приложении пока ограничен уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md). */
+const MAX_LEVEL = 5;
 
 /** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
 const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
@@ -79,12 +86,16 @@ function CharacterCard({
   character: c,
   spells,
   conditionEffects,
+  classHitDiceByTitle,
+  raceHpBonusByTitle,
   onRemove,
   onUpdate,
 }: {
   character: Character;
   spells: Spell[];
   conditionEffects: Record<string, string[]>;
+  classHitDiceByTitle: Record<string, { max: number; average: number }>;
+  raceHpBonusByTitle: Record<string, number>;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -146,6 +157,30 @@ function CharacterCard({
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: Math.max(0, ch.spellSlotsLevel1Current - 1) }));
   }
 
+  /**
+   * Левел-ап: level+1, maxHp пересчитывается полностью по формуле (не
+   * инкрементально) — см. maxHpForLevel и «Архитектурное решение» в карточке
+   * characters-leveling-1-5. currentHp растёт на ту же прибавку (левел-ап
+   * лечит, стандартное правило SRD).
+   */
+  function levelUp() {
+    if (c.level >= MAX_LEVEL) return;
+    const newLevel = c.level + 1;
+    const dice = classHitDiceByTitle[c.class];
+    const conMod = abilityMod(c.abilities.constitution);
+    const raceBonus = raceHpBonusByTitle[c.race] ?? 0;
+    const newMaxHp = dice
+      ? maxHpForLevel(dice.max, dice.average, conMod, raceBonus, newLevel)
+      : c.maxHp;
+    const hpGained = Math.max(0, newMaxHp - c.maxHp);
+    onUpdate((ch) => ({
+      ...ch,
+      level: newLevel,
+      maxHp: newMaxHp,
+      currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
+    }));
+  }
+
   const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
 
   return (
@@ -168,13 +203,19 @@ function CharacterCard({
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
         {c.passivePerception} · {c.gold} зм
       </div>
+      <div className="character-card__level">
+        Уровень {c.level}{" "}
+        <button type="button" onClick={levelUp} disabled={c.level >= MAX_LEVEL}>
+          {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
+        </button>
+      </div>
       <details className="character-card__abilities">
         <summary>Спасброски и навыки</summary>
-        <p className="character-card__prof">{PROFICIENCY_BONUS_HINT}</p>
+        <p className="character-card__prof">{proficiencyBonusHint(c.level)}</p>
         <ul className="character-card__skill-list">
           {ABILITY_LABELS.map(([key, label]) => {
             const proficient = c.savingThrowProficiencies.includes(label);
-            const mod = abilityMod(c.abilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            const mod = abilityMod(c.abilities[key]) + (proficient ? proficiencyBonusForLevel(c.level) : 0);
             return (
               <li key={key}>
                 {label} (спасбросок): {fmtMod(mod)}
@@ -186,7 +227,7 @@ function CharacterCard({
         <ul className="character-card__skill-list">
           {ALL_SKILLS.map((skill) => {
             const proficient = c.skillProficiencies.includes(skill);
-            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? proficiencyBonusForLevel(c.level) : 0);
             return (
               <li key={skill}>
                 {skill}: {fmtMod(mod)}
@@ -334,15 +375,48 @@ function CharacterCard({
   );
 }
 
+/**
+ * Кость хитов по классу (для левел-апа), по названию класса (`Character.class`
+ * хранит текст, не id топика) — вытащено из тех же топиков rules.json, что уже
+ * загружаются мастером персонажа.
+ */
+function extractClassHitDice(topics: RuleTopic[]): Record<string, { max: number; average: number }> {
+  const result: Record<string, { max: number; average: number }> = {};
+  for (const t of topics) {
+    if (t.category !== "classes") continue;
+    const max = parseHitDie(t);
+    const average = parseHitDieAverage(t);
+    if (max !== null && average !== null) result[t.title] = { max, average };
+  }
+  return result;
+}
+
+/** Расовый бонус к хитам (см. RACE_HP_BONUS), по названию расы (`Character.race` хранит текст, не id). */
+function extractRaceHpBonus(topics: RuleTopic[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const t of topics) {
+    if (t.category !== "races") continue;
+    const bonus = RACE_HP_BONUS[t.id];
+    if (bonus) result[t.title] = bonus;
+  }
+  return result;
+}
+
 export function CharactersPage() {
   const { state, removeCharacter, updateCharacter } = useCampaign();
   const [panel, setPanel] = useState<Panel>("none");
   const [spells, setSpells] = useState<Spell[]>([]);
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
+  const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { max: number; average: number }>>({});
+  const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
 
   useEffect(() => {
     invoke<Spell[]>("get_spells").then(setSpells);
-    invoke<RuleTopic[]>("get_rules").then((topics) => setConditionEffects(extractConditionEffects(topics)));
+    invoke<RuleTopic[]>("get_rules").then((topics) => {
+      setConditionEffects(extractConditionEffects(topics));
+      setClassHitDiceByTitle(extractClassHitDice(topics));
+      setRaceHpBonusByTitle(extractRaceHpBonus(topics));
+    });
   }, []);
 
   return (
@@ -356,6 +430,8 @@ export function CharactersPage() {
             character={c}
             spells={spells}
             conditionEffects={conditionEffects}
+            classHitDiceByTitle={classHitDiceByTitle}
+            raceHpBonusByTitle={raceHpBonusByTitle}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);

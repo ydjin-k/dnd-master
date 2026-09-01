@@ -1,4 +1,4 @@
-import type { AbilityScores } from "../state/types";
+import type { AbilityScores, RuleTopic } from "../state/types";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -784,11 +784,76 @@ export const AGE_LIMIT = 500;
 /** Видимый игроку предел золота своей предыстории — тот же потолок, что уже клампится в обработчике. */
 export const CUSTOM_BACKGROUND_GOLD_LIMIT = 30;
 
-/** Бонус мастерства на 1 уровне (SRD 5.1) — статичный, пока в приложении нет левелинга. */
+/** Бонус мастерства на 1 уровне (SRD 5.1) — используется мастером персонажа (всегда создаёт 1 уровень). */
 export const PROFICIENCY_BONUS_LEVEL_1 = 2;
 
 /** Текст-подсказка про бонус мастерства, переиспользуется в мастере персонажа и в карточке. */
 export const PROFICIENCY_BONUS_HINT = `Владение навыком или спасброском даёт +${PROFICIENCY_BONUS_LEVEL_1} (бонус мастерства) к проверкам/спасброскам`;
+
+/**
+ * Бонус мастерства по уровню персонажа — сверено по rules.json →
+ * character-beyond-1-level («Развитие персонажа», таблица): уровни 1-4 → +2,
+ * уровень 5 → +3. Диапазон 1-20 из SRD не нужен целиком — приложение пока
+ * ограничивает левелинг уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md).
+ */
+export function proficiencyBonusForLevel(level: number): number {
+  return level >= 5 ? 3 : 2;
+}
+
+/** Та же подсказка, что PROFICIENCY_BONUS_HINT, но с бонусом текущего уровня персонажа. */
+export function proficiencyBonusHint(level: number): string {
+  return `Владение навыком или спасброском даёт +${proficiencyBonusForLevel(level)} (бонус мастерства) к проверкам/спасброскам`;
+}
+
+/**
+ * Кость хитов класса (макс. значение, «1кN») — из абзаца «Кость хитов» в
+ * теле класса (rules.json). Общая функция для мастера персонажа (стартовые
+ * хиты 1 уровня) и левел-апа в карточке персонажа (хиты новых уровней).
+ */
+export function parseHitDie(classTopic: RuleTopic | undefined): number | null {
+  if (!classTopic) return null;
+  for (const b of classTopic.blocks) {
+    if (b.type === "paragraph" && b.text.includes("Кость хитов")) {
+      const m = b.text.match(/1к(\d+)/);
+      if (m) return Number(m[1]);
+    }
+  }
+  return null;
+}
+
+/**
+ * Фиксированное среднее кости хитов («1кN (или M)») для левел-апа — из абзаца
+ * «Хиты на следующих уровнях» в теле класса (rules.json). Берём готовое число
+ * «или M» текстом класса, а не округляем вручную (см. «Контекст» в карточке
+ * характерс-левелинг-1-5 — числа отличаются по кости хитов класса).
+ */
+export function parseHitDieAverage(classTopic: RuleTopic | undefined): number | null {
+  if (!classTopic) return null;
+  for (const b of classTopic.blocks) {
+    if (b.type === "paragraph" && b.text.includes("Хиты на следующих уровнях")) {
+      const m = b.text.match(/\(или (\d+)\)/);
+      if (m) return Number(m[1]);
+    }
+  }
+  return null;
+}
+
+/**
+ * Полная формула макс. хитов персонажа на заданном уровне — стартовые хиты
+ * 1 уровня (макс. кость + мод. Телосложения + расовый бонус) плюс среднее
+ * кости хитов + мод. Телосложения за каждый уровень после первого.
+ * Пересчитывается полностью при каждом левел-апе/изменении характеристик,
+ * не хранится по кусочкам (см. «Архитектурное решение» в карточке).
+ */
+export function maxHpForLevel(
+  hitDieMax: number,
+  hitDieAverage: number,
+  conMod: number,
+  raceHpBonus: number,
+  level: number,
+): number {
+  return Math.max(1, hitDieMax + conMod + raceHpBonus + (level - 1) * (hitDieAverage + conMod));
+}
 
 /** Девять мировоззрений SRD 5.1 (rules.json → character-alignment). */
 export const ALIGNMENTS = [
