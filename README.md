@@ -14,10 +14,10 @@ Tauri 2 (Rust) + React/TypeScript.
 npm install
 bash src-tauri/models/fetch-models.sh
 bash src-tauri/pdfium/fetch-pdfium.sh
-bash src-tauri/bestiary/fetch-images.sh
 npm run tauri dev
 ```
 
-Модели OCR, библиотека PDFium и картинки бестиария не лежат в git (см. `.gitignore`) — без этих
-скриптов часть `cargo check`/`cargo test` не соберётся (сборка ресурсов Tauri требует, чтобы файлы
-уже лежали на диске).
+Модели OCR и библиотека PDFium не лежат в git (см. `.gitignore`) — без этих скриптов часть
+`cargo check`/`cargo test` не соберётся (сборка ресурсов Tauri требует, чтобы файлы уже лежали на
+диске). Картинки существ бестиария (`src-tauri/bestiary/images/`) — наоборот, обычный контент в
+git: владелец продукта кладёт их туда вручную, см. `src-tauri/bestiary/images/README.md`.
