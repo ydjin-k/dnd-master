@@ -18,8 +18,8 @@
     "actions": [
       "Укус. Рукопашная атака оружием: +4 к попаданию, досягаемость 5 футов, одна цель. Попадание: 7 (2к4+2) колющего урона. Если цель — существо, она должна преуспеть в спасброске Силы (СЛ 11), иначе будет сбита с ног."
     ],
-    "imageAsset": "images/wolf.jpg",
-    "imageAttribution": "René Cortin, CC BY-SA 4.0, Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Grey_wolf_at_the_Hoenderdaell_animal_park_in_Anna_Paulowna.jpg"
+    "imageAsset": "images/wolf.png",
+    "imageAttribution": "Buch, CC-BY 3.0, OpenGameArt.org: https://opengameart.org/content/gray-wolf"
   },
   {
     "id": "werewolf",
@@ -44,7 +44,7 @@
       "Копьё (только в гуманоидном облике). Рукопашная или дальнобойная атака оружием: +4 к попаданию, досягаемость 5 футов или дистанция 20/60 футов, одна цель. Попадание: 5 (1к6+2) колющего урона, или 6 (1к8+2) колющего урона при использовании двумя руками для рукопашной атаки."
     ],
     "imageAsset": "images/werewolf.png",
-    "imageAttribution": "Неизвестный автор (гравюра 1590 г.), общественное достояние, Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Werewolf_Damnable_Life_of_Stubbe_Peeter.svg"
+    "imageAttribution": "LDAsh, CC0, OpenGameArt.org: https://opengameart.org/content/werewolf-0"
   },
   {
     "id": "bandit",
@@ -63,7 +63,7 @@
       "Скимитар. Рукопашная атака оружием: +3 к попаданию, досягаемость 5 футов, одна цель. Попадание: 4 (1к6+1) рубящего урона.",
       "Лёгкий арбалет. Дальнобойная атака оружием: +3 к попаданию, дистанция 80/320 футов, одна цель. Попадание: 5 (1к8+1) колющего урона."
     ],
-    "imageAsset": "images/bandit.jpg",
-    "imageAttribution": "Wellcome Collection, CC BY 4.0, Wikimedia Commons: https://commons.wikimedia.org/wiki/File:Richard_Turpin_shooting_a_man_near_his_cave_in_Epping_Forrest_Wellcome_L0040856.jpg"
+    "imageAsset": null,
+    "imageAttribution": null
   }
 ]
