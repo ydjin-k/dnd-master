@@ -306,6 +306,17 @@ describe("CharactersPage", () => {
     expect(options.map((o) => (o as HTMLOptionElement).value)).toContain("Зелье наивысшего лечения");
   });
 
+  it("the item add-row datalist includes trade goods and mounts/vehicles", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    const { container } = render(<CharactersPage />);
+
+    const options = Array.from(container.querySelectorAll('datalist[id^="items-"] option')).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(options).toContain("Соль (1 фунт.)"); // TRADE_GOODS
+    expect(options).toContain("Осёл или мул"); // MOUNTS_AND_VEHICLES
+  });
+
   it("a free-typed item name (not in the catalog) is still added on click", async () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     render(<CharactersPage />);
