@@ -715,6 +715,48 @@ describe("CharacterWizard", () => {
     expect(character.age).toBe(134);
   });
 
+  it("clamps a typed age above the visible limit to that limit, and shows the limit as text", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Долгожитель" },
+    });
+    expect(screen.getByText(/Возраст \(до 500 лет\)/)).toBeInTheDocument();
+    const ageInput = document.querySelector('input[type="number"]') as HTMLInputElement;
+    fireEvent.change(ageInput, { target: { value: "99999" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.age).toBe(500);
+  });
+
+  it("shows the proficiency-bonus hint next to Навыки on the review step once the character has a skill proficiency", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник")); // grants Проницательность/Религия unconditionally
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities
+    fireEvent.click(await screen.findByText("Далее")); // equipment
+
+    const skillsLine = await screen.findByText(/Навыки:/);
+    expect(skillsLine.textContent).toMatch(/бонус мастерства/);
+  });
+
   it("АС on the review step tracks Dexterity for a Human, across all three ability-score methods (regression: owner saw AC stuck at 9)", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 

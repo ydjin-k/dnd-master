@@ -715,6 +715,18 @@ export const ADVENTURING_GEAR: GearData[] = [
 /** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
 export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 5;
 
+/** Видимый игроку предел возраста в мастере персонажа — произвольная защита от «бесконечных чисел». */
+export const AGE_LIMIT = 500;
+
+/** Видимый игроку предел золота своей предыстории — тот же потолок, что уже клампится в обработчике. */
+export const CUSTOM_BACKGROUND_GOLD_LIMIT = 30;
+
+/** Бонус мастерства на 1 уровне (SRD 5.1) — статичный, пока в приложении нет левелинга. */
+export const PROFICIENCY_BONUS_LEVEL_1 = 2;
+
+/** Текст-подсказка про бонус мастерства, переиспользуется в мастере персонажа и в карточке. */
+export const PROFICIENCY_BONUS_HINT = `Владение навыком или спасброском даёт +${PROFICIENCY_BONUS_LEVEL_1} (бонус мастерства) к проверкам/спасброскам`;
+
 /** Девять мировоззрений SRD 5.1 (rules.json → character-alignment). */
 export const ALIGNMENTS = [
   "Законно-добрый",
