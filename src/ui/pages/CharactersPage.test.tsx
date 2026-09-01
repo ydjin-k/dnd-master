@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage } from "./CharactersPage";
-import type { CampaignState, Character, RuleTopic } from "../../state/types";
+import type { CampaignState, Character, RuleTopic, Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -247,6 +247,41 @@ describe("CharactersPage", () => {
     expect(updater(char).conditions).toEqual([]);
   });
 
+  it("exhaustion level 3 shows the cumulative effects of levels 1-3, not just level 3, plus recovery text", async () => {
+    const char = { ...characterWithInventory(), conditions: ["Истощение (ур. 3)"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText("Помеха на проверки характеристик.")).toBeInTheDocument();
+    expect(screen.getByText("Скорость уменьшается вдвое.")).toBeInTheDocument();
+    expect(screen.getByText("Помеха на броски атаки и спасброски.")).toBeInTheDocument();
+    expect(screen.queryByText("Максимальные хиты уменьшаются вдвое.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("exhaustion level 6 shows death among its cumulative effects", async () => {
+    const char = { ...characterWithInventory(), conditions: ["Истощение (ур. 6)"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText("Смерть.")).toBeInTheDocument();
+  });
+
+  it("the general 'how conditions end' hint renders once in the Состояния section", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    expect(
+      screen.getByText(
+        "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("the item add-row offers datalist suggestions from multiple catalog categories (weapons, armor, ...)", () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     const { container } = render(<CharactersPage />);
@@ -256,6 +291,48 @@ describe("CharactersPage", () => {
     );
     expect(options).toContain("Кинжал"); // WEAPONS
     expect(options).toContain("Кожаный доспех"); // ARMOR
+  });
+
+  it("the item add-row datalist includes healing potion tiers with their healing dice shown as a hint", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    const { container } = render(<CharactersPage />);
+
+    const options = Array.from(container.querySelectorAll('datalist[id^="items-"] option'));
+    const potionOption = options.find((o) => (o as HTMLOptionElement).value === "Зелье лечения") as
+      | HTMLOptionElement
+      | undefined;
+    expect(potionOption).toBeDefined();
+    expect(potionOption!.textContent).toContain("2к4+2");
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toContain("Зелье наивысшего лечения");
+  });
+
+  it("the item add-row datalist includes trade goods and mounts/vehicles", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    const { container } = render(<CharactersPage />);
+
+    const options = Array.from(container.querySelectorAll('datalist[id^="items-"] option')).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(options).toContain("Соль (1 фунт.)"); // TRADE_GOODS
+    expect(options).toContain("Осёл или мул"); // MOUNTS_AND_VEHICLES
+  });
+
+  it("each skill and saving throw shows a computed ability-mod + proficiency-bonus number", () => {
+    const char = {
+      ...characterWithInventory(),
+      abilities: { strength: 14, dexterity: 16, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+      savingThrowProficiencies: ["Сила"],
+      skillProficiencies: ["Акробатика"], // Dexterity-based skill
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    // Акробатика: Dex mod +3, proficient -> +2 more = +5
+    expect(screen.getByText(/Акробатика: \+5/)).toBeInTheDocument();
+    // Сила (save): Str mod +2, proficient -> +2 more = +4
+    expect(screen.getByText(/Сила \(спасбросок\): \+4/)).toBeInTheDocument();
+    // Атлетика (Str-based, not proficient): just the ability mod, +2
+    expect(screen.getByText(/Атлетика: \+2/)).toBeInTheDocument();
   });
 
   it("a free-typed item name (not in the catalog) is still added on click", async () => {
@@ -278,7 +355,7 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     const useButtons = screen.getAllByText("Использовать");
-    fireEvent.click(useButtons[1]); // second group rendered is knownSpells (level 1)
+    fireEvent.click(useButtons[0]); // only group with a button now is knownSpells (level 1)
 
     expect(updateCharacter).toHaveBeenCalledTimes(1);
     const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
@@ -291,21 +368,39 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     const useButtons = screen.getAllByText("Использовать");
-    expect(useButtons[1]).toBeDisabled();
+    expect(useButtons[0]).toBeDisabled();
 
     // Belt-and-suspenders: even if the button were somehow clicked, the
     // decrement logic itself must not go below 0.
-    fireEvent.click(useButtons[1]);
+    fireEvent.click(useButtons[0]);
     expect(updateCharacter).not.toHaveBeenCalled();
   });
 
-  it("using a cantrip's 'Использовать' button does not change the spell slot counter", async () => {
+  it("a cantrip has no 'Использовать' button, only usage info; the level-1 spell keeps its button", async () => {
+    const cantripSpell: Spell = {
+      id: "cantrip-1",
+      name: "Свет",
+      level: 0,
+      school: "Преобразование",
+      castingTime: "1 действие",
+      range: "Касание",
+      components: "В, М",
+      duration: "1 час",
+      concentration: false,
+      ritual: false,
+      classes: [],
+      description: "Вы касаетесь предмета, который начинает испускать яркий свет.",
+      damageDice: null,
+      damageType: null,
+      attackRoll: false,
+      savingThrow: null,
+    };
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_spells" ? [cantripSpell] : []));
     mockState = baseState({ characters: [spellcaster()] });
     render(<CharactersPage />);
 
-    const useButtons = screen.getAllByText("Использовать");
-    fireEvent.click(useButtons[0]); // first group rendered is knownCantrips
-
-    expect(updateCharacter).not.toHaveBeenCalled();
+    await screen.findByText(/Касание/);
+    expect(screen.getAllByText("Использовать")).toHaveLength(1);
+    expect(screen.getByText(/1 действие · Касание/)).toBeInTheDocument();
   });
 });

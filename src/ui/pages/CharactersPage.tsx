@@ -1,36 +1,77 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import { ALL_ITEM_NAMES, CONDITIONS, PROFICIENCY_BONUS_HINT } from "../characterCreationData";
+import {
+  ABILITY_LABELS,
+  ALL_ITEM_NAMES,
+  ALL_SKILLS,
+  CONDITIONS,
+  HEALING_POTIONS,
+  PROFICIENCY_BONUS_HINT,
+  PROFICIENCY_BONUS_LEVEL_1,
+  SKILL_ABILITY,
+  abilityMod,
+  fmtMod,
+} from "../characterCreationData";
 import type { Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
 type Panel = "none" | "wizard";
 
-const EXHAUSTION_EFFECT = [
-  "Эффект зависит от уровня истощения (см. Правила → Состояния).",
-];
+/** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
+const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
+  1: "Помеха на проверки характеристик.",
+  2: "Скорость уменьшается вдвое.",
+  3: "Помеха на броски атаки и спасброски.",
+  4: "Максимальные хиты уменьшаются вдвое.",
+  5: "Скорость уменьшается до 0.",
+  6: "Смерть.",
+};
+
+/** Дословно из rules.json → appendices-conditions, абзац после таблицы «Истощение». */
+const EXHAUSTION_RECOVERY =
+  "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.";
+
+/** Общий принцип снятия состояний (rules.json → appendices-conditions, абзац перед таблицей). */
+const CONDITIONS_GENERAL_HINT =
+  "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.";
+
+function exhaustionLevelName(level: number): string {
+  return `Истощение (ур. ${level})`;
+}
+
+/** Эффекты истощения накопительные: уровень N включает эффекты уровней 1..N, плюс как снять. */
+function exhaustionEffectLines(level: number): string[] {
+  const lines: string[] = [];
+  for (let l = 1; l <= level; l++) lines.push(EXHAUSTION_LEVEL_EFFECTS[l]);
+  lines.push(EXHAUSTION_RECOVERY);
+  return lines;
+}
 
 /**
  * Карта «состояние → строки эффекта», извлечённая из appendices-conditions:
- * у каждого состояния из CONDITIONS (кроме «Истощение», см. EXHAUSTION_EFFECT)
- * в rules.json заголовок 2 уровня с точным именем состояния, а следом —
- * list-блок с текстом эффекта.
+ * у каждого обычного состояния из CONDITIONS в rules.json заголовок 2 уровня
+ * с точным именем состояния, а следом — list-блок с текстом эффекта.
+ * Истощение в rules.json — таблица, не список, поэтому его 6 уровней
+ * добавляются отдельно, вручную (см. exhaustionEffectLines).
  */
 function extractConditionEffects(topics: RuleTopic[]): Record<string, string[]> {
   const topic = topics.find((t) => t.id === "appendices-conditions");
-  if (!topic) return {};
   const effects: Record<string, string[]> = {};
-  const blocks = topic.blocks;
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
-    if (block.type !== "heading" || block.level !== 2) continue;
-    if (!CONDITIONS.includes(block.text)) continue;
-    const next = blocks[i + 1];
-    if (next?.type === "list") effects[block.text] = next.items;
+  if (topic) {
+    const blocks = topic.blocks;
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.type !== "heading" || block.level !== 2) continue;
+      if (!CONDITIONS.includes(block.text)) continue;
+      const next = blocks[i + 1];
+      if (next?.type === "list") effects[block.text] = next.items;
+    }
   }
-  effects["Истощение"] = EXHAUSTION_EFFECT;
+  for (let level = 1; level <= 6; level++) {
+    effects[exhaustionLevelName(level)] = exhaustionEffectLines(level);
+  }
   return effects;
 }
 
@@ -88,6 +129,15 @@ function CharacterCard({
     return spells.find((sp) => sp.id === id)?.name ?? id;
   }
 
+  function findSpell(id: string): Spell | undefined {
+    return spells.find((sp) => sp.id === id);
+  }
+
+  function truncateDescription(text: string, max = 90): string {
+    if (text.length <= max) return text;
+    return `${text.slice(0, max).trimEnd()}…`;
+  }
+
   function restoreSpellSlots() {
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: ch.spellSlotsLevel1Max }));
   }
@@ -118,16 +168,34 @@ function CharacterCard({
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
         {c.passivePerception} · {c.gold} зм
       </div>
-      {c.savingThrowProficiencies.length > 0 && (
-        <div className="character-card__prof">
-          Спасброски: {c.savingThrowProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
-        </div>
-      )}
-      {c.skillProficiencies.length > 0 && (
-        <div className="character-card__prof">
-          Навыки: {c.skillProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
-        </div>
-      )}
+      <details className="character-card__abilities">
+        <summary>Спасброски и навыки</summary>
+        <p className="character-card__prof">{PROFICIENCY_BONUS_HINT}</p>
+        <ul className="character-card__skill-list">
+          {ABILITY_LABELS.map(([key, label]) => {
+            const proficient = c.savingThrowProficiencies.includes(label);
+            const mod = abilityMod(c.abilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            return (
+              <li key={key}>
+                {label} (спасбросок): {fmtMod(mod)}
+                {proficient && " · владение"}
+              </li>
+            );
+          })}
+        </ul>
+        <ul className="character-card__skill-list">
+          {ALL_SKILLS.map((skill) => {
+            const proficient = c.skillProficiencies.includes(skill);
+            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            return (
+              <li key={skill}>
+                {skill}: {fmtMod(mod)}
+                {proficient && " · владение"}
+              </li>
+            );
+          })}
+        </ul>
+      </details>
       {c.languages.length > 0 && (
         <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
       )}
@@ -159,9 +227,14 @@ function CharacterCard({
             onChange={(e) => setNewItemName(e.currentTarget.value)}
           />
           <datalist id={`items-${c.id}`}>
-            {ALL_ITEM_NAMES.map((name) => (
-              <option key={name} value={name} />
-            ))}
+            {ALL_ITEM_NAMES.map((name) => {
+              const potion = HEALING_POTIONS.find((p) => p.name === name);
+              return (
+                <option key={name} value={name}>
+                  {potion ? `${name} — лечит ${potion.healingDice}` : name}
+                </option>
+              );
+            })}
           </datalist>
           <button type="button" onClick={addItem}>
             Добавить
@@ -171,6 +244,7 @@ function CharacterCard({
 
       <details className="character-card__conditions" open={c.conditions.length > 0}>
         <summary>Состояния ({c.conditions.length})</summary>
+        <div className="character-card__conditions-hint">{CONDITIONS_GENERAL_HINT}</div>
         {c.conditions.length > 0 && (
           <ul className="character-card__condition-list">
             {c.conditions.map((condition) => (
@@ -217,11 +291,19 @@ function CharacterCard({
             <div className="character-card__spell-group">
               Заговоры:
               <ul className="character-card__spell-list">
-                {c.knownCantrips.map((id) => (
-                  <li key={id}>
-                    {spellName(id)} <button type="button">Использовать</button>
-                  </li>
-                ))}
+                {c.knownCantrips.map((id) => {
+                  const spell = findSpell(id);
+                  return (
+                    <li key={id}>
+                      <div>{spellName(id)}</div>
+                      {spell && (
+                        <div className="character-card__spell-info">
+                          {spell.castingTime} · {spell.range} · {truncateDescription(spell.description)}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

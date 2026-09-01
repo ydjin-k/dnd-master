@@ -1,6 +1,25 @@
 import type { AbilityScores } from "../state/types";
 
-type AbilityKey = keyof AbilityScores;
+export type AbilityKey = keyof AbilityScores;
+
+/** Характеристика → её русская подпись, в порядке блока «Характеристики» на шаге «Итог». */
+export const ABILITY_LABELS: [AbilityKey, string][] = [
+  ["strength", "Сила"],
+  ["dexterity", "Ловкость"],
+  ["constitution", "Телосложение"],
+  ["intelligence", "Интеллект"],
+  ["wisdom", "Мудрость"],
+  ["charisma", "Харизма"],
+];
+
+export function abilityMod(score: number): number {
+  return Math.floor((score - 10) / 2);
+}
+
+/** Модификатор со знаком, например «+3» или «-1». */
+export function fmtMod(mod: number): string {
+  return (mod >= 0 ? "+" : "") + mod;
+}
 
 /**
  * Спасброски, навыки и стартовое снаряжение — сверены вручную с текстом
@@ -31,6 +50,33 @@ export const ALL_SKILLS = [
   "Скрытность",
   "Выживание",
 ];
+
+/**
+ * Навык → характеристика, которой он проверяется по умолчанию — сверено с
+ * текстом каждого навыка в rules.json → gameplay-abilities (формулировки вида
+ * «проверка X (навыка)», например «Ваша проверка ловкости (акробатики)»),
+ * не по памяти о D&D.
+ */
+export const SKILL_ABILITY: Record<string, AbilityKey> = {
+  "Акробатика": "dexterity",
+  "Обращение с животными": "wisdom",
+  "Атлетика": "strength",
+  "Обман": "charisma",
+  "История": "intelligence",
+  "Проницательность": "wisdom",
+  "Запугивание": "charisma",
+  "Расследование": "intelligence",
+  "Медицина": "wisdom",
+  "Магия": "intelligence",
+  "Природа": "intelligence",
+  "Восприятие": "wisdom",
+  "Выступление": "charisma",
+  "Убеждение": "charisma",
+  "Религия": "intelligence",
+  "Ловкость рук": "dexterity",
+  "Скрытность": "dexterity",
+  "Выживание": "wisdom",
+};
 
 export interface ClassProficiencies {
   savingThrows: AbilityKey[];
@@ -1217,7 +1263,12 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
   },
 };
 
-/** 14 состояний + истощение из SRD 5.1 (rules.json → appendices-conditions). */
+/**
+ * 14 состояний + 6 отдельных уровней истощения из SRD 5.1
+ * (rules.json → appendices-conditions). Истощение хранится как 6 разных
+ * выбираемых значений, а не одно «Истощение», т.к. эффект накопительный и
+ * зависит от конкретного уровня (см. EXHAUSTION_LEVEL_EFFECTS в CharactersPage.tsx).
+ */
 export const CONDITIONS = [
   "Ослеплённое",
   "Заворожённое",
@@ -1233,12 +1284,134 @@ export const CONDITIONS = [
   "Опутанный",
   "Оглушенное",
   "Бессознательный",
-  "Истощение",
+  "Истощение (ур. 1)",
+  "Истощение (ур. 2)",
+  "Истощение (ур. 3)",
+  "Истощение (ур. 4)",
+  "Истощение (ур. 5)",
+  "Истощение (ур. 6)",
+];
+
+/**
+ * Промысловые товары из SRD 5.1 (rules.json → equipment-trade-goods). Таблица
+ * источника даёт цену и товар совместно (иногда «или» между двумя товарами
+ * одной цены) — здесь она разложена на отдельные позиции по одной на товар
+ * (тот же товар/цена, просто раздельными строками ради каталога).
+ */
+export const TRADE_GOODS: GearData[] = [
+  { name: "Пшеница (1 фунт.)", cost: "1 мм", weight: "1 фнт." },
+  { name: "Мука (1 фунт.)", cost: "2 мм", weight: "1 фнт." },
+  { name: "Цыплёнок", cost: "2 мм", weight: "—" },
+  { name: "Соль (1 фунт.)", cost: "5 мм", weight: "1 фнт." },
+  { name: "Железо (1 фунт.)", cost: "1 см", weight: "1 фнт." },
+  { name: "Холст (1 кв. ярд.)", cost: "1 см", weight: "—" },
+  { name: "Медь (1 фунт.)", cost: "5 см", weight: "1 фнт." },
+  { name: "Хлопковая ткань (1 кв. ярд.)", cost: "5 см", weight: "—" },
+  { name: "Имбирь (1 фунт.)", cost: "1 зм", weight: "1 фнт." },
+  { name: "Коза", cost: "1 зм", weight: "—" },
+  { name: "Корица или перец (1 фунт.)", cost: "2 зм", weight: "1 фнт." },
+  { name: "Овца", cost: "2 зм", weight: "—" },
+  { name: "Гвоздика (1 фунт.)", cost: "3 зм", weight: "1 фнт." },
+  { name: "Свинья", cost: "3 зм", weight: "—" },
+  { name: "Серебро (1 фунт.)", cost: "5 зм", weight: "1 фнт." },
+  { name: "Льняная ткань (1 кв. ярд.)", cost: "5 зм", weight: "—" },
+  { name: "Шёлк (1 кв. ярд.)", cost: "10 зм", weight: "—" },
+  { name: "Корова", cost: "10 зм", weight: "—" },
+  { name: "Шафран (1 фунт.)", cost: "15 зм", weight: "1 фнт." },
+  { name: "Бык", cost: "15 зм", weight: "—" },
+  { name: "Золото (1 фунт.)", cost: "50 зм", weight: "1 фнт." },
+  { name: "Платина (1 фунт.)", cost: "500 зм", weight: "1 фнт." },
+];
+
+/**
+ * Верховые животные и транспорт из SRD 5.1
+ * (rules.json → equipment-mounts-and-vehicles, три таблицы источника:
+ * «Верховые и другие животные», «Сёдла, упряжь и транспорт», «Водный
+ * транспорт»). Для животных и водного транспорта источник не даёт веса
+ * (только скорость/грузоподъёмность, которых у GearData нет поля) — вес
+ * «—». Строка «Бардинг» (×4 цены/×2 веса доспеха) и заголовочная строка
+ * «Седло» пропущены — это не отдельные покупаемые предметы, а модификатор и
+ * заголовок группы; сами 4 вида сёдел включены под явными именами.
+ */
+export const MOUNTS_AND_VEHICLES: GearData[] = [
+  { name: "Верблюд", cost: "50 зм", weight: "—" },
+  { name: "Осёл или мул", cost: "8 зм", weight: "—" },
+  { name: "Слон", cost: "200 зм", weight: "—" },
+  { name: "Лошадь, тягловая", cost: "50 зм", weight: "—" },
+  { name: "Лошадь, ездовая", cost: "75 зм", weight: "—" },
+  { name: "Мастиф", cost: "25 зм", weight: "—" },
+  { name: "Пони", cost: "30 зм", weight: "—" },
+  { name: "Боевой конь", cost: "400 зм", weight: "—" },
+  { name: "Упряжь и уздечка", cost: "2 зм", weight: "1 фнт." },
+  { name: "Повозка", cost: "100 зм", weight: "600 фнт." },
+  { name: "Тележка", cost: "15 зм", weight: "200 фнт." },
+  { name: "Колесница", cost: "250 зм", weight: "100 фнт." },
+  { name: "Корм (в день)", cost: "5 мм", weight: "10 фнт." },
+  { name: "Седло экзотическое", cost: "60 зм", weight: "40 фнт." },
+  { name: "Седло военное", cost: "20 зм", weight: "30 фнт." },
+  { name: "Седло грузовое", cost: "5 зм", weight: "15 фнт." },
+  { name: "Седло ездовое", cost: "10 зм", weight: "25 фнт." },
+  { name: "Седельные сумки", cost: "4 зм", weight: "8 фнт." },
+  { name: "Сани", cost: "20 зм", weight: "300 фнт." },
+  { name: "Конюшня (в день)", cost: "5 см", weight: "—" },
+  { name: "Вагон", cost: "35 зм", weight: "400 фнт." },
+  { name: "Галера", cost: "30,000 зм", weight: "—" },
+  { name: "Баркас", cost: "3,000 зм", weight: "—" },
+  { name: "Драккар", cost: "10,000 зм", weight: "—" },
+  { name: "Шлюпка", cost: "50 зм", weight: "—" },
+  { name: "Парусный корабль", cost: "10,000 зм", weight: "—" },
+  { name: "Военный корабль", cost: "25,000 зм", weight: "—" },
+];
+
+export interface HealingPotionData {
+  name: string;
+  /** Кости лечения в нотации проекта, например «2к4+2». */
+  healingDice: string;
+  rarity: string;
+  description: string;
+}
+
+/**
+ * Зелья лечения — таблица «Potions of Healing» из официального SRD 5.1 PDF
+ * (media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf, раздел Magic
+ * Items → Potion of Healing), сверено по тексту PDF в этой сессии.
+ * `rules.json` (перевод longstoryshort.app) раздела о магических предметах
+ * не содержит вообще, поэтому источник — сам PDF, не rules.json.
+ * Официальная цена в gp для зелий лечения в SRD не указана (по редкости, не
+ * по фиксированной цене) — `cost` оставлен «—», как и у прочих предметов без
+ * заданного значения в этом файле.
+ */
+export const HEALING_POTIONS: HealingPotionData[] = [
+  {
+    name: "Зелье лечения",
+    healingDice: "2к4+2",
+    rarity: "обычная",
+    description: "Магическая красная жидкость. При выпивании восстанавливает 2к4+2 хитов.",
+  },
+  {
+    name: "Зелье большого лечения",
+    healingDice: "4к4+4",
+    rarity: "необычная",
+    description: "При выпивании восстанавливает 4к4+4 хитов.",
+  },
+  {
+    name: "Зелье превосходного лечения",
+    healingDice: "8к4+8",
+    rarity: "редкая",
+    description: "При выпивании восстанавливает 8к4+8 хитов.",
+  },
+  {
+    name: "Зелье наивысшего лечения",
+    healingDice: "10к4+20",
+    rarity: "очень редкая",
+    description: "При выпивании восстанавливает 10к4+20 хитов.",
+  },
 ];
 
 /**
  * Полный каталог имён предметов для подсказок инвентаря — оружие, доспехи,
- * снаряжение авантюриста, музыкальные инструменты и инструменты ремесленника,
+ * снаряжение авантюриста, музыкальные инструменты, инструменты ремесленника,
+ * промысловые товары, верховые животные/транспорт и зелья лечения,
  * объединённые и без дублей по name.
  */
 export const ALL_ITEM_NAMES: string[] = [
@@ -1249,6 +1422,9 @@ export const ALL_ITEM_NAMES: string[] = [
     ...INSTRUMENTS.map((i) => i.name),
     ...ARTISAN_TOOLS.map((t) => t.name),
     ...DWARF_TOOL_CHOICES.map((t) => t.name),
+    ...TRADE_GOODS.map((g) => g.name),
+    ...MOUNTS_AND_VEHICLES.map((v) => v.name),
+    ...HEALING_POTIONS.map((p) => p.name),
   ]),
 ];
 
@@ -1269,6 +1445,11 @@ export const ALL_ITEMS_WITH_COST: GearData[] = (() => {
     ...INSTRUMENTS,
     ...ARTISAN_TOOLS,
     ...DWARF_TOOL_CHOICES,
+    ...TRADE_GOODS,
+    ...MOUNTS_AND_VEHICLES,
+    // Зелья лечения — цена в SRD не задана числом (по редкости, не по gp), «—» как и у прочих
+    // предметов этого файла без известного значения.
+    ...HEALING_POTIONS.map((p) => ({ name: p.name, cost: "—", weight: "—" })),
   ]) {
     if (seen.has(item.name)) continue;
     seen.add(item.name);

@@ -12,6 +12,7 @@ import {
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import {
+  ABILITY_LABELS,
   AGE_LIMIT,
   ALIGNMENTS,
   ALIGNMENT_DESCRIPTIONS,
@@ -41,7 +42,11 @@ import {
   RACE_TRAITS,
   RANGER_FAVORED_ENEMIES,
   RANGER_TERRAIN_TYPES,
+  SKILL_ABILITY,
+  abilityMod,
   equipmentChoiceFor,
+  fmtMod,
+  type AbilityKey,
   type BackgroundData,
 } from "./characterCreationData";
 import "./CharacterWizard.css";
@@ -60,17 +65,6 @@ const STEP_LABEL: Record<Step, string> = {
 };
 
 type AbilityMethod = "standard" | "pointbuy" | "manual";
-type AbilityKey = keyof AbilityScores;
-
-const ABILITY_LABELS: [AbilityKey, string][] = [
-  ["strength", "Сила"],
-  ["dexterity", "Ловкость"],
-  ["constitution", "Телосложение"],
-  ["intelligence", "Интеллект"],
-  ["wisdom", "Мудрость"],
-  ["charisma", "Харизма"],
-];
-
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const POINT_BUY_BUDGET = 27;
 const POINT_BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
@@ -123,14 +117,6 @@ const GENDER_TO_NAME_KEY: Record<(typeof GENDERS)[number], "male" | "female"> = 
   Мужской: "male",
   Женский: "female",
 };
-
-function abilityMod(score: number): number {
-  return Math.floor((score - 10) / 2);
-}
-
-function fmtMod(mod: number): string {
-  return (mod >= 0 ? "+" : "") + mod;
-}
 
 function parseHitDie(classTopic: RuleTopic | undefined): number | null {
   if (!classTopic) return null;
@@ -413,6 +399,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     (classId && spellProgression
       ? Math.max(1, abilityMod(totalAbilities[CLASS_SPELLCASTING_ABILITY_KEY[classId]]) + 1)
       : 0);
+  const reviewMissing: string | null = !name.trim()
+    ? "Впиши имя персонажа, чтобы продолжить."
+    : spellAbility && knownCantrips.length !== requiredCantrips
+      ? `Выбери ${requiredCantrips} заговора(ов), чтобы продолжить.`
+      : spellAbility && knownSpells.length !== requiredSpells
+        ? `Выбери ${requiredSpells} заклинание(й) 1 уровня, чтобы продолжить.`
+        : null;
 
   function toggleCantrip(id: string) {
     setKnownCantrips((prev) => {
@@ -594,10 +587,57 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   }
 
   const stepIndex = STEPS.indexOf(step);
-  const canGoNext =
-    (step !== "race" || !!raceId) &&
-    (step !== "class" || !!classId) &&
-    (step !== "background" || !!backgroundId);
+
+  /**
+   * Причина, по которой «Далее» неактивна на текущем шаге — null, если шаг
+   * полностью заполнен. Возвращает первую найденную нехватку, не все сразу.
+   * Проверяются только под-выборы, у которых в остальном коде НЕТ значения
+   * по умолчанию (инструмент Дварфа/боевой стиль/язык предыстории и т.п. уже
+   * молча подставляют первый вариант, если ничего не выбрано — там блокировать
+   * нечего, см. characters-wizard-step-validation).
+   */
+  function stepValidationMessage(): string | null {
+    if (step === "race") {
+      if (!raceId) return "Выбери расу, чтобы продолжить.";
+      if (raceSkillChoiceCount > 0 && raceSkillChoices.length < raceSkillChoiceCount) {
+        return `Выбери ${raceSkillChoiceCount} навыка (гибкость навыков), чтобы продолжить.`;
+      }
+      if (raceBonus?.choice && choiceBonusKeys.length < raceBonus.choice.count) {
+        return `Выбери ${raceBonus.choice.count} характеристики для бонуса, чтобы продолжить.`;
+      }
+      return null;
+    }
+    if (step === "class") {
+      if (!classId) return "Выбери класс, чтобы продолжить.";
+      if (classProf && classSkills.length < classProf.skillCount) {
+        return `Выбери ${classProf.skillCount} навыка класса, чтобы продолжить.`;
+      }
+      return null;
+    }
+    if (step === "background") {
+      if (!backgroundId) return "Выбери предысторию, чтобы продолжить.";
+      if (backgroundId === CUSTOM_BACKGROUND_ID) {
+        if (!customBackground.title.trim()) return "Впиши название своей предыстории, чтобы продолжить.";
+        if (customBackground.skillProficiencies.length === 0) {
+          return "Выбери хотя бы один навык своей предыстории, чтобы продолжить.";
+        }
+      }
+      return null;
+    }
+    if (step === "abilities") {
+      if (method === "standard" && ABILITY_LABELS.some(([key]) => assignment[key] === undefined)) {
+        return "Распредели все шесть характеристик, чтобы продолжить.";
+      }
+      return null;
+    }
+    // "equipment": каждый обязательный выбор (комплект снаряжения, оружие/инструмент
+    // внутри комплекта) уже молча выбирает первый вариант по умолчанию — блокировать
+    // здесь нечего, шаг всегда в валидном состоянии.
+    return null;
+  }
+
+  const stepMissing = stepValidationMessage();
+  const canGoNext = stepMissing === null;
 
   return (
     <div className="wizard">
@@ -1238,12 +1278,41 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
               </li>
             ))}
-            <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
             <li>
-              Навыки: {allSkillProficiencies.join(", ") || "—"}
-              {allSkillProficiencies.length > 0 && (
-                <span className="wizard__ability-bonus"> — {PROFICIENCY_BONUS_HINT}</span>
+              Спасброски:
+              {classProf ? (
+                <ul className="wizard__skill-list">
+                  {ABILITY_LABELS.map(([key, label]) => {
+                    const proficient = classProf.savingThrows.includes(key);
+                    const mod = abilityMod(totalAbilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+                    return (
+                      <li key={key}>
+                        {label}: {fmtMod(mod)}
+                        {proficient && " (владение)"}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                " —"
               )}
+            </li>
+            <li>
+              Навыки:
+              <p className="wizard__hint">{PROFICIENCY_BONUS_HINT}</p>
+              <ul className="wizard__skill-list">
+                {ALL_SKILLS.map((skill) => {
+                  const proficient = allSkillProficiencies.includes(skill);
+                  const abilityKey = SKILL_ABILITY[skill];
+                  const mod = abilityMod(totalAbilities[abilityKey]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+                  return (
+                    <li key={skill}>
+                      {skill}: {fmtMod(mod)}
+                      {proficient && " (владение)"}
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
             <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
             {displayedRaceTraits.length > 0 && (
@@ -1338,15 +1407,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             )}
           </ul>
-          <button
-            disabled={
-              !name.trim() ||
-              (!!spellAbility && (knownCantrips.length !== requiredCantrips || knownSpells.length !== requiredSpells))
-            }
-            onClick={finish}
-          >
+          <button disabled={!!reviewMissing} onClick={finish}>
             Создать персонажа
           </button>
+          {reviewMissing && <p className="wizard__hint wizard__step-warning">{reviewMissing}</p>}
         </div>
       )}
 
@@ -1357,6 +1421,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             Далее
           </button>
         )}
+        {stepMissing && <p className="wizard__hint wizard__step-warning">{stepMissing}</p>}
       </div>
     </div>
   );
