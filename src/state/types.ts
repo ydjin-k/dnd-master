@@ -12,6 +12,7 @@ export interface InventoryItem {
   name: string;
   quantity: number;
   notes: string;
+  weightLb: number;
 }
 
 export interface Coins {

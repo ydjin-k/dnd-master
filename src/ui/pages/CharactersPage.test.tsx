@@ -104,7 +104,7 @@ describe("CharactersPage", () => {
       initiative: 0,
       passivePerception: 10,
       conditions: [],
-      inventory: [{ id: "torch-1", name: "Факел", quantity: 5, notes: "" }],
+      inventory: [{ id: "torch-1", name: "Факел", quantity: 5, notes: "", weightLb: 1 }],
       coins: emptyCoins(),
       savingThrowProficiencies: [],
       skillProficiencies: [],
@@ -217,6 +217,26 @@ describe("CharactersPage", () => {
       current = updater()(current);
     }
     expect(current.inventory).toHaveLength(0);
+  });
+
+  it("shows a Перегрузка! warning once carried weight exceeds Сила × 15, hidden once it drops back under", () => {
+    // Сила 10 -> грузоподъёмность 150 фнт (characters-carrying-capacity).
+    const heavy = {
+      ...characterWithInventory(),
+      inventory: [{ id: "armor-1", name: "Кольчуга", quantity: 3, notes: "", weightLb: 55 }], // 165 фнт
+    };
+    mockState = baseState({ characters: [heavy] });
+    const { unmount } = render(<CharactersPage />);
+    expect(screen.getByText("Перегрузка!")).toBeInTheDocument();
+    unmount();
+
+    const light = {
+      ...heavy,
+      inventory: [{ id: "armor-1", name: "Кольчуга", quantity: 1, notes: "", weightLb: 55 }], // 55 фнт
+    };
+    mockState = baseState({ characters: [light] });
+    render(<CharactersPage />);
+    expect(screen.queryByText("Перегрузка!")).not.toBeInTheDocument();
   });
 
   it("adding a new item and a condition (typed, SRD or custom) calls updateCharacter correctly", async () => {

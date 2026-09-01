@@ -12,12 +12,17 @@ pub struct AbilityScores {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct InventoryItem {
     pub id: String,
     pub name: String,
     pub quantity: u32,
     pub notes: String,
+    /// Вес одной единицы предмета в фунтах — для расчёта общей переносимой
+    /// массы (характеристика Сила × 15, characters-carrying-capacity). Каталог
+    /// весов живёт на стороне UI (characterCreationData.ts), здесь только
+    /// хранится подставленное значение.
+    pub weight_lb: f64,
 }
 
 /// Номиналы монет SRD 5.1 (rules.json → equipment-coins). Курс обмена (1мм=1,
@@ -230,5 +235,14 @@ mod tests {
         // Идемпотентность: повторный вызов ничего не меняет.
         character.migrate_legacy_gold();
         assert_eq!(character.coins, Coins { gold: 250, ..Coins::default() });
+    }
+
+    /// characters-carrying-capacity: инвентарь, сохранённый до появления
+    /// веса предметов, не должен ломать загрузку — вес по умолчанию 0.0.
+    #[test]
+    fn inventory_item_without_weight_defaults_to_zero() {
+        let old_json = r#"{"id": "torch-1", "name": "Факел", "quantity": 5, "notes": ""}"#;
+        let item: InventoryItem = serde_json::from_str(old_json).expect("старый предмет должен читаться");
+        assert_eq!(item.weight_lb, 0.0);
     }
 }

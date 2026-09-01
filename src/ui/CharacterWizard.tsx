@@ -29,6 +29,7 @@ import {
   CLASS_SPELLCASTING_ABILITY_KEY,
   CLASS_SPELL_PROGRESSION,
   CLASS_SUBCLASSES,
+  catalogWeightLb,
   COIN_DENOMINATIONS,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
@@ -522,6 +523,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       name: itemName,
       quantity: 1,
       notes: "",
+      weightLb: catalogWeightLb(itemName),
     }));
     const character: Character = {
       id: crypto.randomUUID(),

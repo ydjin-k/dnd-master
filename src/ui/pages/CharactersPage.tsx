@@ -5,11 +5,15 @@ import {
   ABILITY_LABELS,
   ALL_ITEM_NAMES,
   ALL_SKILLS,
+  carryingCapacityLb,
+  catalogWeightLb,
   CLASS_LEVEL_FEATURES,
   CLASS_SUBCLASSES,
   COIN_DENOMINATIONS,
+  coinsWeightLb,
   CONDITIONS,
   HEALING_POTIONS,
+  inventoryWeightLb,
   RACE_HP_BONUS,
   SKILL_ABILITY,
   abilityMod,
@@ -148,7 +152,10 @@ function CharacterCard({
     if (!name) return;
     onUpdate((ch) => ({
       ...ch,
-      inventory: [...ch.inventory, { id: crypto.randomUUID(), name, quantity: 1, notes: "" }],
+      inventory: [
+        ...ch.inventory,
+        { id: crypto.randomUUID(), name, quantity: 1, notes: "", weightLb: catalogWeightLb(name) },
+      ],
     }));
     setNewItemName("");
   }
@@ -277,6 +284,10 @@ function CharacterCard({
     }
   }
 
+  const totalWeightLb = inventoryWeightLb(c.inventory) + coinsWeightLb(c.coins);
+  const carryingCapacity = carryingCapacityLb(c.abilities.strength);
+  const overloaded = totalWeightLb > carryingCapacity;
+
   return (
     <li className="character-card">
       <div className="character-card__name">
@@ -296,8 +307,9 @@ function CharacterCard({
       <div className="character-card__hp">
         HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {c.speedFeet} фт · Иниц.{" "}
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
-        {c.passivePerception}
+        {c.passivePerception} · Вес: {Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.
       </div>
+      {overloaded && <div className="character-card__danger">Перегрузка!</div>}
       <div className="character-card__level">
         Уровень {c.level}{" "}
         <button type="button" onClick={requestLevelUp} disabled={c.level >= MAX_LEVEL || asiPanelOpen}>
