@@ -26,6 +26,21 @@ const CONDITIONS_TOPIC: RuleTopic = {
   ],
 };
 
+/** Точный текст SRD, что и в rules.json (см. characters-leveling-1-5) — «Хиты на следующих уровнях: 1к10 (или 6) ...». */
+const FIGHTER_TOPIC: RuleTopic = {
+  id: "classes-fighter",
+  category: "classes",
+  title: "Воин",
+  sourceUrl: "",
+  blocks: [
+    { type: "paragraph", text: "Кость хитов: 1к10 за каждый уровень воина" },
+    {
+      type: "paragraph",
+      text: "Хиты на следующих уровнях: 1к10 (или 6) + модификатор Телосложения за каждый уровень воина после первого",
+    },
+  ],
+};
+
 const addCharacter = vi.fn();
 const removeCharacter = vi.fn();
 const updateCharacter = vi.fn();
@@ -74,6 +89,7 @@ describe("CharactersPage", () => {
       name: "Герой",
       race: "Человек",
       class: "Воин",
+      subclass: "",
       background: "",
       alignment: "",
       gender: "",
@@ -107,6 +123,7 @@ describe("CharactersPage", () => {
           name: "Герой",
           race: "Человек",
           class: "Воин",
+          subclass: "",
           background: "",
           alignment: "",
           gender: "",
@@ -402,5 +419,83 @@ describe("CharactersPage", () => {
     await screen.findByText(/Касание/);
     expect(screen.getAllByText("Использовать")).toHaveLength(1);
     expect(screen.getByText(/1 действие · Касание/)).toBeInTheDocument();
+  });
+
+  it("levelling up a Fighter recomputes maxHp by the hit-die-average formula and heals currentHp by the same amount", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+    );
+    const char: Character = {
+      ...characterWithInventory(),
+      abilities: { ...characterWithInventory().abilities, constitution: 14 }, // +2 mod
+      maxHp: 12, // level-1 fighter: 10 (hit die max) + 2 (con mod)
+      currentHp: 8,
+      conditions: ["Ослеплённое"], // used only to await the same get_rules resolution that also fills classHitDiceByTitle
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+    await screen.findByText(/не может видеть/);
+
+    fireEvent.click(screen.getByText("Повысить уровень"));
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    expect(updated.level).toBe(2);
+    // maxHpForLevel(10, 6, 2, 0, 2) = 10 + 2 + 0 + (2-1)*(6+2) = 20
+    expect(updated.maxHp).toBe(20);
+    expect(updated.currentHp).toBe(8 + (20 - 12));
+  });
+
+  it("proficiency bonus hint shows +2 through level 4 and +3 at level 5", () => {
+    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 4 }] });
+    const { unmount } = render(<CharactersPage />);
+    expect(screen.getByText(/даёт \+2 \(бонус мастерства\)/)).toBeInTheDocument();
+    unmount();
+
+    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 5 }] });
+    render(<CharactersPage />);
+    expect(screen.getByText(/даёт \+3 \(бонус мастерства\)/)).toBeInTheDocument();
+  });
+
+  it("ASI at level 4: +2 to one ability is capped at 20, not applied raw", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    const char: Character = {
+      ...characterWithInventory(),
+      level: 3,
+      abilities: { ...characterWithInventory().abilities, strength: 19 },
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    expect(updateCharacter).not.toHaveBeenCalled(); // ASI panel opens instead of levelling immediately
+
+    fireEvent.click(screen.getByLabelText(/Сила \(19\)/));
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    expect(updated.level).toBe(4);
+    expect(updated.abilities.strength).toBe(20); // 19 + 2 would be 21, capped at 20
+  });
+
+  it("ASI at level 4: +1 to two different abilities applies both", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    const char: Character = { ...characterWithInventory(), level: 3 };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    fireEvent.click(screen.getByLabelText(/\+1 двум характеристикам/));
+    fireEvent.click(screen.getByLabelText(/Сила \(10\)/));
+    fireEvent.click(screen.getByLabelText(/Ловкость \(10\)/));
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    expect(updated.abilities.strength).toBe(11);
+    expect(updated.abilities.dexterity).toBe(11);
   });
 });

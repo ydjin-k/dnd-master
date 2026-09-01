@@ -5,6 +5,8 @@ import {
   ABILITY_LABELS,
   ALL_ITEM_NAMES,
   ALL_SKILLS,
+  CLASS_LEVEL_FEATURES,
+  CLASS_SUBCLASSES,
   CONDITIONS,
   HEALING_POTIONS,
   RACE_HP_BONUS,
@@ -17,6 +19,7 @@ import {
   proficiencyBonusForLevel,
   proficiencyBonusHint,
   type AbilityKey,
+  type ClassLevelFeature,
 } from "../characterCreationData";
 import type { AbilityScores, Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
@@ -95,7 +98,7 @@ function CharacterCard({
   character: Character;
   spells: Spell[];
   conditionEffects: Record<string, string[]>;
-  classHitDiceByTitle: Record<string, { max: number; average: number }>;
+  classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
@@ -177,12 +180,20 @@ function CharacterCard({
       ? maxHpForLevel(dice.max, dice.average, conMod, raceBonus, newLevel)
       : c.maxHp;
     const hpGained = Math.max(0, newMaxHp - c.maxHp);
+    // Подкласс, выбираемый левел-апом (2 или 3 уровень — для Жреца/Колдуна/
+    // Чародея он уже назначен мастером на 1 уровне, см. CharacterWizard.tsx).
+    const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
+    const grantedSubclass =
+      subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
+        ? subclassInfo.subclasses[0]?.name
+        : undefined;
     onUpdate((ch) => ({
       ...ch,
       level: newLevel,
       abilities,
       maxHp: newMaxHp,
       currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
+      subclass: grantedSubclass ?? ch.subclass,
     }));
   }
 
@@ -230,6 +241,26 @@ function CharacterCard({
 
   const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
 
+  /**
+   * Классовые особенности уровней 2..текущий (CLASS_LEVEL_FEATURES) + особенности
+   * подкласса уровней 1..текущий, если подкласс уже выбран (CLASS_SUBCLASSES).
+   * `Character.class` хранит текст, id класса ищем через ту же карту, что и
+   * для хитов на левел-апе (classHitDiceByTitle содержит id).
+   */
+  const classId = classHitDiceByTitle[c.class]?.id;
+  const classFeatures: ClassLevelFeature[] = [];
+  if (classId) {
+    for (let lvl = 2; lvl <= c.level; lvl++) {
+      classFeatures.push(...(CLASS_LEVEL_FEATURES[classId]?.[lvl] ?? []));
+    }
+    const subclass = CLASS_SUBCLASSES[classId]?.subclasses.find((s) => s.name === c.subclass);
+    if (subclass) {
+      for (let lvl = 1; lvl <= c.level; lvl++) {
+        classFeatures.push(...(subclass.featuresByLevel[lvl] ?? []));
+      }
+    }
+  }
+
   return (
     <li className="character-card">
       <div className="character-card__name">
@@ -240,6 +271,7 @@ function CharacterCard({
       </div>
       <div className="character-card__meta">
         {c.race || "раса не указана"} · {c.class || "класс не указан"}
+        {c.subclass && <> ({c.subclass})</>}
         {c.background && <> · {c.background}</>} · ур. {c.level}
         {c.alignment && <> · {c.alignment}</>}
         {c.gender && <> · {c.gender}</>}
@@ -332,6 +364,18 @@ function CharacterCard({
           })}
         </ul>
       </details>
+      {classFeatures.length > 0 && (
+        <details className="character-card__class-features" open>
+          <summary>Особенности класса ({classFeatures.length})</summary>
+          <ul className="character-card__traits">
+            {classFeatures.map((f) => (
+              <li key={f.name}>
+                <strong>{f.name}</strong> — {f.description}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {c.languages.length > 0 && (
         <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
       )}
@@ -464,6 +508,9 @@ function CharacterCard({
               Восстановить все ячейки
             </button>
           </div>
+          {c.level >= 2 && (
+            <p className="character-card__spell-info">Заклинания 2+ круга — пока в разработке, список известных заклинаний не растёт выше выбора 1 уровня.</p>
+          )}
         </details>
       )}
     </li>
@@ -475,13 +522,13 @@ function CharacterCard({
  * хранит текст, не id топика) — вытащено из тех же топиков rules.json, что уже
  * загружаются мастером персонажа.
  */
-function extractClassHitDice(topics: RuleTopic[]): Record<string, { max: number; average: number }> {
-  const result: Record<string, { max: number; average: number }> = {};
+function extractClassHitDice(topics: RuleTopic[]): Record<string, { id: string; max: number; average: number }> {
+  const result: Record<string, { id: string; max: number; average: number }> = {};
   for (const t of topics) {
     if (t.category !== "classes") continue;
     const max = parseHitDie(t);
     const average = parseHitDieAverage(t);
-    if (max !== null && average !== null) result[t.title] = { max, average };
+    if (max !== null && average !== null) result[t.title] = { id: t.id, max, average };
   }
   return result;
 }
@@ -502,7 +549,7 @@ export function CharactersPage() {
   const [panel, setPanel] = useState<Panel>("none");
   const [spells, setSpells] = useState<Spell[]>([]);
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
-  const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { max: number; average: number }>>({});
+  const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
 
   useEffect(() => {

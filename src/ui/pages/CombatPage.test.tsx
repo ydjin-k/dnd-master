@@ -62,6 +62,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         name: "Герой",
         race: "",
         class: "",
+        subclass: "",
         background: "",
         alignment: "",
         gender: "",

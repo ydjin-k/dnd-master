@@ -192,6 +192,21 @@
   flex: 1;
 }
 
+.character-card__class-features {
+  margin-top: 0.4em;
+  font-size: 0.9em;
+}
+
+.character-card__class-features summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+}
+
+.character-card__traits {
+  margin: 0.3em 0 0;
+  padding-left: 1.2em;
+}
+
 .character-card__spells {
   margin-top: 0.4em;
   font-size: 0.9em;

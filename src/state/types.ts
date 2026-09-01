@@ -19,6 +19,7 @@ export interface Character {
   name: string;
   race: string;
   class: string;
+  subclass: string;
   background: string;
   alignment: string;
   gender: string;
