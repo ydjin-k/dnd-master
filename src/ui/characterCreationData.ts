@@ -712,6 +712,23 @@ export const ADVENTURING_GEAR: GearData[] = [
   { name: "Яд, базовый (флакон)", cost: "100 зм", weight: "—" },
 ];
 
+/** Доспехи из SRD 5.1 (rules.json → equipment-armor, таблица «Доспехи»). */
+export const ARMOR: GearData[] = [
+  { name: "Стёганый доспех", cost: "5 зм", weight: "8 фнт." },
+  { name: "Кожаный доспех", cost: "10 зм", weight: "10 фнт." },
+  { name: "Проклёпанная кожа", cost: "45 зм", weight: "13 фнт." },
+  { name: "Доспех из шкур", cost: "10 зм", weight: "12 фнт." },
+  { name: "Кольчужная рубаха", cost: "50 зм", weight: "20 фнт." },
+  { name: "Чешуйчатый доспех", cost: "50 зм", weight: "45 фнт." },
+  { name: "Кираса", cost: "400 зм", weight: "20 фнт." },
+  { name: "Полулаты", cost: "750 зм", weight: "40 фнт." },
+  { name: "Колечный доспех", cost: "30 зм", weight: "40 фнт." },
+  { name: "Кольчуга", cost: "75 зм", weight: "55 фнт." },
+  { name: "Наборной доспех", cost: "200 зм", weight: "60 фнт." },
+  { name: "Латы", cost: "1500 зм", weight: "65 фнт." },
+  { name: "Щит", cost: "10 зм", weight: "6 фнт." },
+];
+
 /** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
 export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 5;
 
@@ -1217,4 +1234,20 @@ export const CONDITIONS = [
   "Оглушенное",
   "Бессознательный",
   "Истощение",
+];
+
+/**
+ * Полный каталог имён предметов для подсказок инвентаря — оружие, доспехи,
+ * снаряжение авантюриста, музыкальные инструменты и инструменты ремесленника,
+ * объединённые и без дублей по name.
+ */
+export const ALL_ITEM_NAMES: string[] = [
+  ...new Set([
+    ...WEAPONS.map((w) => w.name),
+    ...ARMOR.map((a) => a.name),
+    ...ADVENTURING_GEAR.map((g) => g.name),
+    ...INSTRUMENTS.map((i) => i.name),
+    ...ARTISAN_TOOLS.map((t) => t.name),
+    ...DWARF_TOOL_CHOICES.map((t) => t.name),
+  ]),
 ];
