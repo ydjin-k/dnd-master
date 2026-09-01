@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { CharactersPage } from "./CharactersPage";
+import { CharactersPage, truncateDescription } from "./CharactersPage";
 import type { CampaignState, Character, RuleTopic, Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
@@ -402,5 +402,26 @@ describe("CharactersPage", () => {
     await screen.findByText(/Касание/);
     expect(screen.getAllByText("Использовать")).toHaveLength(1);
     expect(screen.getByText(/1 действие · Касание/)).toBeInTheDocument();
+  });
+});
+
+describe("truncateDescription", () => {
+  it("returns short text unchanged", () => {
+    expect(truncateDescription("Коротко.")).toBe("Коротко.");
+  });
+
+  it("cuts at the end of the first sentence when it fits within the limit, without an ellipsis", () => {
+    const text = `Hi. ${"x".repeat(200)}`;
+    expect(truncateDescription(text)).toBe("Hi.");
+  });
+
+  it("cuts at the end of the last sentence that fits within the limit, not the first, without an ellipsis", () => {
+    const text = `Hi. Bye! ${"x".repeat(200)}`;
+    expect(truncateDescription(text)).toBe("Hi. Bye!");
+  });
+
+  it("falls back to a word boundary with an ellipsis when the first sentence is longer than the limit", () => {
+    const text = `${"A".repeat(50)} ${"B".repeat(50)}`;
+    expect(truncateDescription(text)).toBe(`${"A".repeat(50)}…`);
   });
 });
