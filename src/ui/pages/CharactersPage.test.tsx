@@ -247,6 +247,41 @@ describe("CharactersPage", () => {
     expect(updater(char).conditions).toEqual([]);
   });
 
+  it("exhaustion level 3 shows the cumulative effects of levels 1-3, not just level 3, plus recovery text", async () => {
+    const char = { ...characterWithInventory(), conditions: ["Истощение (ур. 3)"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText("Помеха на проверки характеристик.")).toBeInTheDocument();
+    expect(screen.getByText("Скорость уменьшается вдвое.")).toBeInTheDocument();
+    expect(screen.getByText("Помеха на броски атаки и спасброски.")).toBeInTheDocument();
+    expect(screen.queryByText("Максимальные хиты уменьшаются вдвое.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("exhaustion level 6 shows death among its cumulative effects", async () => {
+    const char = { ...characterWithInventory(), conditions: ["Истощение (ур. 6)"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText("Смерть.")).toBeInTheDocument();
+  });
+
+  it("the general 'how conditions end' hint renders once in the Состояния section", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    expect(
+      screen.getByText(
+        "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("the item add-row offers datalist suggestions from multiple catalog categories (weapons, armor, ...)", () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     const { container } = render(<CharactersPage />);

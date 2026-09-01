@@ -8,29 +8,59 @@ import "./CharactersPage.css";
 
 type Panel = "none" | "wizard";
 
-const EXHAUSTION_EFFECT = [
-  "Эффект зависит от уровня истощения (см. Правила → Состояния).",
-];
+/** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
+const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
+  1: "Помеха на проверки характеристик.",
+  2: "Скорость уменьшается вдвое.",
+  3: "Помеха на броски атаки и спасброски.",
+  4: "Максимальные хиты уменьшаются вдвое.",
+  5: "Скорость уменьшается до 0.",
+  6: "Смерть.",
+};
+
+/** Дословно из rules.json → appendices-conditions, абзац после таблицы «Истощение». */
+const EXHAUSTION_RECOVERY =
+  "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.";
+
+/** Общий принцип снятия состояний (rules.json → appendices-conditions, абзац перед таблицей). */
+const CONDITIONS_GENERAL_HINT =
+  "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.";
+
+function exhaustionLevelName(level: number): string {
+  return `Истощение (ур. ${level})`;
+}
+
+/** Эффекты истощения накопительные: уровень N включает эффекты уровней 1..N, плюс как снять. */
+function exhaustionEffectLines(level: number): string[] {
+  const lines: string[] = [];
+  for (let l = 1; l <= level; l++) lines.push(EXHAUSTION_LEVEL_EFFECTS[l]);
+  lines.push(EXHAUSTION_RECOVERY);
+  return lines;
+}
 
 /**
  * Карта «состояние → строки эффекта», извлечённая из appendices-conditions:
- * у каждого состояния из CONDITIONS (кроме «Истощение», см. EXHAUSTION_EFFECT)
- * в rules.json заголовок 2 уровня с точным именем состояния, а следом —
- * list-блок с текстом эффекта.
+ * у каждого обычного состояния из CONDITIONS в rules.json заголовок 2 уровня
+ * с точным именем состояния, а следом — list-блок с текстом эффекта.
+ * Истощение в rules.json — таблица, не список, поэтому его 6 уровней
+ * добавляются отдельно, вручную (см. exhaustionEffectLines).
  */
 function extractConditionEffects(topics: RuleTopic[]): Record<string, string[]> {
   const topic = topics.find((t) => t.id === "appendices-conditions");
-  if (!topic) return {};
   const effects: Record<string, string[]> = {};
-  const blocks = topic.blocks;
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
-    if (block.type !== "heading" || block.level !== 2) continue;
-    if (!CONDITIONS.includes(block.text)) continue;
-    const next = blocks[i + 1];
-    if (next?.type === "list") effects[block.text] = next.items;
+  if (topic) {
+    const blocks = topic.blocks;
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.type !== "heading" || block.level !== 2) continue;
+      if (!CONDITIONS.includes(block.text)) continue;
+      const next = blocks[i + 1];
+      if (next?.type === "list") effects[block.text] = next.items;
+    }
   }
-  effects["Истощение"] = EXHAUSTION_EFFECT;
+  for (let level = 1; level <= 6; level++) {
+    effects[exhaustionLevelName(level)] = exhaustionEffectLines(level);
+  }
   return effects;
 }
 
@@ -180,6 +210,7 @@ function CharacterCard({
 
       <details className="character-card__conditions" open={c.conditions.length > 0}>
         <summary>Состояния ({c.conditions.length})</summary>
+        <div className="character-card__conditions-hint">{CONDITIONS_GENERAL_HINT}</div>
         {c.conditions.length > 0 && (
           <ul className="character-card__condition-list">
             {c.conditions.map((condition) => (

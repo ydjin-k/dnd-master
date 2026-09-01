@@ -120,6 +120,12 @@
   font-size: 0.9em;
 }
 
+.character-card__conditions-hint {
+  margin: 0.3em 0;
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
 .character-card__add-row {
   display: flex;
   gap: 0.4em;
