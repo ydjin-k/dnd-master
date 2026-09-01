@@ -14,6 +14,14 @@ export interface InventoryItem {
   notes: string;
 }
 
+export interface Coins {
+  copper: number;
+  silver: number;
+  electrum: number;
+  gold: number;
+  platinum: number;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -35,7 +43,7 @@ export interface Character {
   passivePerception: number;
   conditions: string[];
   inventory: InventoryItem[];
-  gold: number;
+  coins: Coins;
   savingThrowProficiencies: string[];
   skillProficiencies: string[];
   knownCantrips: string[];
@@ -210,6 +218,14 @@ export interface RollResult {
   total: number;
   dropped: number[] | null;
 }
+
+export const emptyCoins = (): Coins => ({
+  copper: 0,
+  silver: 0,
+  electrum: 0,
+  gold: 0,
+  platinum: 0,
+});
 
 export const emptyAbilityScores = (): AbilityScores => ({
   strength: 10,

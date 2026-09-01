@@ -76,6 +76,17 @@
   max-width: 100%;
 }
 
+.wizard__coins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8em;
+  margin-top: 0.3em;
+}
+
+.wizard__coins input {
+  width: 4em;
+}
+
 .wizard__method {
   display: flex;
   flex-direction: column;

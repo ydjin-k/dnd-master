@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription } from "./CharactersPage";
-import type { CampaignState, Character, RuleTopic, Spell } from "../../state/types";
+import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -105,7 +105,7 @@ describe("CharactersPage", () => {
       passivePerception: 10,
       conditions: [],
       inventory: [{ id: "torch-1", name: "Факел", quantity: 5, notes: "" }],
-      gold: 0,
+      coins: emptyCoins(),
       savingThrowProficiencies: [],
       skillProficiencies: [],
       knownCantrips: [],
@@ -139,7 +139,7 @@ describe("CharactersPage", () => {
           passivePerception: 10,
           conditions: [],
           inventory: [],
-          gold: 0,
+          coins: emptyCoins(),
           savingThrowProficiencies: [],
           skillProficiencies: [],
           knownCantrips: [],

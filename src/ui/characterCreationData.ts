@@ -1,4 +1,4 @@
-import type { AbilityScores, RuleTopic } from "../state/types";
+import type { AbilityScores, Coins, RuleTopic } from "../state/types";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -803,6 +803,30 @@ export function proficiencyBonusForLevel(level: number): number {
 /** Та же подсказка, что PROFICIENCY_BONUS_HINT, но с бонусом текущего уровня персонажа. */
 export function proficiencyBonusHint(level: number): string {
   return `Владение навыком или спасброском даёт +${proficiencyBonusForLevel(level)} (бонус мастерства) к проверкам/спасброскам`;
+}
+
+/**
+ * Курс обмена номиналов SRD 5.1 (rules.json → equipment-coins), в медных
+ * монетах: мм=1, см=10, эм=50, зм=100, пм=1000. Единственный владелец курса —
+ * мастер персонажа и карточка берут значения отсюда, не задваивают.
+ */
+export const COIN_DENOMINATIONS: { key: keyof Coins; label: string; copperValue: number }[] = [
+  { key: "copper", label: "мм", copperValue: 1 },
+  { key: "silver", label: "см", copperValue: 10 },
+  { key: "electrum", label: "эм", copperValue: 50 },
+  { key: "gold", label: "зм", copperValue: 100 },
+  { key: "platinum", label: "пм", copperValue: 1000 },
+];
+
+/** Суммарная стоимость монет всех номиналов в золотых эквивалентах. */
+export function coinsTotalGold(coins: Coins): number {
+  const totalCopper = COIN_DENOMINATIONS.reduce((sum, d) => sum + coins[d.key] * d.copperValue, 0);
+  return totalCopper / 100;
+}
+
+/** Общее число монет всех номиналов — вход для веса монет (50 монет = 1 фунт, см. characters-carrying-capacity). */
+export function coinsTotalCount(coins: Coins): number {
+  return COIN_DENOMINATIONS.reduce((sum, d) => sum + coins[d.key], 0);
 }
 
 /**

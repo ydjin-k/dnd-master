@@ -7,11 +7,13 @@ import {
   ALL_SKILLS,
   CLASS_LEVEL_FEATURES,
   CLASS_SUBCLASSES,
+  COIN_DENOMINATIONS,
   CONDITIONS,
   HEALING_POTIONS,
   RACE_HP_BONUS,
   SKILL_ABILITY,
   abilityMod,
+  coinsTotalGold,
   fmtMod,
   maxHpForLevel,
   parseHitDie,
@@ -21,7 +23,7 @@ import {
   type AbilityKey,
   type ClassLevelFeature,
 } from "../characterCreationData";
-import type { AbilityScores, Character, RuleTopic, Spell } from "../../state/types";
+import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
@@ -123,6 +125,10 @@ function CharacterCard({
   const [asiPanelOpen, setAsiPanelOpen] = useState(false);
   const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
+
+  function adjustCoin(key: keyof Coins, delta: number) {
+    onUpdate((ch) => ({ ...ch, coins: { ...ch.coins, [key]: Math.max(0, ch.coins[key] + delta) } }));
+  }
 
   function adjustItemQuantity(itemId: string, delta: number) {
     onUpdate((ch) => ({
@@ -290,7 +296,7 @@ function CharacterCard({
       <div className="character-card__hp">
         HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {c.speedFeet} фт · Иниц.{" "}
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
-        {c.passivePerception} · {c.gold} зм
+        {c.passivePerception}
       </div>
       <div className="character-card__level">
         Уровень {c.level}{" "}
@@ -430,6 +436,24 @@ function CharacterCard({
             Добавить
           </button>
         </div>
+      </details>
+
+      <details className="character-card__coins" open>
+        <summary>Деньги (итого {coinsTotalGold(c.coins)} зм)</summary>
+        <ul>
+          {COIN_DENOMINATIONS.map(({ key, label }) => (
+            <li key={key} className="character-card__item">
+              <span>{label}</span>
+              <button type="button" onClick={() => adjustCoin(key, -1)}>
+                −
+              </button>
+              <span>{c.coins[key]}</span>
+              <button type="button" onClick={() => adjustCoin(key, 1)}>
+                +
+              </button>
+            </li>
+          ))}
+        </ul>
       </details>
 
       <details className="character-card__conditions" open={c.conditions.length > 0}>
