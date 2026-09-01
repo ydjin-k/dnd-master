@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CombatPage } from "./CombatPage";
-import type { CampaignState, MonsterTemplate, Spell } from "../../state/types";
+import { emptyCoins, type CampaignState, type MonsterTemplate, type Spell } from "../../state/types";
 
 const bestiary: MonsterTemplate[] = [
   {
@@ -78,7 +78,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         passivePerception: 11,
         conditions: [],
         inventory: [],
-        gold: 0,
+        coins: emptyCoins(),
         savingThrowProficiencies: [],
         skillProficiencies: [],
         knownCantrips: [],

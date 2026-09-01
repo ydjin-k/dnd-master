@@ -12,12 +12,37 @@ pub struct AbilityScores {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct InventoryItem {
     pub id: String,
     pub name: String,
     pub quantity: u32,
     pub notes: String,
+    /// Вес одной единицы предмета в фунтах — для расчёта общей переносимой
+    /// массы (характеристика Сила × 15, characters-carrying-capacity). Каталог
+    /// весов живёт на стороне UI (characterCreationData.ts), здесь только
+    /// хранится подставленное значение.
+    pub weight_lb: f64,
+}
+
+/// Номиналы монет SRD 5.1 (rules.json → equipment-coins). Курс обмена (1мм=1,
+/// 1см=10, 1эм=50, 1зм=100, 1пм=1000) и вес (50 монет = 1 фунт) считаются на
+/// стороне UI (characterCreationData.ts → COIN_DENOMINATIONS) — там же, где и
+/// показываются; здесь модель хранит только сами номиналы.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Coins {
+    pub copper: i32,
+    pub silver: i32,
+    pub electrum: i32,
+    pub gold: i32,
+    pub platinum: i32,
+}
+
+impl Coins {
+    pub fn is_empty(&self) -> bool {
+        self.copper == 0 && self.silver == 0 && self.electrum == 0 && self.gold == 0 && self.platinum == 0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -43,13 +68,31 @@ pub struct Character {
     pub passive_perception: i32,
     pub conditions: Vec<String>,
     pub inventory: Vec<InventoryItem>,
+    /// Устарело — деньги в одном золотом числе, до появления номиналов
+    /// (см. `coins`). Читается только для миграции старых сохранений
+    /// (`migrate_legacy_gold`), новые сохранения это поле не пишут.
+    #[serde(skip_serializing)]
     pub gold: i64,
+    pub coins: Coins,
     pub saving_throw_proficiencies: Vec<String>,
     pub skill_proficiencies: Vec<String>,
     pub known_cantrips: Vec<String>,
     pub known_spells: Vec<String>,
     pub spell_slots_level1_max: i32,
     pub spell_slots_level1_current: i32,
+}
+
+impl Character {
+    /// Персонажи, сохранённые до появления номиналов монет, хранили деньги
+    /// одним полем `gold` (золотые монеты). Вызывается на каждой загрузке
+    /// (см. `storage::read_campaign_file`) — идемпотентна: после первого
+    /// переноса `gold` обнулено, второй перенос уже не сработает.
+    pub fn migrate_legacy_gold(&mut self) {
+        if self.coins.is_empty() && self.gold != 0 {
+            self.coins.gold = self.gold as i32;
+        }
+        self.gold = 0;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -160,5 +203,46 @@ mod tests {
         assert!(character.known_spells.is_empty());
         assert_eq!(character.spell_slots_level1_max, 0);
         assert_eq!(character.spell_slots_level1_current, 0);
+    }
+
+    /// characters-currency-denominations: старое сохранение с `gold: number`
+    /// (без поля `coins`) должно после миграции стать золотыми монетами,
+    /// остальные номиналы — 0.
+    #[test]
+    fn legacy_gold_number_migrates_into_gold_coins() {
+        let old_json = r#"{
+            "id": "abc",
+            "name": "Тест",
+            "race": "Орк",
+            "class": "Плут",
+            "level": 1,
+            "abilities": {
+                "strength": 10, "dexterity": 10, "constitution": 10,
+                "intelligence": 10, "wisdom": 10, "charisma": 10
+            },
+            "maxHp": 10, "currentHp": 10, "armorClass": 10,
+            "conditions": [], "inventory": [], "gold": 250
+        }"#;
+        let mut character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert_eq!(character.gold, 250);
+        assert_eq!(character.coins, Coins::default(), "до миграции номиналы ещё пусты");
+
+        character.migrate_legacy_gold();
+
+        assert_eq!(character.coins, Coins { gold: 250, ..Coins::default() });
+        assert_eq!(character.gold, 0, "после миграции устаревшее поле обнулено");
+
+        // Идемпотентность: повторный вызов ничего не меняет.
+        character.migrate_legacy_gold();
+        assert_eq!(character.coins, Coins { gold: 250, ..Coins::default() });
+    }
+
+    /// characters-carrying-capacity: инвентарь, сохранённый до появления
+    /// веса предметов, не должен ломать загрузку — вес по умолчанию 0.0.
+    #[test]
+    fn inventory_item_without_weight_defaults_to_zero() {
+        let old_json = r#"{"id": "torch-1", "name": "Факел", "quantity": 5, "notes": ""}"#;
+        let item: InventoryItem = serde_json::from_str(old_json).expect("старый предмет должен читаться");
+        assert_eq!(item.weight_lb, 0.0);
     }
 }

@@ -249,7 +249,7 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.background).toBe("Бродяга");
-    expect(character.gold).toBe(25);
+    expect(character.coins.gold).toBe(25);
     expect(character.inventory.map((i) => i.name)).toEqual(
       expect.arrayContaining(["Верёвка, пеньковая (50 футов)", "Факел"]),
     );
@@ -339,7 +339,7 @@ describe("CharacterWizard", () => {
     expect(character.skillProficiencies).toEqual(
       expect.arrayContaining(["Атлетика", "Восприятие", "Проницательность", "Религия"]),
     );
-    expect(character.gold).toBe(15);
+    expect(character.coins.gold).toBe(15);
     expect(character.inventory.length).toBeGreaterThan(0);
   });
 
@@ -397,7 +397,7 @@ describe("CharacterWizard", () => {
     expect(character.skillProficiencies).toEqual(
       expect.arrayContaining(["Запугивание", "Восприятие"]),
     );
-    expect(character.gold).toBe(10);
+    expect(character.coins.gold).toBe(10);
     expect(character.inventory.length).toBeGreaterThan(0);
   });
 

@@ -73,7 +73,12 @@ fn write_active_pointer(base: &Path, ptr: &ActivePointer) -> Result<(), String> 
 
 fn read_campaign_file(path: &Path) -> Result<CampaignState, String> {
     let raw = fs::read_to_string(path).map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
-    serde_json::from_str(&raw).map_err(|e| format!("повреждён {path:?}: {e}"))
+    let mut state: CampaignState =
+        serde_json::from_str(&raw).map_err(|e| format!("повреждён {path:?}: {e}"))?;
+    for character in state.characters.iter_mut() {
+        character.migrate_legacy_gold();
+    }
+    Ok(state)
 }
 
 pub fn generate_id() -> String {
@@ -413,6 +418,38 @@ mod tests {
     fn switching_to_unknown_campaign_fails() {
         let base = temp_dir("unknown");
         assert!(switch_campaign_in(&base, "no-such-id".into()).is_err());
+    }
+
+    /// characters-currency-denominations: кампания, сохранённая до появления
+    /// номиналов, содержит персонажа со старым `"gold": 250` и без поля
+    /// `coins` — загрузка должна перенести это в золотые монеты, не упасть.
+    #[test]
+    fn loading_campaign_migrates_legacy_character_gold() {
+        let base = temp_dir("legacy-gold");
+        let path = campaign_path(&base, "legacy").unwrap();
+        fs::write(
+            &path,
+            r#"{
+                "id": "legacy",
+                "campaignName": "Старая кампания",
+                "characters": [{
+                    "id": "hero", "name": "Герой", "race": "", "class": "", "level": 1,
+                    "abilities": {
+                        "strength": 10, "dexterity": 10, "constitution": 10,
+                        "intelligence": 10, "wisdom": 10, "charisma": 10
+                    },
+                    "maxHp": 10, "currentHp": 10, "armorClass": 10,
+                    "conditions": [], "inventory": [], "gold": 250
+                }]
+            }"#,
+        )
+        .unwrap();
+
+        let state = read_campaign_file(&path).unwrap();
+        assert_eq!(state.characters.len(), 1);
+        assert_eq!(state.characters[0].coins.gold, 250);
+        assert_eq!(state.characters[0].coins.copper, 0);
+        assert_eq!(state.characters[0].gold, 0);
     }
 
     /// Регрессия: React StrictMode в dev вызывает эффект монтирования дважды,

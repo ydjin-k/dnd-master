@@ -6,6 +6,7 @@ import {
   type AbilityScoreRoll,
   type AbilityScores,
   type Character,
+  type Coins,
   type InventoryItem,
   type RuleTopic,
   type Spell,
@@ -28,6 +29,8 @@ import {
   CLASS_SPELLCASTING_ABILITY_KEY,
   CLASS_SPELL_PROGRESSION,
   CLASS_SUBCLASSES,
+  catalogWeightLb,
+  COIN_DENOMINATIONS,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
   DWARF_TOOL_CHOICES,
@@ -165,6 +168,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [age, setAge] = useState(0);
   const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
   const [knownSpells, setKnownSpells] = useState<string[]>([]);
+  // Донастройка монет на шаге «Итог»: пока номинал не тронут вручную, «зм»
+  // берётся из золота предыстории, остальные — 0 (см. `coins` ниже).
+  const [coinEdits, setCoinEdits] = useState<Partial<Coins>>({});
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -245,6 +251,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       : backgroundId
         ? BACKGROUNDS.find((b) => b.id === backgroundId)
         : undefined;
+  const coins: Coins = {
+    copper: coinEdits.copper ?? 0,
+    silver: coinEdits.silver ?? 0,
+    electrum: coinEdits.electrum ?? 0,
+    gold: coinEdits.gold ?? (background?.gold ?? 0),
+    platinum: coinEdits.platinum ?? 0,
+  };
+  function setCoin(key: keyof Coins, value: number) {
+    setCoinEdits((prev) => ({ ...prev, [key]: Math.max(0, value) }));
+  }
 
   function toggleCustomBackgroundSkill(skill: string) {
     setCustomBackground((prev) => {
@@ -507,6 +523,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       name: itemName,
       quantity: 1,
       notes: "",
+      weightLb: catalogWeightLb(itemName),
     }));
     const character: Character = {
       id: crypto.randomUUID(),
@@ -529,7 +546,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       passivePerception,
       conditions: [],
       inventory,
-      gold: background?.gold ?? 0,
+      coins,
       savingThrowProficiencies: classProf?.savingThrowLabels ?? [],
       skillProficiencies: allSkillProficiencies,
       knownCantrips: spellAbility ? knownCantrips : [],
@@ -1273,11 +1290,30 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Языки: {finalLanguages.join(", ") || "—"}</li>
             <li>
               HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution) + raceHpBonus)} · КД:{" "}
-              {10 + initiative} (безоружный, без брони) · Золото: {background?.gold ?? 0} зм
+              {10 + initiative} (безоружный, без брони)
             </li>
             <li>
               Скорость: {speedFeet} фт · Инициатива: {fmtMod(initiative)} · Пассивная внимательность:{" "}
               {passivePerception}
+            </li>
+            <li>
+              Деньги:
+              <div className="wizard__coins">
+                {COIN_DENOMINATIONS.map(({ key, label }) => (
+                  <label key={key} className="wizard__hint">
+                    {label}:{" "}
+                    <input
+                      type="number"
+                      min={0}
+                      value={coins[key] === 0 ? "" : coins[key]}
+                      onChange={(e) => {
+                        const raw = e.currentTarget.value;
+                        setCoin(key, raw === "" ? 0 : Number(raw) || 0);
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
             </li>
             {ABILITY_LABELS.map(([key, label]) => (
               <li key={key}>

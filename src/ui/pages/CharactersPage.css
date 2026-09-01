@@ -53,6 +53,12 @@
   font-size: 0.9em;
 }
 
+.character-card__danger {
+  color: var(--dm-danger);
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
 .character-card__level {
   margin-top: 0.3em;
   font-size: 0.9em;
@@ -109,16 +115,19 @@
   columns: 2;
 }
 
+.character-card__coins,
 .character-card__inventory {
   margin-top: 0.4em;
   font-size: 0.9em;
 }
 
+.character-card__coins summary,
 .character-card__inventory summary {
   cursor: pointer;
   color: var(--dm-text-muted);
 }
 
+.character-card__coins ul,
 .character-card__inventory ul {
   margin: 0.3em 0 0;
   padding: 0;

@@ -1,4 +1,4 @@
-import type { AbilityScores, RuleTopic } from "../state/types";
+import type { AbilityScores, Coins, RuleTopic } from "../state/types";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -803,6 +803,71 @@ export function proficiencyBonusForLevel(level: number): number {
 /** Та же подсказка, что PROFICIENCY_BONUS_HINT, но с бонусом текущего уровня персонажа. */
 export function proficiencyBonusHint(level: number): string {
   return `Владение навыком или спасброском даёт +${proficiencyBonusForLevel(level)} (бонус мастерства) к проверкам/спасброскам`;
+}
+
+/**
+ * Курс обмена номиналов SRD 5.1 (rules.json → equipment-coins), в медных
+ * монетах: мм=1, см=10, эм=50, зм=100, пм=1000. Единственный владелец курса —
+ * мастер персонажа и карточка берут значения отсюда, не задваивают.
+ */
+export const COIN_DENOMINATIONS: { key: keyof Coins; label: string; copperValue: number }[] = [
+  { key: "copper", label: "мм", copperValue: 1 },
+  { key: "silver", label: "см", copperValue: 10 },
+  { key: "electrum", label: "эм", copperValue: 50 },
+  { key: "gold", label: "зм", copperValue: 100 },
+  { key: "platinum", label: "пм", copperValue: 1000 },
+];
+
+/** Суммарная стоимость монет всех номиналов в золотых эквивалентах. */
+export function coinsTotalGold(coins: Coins): number {
+  const totalCopper = COIN_DENOMINATIONS.reduce((sum, d) => sum + coins[d.key] * d.copperValue, 0);
+  return totalCopper / 100;
+}
+
+/** Общее число монет всех номиналов — вход для веса монет (50 монет = 1 фунт, см. characters-carrying-capacity). */
+export function coinsTotalCount(coins: Coins): number {
+  return COIN_DENOMINATIONS.reduce((sum, d) => sum + coins[d.key], 0);
+}
+
+/** 50 монет любого номинала весят 1 фунт (rules.json → equipment-coins, «пятьдесят любых монет весят... 1 фунт»). */
+const COINS_PER_POUND = 50;
+
+/** Вес монет персонажа в фунтах — общее число монет всех номиналов, делённое на курс выше. */
+export function coinsWeightLb(coins: Coins): number {
+  return coinsTotalCount(coins) / COINS_PER_POUND;
+}
+
+/**
+ * Разбирает строку веса предмета каталога (вида «10 фнт.», «1/4 фнт.», «—») в
+ * число фунтов. Единственное место, где это делается, — используется и
+ * мастером персонажа (стартовое снаряжение), и карточкой (добавление в
+ * инвентарь), чтобы не задваивать парсинг.
+ */
+export function parseItemWeightLb(weight: string): number {
+  const fraction = weight.match(/(\d+)\s*\/\s*(\d+)/);
+  if (fraction) return Number(fraction[1]) / Number(fraction[2]);
+  const whole = weight.match(/\d+(\.\d+)?/);
+  return whole ? Number(whole[0]) : 0;
+}
+
+/**
+ * Вес предмета по имени из общего каталога (`ALL_ITEMS_WITH_COST`) — 0 для
+ * полностью произвольного (не из каталога) названия, честное текущее
+ * ограничение (не пытаемся угадать вес выдуманного предмета).
+ */
+export function catalogWeightLb(itemName: string): number {
+  const entry = ALL_ITEMS_WITH_COST.find((item) => item.name === itemName);
+  return entry ? parseItemWeightLb(entry.weight) : 0;
+}
+
+/** Грузоподъёмность SRD 5.1 (rules.json → gameplay-abilities): Сила × 15 фунтов, базовое (не вариативное) правило. */
+export function carryingCapacityLb(strength: number): number {
+  return strength * 15;
+}
+
+/** Суммарный вес инвентаря (без монет) — сумма веса единицы × количество по всем предметам. */
+export function inventoryWeightLb(inventory: { weightLb: number; quantity: number }[]): number {
+  return inventory.reduce((sum, item) => sum + item.weightLb * item.quantity, 0);
 }
 
 /**
