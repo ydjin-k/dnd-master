@@ -10,6 +10,7 @@ import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
 import { JournalPage } from "./ui/pages/JournalPage";
 import { RulesPage } from "./ui/pages/RulesPage";
+import { BestiaryPage } from "./ui/pages/BestiaryPage";
 import "./ui/theme.css";
 
 function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
@@ -37,6 +38,8 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
               return <JournalPage />;
             case "rules":
               return <RulesPage />;
+            case "bestiary":
+              return <BestiaryPage />;
           }
         }}
       </AppShell>

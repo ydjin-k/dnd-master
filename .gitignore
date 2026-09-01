@@ -57,6 +57,12 @@ dist-ssr
 /src-tauri/pdfium/pdfium.dll
 /src-tauri/pdfium/PDFIUM-LICENSE
 
+# ── картинки бестиария ───────────────────────────────────────────────────────
+# Скачиваются src-tauri/bestiary/fetch-images.sh (часть INSTALL_CMD) с
+# Wikimedia Commons, не в git — атрибуция каждой картинки хранится в
+# bestiary.json (imageAttribution), сами файлы качаются по стабильным URL.
+/src-tauri/bestiary/images/*
+
 # ── личные материалы владельца продукта, не для распространения ─────────────
 # Сторонние/защищённые авторским правом источники (DM's Guild и т.п.),
 # используются только как личный референс при написании оригинального

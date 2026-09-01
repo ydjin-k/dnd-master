@@ -105,6 +105,14 @@ export interface MonsterTemplate {
   speedFeet: number;
   attackBonus: number;
   damageDice: string;
+  challengeRating: string;
+  creatureType: string;
+  size: string;
+  description: string;
+  traits: string[];
+  actions: string[];
+  imageAsset: string | null;
+  imageAttribution: string | null;
 }
 
 export interface CampaignState {

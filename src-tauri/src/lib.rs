@@ -199,8 +199,13 @@ fn import_character_sheet(app: AppHandle, path: String) -> Result<String, String
 }
 
 #[tauri::command]
-fn get_bestiary() -> Vec<MonsterTemplate> {
-    combat::demo_bestiary()
+fn get_bestiary(app: AppHandle) -> Result<Vec<MonsterTemplate>, String> {
+    combat::load_bestiary(&app)
+}
+
+#[tauri::command]
+fn get_bestiary_image(app: AppHandle, image_asset: String) -> Result<String, String> {
+    combat::load_bestiary_image(&app, &image_asset)
 }
 
 #[tauri::command]
@@ -221,7 +226,7 @@ fn start_combat(
 ) -> Result<CampaignState, String> {
     let mut state = active(&app)?;
 
-    let bestiary = combat::demo_bestiary();
+    let bestiary = combat::load_bestiary(&app)?;
     let monsters: Vec<MonsterTemplate> = monster_ids
         .iter()
         .map(|id| {
@@ -389,6 +394,7 @@ pub fn run() {
             adjust_chaos_factor,
             import_character_sheet,
             get_bestiary,
+            get_bestiary_image,
             get_rules,
             get_spells,
             start_combat,

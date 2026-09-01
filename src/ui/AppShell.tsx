@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
 import "./AppShell.css";
 
-export type Tab = "adventure" | "combat" | "dice" | "characters" | "journal" | "rules";
+export type Tab = "adventure" | "combat" | "dice" | "characters" | "journal" | "rules" | "bestiary";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "adventure", label: "Приключение" },
@@ -11,6 +11,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "characters", label: "Персонажи" },
   { id: "journal", label: "Дневник" },
   { id: "rules", label: "Правила" },
+  { id: "bestiary", label: "Бестиарий" },
 ];
 
 export function AppShell({

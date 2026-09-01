@@ -24,41 +24,77 @@ pub struct MonsterTemplate {
     pub speed_feet: i32,
     pub attack_bonus: i32,
     pub damage_dice: String,
+    pub challenge_rating: String,
+    pub creature_type: String,
+    pub size: String,
+    pub description: String,
+    pub traits: Vec<String>,
+    pub actions: Vec<String>,
+    pub image_asset: Option<String>,
+    pub image_attribution: Option<String>,
 }
 
-/// Упрощённые ориентировочные статы, не точные блоки SRD — доказывают
-/// механизм. Настоящий бестиарий — отдельная задача по содержимому,
-/// как и демо-сценарий в adventure.rs.
-pub fn demo_bestiary() -> Vec<MonsterTemplate> {
-    vec![
-        MonsterTemplate {
-            id: "wolf".into(),
-            name: "Волк".into(),
-            max_hp: 11,
-            armor_class: 13,
-            speed_feet: 40,
-            attack_bonus: 4,
-            damage_dice: "2d4+2".into(),
-        },
-        MonsterTemplate {
-            id: "werewolf".into(),
-            name: "Оборотень".into(),
-            max_hp: 58,
-            armor_class: 11,
-            speed_feet: 30,
-            attack_bonus: 4,
-            damage_dice: "2d4+2".into(),
-        },
-        MonsterTemplate {
-            id: "bandit".into(),
-            name: "Разбойник".into(),
-            max_hp: 11,
-            armor_class: 12,
-            speed_feet: 30,
-            attack_bonus: 3,
-            damage_dice: "1d6+1".into(),
-        },
-    ]
+/// Бестиарий — из bundle.resources в сборке, из src-tauri/bestiary в dev
+/// (тот же приём, что и для rules.json/spells.json). Наполнение —
+/// `bestiary-full-database-and-tab`, содержимое переведено с официального
+/// SRD 5.1 PDF (см. rules/RulesPage для атрибуции источника).
+fn bestiary_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    if cfg!(debug_assertions) {
+        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("bestiary.json"));
+    }
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("не найден каталог ресурсов приложения: {e}"))?;
+    Ok(resource_dir.join("bestiary").join("bestiary.json"))
+}
+
+pub fn load_bestiary(app: &tauri::AppHandle) -> Result<Vec<MonsterTemplate>, String> {
+    let path = bestiary_path(app)?;
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
+    serde_json::from_str(&raw).map_err(|e| format!("повреждён {path:?}: {e}"))
+}
+
+/// Каталог картинок существ — забандлен рядом с bestiary.json (см.
+/// `bestiary_path`), не отдаётся напрямую через asset-протокол (у проекта
+/// его нигде нет), а читается и кодируется в data-URL тем же приёмом, что и
+/// импорт файлов персонажа в `import.rs` — команда получает путь, отдаёт
+/// готовые для <img src> байты.
+fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    if cfg!(debug_assertions) {
+        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images"));
+    }
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("не найден каталог ресурсов приложения: {e}"))?;
+    Ok(resource_dir.join("bestiary").join("images"))
+}
+
+pub fn load_bestiary_image(app: &tauri::AppHandle, image_asset: &str) -> Result<String, String> {
+    let images_dir = bestiary_images_dir(app)?;
+    let file_name = std::path::Path::new(image_asset)
+        .file_name()
+        .ok_or("некорректный путь к картинке")?;
+    let path = images_dir.join(file_name);
+    let bytes = std::fs::read(&path).map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
+    let mime = match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        other => return Err(format!("неизвестный формат картинки: {other}")),
+    };
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime};base64,{encoded}"))
 }
 
 fn chebyshev_feet(a: (i32, i32), b: (i32, i32)) -> i32 {
@@ -529,6 +565,53 @@ pub fn monster_auto_turn(state: &mut CombatState) -> Result<String, String> {
 }
 
 #[cfg(test)]
+mod bestiary_data_tests {
+    use super::MonsterTemplate;
+
+    fn load_bundled() -> Vec<MonsterTemplate> {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("bestiary.json");
+        let raw = std::fs::read_to_string(&path).expect("прочитать bestiary/bestiary.json");
+        serde_json::from_str(&raw).expect("распарсить bestiary.json")
+    }
+
+    #[test]
+    fn bundled_bestiary_json_parses_and_is_not_empty() {
+        let bestiary = load_bundled();
+        assert!(!bestiary.is_empty(), "bestiary.json не должен быть пустым");
+    }
+
+    #[test]
+    fn every_monster_with_an_image_has_a_downloadable_file_on_disk() {
+        let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images");
+        for m in load_bundled() {
+            if let Some(asset) = &m.image_asset {
+                let file_name = std::path::Path::new(asset).file_name().unwrap();
+                let path = images_dir.join(file_name);
+                assert!(
+                    path.exists(),
+                    "у {} указана картинка {asset:?}, но файла нет на диске — прогони fetch-images.sh",
+                    m.name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_monster_id_is_unique() {
+        let bestiary = load_bundled();
+        let mut ids: Vec<&str> = bestiary.iter().map(|m| m.id.as_str()).collect();
+        ids.sort_unstable();
+        let mut deduped = ids.clone();
+        deduped.dedup();
+        assert_eq!(ids.len(), deduped.len(), "в bestiary.json есть повторяющиеся id");
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::Character;
@@ -541,6 +624,26 @@ mod tests {
             current_hp: hp,
             armor_class: ac,
             ..Default::default()
+        }
+    }
+
+    fn monster_template(id: &str) -> MonsterTemplate {
+        MonsterTemplate {
+            id: id.into(),
+            name: id.into(),
+            max_hp: 11,
+            armor_class: 13,
+            speed_feet: 40,
+            attack_bonus: 4,
+            damage_dice: "2d4+2".into(),
+            challenge_rating: "1/4".into(),
+            creature_type: "зверь".into(),
+            size: "Средний".into(),
+            description: String::new(),
+            traits: vec![],
+            actions: vec![],
+            image_asset: None,
+            image_attribution: None,
         }
     }
 
@@ -605,8 +708,7 @@ mod tests {
 
     #[test]
     fn start_combat_rolls_initiative_for_everyone() {
-        let bestiary = demo_bestiary();
-        let monsters = vec![bestiary[0].clone()];
+        let monsters = vec![monster_template("wolf")];
         let characters = vec![character("pc1", 20, 15)];
 
         let state = start_combat(&monsters, &characters).unwrap();
@@ -620,7 +722,7 @@ mod tests {
     #[test]
     fn start_combat_requires_both_sides() {
         assert!(start_combat(&[], &[character("pc1", 10, 10)]).is_err());
-        assert!(start_combat(&[demo_bestiary()[0].clone()], &[]).is_err());
+        assert!(start_combat(&[monster_template("wolf")], &[]).is_err());
     }
 
     #[test]

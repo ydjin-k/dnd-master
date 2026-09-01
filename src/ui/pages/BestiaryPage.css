@@ -1,0 +1,152 @@
+.bestiary-page {
+  display: flex;
+  gap: 1.5em;
+  align-items: flex-start;
+}
+
+.bestiary-page__nav {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.bestiary-page__search {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.bestiary-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.bestiary-page__list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.35em 0.5em;
+}
+
+.bestiary-page__list-item--active {
+  background: var(--dm-panel-raised);
+  border-color: var(--dm-border);
+  color: var(--dm-accent);
+}
+
+.bestiary-page__list-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bestiary-page__list-cr {
+  color: var(--dm-text-muted);
+  font-size: 0.8em;
+}
+
+.bestiary-page__empty,
+.bestiary-page__error {
+  color: var(--dm-text-muted);
+}
+
+.bestiary-page__error {
+  color: var(--dm-danger);
+}
+
+.bestiary-page__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bestiary-thumb {
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--dm-panel-raised);
+  border: 1px solid var(--dm-border);
+}
+
+.bestiary-thumb--list {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.bestiary-thumb--detail {
+  width: 100%;
+  max-width: 320px;
+  height: 240px;
+  float: right;
+  margin: 0 0 1em 1.5em;
+}
+
+.bestiary-thumb--empty {
+  opacity: 0.4;
+}
+
+.bestiary-statblock {
+  line-height: 1.6;
+}
+
+.bestiary-statblock::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.bestiary-statblock__name {
+  margin-bottom: 0.1em;
+}
+
+.bestiary-statblock__subtitle {
+  color: var(--dm-text-muted);
+  font-style: italic;
+  margin-top: 0;
+}
+
+.bestiary-statblock__description {
+  color: var(--dm-text-muted);
+}
+
+.bestiary-statblock__stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2em 0.75em;
+  margin: 1em 0;
+}
+
+.bestiary-statblock__stats dt {
+  color: var(--dm-text-muted);
+}
+
+.bestiary-statblock__stats dd {
+  margin: 0;
+}
+
+.bestiary-statblock__attribution {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--dm-border);
+  font-size: 0.8em;
+  color: var(--dm-text-muted);
+}
+
+.bestiary-page__attribution {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--dm-border);
+  font-size: 0.8em;
+  color: var(--dm-text-muted);
+}
