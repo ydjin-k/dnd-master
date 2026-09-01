@@ -399,6 +399,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     (classId && spellProgression
       ? Math.max(1, abilityMod(totalAbilities[CLASS_SPELLCASTING_ABILITY_KEY[classId]]) + 1)
       : 0);
+  const reviewMissing: string | null = !name.trim()
+    ? "Впиши имя персонажа, чтобы продолжить."
+    : spellAbility && knownCantrips.length !== requiredCantrips
+      ? `Выбери ${requiredCantrips} заговора(ов), чтобы продолжить.`
+      : spellAbility && knownSpells.length !== requiredSpells
+        ? `Выбери ${requiredSpells} заклинание(й) 1 уровня, чтобы продолжить.`
+        : null;
 
   function toggleCantrip(id: string) {
     setKnownCantrips((prev) => {
@@ -580,10 +587,57 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   }
 
   const stepIndex = STEPS.indexOf(step);
-  const canGoNext =
-    (step !== "race" || !!raceId) &&
-    (step !== "class" || !!classId) &&
-    (step !== "background" || !!backgroundId);
+
+  /**
+   * Причина, по которой «Далее» неактивна на текущем шаге — null, если шаг
+   * полностью заполнен. Возвращает первую найденную нехватку, не все сразу.
+   * Проверяются только под-выборы, у которых в остальном коде НЕТ значения
+   * по умолчанию (инструмент Дварфа/боевой стиль/язык предыстории и т.п. уже
+   * молча подставляют первый вариант, если ничего не выбрано — там блокировать
+   * нечего, см. characters-wizard-step-validation).
+   */
+  function stepValidationMessage(): string | null {
+    if (step === "race") {
+      if (!raceId) return "Выбери расу, чтобы продолжить.";
+      if (raceSkillChoiceCount > 0 && raceSkillChoices.length < raceSkillChoiceCount) {
+        return `Выбери ${raceSkillChoiceCount} навыка (гибкость навыков), чтобы продолжить.`;
+      }
+      if (raceBonus?.choice && choiceBonusKeys.length < raceBonus.choice.count) {
+        return `Выбери ${raceBonus.choice.count} характеристики для бонуса, чтобы продолжить.`;
+      }
+      return null;
+    }
+    if (step === "class") {
+      if (!classId) return "Выбери класс, чтобы продолжить.";
+      if (classProf && classSkills.length < classProf.skillCount) {
+        return `Выбери ${classProf.skillCount} навыка класса, чтобы продолжить.`;
+      }
+      return null;
+    }
+    if (step === "background") {
+      if (!backgroundId) return "Выбери предысторию, чтобы продолжить.";
+      if (backgroundId === CUSTOM_BACKGROUND_ID) {
+        if (!customBackground.title.trim()) return "Впиши название своей предыстории, чтобы продолжить.";
+        if (customBackground.skillProficiencies.length === 0) {
+          return "Выбери хотя бы один навык своей предыстории, чтобы продолжить.";
+        }
+      }
+      return null;
+    }
+    if (step === "abilities") {
+      if (method === "standard" && ABILITY_LABELS.some(([key]) => assignment[key] === undefined)) {
+        return "Распредели все шесть характеристик, чтобы продолжить.";
+      }
+      return null;
+    }
+    // "equipment": каждый обязательный выбор (комплект снаряжения, оружие/инструмент
+    // внутри комплекта) уже молча выбирает первый вариант по умолчанию — блокировать
+    // здесь нечего, шаг всегда в валидном состоянии.
+    return null;
+  }
+
+  const stepMissing = stepValidationMessage();
+  const canGoNext = stepMissing === null;
 
   return (
     <div className="wizard">
@@ -1353,15 +1407,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             )}
           </ul>
-          <button
-            disabled={
-              !name.trim() ||
-              (!!spellAbility && (knownCantrips.length !== requiredCantrips || knownSpells.length !== requiredSpells))
-            }
-            onClick={finish}
-          >
+          <button disabled={!!reviewMissing} onClick={finish}>
             Создать персонажа
           </button>
+          {reviewMissing && <p className="wizard__hint wizard__step-warning">{reviewMissing}</p>}
         </div>
       )}
 
@@ -1372,6 +1421,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             Далее
           </button>
         )}
+        {stepMissing && <p className="wizard__hint wizard__step-warning">{stepMissing}</p>}
       </div>
     </div>
   );

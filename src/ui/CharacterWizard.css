@@ -242,8 +242,17 @@
 
 .wizard__nav {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.5em;
   margin-top: 1em;
   padding-top: 0.75em;
   border-top: 1px solid var(--dm-border);
+}
+
+.wizard__step-warning {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--dm-danger);
+  font-style: normal;
 }

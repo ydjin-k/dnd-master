@@ -103,6 +103,43 @@ vi.mock("../state/CampaignContext", () => ({
   useCampaign: () => ({ addCharacter }),
 }));
 
+/**
+ * Class-skill checkboxes start unchecked with no default (characters-wizard-step-validation
+ * blocks "Далее" on the class step until classProf.skillCount of them are picked). Most tests
+ * just need any valid pick, not a specific one — this checks whichever boxes are first and not
+ * yet disabled, re-querying the DOM each time so it naturally stops once the class's quota is met.
+ */
+function pickRequiredClassSkills() {
+  for (let i = 0; i < 3; i++) {
+    const checkbox = document.querySelector<HTMLInputElement>(
+      '.wizard__skill-grid input[type="checkbox"]:not(:checked):not(:disabled)',
+    );
+    if (!checkbox) break;
+    fireEvent.click(checkbox);
+  }
+}
+
+/**
+ * Same reasoning as pickRequiredClassSkills, for the abilities step: the "standard array"
+ * method's 6 dropdowns start unassigned, and characters-wizard-step-validation now blocks
+ * "Далее" until all 6 have a value. A no-op when the standard-array table isn't on screen
+ * (other methods, other steps) or a dropdown was already explicitly set by the test.
+ */
+function fillStandardAbilities() {
+  const STANDARD_VALUES = ["15", "14", "13", "12", "10", "8"];
+  const selects = Array.from(
+    document.querySelectorAll<HTMLSelectElement>("table.wizard__ability-table select"),
+  );
+  if (selects.length === 0) return;
+  const used = new Set(selects.map((s) => s.value).filter(Boolean));
+  const remaining = STANDARD_VALUES.filter((v) => !used.has(v));
+  let next = 0;
+  for (const select of selects) {
+    if (select.value) continue;
+    fireEvent.change(select, { target: { value: remaining[next++] } });
+  }
+}
+
 describe("CharacterWizard", () => {
   it("switching to manual ability entry and typing a value does not crash the tree", async () => {
     // Regression test: baseCell()'s manual-mode onChange used to read
@@ -114,10 +151,14 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
@@ -139,8 +180,11 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Своя предыстория"));
@@ -168,14 +212,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Своя предыстория"));
     fireEvent.change(await screen.findByPlaceholderText("Название предыстории"), {
       target: { value: "Бродяга" },
     });
+    fireEvent.click(screen.getByText("Скрытность"));
     await screen.findByText("Добавить");
     const gearSelect = document.querySelector("select") as HTMLSelectElement;
     fireEvent.change(gearSelect, { target: { value: "Верёвка, пеньковая (50 футов)" } });
@@ -185,9 +233,12 @@ describe("CharacterWizard", () => {
     fireEvent.change(document.querySelector('input[type="number"]') as HTMLInputElement, {
       target: { value: "25" },
     });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -208,8 +259,11 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Своя предыстория"));
 
@@ -230,8 +284,11 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Своя предыстория"));
 
@@ -247,6 +304,7 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
@@ -255,14 +313,18 @@ describe("CharacterWizard", () => {
     expect(savingThrowsLine).toHaveTextContent("Сила, Телосложение");
     fireEvent.click(screen.getByText("Атлетика"));
     fireEvent.click(screen.getByText("Восприятие"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     // abilities: keep defaults (method === "standard"), just move on
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
     // equipment: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     const nameInput = await screen.findByPlaceholderText("Имя персонажа");
@@ -307,16 +369,22 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Солдат"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
     // equipment: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     const nameInput = await screen.findByPlaceholderText("Имя персонажа");
@@ -338,10 +406,14 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
@@ -361,7 +433,9 @@ describe("CharacterWizard", () => {
     fireEvent.change(numberInputs[4], { target: { value: "12" } });
     await waitFor(() => expect((numberInputs[4] as HTMLInputElement).value).toBe("12"));
 
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -382,11 +456,16 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Бард"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
 
     // Equipment step: pick "Любой другой музыкальный инструмент" over "Лютня"
@@ -397,6 +476,7 @@ describe("CharacterWizard", () => {
     fireEvent.click(instrumentSlotRadios[1]);
     const instrumentSelect = await screen.findByDisplayValue(/^Волынка /);
     fireEvent.change(instrumentSelect, { target: { value: "Барабан" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -426,15 +506,21 @@ describe("CharacterWizard", () => {
     // Human gets a language of choice on top of Общий — pick a non-default one.
     const languageSelect = await screen.findByDisplayValue("Великаний");
     fireEvent.change(languageSelect, { target: { value: "Эльфийский" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     // Criminal has no bonus language of its own (unlike e.g. Acolyte/Sage) —
     // keeps this test focused on the race's language mechanism alone.
     fireEvent.click(await screen.findByText("Преступник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -455,12 +541,21 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Дварф"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    // Manual entry starts every ability at 10 and needs no per-field input to
+    // be valid — keeps this test's "base 10 everywhere" premise reachable
+    // now that the standard-array method requires all 6 to be assigned.
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults (base 10 everywhere)
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -480,14 +575,19 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Эльф"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
     fireEvent.click(screen.getByText("Атлетика"));
     fireEvent.click(screen.getByText("История"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -510,13 +610,23 @@ describe("CharacterWizard", () => {
     await screen.findByText(/Гибкость навыков/);
     fireEvent.click(screen.getByText("Магия"));
     fireEvent.click(screen.getByText("Обман"));
+    // Half-Elf also has a mandatory +1/+1 ability-bonus choice (a separate
+    // requirement from the skill choice above) — pick any 2 to clear it.
+    fireEvent.click(screen.getByText("Сила"));
+    fireEvent.click(screen.getByText("Ловкость"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -533,12 +643,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Дварф"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Волшебник"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -559,13 +675,26 @@ describe("CharacterWizard", () => {
     expect(screen.queryByText("Харизма")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Сила"));
     fireEvent.click(screen.getByText("Ловкость"));
+    // Half-Elf also has a mandatory 2-skill "Гибкость навыков" choice (a
+    // separate requirement from the ability bonus above) — pick any 2.
+    fireEvent.click(screen.getByText("Магия"));
+    fireEvent.click(screen.getByText("Обман"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    // Manual entry keeps every base ability at 10 without per-field input —
+    // the standard-array method would assign a real permutation and break
+    // this test's "keep base 10s, just the racial bonuses matter" premise.
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep base 10s, just the racial bonuses matter
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -586,13 +715,19 @@ describe("CharacterWizard", () => {
     fireEvent.click(await screen.findByText("Дварф"));
     const toolSelect = await screen.findByDisplayValue(/^Инструменты кузнеца /);
     fireEvent.change(toolSelect, { target: { value: "Инструменты пивовара" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -603,15 +738,21 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
     const styleSelect = await screen.findByDisplayValue(/^Стрельба из лука$/);
     fireEvent.change(styleSelect, { target: { value: "Оборона" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -623,17 +764,23 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Следопыт"));
+    pickRequiredClassSkills();
     const enemySelect = await screen.findByDisplayValue(/^Аберрации$/);
     fireEvent.change(enemySelect, { target: { value: "Драконы" } });
     const terrainSelect = await screen.findByDisplayValue(/^Арктика$/);
     fireEvent.change(terrainSelect, { target: { value: "Горы" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -645,12 +792,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Дворянин"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее"));
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -665,12 +818,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Дварф"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     const nameInput = (await screen.findByPlaceholderText("Имя персонажа")) as HTMLInputElement;
@@ -709,12 +868,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -736,12 +901,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -761,12 +932,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник")); // grants Проницательность/Религия unconditionally
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment
 
     const skillsLine = await screen.findByText(/Навыки:/);
@@ -777,12 +954,18 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин")); // proficient in Strength/Constitution saves
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник")); // grants Проницательность/Религия unconditionally
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment
 
     expect(screen.getByText(/^Проницательность: [+-]\d+ \(владение\)$/)).toBeInTheDocument();
@@ -797,17 +980,23 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Беспризорник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     // Standard array, Dexterity = 8 (the value that reproduces the reported "9").
     const dexSelect = () => document.querySelectorAll("table.wizard__ability-table select")[1] as HTMLSelectElement;
     fireEvent.change(dexSelect(), { target: { value: "8" } });
     await waitFor(() => expect(dexSelect().value).toBe("8"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
     expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 9\b/);
 
@@ -820,7 +1009,9 @@ describe("CharacterWizard", () => {
       return within(rows[1] as HTMLElement).getByText("+");
     };
     for (let i = 0; i < 4; i++) fireEvent.click(dexPlusButton()); // 10 -> 14
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
     expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 12\b/);
 
@@ -831,7 +1022,9 @@ describe("CharacterWizard", () => {
     const manualDexInput = () => document.querySelectorAll('input[type="number"]')[1] as HTMLInputElement;
     fireEvent.change(manualDexInput(), { target: { value: "18" } });
     await waitFor(() => expect(manualDexInput().value).toBe("18"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее")); // -> equipment
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
     expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 14\b/);
   });
@@ -840,8 +1033,10 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Монах"));
+    pickRequiredClassSkills();
 
     // Craft tool is the default category.
     const toolSelect = await screen.findByDisplayValue(/^Инструменты алхимика /);
@@ -853,11 +1048,15 @@ describe("CharacterWizard", () => {
     });
     const instrumentSelect = await screen.findByDisplayValue(/^Волынка /);
     fireEvent.change(instrumentSelect, { target: { value: "Лютня" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -868,8 +1067,10 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Бард"));
+    pickRequiredClassSkills();
 
     const instrumentNames = INSTRUMENTS.map((i) => i.name);
     const selects = Array.from(document.querySelectorAll("select")).filter((s) =>
@@ -888,11 +1089,15 @@ describe("CharacterWizard", () => {
     fireEvent.change(selects[0], { target: { value: "Лютня" } });
     fireEvent.change(selects[1], { target: { value: "Лира" } });
     fireEvent.change(selects[2], { target: { value: "Рожок" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     await screen.findByPlaceholderText("Имя персонажа");
@@ -907,9 +1112,12 @@ describe("CharacterWizard", () => {
     // Human's own bonus language — pick Гномий, so we can prove the two
     // background language slots avoid it and each other.
     fireEvent.change(await screen.findByDisplayValue("Великаний"), { target: { value: "Гномий" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Мудрец"));
@@ -922,9 +1130,12 @@ describe("CharacterWizard", () => {
     expect(values).not.toContain("Гномий");
     fireEvent.change(languageSelects[0], { target: { value: "Дварфский" } });
     fireEvent.change(languageSelects[1], { target: { value: "Орочий" } });
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -941,8 +1152,11 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
 
     fireEvent.click(await screen.findByText("Беспризорник"));
@@ -955,12 +1169,21 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Волшебник"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    // Manual entry keeps every ability at 10 (Int mod 0) without per-field
+    // input — the standard-array method would assign a real permutation and
+    // break this test's "Int mod 0 -> 1 known spell" assumption.
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults (Int mod 0 -> 1 known spell)
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
@@ -1001,16 +1224,103 @@ describe("CharacterWizard", () => {
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults
+    fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(document.body.textContent).not.toMatch(/заклинани/i);
     expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(0);
+  });
+
+  it("an unfinished required sub-choice on the class step blocks Далее with a specific hint, until it's filled", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+
+    // Fighter requires 2 class skills; none picked yet.
+    const nextButton = screen.getByText("Далее");
+    expect(nextButton).toBeDisabled();
+    expect(screen.getByText("Выбери 2 навыка класса, чтобы продолжить.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Атлетика"));
+    expect(nextButton).toBeDisabled(); // 1/2, still short one
+    expect(screen.getByText("Выбери 2 навыка класса, чтобы продолжить.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("История"));
+    expect(nextButton).not.toBeDisabled();
+    expect(screen.queryByText("Выбери 2 навыка класса, чтобы продолжить.")).not.toBeInTheDocument();
+  });
+
+  it("an empty custom background (no title, no skill) blocks Далее with a hint, until both are filled", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Своя предыстория"));
+
+    const nextButton = screen.getByText("Далее");
+    expect(nextButton).toBeDisabled();
+    expect(screen.getByText("Впиши название своей предыстории, чтобы продолжить.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Название предыстории"), { target: { value: "Бродяга" } });
+    expect(nextButton).toBeDisabled();
+    expect(screen.getByText("Выбери хотя бы один навык своей предыстории, чтобы продолжить.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Скрытность"));
+    expect(nextButton).not.toBeDisabled();
+    expect(
+      screen.queryByText("Выбери хотя бы один навык своей предыстории, чтобы продолжить."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("landing on the abilities step with the standard array unassigned blocks Далее, until all six are picked", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fireEvent.click(screen.getByText("Далее"));
+
+    // Default method is "standard"; nothing assigned yet.
+    const nextButton = screen.getByText("Далее");
+    expect(nextButton).toBeDisabled();
+    expect(screen.getByText("Распредели все шесть характеристик, чтобы продолжить.")).toBeInTheDocument();
+
+    const selects = document.querySelectorAll<HTMLSelectElement>("table.wizard__ability-table select");
+    expect(selects.length).toBe(6);
+    const values = ["15", "14", "13", "12", "10", "8"];
+    for (let i = 0; i < 5; i++) {
+      fireEvent.change(selects[i], { target: { value: values[i] } });
+    }
+    expect(nextButton).toBeDisabled(); // still one unassigned
+    expect(screen.getByText("Распредели все шесть характеристик, чтобы продолжить.")).toBeInTheDocument();
+
+    fireEvent.change(selects[5], { target: { value: values[5] } });
+    expect(nextButton).not.toBeDisabled();
+    expect(
+      screen.queryByText("Распредели все шесть характеристик, чтобы продолжить."),
+    ).not.toBeInTheDocument();
   });
 });
