@@ -308,7 +308,7 @@ function CharacterCard({
                       <div>{spellName(id)}</div>
                       {spell && (
                         <div className="character-card__spell-info">
-                          {spell.castingTime} · {spell.range} · {truncateDescription(spell.description)}
+                          {spell.castingTime} · {spell.range} · {spell.description}
                         </div>
                       )}
                     </li>
