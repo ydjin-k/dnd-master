@@ -498,4 +498,49 @@ describe("CharactersPage", () => {
     expect(updated.abilities.strength).toBe(11);
     expect(updated.abilities.dexterity).toBe(11);
   });
+
+  it("levelling a Fighter from 1 to 5 in sequence grants class features, subclass at 3, and ASI at 4 (acceptance scenario from the task card)", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+    );
+    let char: Character = { ...characterWithInventory(), level: 1, conditions: ["Ослеплённое"] };
+    mockState = baseState({ characters: [char] });
+    const { rerender } = render(<CharactersPage />);
+    await screen.findByText(/не может видеть/); // waits for the same get_rules resolution that fills classHitDiceByTitle
+
+    function applyLatestUpdate() {
+      const calls = updateCharacter.mock.calls;
+      const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+      char = updater(char);
+      mockState = baseState({ characters: [char] });
+      rerender(<CharactersPage />);
+    }
+
+    fireEvent.click(screen.getByText("Повысить уровень")); // 1 -> 2
+    applyLatestUpdate();
+    expect(char.level).toBe(2);
+
+    fireEvent.click(screen.getByText("Повысить уровень")); // 2 -> 3, subclass granted
+    applyLatestUpdate();
+    expect(char.level).toBe(3);
+    expect(char.subclass).toBe("Воитель");
+
+    fireEvent.click(screen.getByText("Повысить уровень")); // 3 -> 4 opens the ASI panel instead of levelling immediately
+    expect(updateCharacter).not.toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getByLabelText(/Сила \(10\)/));
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+    applyLatestUpdate();
+    expect(char.level).toBe(4);
+    expect(char.abilities.strength).toBe(12);
+
+    fireEvent.click(screen.getByText("Повысить уровень")); // 4 -> 5
+    applyLatestUpdate();
+    expect(char.level).toBe(5);
+
+    expect(screen.getByText("Максимальный уровень (5)")).toBeDisabled();
+    expect(screen.getByText(/даёт \+3 \(бонус мастерства\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Всплеск действий/)).toBeInTheDocument(); // level 2 class feature
+    expect(screen.getByText(/Улучшенные критические попадания/)).toBeInTheDocument(); // subclass feature at 3
+    expect(screen.getByText(/Дополнительная атака/)).toBeInTheDocument(); // level 5 class feature
+  });
 });
