@@ -16,8 +16,9 @@ import {
   parseHitDieAverage,
   proficiencyBonusForLevel,
   proficiencyBonusHint,
+  type AbilityKey,
 } from "../characterCreationData";
-import type { Character, RuleTopic, Spell } from "../../state/types";
+import type { AbilityScores, Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
@@ -101,6 +102,9 @@ function CharacterCard({
 }) {
   const [newItemName, setNewItemName] = useState("");
   const [newCondition, setNewCondition] = useState("");
+  const [asiPanelOpen, setAsiPanelOpen] = useState(false);
+  const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
+  const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
 
   function adjustItemQuantity(itemId: string, delta: number) {
     onUpdate((ch) => ({
@@ -161,13 +165,13 @@ function CharacterCard({
    * Левел-ап: level+1, maxHp пересчитывается полностью по формуле (не
    * инкрементально) — см. maxHpForLevel и «Архитектурное решение» в карточке
    * characters-leveling-1-5. currentHp растёт на ту же прибавку (левел-ап
-   * лечит, стандартное правило SRD).
+   * лечит, стандартное правило SRD). Принимает abilities явно — на 4 уровне
+   * они уже включают выбор улучшения характеристик (ASI), см. confirmAsi.
    */
-  function levelUp() {
-    if (c.level >= MAX_LEVEL) return;
+  function applyLevelUp(abilities: AbilityScores) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
-    const conMod = abilityMod(c.abilities.constitution);
+    const conMod = abilityMod(abilities.constitution);
     const raceBonus = raceHpBonusByTitle[c.race] ?? 0;
     const newMaxHp = dice
       ? maxHpForLevel(dice.max, dice.average, conMod, raceBonus, newLevel)
@@ -176,9 +180,52 @@ function CharacterCard({
     onUpdate((ch) => ({
       ...ch,
       level: newLevel,
+      abilities,
       maxHp: newMaxHp,
       currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
     }));
+  }
+
+  /** На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см. confirmAsi). */
+  function requestLevelUp() {
+    if (c.level >= MAX_LEVEL) return;
+    if (c.level + 1 === 4) {
+      setAsiMode("plus2");
+      setAsiKeys([]);
+      setAsiPanelOpen(true);
+      return;
+    }
+    applyLevelUp(c.abilities);
+  }
+
+  function setAsiModeAndReset(mode: "plus2" | "plus1plus1") {
+    setAsiMode(mode);
+    setAsiKeys([]);
+  }
+
+  function toggleAsiKey(key: AbilityKey) {
+    if (c.abilities[key] >= 20) return;
+    setAsiKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((k) => k !== key);
+      if (asiMode === "plus2") return [key];
+      if (prev.length >= 2) return prev;
+      return [...prev, key];
+    });
+  }
+
+  const asiReady = asiMode === "plus2" ? asiKeys.length === 1 : asiKeys.length === 2;
+
+  /**
+   * Улучшение характеристик на 4 уровне (rules.json → character-beyond-1-level):
+   * либо +2 одной характеристике, либо +1 двум разным, потолок 20.
+   */
+  function confirmAsi() {
+    if (!asiReady) return;
+    const abilities = { ...c.abilities };
+    const bump = asiMode === "plus2" ? 2 : 1;
+    for (const key of asiKeys) abilities[key] = Math.min(20, abilities[key] + bump);
+    applyLevelUp(abilities);
+    setAsiPanelOpen(false);
   }
 
   const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
@@ -205,10 +252,58 @@ function CharacterCard({
       </div>
       <div className="character-card__level">
         Уровень {c.level}{" "}
-        <button type="button" onClick={levelUp} disabled={c.level >= MAX_LEVEL}>
+        <button type="button" onClick={requestLevelUp} disabled={c.level >= MAX_LEVEL || asiPanelOpen}>
           {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
         </button>
       </div>
+      {asiPanelOpen && (
+        <div className="character-card__asi">
+          <p>
+            Улучшение характеристик (4 уровень): «Некоторые из этих умений позволяют повысить значение ваших
+            характеристик: либо увеличить значение двух характеристик на 1, либо одной — на 2. При этом значение
+            не может стать выше 20.»
+          </p>
+          <div className="character-card__asi-mode">
+            <label>
+              <input
+                type="radio"
+                checked={asiMode === "plus2"}
+                onChange={() => setAsiModeAndReset("plus2")}
+              />{" "}
+              +2 одной характеристике
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={asiMode === "plus1plus1"}
+                onChange={() => setAsiModeAndReset("plus1plus1")}
+              />{" "}
+              +1 двум характеристикам
+            </label>
+          </div>
+          <div className="character-card__asi-abilities">
+            {ABILITY_LABELS.map(([key, label]) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  checked={asiKeys.includes(key)}
+                  disabled={c.abilities[key] >= 20 && !asiKeys.includes(key)}
+                  onChange={() => toggleAsiKey(key)}
+                />{" "}
+                {label} ({c.abilities[key]})
+              </label>
+            ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button type="button" onClick={confirmAsi} disabled={!asiReady}>
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={() => setAsiPanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
       <details className="character-card__abilities">
         <summary>Спасброски и навыки</summary>
         <p className="character-card__prof">{proficiencyBonusHint(c.level)}</p>
