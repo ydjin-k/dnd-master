@@ -27,6 +27,7 @@ pub struct Character {
     pub name: String,
     pub race: String,
     pub class: String,
+    pub subclass: String,
     pub background: String,
     pub alignment: String,
     pub gender: String,
@@ -150,6 +151,7 @@ mod tests {
         }"#;
         let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
         assert_eq!(character.background, "");
+        assert_eq!(character.subclass, "");
         assert!(character.saving_throw_proficiencies.is_empty());
         assert!(character.skill_proficiencies.is_empty());
         assert_eq!(character.gender, "");

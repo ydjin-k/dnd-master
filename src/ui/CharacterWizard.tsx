@@ -27,6 +27,7 @@ import {
   CLASS_SPELLCASTING_ABILITY,
   CLASS_SPELLCASTING_ABILITY_KEY,
   CLASS_SPELL_PROGRESSION,
+  CLASS_SUBCLASSES,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
   DWARF_TOOL_CHOICES,
@@ -35,6 +36,7 @@ import {
   NAME_SUGGESTIONS,
   PROFICIENCY_BONUS_HINT,
   PROFICIENCY_BONUS_LEVEL_1,
+  parseHitDie,
   RACE_FIXED_SKILLS,
   RACE_HP_BONUS,
   RACE_LANGUAGES,
@@ -117,17 +119,6 @@ const GENDER_TO_NAME_KEY: Record<(typeof GENDERS)[number], "male" | "female"> = 
   Мужской: "male",
   Женский: "female",
 };
-
-function parseHitDie(classTopic: RuleTopic | undefined): number | null {
-  if (!classTopic) return null;
-  for (const b of classTopic.blocks) {
-    if (b.type === "paragraph" && b.text.includes("Кость хитов")) {
-      const m = b.text.match(/1к(\d+)/);
-      if (m) return Number(m[1]);
-    }
-  }
-  return null;
-}
 
 export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const { addCharacter } = useCampaign();
@@ -236,6 +227,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const finalLanguages: string[] = [...new Set([...raceFinalLanguages, ...finalBackgroundLanguages])];
   const classProf = classId ? CLASS_PROFICIENCIES[classId] : undefined;
   const classEquipment = classId ? CLASS_EQUIPMENT[classId] : undefined;
+  // Жрец/Колдун/Чародей выбирают архетип уже на 1 уровне (см. таблицу в
+  // карточке characters-leveling-1-5) — назначается автоматически, т.к. SRD
+  // даёт по одному архетипу на класс (см. комментарий над CLASS_SUBCLASSES).
+  const subclassInfo = classId ? CLASS_SUBCLASSES[classId] : undefined;
+  const level1Subclass = subclassInfo?.chosenAtLevel === 1 ? subclassInfo.subclasses[0] : undefined;
   const background: BackgroundData | undefined =
     backgroundId === CUSTOM_BACKGROUND_ID
       ? {
@@ -517,6 +513,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       name: name.trim(),
       race: race?.title ?? "",
       class: klass?.title ?? "",
+      subclass: level1Subclass?.name ?? "",
       background: background?.title ?? "",
       alignment,
       gender,
@@ -1260,6 +1257,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
+            {level1Subclass && (
+              <li>
+                Архетип: <strong>{level1Subclass.name}</strong>
+                <ul className="wizard__traits">
+                  {(level1Subclass.featuresByLevel[1] ?? []).map((f) => (
+                    <li key={f.name}>
+                      <strong>{f.name}</strong> — {f.description}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )}
             <li>Предыстория: {background?.title ?? "не выбрана"}</li>
             <li>Языки: {finalLanguages.join(", ") || "—"}</li>
             <li>

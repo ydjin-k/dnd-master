@@ -53,6 +53,45 @@
   font-size: 0.9em;
 }
 
+.character-card__level {
+  margin-top: 0.3em;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.character-card__asi {
+  margin-top: 0.4em;
+  padding: 0.5em 0.6em;
+  border: 1px solid var(--dm-accent);
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.character-card__asi p {
+  margin: 0 0 0.5em;
+  color: var(--dm-text-muted);
+}
+
+.character-card__asi-mode {
+  display: flex;
+  gap: 1em;
+  margin-bottom: 0.4em;
+}
+
+.character-card__asi-abilities {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3em;
+  margin-bottom: 0.5em;
+}
+
+.character-card__asi-actions {
+  display: flex;
+  gap: 0.5em;
+}
+
 .character-card__abilities {
   margin-top: 0.4em;
   font-size: 0.9em;
@@ -151,6 +190,21 @@
 
 .character-card__add-row input {
   flex: 1;
+}
+
+.character-card__class-features {
+  margin-top: 0.4em;
+  font-size: 0.9em;
+}
+
+.character-card__class-features summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+}
+
+.character-card__traits {
+  margin: 0.3em 0 0;
+  padding-left: 1.2em;
 }
 
 .character-card__spells {

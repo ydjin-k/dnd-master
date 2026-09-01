@@ -5,19 +5,30 @@ import {
   ABILITY_LABELS,
   ALL_ITEM_NAMES,
   ALL_SKILLS,
+  CLASS_LEVEL_FEATURES,
+  CLASS_SUBCLASSES,
   CONDITIONS,
   HEALING_POTIONS,
-  PROFICIENCY_BONUS_HINT,
-  PROFICIENCY_BONUS_LEVEL_1,
+  RACE_HP_BONUS,
   SKILL_ABILITY,
   abilityMod,
   fmtMod,
+  maxHpForLevel,
+  parseHitDie,
+  parseHitDieAverage,
+  proficiencyBonusForLevel,
+  proficiencyBonusHint,
+  type AbilityKey,
+  type ClassLevelFeature,
 } from "../characterCreationData";
-import type { Character, RuleTopic, Spell } from "../../state/types";
+import type { AbilityScores, Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
 
 type Panel = "none" | "wizard";
+
+/** Левелинг в приложении пока ограничен уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md). */
+const MAX_LEVEL = 5;
 
 /** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
 const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
@@ -94,17 +105,24 @@ function CharacterCard({
   character: c,
   spells,
   conditionEffects,
+  classHitDiceByTitle,
+  raceHpBonusByTitle,
   onRemove,
   onUpdate,
 }: {
   character: Character;
   spells: Spell[];
   conditionEffects: Record<string, string[]>;
+  classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
+  raceHpBonusByTitle: Record<string, number>;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
   const [newItemName, setNewItemName] = useState("");
   const [newCondition, setNewCondition] = useState("");
+  const [asiPanelOpen, setAsiPanelOpen] = useState(false);
+  const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
+  const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
 
   function adjustItemQuantity(itemId: string, delta: number) {
     onUpdate((ch) => ({
@@ -156,7 +174,102 @@ function CharacterCard({
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: Math.max(0, ch.spellSlotsLevel1Current - 1) }));
   }
 
+  /**
+   * Левел-ап: level+1, maxHp пересчитывается полностью по формуле (не
+   * инкрементально) — см. maxHpForLevel и «Архитектурное решение» в карточке
+   * characters-leveling-1-5. currentHp растёт на ту же прибавку (левел-ап
+   * лечит, стандартное правило SRD). Принимает abilities явно — на 4 уровне
+   * они уже включают выбор улучшения характеристик (ASI), см. confirmAsi.
+   */
+  function applyLevelUp(abilities: AbilityScores) {
+    const newLevel = c.level + 1;
+    const dice = classHitDiceByTitle[c.class];
+    const conMod = abilityMod(abilities.constitution);
+    const raceBonus = raceHpBonusByTitle[c.race] ?? 0;
+    const newMaxHp = dice
+      ? maxHpForLevel(dice.max, dice.average, conMod, raceBonus, newLevel)
+      : c.maxHp;
+    const hpGained = Math.max(0, newMaxHp - c.maxHp);
+    // Подкласс, выбираемый левел-апом (2 или 3 уровень — для Жреца/Колдуна/
+    // Чародея он уже назначен мастером на 1 уровне, см. CharacterWizard.tsx).
+    const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
+    const grantedSubclass =
+      subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
+        ? subclassInfo.subclasses[0]?.name
+        : undefined;
+    onUpdate((ch) => ({
+      ...ch,
+      level: newLevel,
+      abilities,
+      maxHp: newMaxHp,
+      currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
+      subclass: grantedSubclass ?? ch.subclass,
+    }));
+  }
+
+  /** На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см. confirmAsi). */
+  function requestLevelUp() {
+    if (c.level >= MAX_LEVEL) return;
+    if (c.level + 1 === 4) {
+      setAsiMode("plus2");
+      setAsiKeys([]);
+      setAsiPanelOpen(true);
+      return;
+    }
+    applyLevelUp(c.abilities);
+  }
+
+  function setAsiModeAndReset(mode: "plus2" | "plus1plus1") {
+    setAsiMode(mode);
+    setAsiKeys([]);
+  }
+
+  function toggleAsiKey(key: AbilityKey) {
+    if (c.abilities[key] >= 20) return;
+    setAsiKeys((prev) => {
+      if (prev.includes(key)) return prev.filter((k) => k !== key);
+      if (asiMode === "plus2") return [key];
+      if (prev.length >= 2) return prev;
+      return [...prev, key];
+    });
+  }
+
+  const asiReady = asiMode === "plus2" ? asiKeys.length === 1 : asiKeys.length === 2;
+
+  /**
+   * Улучшение характеристик на 4 уровне (rules.json → character-beyond-1-level):
+   * либо +2 одной характеристике, либо +1 двум разным, потолок 20.
+   */
+  function confirmAsi() {
+    if (!asiReady) return;
+    const abilities = { ...c.abilities };
+    const bump = asiMode === "plus2" ? 2 : 1;
+    for (const key of asiKeys) abilities[key] = Math.min(20, abilities[key] + bump);
+    applyLevelUp(abilities);
+    setAsiPanelOpen(false);
+  }
+
   const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
+
+  /**
+   * Классовые особенности уровней 2..текущий (CLASS_LEVEL_FEATURES) + особенности
+   * подкласса уровней 1..текущий, если подкласс уже выбран (CLASS_SUBCLASSES).
+   * `Character.class` хранит текст, id класса ищем через ту же карту, что и
+   * для хитов на левел-апе (classHitDiceByTitle содержит id).
+   */
+  const classId = classHitDiceByTitle[c.class]?.id;
+  const classFeatures: ClassLevelFeature[] = [];
+  if (classId) {
+    for (let lvl = 2; lvl <= c.level; lvl++) {
+      classFeatures.push(...(CLASS_LEVEL_FEATURES[classId]?.[lvl] ?? []));
+    }
+    const subclass = CLASS_SUBCLASSES[classId]?.subclasses.find((s) => s.name === c.subclass);
+    if (subclass) {
+      for (let lvl = 1; lvl <= c.level; lvl++) {
+        classFeatures.push(...(subclass.featuresByLevel[lvl] ?? []));
+      }
+    }
+  }
 
   return (
     <li className="character-card">
@@ -168,6 +281,7 @@ function CharacterCard({
       </div>
       <div className="character-card__meta">
         {c.race || "раса не указана"} · {c.class || "класс не указан"}
+        {c.subclass && <> ({c.subclass})</>}
         {c.background && <> · {c.background}</>} · ур. {c.level}
         {c.alignment && <> · {c.alignment}</>}
         {c.gender && <> · {c.gender}</>}
@@ -178,13 +292,67 @@ function CharacterCard({
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
         {c.passivePerception} · {c.gold} зм
       </div>
+      <div className="character-card__level">
+        Уровень {c.level}{" "}
+        <button type="button" onClick={requestLevelUp} disabled={c.level >= MAX_LEVEL || asiPanelOpen}>
+          {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
+        </button>
+      </div>
+      {asiPanelOpen && (
+        <div className="character-card__asi">
+          <p>
+            Улучшение характеристик (4 уровень): «Некоторые из этих умений позволяют повысить значение ваших
+            характеристик: либо увеличить значение двух характеристик на 1, либо одной — на 2. При этом значение
+            не может стать выше 20.»
+          </p>
+          <div className="character-card__asi-mode">
+            <label>
+              <input
+                type="radio"
+                checked={asiMode === "plus2"}
+                onChange={() => setAsiModeAndReset("plus2")}
+              />{" "}
+              +2 одной характеристике
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={asiMode === "plus1plus1"}
+                onChange={() => setAsiModeAndReset("plus1plus1")}
+              />{" "}
+              +1 двум характеристикам
+            </label>
+          </div>
+          <div className="character-card__asi-abilities">
+            {ABILITY_LABELS.map(([key, label]) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  checked={asiKeys.includes(key)}
+                  disabled={c.abilities[key] >= 20 && !asiKeys.includes(key)}
+                  onChange={() => toggleAsiKey(key)}
+                />{" "}
+                {label} ({c.abilities[key]})
+              </label>
+            ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button type="button" onClick={confirmAsi} disabled={!asiReady}>
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={() => setAsiPanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
       <details className="character-card__abilities">
         <summary>Спасброски и навыки</summary>
-        <p className="character-card__prof">{PROFICIENCY_BONUS_HINT}</p>
+        <p className="character-card__prof">{proficiencyBonusHint(c.level)}</p>
         <ul className="character-card__skill-list">
           {ABILITY_LABELS.map(([key, label]) => {
             const proficient = c.savingThrowProficiencies.includes(label);
-            const mod = abilityMod(c.abilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            const mod = abilityMod(c.abilities[key]) + (proficient ? proficiencyBonusForLevel(c.level) : 0);
             return (
               <li key={key}>
                 {label} (спасбросок): {fmtMod(mod)}
@@ -196,7 +364,7 @@ function CharacterCard({
         <ul className="character-card__skill-list">
           {ALL_SKILLS.map((skill) => {
             const proficient = c.skillProficiencies.includes(skill);
-            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? proficiencyBonusForLevel(c.level) : 0);
             return (
               <li key={skill}>
                 {skill}: {fmtMod(mod)}
@@ -206,6 +374,18 @@ function CharacterCard({
           })}
         </ul>
       </details>
+      {classFeatures.length > 0 && (
+        <details className="character-card__class-features" open>
+          <summary>Особенности класса ({classFeatures.length})</summary>
+          <ul className="character-card__traits">
+            {classFeatures.map((f) => (
+              <li key={f.name}>
+                <strong>{f.name}</strong> — {f.description}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {c.languages.length > 0 && (
         <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
       )}
@@ -338,10 +518,40 @@ function CharacterCard({
               Восстановить все ячейки
             </button>
           </div>
+          {c.level >= 2 && (
+            <p className="character-card__spell-info">Заклинания 2+ круга — пока в разработке, список известных заклинаний не растёт выше выбора 1 уровня.</p>
+          )}
         </details>
       )}
     </li>
   );
+}
+
+/**
+ * Кость хитов по классу (для левел-апа), по названию класса (`Character.class`
+ * хранит текст, не id топика) — вытащено из тех же топиков rules.json, что уже
+ * загружаются мастером персонажа.
+ */
+function extractClassHitDice(topics: RuleTopic[]): Record<string, { id: string; max: number; average: number }> {
+  const result: Record<string, { id: string; max: number; average: number }> = {};
+  for (const t of topics) {
+    if (t.category !== "classes") continue;
+    const max = parseHitDie(t);
+    const average = parseHitDieAverage(t);
+    if (max !== null && average !== null) result[t.title] = { id: t.id, max, average };
+  }
+  return result;
+}
+
+/** Расовый бонус к хитам (см. RACE_HP_BONUS), по названию расы (`Character.race` хранит текст, не id). */
+function extractRaceHpBonus(topics: RuleTopic[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const t of topics) {
+    if (t.category !== "races") continue;
+    const bonus = RACE_HP_BONUS[t.id];
+    if (bonus) result[t.title] = bonus;
+  }
+  return result;
 }
 
 export function CharactersPage() {
@@ -349,10 +559,16 @@ export function CharactersPage() {
   const [panel, setPanel] = useState<Panel>("none");
   const [spells, setSpells] = useState<Spell[]>([]);
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
+  const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
+  const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
 
   useEffect(() => {
     invoke<Spell[]>("get_spells").then(setSpells);
-    invoke<RuleTopic[]>("get_rules").then((topics) => setConditionEffects(extractConditionEffects(topics)));
+    invoke<RuleTopic[]>("get_rules").then((topics) => {
+      setConditionEffects(extractConditionEffects(topics));
+      setClassHitDiceByTitle(extractClassHitDice(topics));
+      setRaceHpBonusByTitle(extractRaceHpBonus(topics));
+    });
   }, []);
 
   return (
@@ -366,6 +582,8 @@ export function CharactersPage() {
             character={c}
             spells={spells}
             conditionEffects={conditionEffects}
+            classHitDiceByTitle={classHitDiceByTitle}
+            raceHpBonusByTitle={raceHpBonusByTitle}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);
