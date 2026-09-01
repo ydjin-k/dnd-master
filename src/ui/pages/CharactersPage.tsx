@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import { ALL_ITEM_NAMES, CONDITIONS, HEALING_POTIONS, PROFICIENCY_BONUS_HINT } from "../characterCreationData";
+import {
+  ABILITY_LABELS,
+  ALL_ITEM_NAMES,
+  ALL_SKILLS,
+  CONDITIONS,
+  HEALING_POTIONS,
+  PROFICIENCY_BONUS_HINT,
+  PROFICIENCY_BONUS_LEVEL_1,
+  SKILL_ABILITY,
+  abilityMod,
+  fmtMod,
+} from "../characterCreationData";
 import type { Character, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import "./CharactersPage.css";
@@ -157,16 +168,34 @@ function CharacterCard({
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
         {c.passivePerception} · {c.gold} зм
       </div>
-      {c.savingThrowProficiencies.length > 0 && (
-        <div className="character-card__prof">
-          Спасброски: {c.savingThrowProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
-        </div>
-      )}
-      {c.skillProficiencies.length > 0 && (
-        <div className="character-card__prof">
-          Навыки: {c.skillProficiencies.join(", ")} — {PROFICIENCY_BONUS_HINT}
-        </div>
-      )}
+      <details className="character-card__abilities">
+        <summary>Спасброски и навыки</summary>
+        <p className="character-card__prof">{PROFICIENCY_BONUS_HINT}</p>
+        <ul className="character-card__skill-list">
+          {ABILITY_LABELS.map(([key, label]) => {
+            const proficient = c.savingThrowProficiencies.includes(label);
+            const mod = abilityMod(c.abilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            return (
+              <li key={key}>
+                {label} (спасбросок): {fmtMod(mod)}
+                {proficient && " · владение"}
+              </li>
+            );
+          })}
+        </ul>
+        <ul className="character-card__skill-list">
+          {ALL_SKILLS.map((skill) => {
+            const proficient = c.skillProficiencies.includes(skill);
+            const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+            return (
+              <li key={skill}>
+                {skill}: {fmtMod(mod)}
+                {proficient && " · владение"}
+              </li>
+            );
+          })}
+        </ul>
+      </details>
       {c.languages.length > 0 && (
         <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
       )}

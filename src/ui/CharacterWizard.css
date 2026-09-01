@@ -226,6 +226,12 @@
   padding-left: 1.2em;
 }
 
+.wizard__skill-list {
+  margin: 0.3em 0 0;
+  padding-left: 1.2em;
+  columns: 2;
+}
+
 .wizard__spell-picker {
   margin-top: 0.3em;
 }

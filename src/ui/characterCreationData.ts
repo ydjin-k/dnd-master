@@ -1,6 +1,25 @@
 import type { AbilityScores } from "../state/types";
 
-type AbilityKey = keyof AbilityScores;
+export type AbilityKey = keyof AbilityScores;
+
+/** Характеристика → её русская подпись, в порядке блока «Характеристики» на шаге «Итог». */
+export const ABILITY_LABELS: [AbilityKey, string][] = [
+  ["strength", "Сила"],
+  ["dexterity", "Ловкость"],
+  ["constitution", "Телосложение"],
+  ["intelligence", "Интеллект"],
+  ["wisdom", "Мудрость"],
+  ["charisma", "Харизма"],
+];
+
+export function abilityMod(score: number): number {
+  return Math.floor((score - 10) / 2);
+}
+
+/** Модификатор со знаком, например «+3» или «-1». */
+export function fmtMod(mod: number): string {
+  return (mod >= 0 ? "+" : "") + mod;
+}
 
 /**
  * Спасброски, навыки и стартовое снаряжение — сверены вручную с текстом
@@ -31,6 +50,33 @@ export const ALL_SKILLS = [
   "Скрытность",
   "Выживание",
 ];
+
+/**
+ * Навык → характеристика, которой он проверяется по умолчанию — сверено с
+ * текстом каждого навыка в rules.json → gameplay-abilities (формулировки вида
+ * «проверка X (навыка)», например «Ваша проверка ловкости (акробатики)»),
+ * не по памяти о D&D.
+ */
+export const SKILL_ABILITY: Record<string, AbilityKey> = {
+  "Акробатика": "dexterity",
+  "Обращение с животными": "wisdom",
+  "Атлетика": "strength",
+  "Обман": "charisma",
+  "История": "intelligence",
+  "Проницательность": "wisdom",
+  "Запугивание": "charisma",
+  "Расследование": "intelligence",
+  "Медицина": "wisdom",
+  "Магия": "intelligence",
+  "Природа": "intelligence",
+  "Восприятие": "wisdom",
+  "Выступление": "charisma",
+  "Убеждение": "charisma",
+  "Религия": "intelligence",
+  "Ловкость рук": "dexterity",
+  "Скрытность": "dexterity",
+  "Выживание": "wisdom",
+};
 
 export interface ClassProficiencies {
   savingThrows: AbilityKey[];

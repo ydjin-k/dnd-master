@@ -317,6 +317,24 @@ describe("CharactersPage", () => {
     expect(options).toContain("Осёл или мул"); // MOUNTS_AND_VEHICLES
   });
 
+  it("each skill and saving throw shows a computed ability-mod + proficiency-bonus number", () => {
+    const char = {
+      ...characterWithInventory(),
+      abilities: { strength: 14, dexterity: 16, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+      savingThrowProficiencies: ["Сила"],
+      skillProficiencies: ["Акробатика"], // Dexterity-based skill
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    // Акробатика: Dex mod +3, proficient -> +2 more = +5
+    expect(screen.getByText(/Акробатика: \+5/)).toBeInTheDocument();
+    // Сила (save): Str mod +2, proficient -> +2 more = +4
+    expect(screen.getByText(/Сила \(спасбросок\): \+4/)).toBeInTheDocument();
+    // Атлетика (Str-based, not proficient): just the ability mod, +2
+    expect(screen.getByText(/Атлетика: \+2/)).toBeInTheDocument();
+  });
+
   it("a free-typed item name (not in the catalog) is still added on click", async () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     render(<CharactersPage />);

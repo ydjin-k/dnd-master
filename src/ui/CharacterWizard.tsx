@@ -12,6 +12,7 @@ import {
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import {
+  ABILITY_LABELS,
   AGE_LIMIT,
   ALIGNMENTS,
   ALIGNMENT_DESCRIPTIONS,
@@ -41,7 +42,11 @@ import {
   RACE_TRAITS,
   RANGER_FAVORED_ENEMIES,
   RANGER_TERRAIN_TYPES,
+  SKILL_ABILITY,
+  abilityMod,
   equipmentChoiceFor,
+  fmtMod,
+  type AbilityKey,
   type BackgroundData,
 } from "./characterCreationData";
 import "./CharacterWizard.css";
@@ -60,17 +65,6 @@ const STEP_LABEL: Record<Step, string> = {
 };
 
 type AbilityMethod = "standard" | "pointbuy" | "manual";
-type AbilityKey = keyof AbilityScores;
-
-const ABILITY_LABELS: [AbilityKey, string][] = [
-  ["strength", "Сила"],
-  ["dexterity", "Ловкость"],
-  ["constitution", "Телосложение"],
-  ["intelligence", "Интеллект"],
-  ["wisdom", "Мудрость"],
-  ["charisma", "Харизма"],
-];
-
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const POINT_BUY_BUDGET = 27;
 const POINT_BUY_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
@@ -123,14 +117,6 @@ const GENDER_TO_NAME_KEY: Record<(typeof GENDERS)[number], "male" | "female"> = 
   Мужской: "male",
   Женский: "female",
 };
-
-function abilityMod(score: number): number {
-  return Math.floor((score - 10) / 2);
-}
-
-function fmtMod(mod: number): string {
-  return (mod >= 0 ? "+" : "") + mod;
-}
 
 function parseHitDie(classTopic: RuleTopic | undefined): number | null {
   if (!classTopic) return null;
@@ -1238,12 +1224,41 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
               </li>
             ))}
-            <li>Спасброски: {classProf?.savingThrowLabels.join(", ") || "—"}</li>
             <li>
-              Навыки: {allSkillProficiencies.join(", ") || "—"}
-              {allSkillProficiencies.length > 0 && (
-                <span className="wizard__ability-bonus"> — {PROFICIENCY_BONUS_HINT}</span>
+              Спасброски:
+              {classProf ? (
+                <ul className="wizard__skill-list">
+                  {ABILITY_LABELS.map(([key, label]) => {
+                    const proficient = classProf.savingThrows.includes(key);
+                    const mod = abilityMod(totalAbilities[key]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+                    return (
+                      <li key={key}>
+                        {label}: {fmtMod(mod)}
+                        {proficient && " (владение)"}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                " —"
               )}
+            </li>
+            <li>
+              Навыки:
+              <p className="wizard__hint">{PROFICIENCY_BONUS_HINT}</p>
+              <ul className="wizard__skill-list">
+                {ALL_SKILLS.map((skill) => {
+                  const proficient = allSkillProficiencies.includes(skill);
+                  const abilityKey = SKILL_ABILITY[skill];
+                  const mod = abilityMod(totalAbilities[abilityKey]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+                  return (
+                    <li key={skill}>
+                      {skill}: {fmtMod(mod)}
+                      {proficient && " (владение)"}
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
             <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
             {displayedRaceTraits.length > 0 && (

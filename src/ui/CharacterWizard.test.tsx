@@ -773,6 +773,26 @@ describe("CharacterWizard", () => {
     expect(skillsLine.textContent).toMatch(/бонус мастерства/);
   });
 
+  it("shows a computed ability-mod + proficiency-bonus number next to each skill and saving throw on the review step", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин")); // proficient in Strength/Constitution saves
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник")); // grants Проницательность/Религия unconditionally
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Далее")); // abilities
+    fireEvent.click(await screen.findByText("Далее")); // equipment
+
+    expect(screen.getByText(/^Проницательность: [+-]\d+ \(владение\)$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Религия: [+-]\d+ \(владение\)$/)).toBeInTheDocument();
+    // Атлетика (Strength-based) is not one of the Acolyte's granted skills -> no "(владение)" suffix.
+    expect(screen.getByText(/^Атлетика: [+-]\d+$/)).toBeInTheDocument();
+    // Fighter is proficient in the Strength saving throw.
+    expect(screen.getByText(/^Сила: [+-]\d+ \(владение\)$/)).toBeInTheDocument();
+  });
+
   it("АС on the review step tracks Dexterity for a Human, across all three ability-score methods (regression: owner saw AC stuck at 9)", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 
