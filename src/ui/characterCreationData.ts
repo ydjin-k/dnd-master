@@ -730,7 +730,7 @@ export const ARMOR: GearData[] = [
 ];
 
 /** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
-export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 5;
+export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 7;
 
 /** Видимый игроку предел возраста в мастере персонажа — произвольная защита от «бесконечных чисел». */
 export const AGE_LIMIT = 500;
@@ -1251,3 +1251,28 @@ export const ALL_ITEM_NAMES: string[] = [
     ...DWARF_TOOL_CHOICES.map((t) => t.name),
   ]),
 ];
+
+/**
+ * Полный каталог предметов с ценой/весом — та же объединённая коллекция, что
+ * и `ALL_ITEM_NAMES`, но полными объектами `{name, cost, weight}` вместо
+ * голых имён (нужно там, где в опции показывается цена/вес). Дубли по name
+ * убраны — при совпадении между списками побеждает первое вхождение в
+ * порядке перечисления ниже.
+ */
+export const ALL_ITEMS_WITH_COST: GearData[] = (() => {
+  const seen = new Set<string>();
+  const items: GearData[] = [];
+  for (const item of [
+    ...WEAPONS,
+    ...ARMOR,
+    ...ADVENTURING_GEAR,
+    ...INSTRUMENTS,
+    ...ARTISAN_TOOLS,
+    ...DWARF_TOOL_CHOICES,
+  ]) {
+    if (seen.has(item.name)) continue;
+    seen.add(item.name);
+    items.push({ name: item.name, cost: item.cost, weight: item.weight });
+  }
+  return items;
+})();

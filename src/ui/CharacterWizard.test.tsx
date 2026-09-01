@@ -149,7 +149,7 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect((titleInput as HTMLInputElement).value).toBe("Бродяга"));
 
     fireEvent.click(screen.getByText("Добавить"));
-    await screen.findByText(/1\/5/);
+    await screen.findByText(/1\/7/);
 
     const goldInput = document.querySelector('input[type="number"]') as HTMLInputElement;
     fireEvent.change(goldInput, { target: { value: "25" } });
@@ -214,16 +214,32 @@ describe("CharacterWizard", () => {
     fireEvent.click(await screen.findByText("Своя предыстория"));
 
     const addButton = await screen.findByText("Добавить");
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       fireEvent.click(addButton);
     }
-    expect(await screen.findByText(/5\/5/)).toBeInTheDocument();
+    expect(await screen.findByText(/7\/7/)).toBeInTheDocument();
     expect(addButton).toBeDisabled();
 
     // Removing one frees up a slot again.
     fireEvent.click(screen.getAllByText("✕")[0]);
-    await screen.findByText(/4\/5/);
+    await screen.findByText(/6\/7/);
     expect(addButton).not.toBeDisabled();
+  });
+
+  it("offers the full item catalog (not just adventuring gear) for custom background equipment", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Своя предыстория"));
+
+    await screen.findByText("Добавить");
+    const gearSelect = document.querySelector("select") as HTMLSelectElement;
+    const optionLabels = Array.from(gearSelect.options).map((o) => o.textContent);
+    expect(optionLabels.some((label) => label?.startsWith("Кинжал ("))).toBe(true);
+    expect(optionLabels.some((label) => label?.startsWith("Кожаный доспех ("))).toBe(true);
   });
 
   it("carries class saving throws/skills and background skills/equipment through to the finished character", async () => {

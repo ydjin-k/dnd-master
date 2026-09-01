@@ -12,10 +12,10 @@ import {
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import {
-  ADVENTURING_GEAR,
   AGE_LIMIT,
   ALIGNMENTS,
   ALIGNMENT_DESCRIPTIONS,
+  ALL_ITEMS_WITH_COST,
   ALL_LANGUAGES,
   ALL_SKILLS,
   ARTISAN_TOOLS,
@@ -158,7 +158,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     gold: 0,
     feature: "",
   });
-  const [gearToAdd, setGearToAdd] = useState(ADVENTURING_GEAR[0]?.name ?? "");
+  const [gearToAdd, setGearToAdd] = useState(ALL_ITEMS_WITH_COST[0]?.name ?? "");
   const [alignment, setAlignment] = useState("Нейтральный");
   const [chosenLanguage, setChosenLanguage] = useState("");
   const [raceSkillChoices, setRaceSkillChoices] = useState<string[]>([]);
@@ -910,7 +910,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
                 <div className="wizard__custom-equipment-add">
                   <select value={gearToAdd} onChange={(e) => setGearToAdd(e.currentTarget.value)}>
-                    {ADVENTURING_GEAR.map((g) => (
+                    {ALL_ITEMS_WITH_COST.map((g) => (
                       <option key={g.name} value={g.name}>
                         {g.name} ({g.cost}, {g.weight})
                       </option>
