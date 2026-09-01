@@ -75,6 +75,21 @@ function extractConditionEffects(topics: RuleTopic[]): Record<string, string[]> 
   return effects;
 }
 
+/**
+ * Обрезает до последнего конца предложения (./!/?) в пределах `max` символов — без «…», раз
+ * предложение и так закончено. Если в пределах `max` конца предложения нет (первое предложение
+ * длиннее лимита), обрезает по границе последнего слова и добавляет «…».
+ */
+export function truncateDescription(text: string, max = 90): string {
+  if (text.length <= max) return text;
+  const window = text.slice(0, max);
+  const lastSentenceEnd = Math.max(window.lastIndexOf("."), window.lastIndexOf("!"), window.lastIndexOf("?"));
+  if (lastSentenceEnd !== -1) return window.slice(0, lastSentenceEnd + 1);
+  const lastSpace = window.lastIndexOf(" ");
+  const cut = lastSpace === -1 ? window : window.slice(0, lastSpace);
+  return `${cut.trimEnd()}…`;
+}
+
 function CharacterCard({
   character: c,
   spells,
@@ -131,11 +146,6 @@ function CharacterCard({
 
   function findSpell(id: string): Spell | undefined {
     return spells.find((sp) => sp.id === id);
-  }
-
-  function truncateDescription(text: string, max = 90): string {
-    if (text.length <= max) return text;
-    return `${text.slice(0, max).trimEnd()}…`;
   }
 
   function restoreSpellSlots() {
