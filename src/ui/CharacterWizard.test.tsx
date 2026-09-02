@@ -343,6 +343,46 @@ describe("CharacterWizard", () => {
     expect(character.inventory.length).toBeGreaterThan(0);
   });
 
+  it("gives starting equipment its catalog weight, including stacked items like «×20» ammo (regression: used to default to weightLb 0)", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+
+    // abilities: keep defaults
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    // equipment: keep defaults (кольчуга + лёгкий арбалет и 20 болтов + набор исследователя подземелий)
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    const nameInput = await screen.findByPlaceholderText("Имя персонажа");
+    fireEvent.change(nameInput, { target: { value: "Тестовый Герой" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+
+    const armor = character.inventory.find((item) => item.name === "Кольчуга");
+    expect(armor?.weightLb).toBeGreaterThan(0);
+
+    // "Арбалетные болты ×20" — предмет из стартового снаряжения, добавленный
+    // пачкой (не по прямому имени из каталога): раньше оставался с weightLb: 0.
+    const ammo = character.inventory.find((item) => item.name === "Арбалетные болты ×20");
+    expect(ammo?.weightLb).toBeGreaterThan(0);
+  });
+
   it("has the full Acolyte-plus-12-archetypes set of backgrounds", () => {
     expect(BACKGROUNDS.length).toBe(13);
     expect(BACKGROUNDS.map((b) => b.id)).toEqual(
