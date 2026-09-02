@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <defs><style>@font-face{font-family:Caveat;src:url('../../../public/fonts/Caveat-Variable.ttf')} .hand{font-family:Caveat,cursive}</style><linearGradient id="leather"><stop stop-color="#152a4a"/><stop offset=".5" stop-color="#0b1930"/><stop offset="1" stop-color="#172d4c"/></linearGradient><filter id="book"><feDropShadow dy="15" stdDeviation="15" flood-opacity=".55"/></filter></defs>
+  <rect width="960" height="600" rx="18" fill="#070c18"/><circle cx="480" cy="280" r="250" fill="#28466e" opacity=".16"/>
+  <g filter="url(#book)"><path d="M75 90Q265 55 472 105V535Q265 490 75 520Z" fill="url(#leather)" stroke="#9b7942" stroke-width="3"/><path d="M488 105Q695 55 885 90V520Q695 490 488 535Z" fill="url(#leather)" stroke="#9b7942" stroke-width="3"/><rect x="467" y="98" width="26" height="438" rx="10" fill="#8b6739"/></g>
+  <text x="480" y="62" text-anchor="middle" fill="#d7b86a" font-family="serif" font-size="28">ДНЕВНИК ПУТЕШЕСТВИЙ</text>
+  <g class="hand"><text x="115" y="145" fill="#b8a37b" font-size="21">2 сентября 2026, 21:30</text><text x="115" y="193" fill="#d8e0ea" font-size="29">Нашли следы волка</text><text x="115" y="230" fill="#d8e0ea" font-size="29">у старой мельницы.</text><text x="530" y="145" fill="#b8a37b" font-size="21">2 сентября 2026, 20:05</text><text x="530" y="193" fill="#d8e0ea" font-size="29">Луна взошла над башней</text><text x="530" y="230" fill="#d8e0ea" font-size="29">арканума.</text></g>
+  <path d="M115 255H425M530 255H840" stroke="#b99455" opacity=".45"/><rect x="535" y="390" width="300" height="90" rx="5" fill="#091426" stroke="#667a9b"/><text class="hand" x="560" y="442" fill="#8998b1" font-size="26">Что произошло?</text>
+  <text x="30" y="575" fill="#91a3c8" font-family="sans-serif" font-size="14">C · тёмный кожаный гримуар</text>
+</svg>

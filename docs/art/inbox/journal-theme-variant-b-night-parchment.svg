@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
+  <defs><style>@font-face{font-family:Caveat;src:url('../../../public/fonts/Caveat-Variable.ttf')} .hand{font-family:Caveat,cursive}</style><linearGradient id="night" x2="0" y2="1"><stop stop-color="#26334a"/><stop offset="1" stop-color="#111a2b"/></linearGradient></defs>
+  <rect width="960" height="600" rx="18" fill="#080f20"/><rect x="65" y="42" width="830" height="510" rx="14" fill="url(#night)" stroke="#8e764b" stroke-width="2"/><rect x="78" y="55" width="804" height="484" rx="10" fill="none" stroke="#7788a5" opacity=".35"/>
+  <text x="480" y="92" text-anchor="middle" fill="#d0b97a" font-family="serif" font-size="28">ДНЕВНИК ПУТЕШЕСТВИЙ</text>
+  <g fill="#202b3e" stroke="#9b8050"><rect x="120" y="125" width="720" height="130" rx="5"/><rect x="120" y="275" width="720" height="115" rx="5"/></g>
+  <g class="hand"><text x="145" y="163" fill="#b8aa8d" font-size="22">2 сентября 2026, 21:30</text><text x="145" y="207" fill="#e2dccb" font-size="30">Нашли следы волка у старой мельницы.</text><text x="145" y="313" fill="#b8aa8d" font-size="22">2 сентября 2026, 20:05</text><text x="145" y="357" fill="#e2dccb" font-size="30">Луна взошла над башней арканума.</text></g>
+  <line x1="145" y1="238" x2="815" y2="238" stroke="#b99455" opacity=".35"/><rect x="120" y="420" width="720" height="82" rx="6" fill="#121c30" stroke="#63718b"/><text class="hand" x="145" y="468" fill="#8995aa" font-size="27">Что произошло?</text>
+  <text x="30" y="575" fill="#91a3c8" font-family="sans-serif" font-size="14">B · холодный приглушённый пергамент</text>
+</svg>
