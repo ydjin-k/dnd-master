@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { playDiceRollSound } from "../../audio/uiSounds";
 import type { RollResult } from "../../state/types";
+import { DiceIcon, dieSidesFromExpression, type DieSides } from "../DiceIcon";
 import "./DicePage.css";
 
-const QUICK_DICE = ["d4", "d6", "d8", "d10", "d12", "d20", "d100"];
+const QUICK_DICE: { label: string; sides: DieSides }[] = [4, 6, 8, 10, 12, 20, 100].map((sides) => ({ label: `d${sides}`, sides: sides as DieSides }));
 
 interface LogItem {
   id: string;
@@ -21,6 +23,7 @@ export function DicePage() {
   async function roll(expr: string) {
     try {
       const result = await invoke<RollResult>("roll_dice", { expression: expr });
+      playDiceRollSound();
       setLog((prev) => [{ id: crypto.randomUUID(), label: expr, result }, ...prev]);
     } catch (e) {
       setLog((prev) => [{ id: crypto.randomUUID(), label: expr, error: String(e) }, ...prev]);
@@ -43,9 +46,10 @@ export function DicePage() {
       <h2>Кубики</h2>
 
       <div className="dice-page__quick">
-        {QUICK_DICE.map((d) => (
-          <button key={d} onClick={() => roll(d)}>
-            {d}
+        {QUICK_DICE.map((die) => (
+          <button key={die.label} onClick={() => roll(die.label)}>
+            <DiceIcon sides={die.sides} compact />
+            <span>{die.label}</span>
           </button>
         ))}
       </div>
@@ -70,8 +74,10 @@ export function DicePage() {
       </form>
 
       <ul className="dice-page__log">
-        {log.map((item) => (
-          <li key={item.id} className="dice-log-entry">
+        {log.map((item) => {
+          const sides = item.result ? dieSidesFromExpression(item.label) : null;
+          return <li key={item.id} className="dice-log-entry">
+            {sides && <DiceIcon sides={sides} value={item.result?.total} />}
             <span className="dice-log-entry__expr">{item.label}</span>
             {item.result && (
               <>
@@ -90,8 +96,8 @@ export function DicePage() {
               <span className="dice-log-entry__total">{item.manual}</span>
             )}
             {item.error && <span className="dice-log-entry__error">{item.error}</span>}
-          </li>
-        ))}
+          </li>;
+        })}
       </ul>
     </div>
   );

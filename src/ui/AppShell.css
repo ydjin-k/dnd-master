@@ -11,8 +11,9 @@
   align-items: center;
   gap: 0.75em;
   padding: 0.75em 1.25em;
-  background: var(--dm-panel);
-  border-bottom: 1px solid var(--dm-border);
+  background: rgba(10, 21, 44, 0.94);
+  border-bottom: 1px solid rgba(114, 214, 208, 0.45);
+  box-shadow: 0 10px 28px rgba(1, 6, 18, 0.36);
 }
 
 .app-shell__title {
@@ -20,6 +21,9 @@
   color: var(--dm-accent);
   font-size: 1.1em;
   letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
 }
 
 .app-shell__campaign-name {
@@ -29,10 +33,13 @@
 
 .app-shell__switch-campaign {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
 }
 
 .app-shell__nav {
-  background: var(--dm-panel);
+  background: linear-gradient(180deg, rgba(16, 29, 56, 0.98), rgba(9, 19, 40, 0.98));
   border-right: 1px solid var(--dm-border);
   padding: 1em 0.5em;
   display: flex;
@@ -44,15 +51,23 @@
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  font-family: var(--dm-font-display);
+  letter-spacing: 0.035em;
 }
 
 .app-shell__nav-item--active {
-  background: var(--dm-panel-raised);
-  border-color: var(--dm-border);
+  background: linear-gradient(90deg, rgba(68, 48, 105, 0.72), rgba(23, 40, 74, 0.72));
+  border-color: var(--dm-accent);
   color: var(--dm-accent);
+  box-shadow: inset 3px 0 var(--dm-secondary), 0 0 18px rgba(114, 214, 208, 0.12);
 }
 
 .app-shell__content {
   padding: 1.5em;
   overflow-y: auto;
+  background-image: linear-gradient(rgba(114, 214, 208, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(114, 214, 208, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
