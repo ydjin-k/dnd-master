@@ -68,4 +68,19 @@ describe("DicePage", () => {
     expect(await screen.findByText("17", { selector: ".dice-log-entry__total" })).toBeInTheDocument();
     expect(input).toHaveValue(null);
   });
+
+  it("expands selectors inline so the manual form stays outside their option list", () => {
+    render(<DicePage />);
+    const manualButton = screen.getByRole("button", { name: "Записать вручную" });
+
+    for (const label of ["Количество костей", "Модификатор", "Преимущество или помеха"]) {
+      const select = screen.getByLabelText<HTMLSelectElement>(label);
+      expect(select).toHaveAttribute("size", "1");
+      fireEvent.pointerDown(select);
+      expect(select).toHaveAttribute("size", label === "Преимущество или помеха" ? "3" : "6");
+      expect(manualButton).toBeEnabled();
+      fireEvent.blur(select);
+      expect(select).toHaveAttribute("size", "1");
+    }
+  });
 });
