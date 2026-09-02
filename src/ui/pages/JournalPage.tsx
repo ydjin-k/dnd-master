@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
+import { playQuillWritingSound } from "../../audio/uiSounds";
 import "./JournalPage.css";
 
 export function JournalPage() {
-  const { state, addJournalEntry } = useCampaign();
+  const { state, addJournalEntry, removeJournalEntry } = useCampaign();
   const [text, setText] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -14,6 +15,7 @@ export function JournalPage() {
       timestamp: new Date().toISOString(),
       text: text.trim(),
     });
+    playQuillWritingSound();
     setText("");
   }
 
@@ -26,8 +28,19 @@ export function JournalPage() {
       <ul className="journal-page__list">
         {entries.map((entry) => (
           <li key={entry.id} className="journal-entry">
-            <div className="journal-entry__time">
-              {new Date(entry.timestamp).toLocaleString()}
+            <div className="journal-entry__heading">
+              <div className="journal-entry__time">
+                {new Date(entry.timestamp).toLocaleString()}
+              </div>
+              <button
+                className="journal-entry__remove"
+                type="button"
+                aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
+                title="Удалить запись"
+                onClick={() => void removeJournalEntry(entry.id)}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
             <div className="journal-entry__text">{entry.text}</div>
           </li>
@@ -39,7 +52,7 @@ export function JournalPage() {
 
       <form className="journal-page__form" onSubmit={handleSubmit}>
         <textarea
-          rows={3}
+          rows={2}
           placeholder="Что произошло?"
           value={text}
           onChange={(e) => setText(e.currentTarget.value)}
