@@ -367,6 +367,7 @@ function CharacterCard({
         )}
         <div className="character-card__add-row">
           <input
+            className="character-card__xp-input"
             type="number"
             min={1}
             placeholder="Добавить опыт"
@@ -501,6 +502,7 @@ function CharacterCard({
         </ul>
         <div className="character-card__add-row">
           <input
+            className="character-card__item-input"
             list={`items-${c.id}`}
             placeholder="Новый предмет"
             value={newItemName}
@@ -569,6 +571,7 @@ function CharacterCard({
         )}
         <div className="character-card__add-row">
           <input
+            className="character-card__condition-input"
             list={`conditions-${c.id}`}
             placeholder="Состояние (из SRD или своё)"
             value={newCondition}

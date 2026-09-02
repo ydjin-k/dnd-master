@@ -218,7 +218,19 @@
 }
 
 .character-card__add-row input {
-  flex: 1;
+  flex: 0 1 auto;
+}
+
+.character-card__xp-input {
+  width: 8em;
+}
+
+.character-card__item-input {
+  width: min(24em, 100%);
+}
+
+.character-card__condition-input {
+  width: min(21em, 100%);
 }
 
 .character-card__class-features {
