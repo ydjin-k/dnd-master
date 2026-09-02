@@ -855,6 +855,12 @@ describe("CharacterWizard", () => {
     expect(
       screen.getByText(/вас принимают без очереди и выслушивают на аудиенциях/),
     ).toBeInTheDocument();
+
+    const equipmentLine = screen.getByText(/Снаряжение:/).closest("li");
+    expect(equipmentLine).not.toBeNull();
+    expect(within(equipmentLine!).getByText("Снаряжение:").tagName).toBe("STRONG");
+    expect(equipmentLine).toHaveTextContent("Кольчуга");
+    expect(equipmentLine!.querySelectorAll("strong")).toHaveLength(1);
   });
 
   it("suggests a name from the selected race's list for the current gender, and rerolling gives a different one", async () => {

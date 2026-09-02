@@ -4,25 +4,15 @@ import type { MonsterTemplate } from "../../state/types";
 import { EmphasizedText } from "../EmphasizedText";
 import "./BestiaryPage.css";
 
-function MonsterThumb({ monster, className }: { monster: MonsterTemplate; className: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSrc(null);
-    if (!monster.imageAsset) return;
-    let cancelled = false;
-    invoke<string>("get_bestiary_image", { imageAsset: monster.imageAsset })
-      .then((data) => {
-        if (!cancelled) setSrc(data);
-      })
-      .catch(() => {
-        if (!cancelled) setSrc(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [monster.imageAsset]);
-
+function MonsterThumb({
+  monster,
+  className,
+  src,
+}: {
+  monster: MonsterTemplate;
+  className: string;
+  src: string | null;
+}) {
   if (!src) {
     return <div className={`${className} bestiary-thumb--empty`} aria-hidden="true" />;
   }
@@ -34,6 +24,7 @@ export function BestiaryPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [images, setImages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     invoke<MonsterTemplate[]>("get_bestiary")
@@ -43,6 +34,28 @@ export function BestiaryPage() {
       })
       .catch((e) => setError(String(e)));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    for (const monster of monsters) {
+      if (!monster.imageAsset || images[monster.imageAsset]) continue;
+      invoke<string>("get_bestiary_image", { imageAsset: monster.imageAsset })
+        .then((data) => {
+          if (!cancelled) {
+            setImages((current) => ({ ...current, [monster.imageAsset!]: data }));
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [monsters]);
+
+  const imageFor = (monster: MonsterTemplate) =>
+    monster.imageAsset ? images[monster.imageAsset] ?? null : null;
 
   const query = search.trim().toLowerCase();
   const visible = (query ? monsters.filter((m) => m.name.toLowerCase().includes(query)) : monsters)
@@ -75,7 +88,11 @@ export function BestiaryPage() {
                 }
                 onClick={() => setSelectedId(m.id)}
               >
-                <MonsterThumb monster={m} className="bestiary-thumb bestiary-thumb--list" />
+                <MonsterThumb
+                  monster={m}
+                  className="bestiary-thumb bestiary-thumb--list"
+                  src={imageFor(m)}
+                />
                 <span className="bestiary-page__list-name">{m.name}</span>
                 <span className="bestiary-page__list-cr">СЛ {m.challengeRating}</span>
               </button>
@@ -88,7 +105,11 @@ export function BestiaryPage() {
       <div className="bestiary-page__content">
         {selected && (
           <article className="bestiary-statblock">
-            <MonsterThumb monster={selected} className="bestiary-thumb bestiary-thumb--detail" />
+            <MonsterThumb
+              monster={selected}
+              className="bestiary-thumb bestiary-thumb--detail"
+              src={imageFor(selected)}
+            />
             <h2 className="bestiary-statblock__name">{selected.name}</h2>
             <p className="bestiary-statblock__subtitle">
               {selected.size} {selected.creatureType}

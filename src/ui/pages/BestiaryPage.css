@@ -85,9 +85,11 @@
 }
 
 .bestiary-thumb--detail {
+  box-sizing: border-box;
   width: 100%;
   max-width: 320px;
   height: 240px;
+  object-fit: contain;
   float: right;
   margin: 0 0 1em 1.5em;
 }
@@ -97,7 +99,12 @@
 }
 
 .bestiary-statblock {
+  box-sizing: border-box;
+  display: flow-root;
+  width: 100%;
+  padding: 1.25em;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .bestiary-statblock::after {
