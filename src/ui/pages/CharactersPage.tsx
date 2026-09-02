@@ -451,7 +451,7 @@ function CharacterCard({
             const proficient = c.skillProficiencies.includes(skill);
             const mod = abilityMod(c.abilities[SKILL_ABILITY[skill]]) + (proficient ? proficiencyBonusForLevel(c.level) : 0);
             return (
-              <li key={skill}>
+              <li key={skill} className="typography-term-line">
                 {skill}: {fmtMod(mod)}
                 {proficient && " · владение"}
               </li>
@@ -480,7 +480,7 @@ function CharacterCard({
         <ul>
           {c.inventory.map((item) => (
             <li key={item.id} className="character-card__item">
-              <span>{item.name}</span>
+              <strong>{item.name}</strong>
               <button type="button" onClick={() => adjustItemQuantity(item.id, -1)}>
                 −
               </button>

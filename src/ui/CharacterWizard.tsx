@@ -12,6 +12,7 @@ import {
   type Spell,
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
+import { EmphasizedText } from "./EmphasizedText";
 import {
   ABILITY_LABELS,
   AGE_LIMIT,
@@ -1024,7 +1025,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   ))}
                   ; {background.gold} зм
                 </p>
-                <p>{background.feature}</p>
+                <p><EmphasizedText>{background.feature}</EmphasizedText></p>
                 {backgroundLanguageCount > 0 && (
                   <p className="wizard__hint">
                     Дополнительный язык{backgroundLanguageCount > 1 ? "и" : ""} по выбору:{" "}
@@ -1352,7 +1353,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   const abilityKey = SKILL_ABILITY[skill];
                   const mod = abilityMod(totalAbilities[abilityKey]) + (proficient ? PROFICIENCY_BONUS_LEVEL_1 : 0);
                   return (
-                    <li key={skill}>
+                    <li key={skill} className="typography-term-line">
                       {skill}: {fmtMod(mod)}
                       {proficient && " (владение)"}
                     </li>
@@ -1360,7 +1361,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 })}
               </ul>
             </li>
-            <li>Снаряжение: {inventoryItems.join(", ") || "—"}</li>
+            <li>
+              Снаряжение:{" "}
+              {inventoryItems.length > 0
+                ? inventoryItems.map((item, index) => (
+                    <Fragment key={`${item}-${index}`}>
+                      {index > 0 ? ", " : ""}<strong>{item}</strong>
+                    </Fragment>
+                  ))
+                : "—"}
+            </li>
             {displayedRaceTraits.length > 0 && (
               <li>
                 Расовые особенности:

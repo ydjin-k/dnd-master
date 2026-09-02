@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MonsterTemplate } from "../../state/types";
+import { EmphasizedText } from "../EmphasizedText";
 import "./BestiaryPage.css";
 
 function MonsterThumb({ monster, className }: { monster: MonsterTemplate; className: string }) {
@@ -109,7 +110,7 @@ export function BestiaryPage() {
               <section>
                 <h3>Особые свойства</h3>
                 {selected.traits.map((t, i) => (
-                  <p key={i}>{t}</p>
+                  <p key={i}><EmphasizedText>{t}</EmphasizedText></p>
                 ))}
               </section>
             )}
@@ -118,7 +119,7 @@ export function BestiaryPage() {
               <section>
                 <h3>Действия</h3>
                 {selected.actions.map((a, i) => (
-                  <p key={i}>{a}</p>
+                  <p key={i}><EmphasizedText>{a}</EmphasizedText></p>
                 ))}
               </section>
             )}

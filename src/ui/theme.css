@@ -1,4 +1,24 @@
 :root {
+  font-synthesis: none;
+}
+
+@font-face {
+  font-family: "Asset Fantasy";
+  src: url("/fonts/Asset-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("/fonts/SourceSerif4-Variable.ttf") format("truetype-variations");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+:root {
   --dm-bg: #1a1410;
   --dm-panel: #241c15;
   --dm-panel-raised: #2e2419;
@@ -9,8 +29,8 @@
   --dm-accent-hover: #e0b830;
   --dm-danger: #a8402f;
 
-  --dm-font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
-  --dm-font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --dm-font-display: "Asset Fantasy", Georgia, "Palatino Linotype", serif;
+  --dm-font-body: "Source Serif 4", Georgia, serif;
 }
 
 * {
@@ -28,6 +48,9 @@ body {
   background: var(--dm-bg);
   color: var(--dm-text);
   font-family: var(--dm-font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -40,6 +63,29 @@ h3 {
   font-family: var(--dm-font-display);
   color: var(--dm-accent);
   margin: 0 0 0.5em;
+  font-weight: 400;
+  letter-spacing: 0.035em;
+  line-height: 1.18;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.2rem; }
+
+p,
+li,
+dd {
+  text-wrap: pretty;
+}
+
+strong {
+  color: #f3e3bd;
+  font-weight: 750;
+}
+
+.typography-term-line {
+  color: #f3e3bd;
+  font-weight: 750;
 }
 
 button {
@@ -50,6 +96,8 @@ button {
   border-radius: 4px;
   padding: 0.5em 1em;
   cursor: pointer;
+  font-weight: 650;
+  letter-spacing: 0.01em;
 }
 
 button:hover {
