@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
-import { playQuillWritingSound } from "../../audio/uiSounds";
 import "./JournalPage.css";
 
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
   const [text, setText] = useState("");
+  const quillAudioRef = useRef<HTMLAudioElement | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -15,7 +15,10 @@ export function JournalPage() {
       timestamp: new Date().toISOString(),
       text: text.trim(),
     });
-    playQuillWritingSound();
+    const audio = quillAudioRef.current ?? new Audio("/audio/quill-scratch.mp3");
+    quillAudioRef.current = audio;
+    audio.currentTime = 0;
+    void audio.play().catch(() => undefined);
     setText("");
   }
 
