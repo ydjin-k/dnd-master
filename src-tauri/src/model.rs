@@ -59,6 +59,12 @@ pub struct Character {
     pub age: u32,
     pub languages: Vec<String>,
     pub level: u32,
+    /// Кумулятивный опыт (SRD 5.1: таблица «Развитие персонажа», см.
+    /// `characterCreationData.ts → XP_THRESHOLDS`) — вводится вручную мастером,
+    /// движок ничего не начисляет сам. Не тратится/не обнуляется левел-апом.
+    /// Отсутствует в старых сохранениях — `#[serde(default)]` на структуре
+    /// даёт 0, как и у остальных полей, добавленных позже.
+    pub experience_points: i32,
     pub abilities: AbilityScores,
     pub max_hp: i32,
     pub current_hp: i32,
@@ -203,6 +209,7 @@ mod tests {
         assert!(character.known_spells.is_empty());
         assert_eq!(character.spell_slots_level1_max, 0);
         assert_eq!(character.spell_slots_level1_current, 0);
+        assert_eq!(character.experience_points, 0);
     }
 
     /// characters-currency-denominations: старое сохранение с `gold: number`

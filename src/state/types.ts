@@ -35,6 +35,7 @@ export interface Character {
   age: number;
   languages: string[];
   level: number;
+  experiencePoints: number;
   abilities: AbilityScores;
   maxHp: number;
   currentHp: number;

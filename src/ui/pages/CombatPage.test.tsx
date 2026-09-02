@@ -69,6 +69,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         age: 0,
         languages: [],
         level: 1,
+        experiencePoints: 0,
         abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
         maxHp: 12,
         currentHp: 12,

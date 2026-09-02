@@ -5,6 +5,7 @@ import {
   ABILITY_LABELS,
   ALL_ITEM_NAMES,
   ALL_SKILLS,
+  canLevelUp,
   carryingCapacityLb,
   catalogWeightLb,
   CLASS_LEVEL_FEATURES,
@@ -12,7 +13,11 @@ import {
   COIN_DENOMINATIONS,
   coinsWeightLb,
   CONDITIONS,
+  ENCUMBRANCE_LABELS,
+  encumbranceLevel,
+  encumbranceSpeedPenaltyFeet,
   HEALING_POTIONS,
+  HEAVILY_ENCUMBERED_DISADVANTAGE_HINT,
   inventoryWeightLb,
   RACE_HP_BONUS,
   SKILL_ABILITY,
@@ -24,6 +29,7 @@ import {
   parseHitDieAverage,
   proficiencyBonusForLevel,
   proficiencyBonusHint,
+  xpNeededForNextLevel,
   type AbilityKey,
   type ClassLevelFeature,
 } from "../characterCreationData";
@@ -126,6 +132,7 @@ function CharacterCard({
 }) {
   const [newItemName, setNewItemName] = useState("");
   const [newCondition, setNewCondition] = useState("");
+  const [xpInput, setXpInput] = useState("");
   const [asiPanelOpen, setAsiPanelOpen] = useState(false);
   const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
@@ -158,6 +165,13 @@ function CharacterCard({
       ],
     }));
     setNewItemName("");
+  }
+
+  function addExperience() {
+    const amount = Number(xpInput);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    onUpdate((ch) => ({ ...ch, experiencePoints: ch.experiencePoints + amount }));
+    setXpInput("");
   }
 
   function addCondition() {
@@ -223,6 +237,7 @@ function CharacterCard({
   /** На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см. confirmAsi). */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
+    if (!canLevelUp(c.level, c.experiencePoints)) return;
     if (c.level + 1 === 4) {
       setAsiMode("plus2");
       setAsiKeys([]);
@@ -286,7 +301,20 @@ function CharacterCard({
 
   const totalWeightLb = inventoryWeightLb(c.inventory) + coinsWeightLb(c.coins);
   const carryingCapacity = carryingCapacityLb(c.abilities.strength);
-  const overloaded = totalWeightLb > carryingCapacity;
+  const encLevel = encumbranceLevel(totalWeightLb, c.abilities.strength);
+  const speedPenaltyFeet = encumbranceSpeedPenaltyFeet(encLevel);
+  const effectiveSpeedFeet = Math.max(0, c.speedFeet - speedPenaltyFeet);
+  const speedLabel =
+    speedPenaltyFeet > 0
+      ? `${effectiveSpeedFeet} фт (${c.speedFeet} − ${speedPenaltyFeet}, ${ENCUMBRANCE_LABELS[encLevel].toLowerCase()})`
+      : `${c.speedFeet} фт`;
+  /** Жёсткий потолок (Сила × 15): нельзя добавить предмет, если это довело бы вес выше грузоподъёмности. */
+  function wouldExceedCapacity(additionalWeightLb: number): boolean {
+    return totalWeightLb + additionalWeightLb > carryingCapacity;
+  }
+  const addItemBlocked = wouldExceedCapacity(catalogWeightLb(newItemName.trim()));
+  const nextLevelXp = xpNeededForNextLevel(c.level);
+  const levelUpReady = canLevelUp(c.level, c.experiencePoints);
 
   return (
     <li className="character-card">
@@ -305,16 +333,50 @@ function CharacterCard({
         {c.age > 0 && <> · {c.age} л.</>}
       </div>
       <div className="character-card__hp">
-        HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {c.speedFeet} фт · Иниц.{" "}
+        HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {speedLabel} · Иниц.{" "}
         {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
         {c.passivePerception} · Вес: {Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.
       </div>
-      {overloaded && <div className="character-card__danger">Перегрузка!</div>}
+      {encLevel !== "normal" && (
+        <div
+          className={
+            encLevel === "heavily-encumbered"
+              ? "character-card__danger character-card__danger--heavy"
+              : "character-card__danger"
+          }
+        >
+          {ENCUMBRANCE_LABELS[encLevel]}
+        </div>
+      )}
       <div className="character-card__level">
         Уровень {c.level}{" "}
-        <button type="button" onClick={requestLevelUp} disabled={c.level >= MAX_LEVEL || asiPanelOpen}>
+        <button
+          type="button"
+          onClick={requestLevelUp}
+          disabled={c.level >= MAX_LEVEL || asiPanelOpen || !levelUpReady}
+        >
           {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
         </button>
+      </div>
+      <div className="character-card__xp">
+        Опыт: {c.experiencePoints}
+        {nextLevelXp !== null ? (
+          <> / {nextLevelXp} до {c.level + 1} уровня</>
+        ) : (
+          " (максимум уровня достигнут)"
+        )}
+        <div className="character-card__add-row">
+          <input
+            type="number"
+            min={1}
+            placeholder="Добавить опыт"
+            value={xpInput}
+            onChange={(e) => setXpInput(e.currentTarget.value)}
+          />
+          <button type="button" onClick={addExperience}>
+            Добавить опыт
+          </button>
+        </div>
       </div>
       {asiPanelOpen && (
         <div className="character-card__asi">
@@ -366,6 +428,11 @@ function CharacterCard({
       )}
       <details className="character-card__abilities">
         <summary>Спасброски и навыки</summary>
+        {encLevel === "heavily-encumbered" && (
+          <p className="character-card__danger character-card__danger--heavy">
+            {HEAVILY_ENCUMBERED_DISADVANTAGE_HINT}
+          </p>
+        )}
         <p className="character-card__prof">{proficiencyBonusHint(c.level)}</p>
         <ul className="character-card__skill-list">
           {ABILITY_LABELS.map(([key, label]) => {
@@ -418,7 +485,12 @@ function CharacterCard({
                 −
               </button>
               <span>{item.quantity}</span>
-              <button type="button" onClick={() => adjustItemQuantity(item.id, 1)}>
+              <button
+                type="button"
+                disabled={wouldExceedCapacity(item.weightLb)}
+                title={wouldExceedCapacity(item.weightLb) ? "Достигнута максимальная грузоподъёмность" : undefined}
+                onClick={() => adjustItemQuantity(item.id, 1)}
+              >
                 +
               </button>
               <button type="button" title="Убрать предмет" onClick={() => removeItem(item.id)}>
@@ -444,9 +516,12 @@ function CharacterCard({
               );
             })}
           </datalist>
-          <button type="button" onClick={addItem}>
+          <button type="button" disabled={addItemBlocked} onClick={addItem}>
             Добавить
           </button>
+          {addItemBlocked && (
+            <span className="character-card__hint">Достигнута максимальная грузоподъёмность</span>
+          )}
         </div>
       </details>
 
