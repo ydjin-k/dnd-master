@@ -2,6 +2,20 @@ type AudioContextConstructor = typeof AudioContext;
 
 let context: AudioContext | undefined;
 
+function playAudioFile(src: string, volume = 0.55) {
+  const audio = new Audio(src);
+  audio.volume = volume;
+  void audio.play().catch(() => undefined);
+}
+
+export function playLevelUpSound() {
+  playAudioFile("/audio/level-up.mp3", 0.65);
+}
+
+export function playCoinsSound() {
+  playAudioFile("/audio/coins-jingle.mp3", 0.55);
+}
+
 function getAudioContext(): AudioContext | undefined {
   const AudioContextClass = window.AudioContext ??
     (window as typeof window & { webkitAudioContext?: AudioContextConstructor })
@@ -43,36 +57,45 @@ export function playButtonClickSound() {
 }
 
 export function playDiceRollSound() {
+  playAudioFile("/audio/dice-roll.wav", 0.55);
+}
+
+export function playSpellCastSound() {
   const audio = getAudioContext();
   if (!audio) return;
 
   const now = audio.currentTime;
-  const duration = 0.32;
-  const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
-  const samples = buffer.getChannelData(0);
-
-  for (let i = 0; i < samples.length; i += 1) {
-    const decay = 1 - i / samples.length;
-    const clatter = i % Math.max(1, Math.floor(audio.sampleRate * 0.035)) < 180 ? 1 : 0.28;
-    samples[i] = (Math.random() * 2 - 1) * decay * clatter;
-  }
-
-  const source = audio.createBufferSource();
-  const filter = audio.createBiquadFilter();
   const gain = audio.createGain();
-  source.buffer = buffer;
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(720, now);
-  filter.frequency.exponentialRampToValueAtTime(260, now + duration);
-  filter.Q.value = 0.8;
-  gain.gain.setValueAtTime(0.11, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-  source.connect(filter);
-  filter.connect(gain);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
   gain.connect(audio.destination);
-  source.start(now);
-  source.stop(now + duration);
+  [392, 523.25, 783.99].forEach((frequency, index) => {
+    const tone = audio.createOscillator();
+    tone.type = index === 2 ? "sine" : "triangle";
+    tone.frequency.setValueAtTime(frequency, now + index * 0.055);
+    tone.frequency.exponentialRampToValueAtTime(frequency * 1.5, now + 0.42);
+    tone.connect(gain);
+    tone.start(now + index * 0.055);
+    tone.stop(now + 0.54);
+  });
+}
+
+export function playLimitSound() {
+  const audio = getAudioContext();
+  if (!audio) return;
+  const now = audio.currentTime;
+  const tone = audio.createOscillator();
+  const gain = audio.createGain();
+  tone.type = "triangle";
+  tone.frequency.setValueAtTime(196, now);
+  tone.frequency.exponentialRampToValueAtTime(146.83, now + 0.18);
+  gain.gain.setValueAtTime(0.035, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  tone.connect(gain);
+  gain.connect(audio.destination);
+  tone.start(now);
+  tone.stop(now + 0.23);
 }
 
 export function installButtonClickSound(

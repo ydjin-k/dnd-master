@@ -835,12 +835,17 @@ export function canLevelUp(level: number, experiencePoints: number): boolean {
  * монетах: мм=1, см=10, эм=50, зм=100, пм=1000. Единственный владелец курса —
  * мастер персонажа и карточка берут значения отсюда, не задваивают.
  */
-export const COIN_DENOMINATIONS: { key: keyof Coins; label: string; copperValue: number }[] = [
-  { key: "copper", label: "мм", copperValue: 1 },
-  { key: "silver", label: "см", copperValue: 10 },
-  { key: "electrum", label: "эм", copperValue: 50 },
-  { key: "gold", label: "зм", copperValue: 100 },
-  { key: "platinum", label: "пм", copperValue: 1000 },
+export const COIN_DENOMINATIONS: {
+  key: keyof Coins;
+  label: string;
+  copperValue: number;
+  icon: { fill: string; rim: string; shape: "round" | "square" | "scalloped" | "diamond" | "octagonal" };
+}[] = [
+  { key: "copper", label: "мм", copperValue: 1, icon: { fill: "#b66a42", rim: "#efad75", shape: "round" } },
+  { key: "silver", label: "см", copperValue: 10, icon: { fill: "#aeb9c7", rim: "#edf5ff", shape: "square" } },
+  { key: "electrum", label: "эм", copperValue: 50, icon: { fill: "#b6b88b", rim: "#f1f0b5", shape: "scalloped" } },
+  { key: "gold", label: "зм", copperValue: 100, icon: { fill: "#d6a62e", rim: "#ffe17a", shape: "diamond" } },
+  { key: "platinum", label: "пм", copperValue: 1000, icon: { fill: "#80bad0", rim: "#ddf8ff", shape: "octagonal" } },
 ];
 
 /** Суммарная стоимость монет всех номиналов в золотых эквивалентах. */

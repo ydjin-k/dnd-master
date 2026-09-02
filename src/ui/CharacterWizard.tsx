@@ -13,6 +13,7 @@ import {
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import { EmphasizedText } from "./EmphasizedText";
+import { playCoinsSound, playDiceRollSound, playLimitSound } from "../audio/uiSounds";
 import {
   ABILITY_LABELS,
   AGE_LIMIT,
@@ -167,6 +168,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
   const [gender, setGender] = useState<(typeof GENDERS)[number]>(GENDERS[0]);
   const [age, setAge] = useState(0);
+  const [ageLimitHit, setAgeLimitHit] = useState(false);
+  const [goldLimitHit, setGoldLimitHit] = useState(false);
   const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
   const [knownSpells, setKnownSpells] = useState<string[]>([]);
   // Донастройка монет на шаге «Итог»: пока номинал не тронут вручную, «зм»
@@ -260,6 +263,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     platinum: coinEdits.platinum ?? 0,
   };
   function setCoin(key: keyof Coins, value: number) {
+    if (coins[key] !== Math.max(0, value)) playCoinsSound();
     setCoinEdits((prev) => ({ ...prev, [key]: Math.max(0, value) }));
   }
 
@@ -459,6 +463,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
    * поля ручного ввода, но не подменяет его: результат можно тут же
    * поправить, как и любое число, введённое руками. */
   async function rollAbilityScores() {
+    playDiceRollSound();
     setRolling(true);
     try {
       const rolls = await invoke<AbilityScoreRoll[]>("roll_ability_scores");
@@ -974,8 +979,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   </select>
                   <button
                     type="button"
-                    disabled={customBackground.equipment.length >= CUSTOM_BACKGROUND_EQUIPMENT_LIMIT}
-                    onClick={() => addCustomBackgroundEquipment(gearToAdd)}
+                    aria-disabled={customBackground.equipment.length >= CUSTOM_BACKGROUND_EQUIPMENT_LIMIT}
+                    className={customBackground.equipment.length >= CUSTOM_BACKGROUND_EQUIPMENT_LIMIT ? "character-card__danger" : undefined}
+                    onClick={() => customBackground.equipment.length >= CUSTOM_BACKGROUND_EQUIPMENT_LIMIT ? playLimitSound() : addCustomBackgroundEquipment(gearToAdd)}
                   >
                     Добавить
                   </button>
@@ -983,13 +989,19 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 <label>
                   Золото (максимум {CUSTOM_BACKGROUND_GOLD_LIMIT} зм):{" "}
                   <input
+                    className={goldLimitHit ? "character-card__danger" : undefined}
                     type="number"
                     min={0}
                     max={CUSTOM_BACKGROUND_GOLD_LIMIT}
                     value={customBackground.gold === 0 ? "" : customBackground.gold}
                     onChange={(e) => {
                       const raw = e.currentTarget.value;
-                      const value = raw === "" ? 0 : Math.min(CUSTOM_BACKGROUND_GOLD_LIMIT, Number(raw) || 0);
+                      const requested = raw === "" ? 0 : Number(raw) || 0;
+                      const overLimit = requested > CUSTOM_BACKGROUND_GOLD_LIMIT;
+                      setGoldLimitHit(overLimit);
+                      if (overLimit) playLimitSound();
+                      else if (requested !== customBackground.gold) playCoinsSound();
+                      const value = Math.min(CUSTOM_BACKGROUND_GOLD_LIMIT, requested);
                       setCustomBackground((prev) => ({ ...prev, gold: value }));
                     }}
                   />
@@ -1263,12 +1275,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <label className="wizard__hint">
             Возраст (до {AGE_LIMIT} лет):{" "}
             <input
+              className={ageLimitHit ? "character-card__danger" : undefined}
               type="number"
               max={AGE_LIMIT}
               value={age === 0 ? "" : age}
               onChange={(e) => {
                 const raw = e.currentTarget.value;
-                const value = raw === "" ? 0 : Math.min(AGE_LIMIT, Number(raw) || 0);
+                const requested = raw === "" ? 0 : Number(raw) || 0;
+                const overLimit = requested > AGE_LIMIT;
+                setAgeLimitHit(overLimit);
+                if (overLimit) playLimitSound();
+                const value = Math.min(AGE_LIMIT, requested);
                 setAge(value);
               }}
             />

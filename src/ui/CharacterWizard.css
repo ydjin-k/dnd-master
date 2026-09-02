@@ -84,7 +84,15 @@
 }
 
 .wizard__coins input {
-  width: 4em;
+  width: 6em;
+}
+
+.wizard input[type="number"] {
+  width: 6em;
+}
+
+.wizard__ability-table input[type="number"] {
+  width: 5em;
 }
 
 .wizard__method {
@@ -173,13 +181,18 @@
 }
 
 .wizard__custom-equipment-add select {
-  flex: 1;
+  flex: 0 1 32em;
+  max-width: 100%;
 }
 
 .wizard__custom-background {
   display: flex;
   flex-direction: column;
   gap: 0.6em;
+}
+
+.wizard__custom-background > input {
+  width: min(24em, 100%);
 }
 
 .wizard__custom-background textarea {
@@ -194,7 +207,8 @@
 }
 
 .wizard__weapon-select {
-  flex: 1;
+  flex: 0 1 32em;
+  max-width: 100%;
 }
 
 .wizard__roll {
@@ -222,8 +236,7 @@
 }
 
 .wizard__name-input {
-  width: 100%;
-  max-width: 320px;
+  width: min(24em, 100%);
 }
 
 .wizard__summary {
@@ -266,4 +279,11 @@
   margin: 0;
   color: var(--dm-danger);
   font-style: normal;
+}
+
+.wizard input.character-card__danger,
+.wizard button.character-card__danger {
+  border-color: var(--dm-danger);
+  color: var(--dm-danger);
+  background: rgba(168, 64, 47, 0.14);
 }

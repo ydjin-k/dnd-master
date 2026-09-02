@@ -6,6 +6,13 @@ import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Sp
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+const sounds = vi.hoisted(() => ({
+  playCoinsSound: vi.fn(),
+  playLevelUpSound: vi.fn(),
+  playLimitSound: vi.fn(),
+  playSpellCastSound: vi.fn(),
+}));
+vi.mock("../../audio/uiSounds", () => sounds);
 
 const CONDITIONS_TOPIC: RuleTopic = {
   id: "appendices-conditions",
@@ -69,6 +76,7 @@ describe("CharactersPage", () => {
     addCharacter.mockClear();
     removeCharacter.mockClear();
     updateCharacter.mockClear();
+    Object.values(sounds).forEach((sound) => sound.mockClear());
     window.confirm = vi.fn(() => true);
     vi.mocked(invoke).mockImplementation(async () => []);
   });
@@ -184,6 +192,20 @@ describe("CharactersPage", () => {
     await waitFor(() => expect(screen.queryByText(/Выбери расу слева/)).not.toBeInTheDocument());
   });
 
+  it("collapses and expands each character card when more than one character exists", () => {
+    mockState = baseState({
+      characters: [characterWithInventory(), { ...characterWithInventory(), id: "mage", name: "Маг" }],
+    });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Свернуть карточку Герой" }));
+    expect(screen.getAllByText(/Опыт: 999999/)).toHaveLength(1);
+    expect(screen.getByText("Воин · ур. 1 · HP 10/10")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Развернуть карточку Герой" }));
+    expect(screen.getAllByText(/Опыт: 999999/)).toHaveLength(2);
+  });
+
   it("spending 3 of 5 torches updates the tracked quantity, not just removes one", async () => {
     mockState = baseState({ characters: [characterWithInventory()] });
     render(<CharactersPage />);
@@ -264,11 +286,11 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // in catalog, weight > 0
-    expect(screen.getAllByText("Добавить")[0]).toBeDisabled();
+    expect(screen.getAllByText("Добавить")[0]).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Достигнута максимальная грузоподъёмность")).toBeInTheDocument();
 
     const item = screen.getByText("Груз").closest("li") as HTMLElement;
-    expect(within(item).getByText("+")).toBeDisabled();
+    expect(within(item).getByText("+")).toHaveAttribute("aria-disabled", "true");
     expect(within(item).getByText("−")).toBeEnabled();
     expect(within(item).getByTitle("Убрать предмет")).toBeEnabled();
   });
@@ -277,7 +299,7 @@ describe("CharactersPage", () => {
     mockState = baseState({ characters: [withWeight(145)] });
     render(<CharactersPage />);
     fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // ~10 фнт in catalog
-    expect(screen.getAllByText("Добавить")[0]).toBeDisabled();
+    expect(screen.getAllByText("Добавить")[0]).toHaveAttribute("aria-disabled", "true");
   });
 
   it("adding a new item and a condition (typed, SRD or custom) calls updateCharacter correctly", async () => {
@@ -438,6 +460,20 @@ describe("CharactersPage", () => {
     expect(updateCharacter).toHaveBeenCalledTimes(1);
     const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
     expect(updater(spellcaster()).spellSlotsLevel1Current).toBe(1);
+    expect(sounds.playSpellCastSound).toHaveBeenCalledOnce();
+  });
+
+  it("plays coin feedback on a real coin change and limit feedback on blocked capacity", () => {
+    mockState = baseState({ characters: [withWeight(150)] });
+    render(<CharactersPage />);
+
+    const money = screen.getByText(/Деньги/).closest("details") as HTMLElement;
+    fireEvent.click(within(money).getAllByText("+")[0]);
+    expect(sounds.playCoinsSound).toHaveBeenCalledOnce();
+
+    const item = screen.getByText("Груз").closest("li") as HTMLElement;
+    fireEvent.click(within(item).getByText("+"));
+    expect(sounds.playLimitSound).toHaveBeenCalledOnce();
   });
 
   it("the level-1 'Использовать' button is disabled at 0 slots, and the updater itself floors at 0 too", async () => {
@@ -506,6 +542,7 @@ describe("CharactersPage", () => {
     // maxHpForLevel(10, 6, 2, 0, 2) = 10 + 2 + 0 + (2-1)*(6+2) = 20
     expect(updated.maxHp).toBe(20);
     expect(updated.currentHp).toBe(8 + (20 - 12));
+    expect(sounds.playLevelUpSound).toHaveBeenCalledOnce();
   });
 
   it("proficiency bonus hint shows +2 through level 4 and +3 at level 5", () => {
@@ -632,7 +669,7 @@ describe("CharactersPage", () => {
     const below = { ...characterWithInventory(), level: 1, experiencePoints: 299 };
     mockState = baseState({ characters: [below] });
     const { unmount } = render(<CharactersPage />);
-    expect(screen.getByText("Повысить уровень")).toBeDisabled();
+    expect(screen.getByText("Повысить уровень")).toHaveAttribute("aria-disabled", "true");
     unmount();
 
     const atThreshold = { ...below, experiencePoints: 300 };

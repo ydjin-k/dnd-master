@@ -125,6 +125,7 @@ input,
 textarea,
 select {
   font-family: var(--dm-font-body);
+  font-size: 1em;
   min-height: 44px;
   background: rgba(7, 15, 33, 0.88);
   color: var(--dm-text);
@@ -145,8 +146,9 @@ select:focus {
 select,
 option,
 input[list] {
-  font-family: var(--dm-font-display);
-  letter-spacing: 0.025em;
+  font-family: var(--dm-font-body);
+  font-size: 1em;
+  letter-spacing: normal;
 }
 
 option { background: var(--dm-panel); color: var(--dm-text); }
