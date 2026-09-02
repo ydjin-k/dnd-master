@@ -341,6 +341,9 @@ describe("CharacterWizard", () => {
     );
     expect(character.coins.gold).toBe(15);
     expect(character.inventory.length).toBeGreaterThan(0);
+    // characters-starting-equipment-weight-fix: стартовое снаряжение (класс + предыстория)
+    // подставляет вес из каталога (catalogWeightLb), а не оставляет weightLb: 0 по умолчанию.
+    expect(character.inventory.some((item) => item.weightLb > 0)).toBe(true);
   });
 
   it("has the full Acolyte-plus-12-archetypes set of backgrounds", () => {
