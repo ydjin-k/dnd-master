@@ -1,4 +1,5 @@
 import type { RuleBlock } from "../state/types";
+import { EmphasizedText } from "./EmphasizedText";
 import "./RuleBlockView.css";
 
 export function RuleBlockView({ block }: { block: RuleBlock }) {
@@ -8,12 +9,12 @@ export function RuleBlockView({ block }: { block: RuleBlock }) {
       return <Tag className="rule-block__heading">{block.text}</Tag>;
     }
     case "paragraph":
-      return <p>{block.text}</p>;
+      return <p><EmphasizedText>{block.text}</EmphasizedText></p>;
     case "list":
       return (
         <ul>
           {block.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}><EmphasizedText>{item}</EmphasizedText></li>
           ))}
         </ul>
       );
@@ -25,7 +26,7 @@ export function RuleBlockView({ block }: { block: RuleBlock }) {
               {block.rows.map((row, i) => (
                 <tr key={i}>
                   {row.map((cell, j) => (
-                    <td key={j}>{cell}</td>
+                    <td key={j}><EmphasizedText>{cell}</EmphasizedText></td>
                   ))}
                 </tr>
               ))}
