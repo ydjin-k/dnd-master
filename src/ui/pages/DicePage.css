@@ -1,83 +1,30 @@
-.dice-page__quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5em;
-  margin-bottom: 1em;
-}
-
-.dice-page__quick button {
-  min-width: 76px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35em;
-  font-family: var(--dm-font-display);
-}
-
-.dice-page__expression,
-.dice-page__manual {
-  display: flex;
-  gap: 0.5em;
-  margin-bottom: 1em;
-}
-
-.dice-page__expression input,
-.dice-page__manual input {
-  flex: 1;
-}
-
-.dice-page__log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35em;
-}
-
-.dice-log-entry {
-  display: flex;
-  align-items: center;
-  gap: 0.75em;
-  background: var(--dm-panel);
-  border: 1px solid var(--dm-border);
-  border-radius: 14px;
-  padding: 0.65em 0.85em;
-  background: linear-gradient(135deg, rgba(23, 40, 74, 0.96), rgba(13, 25, 49, 0.96));
-  box-shadow: 0 8px 20px var(--dm-shadow);
-}
-
-.dice-log-entry__expr {
-  color: var(--dm-text-muted);
-  min-width: 5em;
-}
-
-.dice-log-entry__total {
-  font-family: var(--dm-font-display);
-  color: var(--dm-accent);
-  font-size: 1.2em;
-}
-
-.dice-log-entry__detail {
-  color: var(--dm-text-muted);
-  font-size: 0.85em;
-}
-
-.dice-log-entry__error {
-  color: var(--dm-danger);
-}
-
-.dice-icon {
-  display: inline-flex;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
-  color: var(--dm-accent);
-  filter: drop-shadow(0 0 7px rgba(114, 214, 208, 0.25));
-}
-
+.dice-page__roller { display: grid; gap: 1em; padding: 1em; margin-bottom: 1em; border: 1px solid var(--dm-border); border-radius: 14px; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); }
+.dice-page__dice-picker { display: flex; flex-wrap: wrap; gap: .5em; margin: 0; padding: 0; border: 0; }
+.dice-page__dice-picker legend { width: 100%; margin-bottom: .35em; color: var(--dm-text-muted); }
+.dice-page__dice-picker button, .dice-page__roll { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .35em; font-family: var(--dm-font-display); }
+.dice-page__dice-picker button { min-width: 72px; }
+.dice-page__dice-picker button.is-selected { color: var(--dm-accent); border-color: var(--dm-accent); box-shadow: 0 0 12px rgba(114, 214, 208, .25); }
+.dice-page__selectors { display: flex; flex-wrap: wrap; gap: .75em; }
+.dice-page__selectors label { display: grid; gap: .3em; color: var(--dm-text-muted); }
+.dice-page__selectors select { min-height: 44px; }
+.dice-page__selectors label:last-child select { min-width: 12em; }
+.dice-page__roll { justify-self: start; min-width: 132px; }
+.dice-page__rolling-icon { display: inline-flex; }
+.dice-page__rolling-icon.is-rolling { animation: dice-roll 550ms ease-in-out; }
+@keyframes dice-roll { 0% { transform: rotate(0) scale(.9); } 35% { transform: rotate(155deg) scale(1.15) translateY(-3px); } 70% { transform: rotate(285deg) scale(.95) translateY(2px); } 100% { transform: rotate(360deg) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .dice-page__rolling-icon.is-rolling { animation: none; } }
+.dice-page__manual { display: flex; align-items: center; gap: .5em; margin-bottom: 1em; }
+.dice-page__manual input { width: 5ch; min-height: 44px; flex: 0 0 5ch; }
+.dice-page__manual button { min-height: 44px; }
+.dice-page__log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35em; }
+.dice-log-entry { display: flex; align-items: center; gap: .75em; border: 1px solid var(--dm-border); border-radius: 14px; padding: .65em .85em; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); }
+.dice-log-entry__expr { color: var(--dm-text-muted); min-width: 5em; }
+.dice-log-entry__total { font-family: var(--dm-font-display); color: var(--dm-accent); font-size: 1.2em; }
+.dice-log-entry__detail { color: var(--dm-text-muted); font-size: .85em; }
+.dice-log-entry__error { color: var(--dm-danger); }
+.dice-icon { display: inline-flex; width: 54px; height: 54px; flex: 0 0 54px; color: var(--dm-accent); filter: drop-shadow(0 0 7px rgba(114, 214, 208, .25)); }
 .dice-icon svg { width: 100%; height: 100%; overflow: visible; }
-.dice-icon__shape { fill: rgba(68, 48, 105, 0.56); stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; }
+.dice-icon__shape { fill: rgba(68, 48, 105, .56); stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; }
 .dice-icon__value { fill: var(--dm-text); stroke: #101d38; stroke-width: 2.5px; paint-order: stroke; font: 700 15px var(--dm-font-display); }
 .dice-icon__multiplier { fill: var(--dm-secondary); font: 700 7px var(--dm-font-display); }
 .dice-icon--compact { width: 27px; height: 27px; flex-basis: 27px; }
