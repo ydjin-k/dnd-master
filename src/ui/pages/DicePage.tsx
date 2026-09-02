@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { Children, useRef, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RollResult } from "../../state/types";
 import { DiceIcon, dieSidesFromExpression, type DieSides } from "../DiceIcon";
@@ -9,8 +9,36 @@ const COUNTS = Array.from({ length: 100 }, (_, index) => index + 1);
 const MODIFIERS = Array.from({ length: 41 }, (_, index) => index - 20);
 const ROLL_ANIMATION_MS = 550;
 type RollMode = "normal" | "adv" | "dis";
+type SelectorName = "count" | "modifier" | "mode";
 
 interface LogItem { id: string; label: string; result?: RollResult; error?: string; manual?: number; }
+
+interface InlineSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  children: ReactNode;
+  expanded: boolean;
+  label: string;
+  onCollapse: () => void;
+  onExpand: () => void;
+}
+
+function InlineSelect({ children, expanded, label, onCollapse, onExpand, ...props }: InlineSelectProps) {
+  return <label>{label}<select
+    {...props}
+    aria-label={props["aria-label"] ?? label}
+    size={expanded ? Math.min(6, Children.count(children)) : 1}
+    onBlur={(event) => { onCollapse(); props.onBlur?.(event); }}
+    onFocus={(event) => { onExpand(); props.onFocus?.(event); }}
+    onPointerDown={(event) => {
+      if (!expanded) {
+        event.preventDefault();
+        const select = event.currentTarget;
+        onExpand();
+        window.requestAnimationFrame(() => select.focus());
+      }
+      props.onPointerDown?.(event);
+    }}
+  >{children}</select></label>;
+}
 
 function buildExpression(sides: DieSides, count: number, modifier: number, mode: RollMode) {
   return `${count === 1 ? "" : count}d${sides}${modifier === 0 ? "" : modifier > 0 ? `+${modifier}` : modifier}${mode === "normal" ? "" : mode}`;
@@ -23,6 +51,7 @@ export function DicePage() {
   const [count, setCount] = useState(1);
   const [modifier, setModifier] = useState(0);
   const [mode, setMode] = useState<RollMode>("normal");
+  const [expandedSelector, setExpandedSelector] = useState<SelectorName | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [manualValue, setManualValue] = useState("");
   const [log, setLog] = useState<LogItem[]>([]);
@@ -64,15 +93,15 @@ export function DicePage() {
         </button>)}
       </fieldset>
       <div className="dice-page__selectors">
-        <label>Количество<select aria-label="Количество костей" value={count} onChange={(event) => setCount(Number(event.currentTarget.value))}>
+        <InlineSelect label="Количество" aria-label="Количество костей" expanded={expandedSelector === "count"} onExpand={() => setExpandedSelector("count")} onCollapse={() => setExpandedSelector(null)} value={count} onChange={(event) => { setCount(Number(event.currentTarget.value)); setExpandedSelector(null); }}>
           {COUNTS.map((value) => <option key={value} value={value}>{value}</option>)}
-        </select></label>
-        <label>Модификатор<select aria-label="Модификатор" value={modifier} onChange={(event) => setModifier(Number(event.currentTarget.value))}>
+        </InlineSelect>
+        <InlineSelect label="Модификатор" aria-label="Модификатор" expanded={expandedSelector === "modifier"} onExpand={() => setExpandedSelector("modifier")} onCollapse={() => setExpandedSelector(null)} value={modifier} onChange={(event) => { setModifier(Number(event.currentTarget.value)); setExpandedSelector(null); }}>
           {MODIFIERS.map((value) => <option key={value} value={value}>{value > 0 ? `+${value}` : value}</option>)}
-        </select></label>
-        <label>Режим<select aria-label="Преимущество или помеха" value={mode} onChange={(event) => setMode(event.currentTarget.value as RollMode)}>
+        </InlineSelect>
+        <InlineSelect label="Режим" aria-label="Преимущество или помеха" expanded={expandedSelector === "mode"} onExpand={() => setExpandedSelector("mode")} onCollapse={() => setExpandedSelector(null)} value={mode} onChange={(event) => { setMode(event.currentTarget.value as RollMode); setExpandedSelector(null); }}>
           <option value="normal">Обычный</option><option value="adv">Преимущество</option><option value="dis">Помеха</option>
-        </select></label>
+        </InlineSelect>
       </div>
       <button className="dice-page__roll" type="button" aria-label="Бросить" onClick={roll} disabled={isRolling}>
         <span className={`dice-page__rolling-icon${isRolling ? " is-rolling" : ""}`}><DiceIcon sides={sides} compact /></span>

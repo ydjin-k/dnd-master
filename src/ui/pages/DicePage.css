@@ -4,9 +4,11 @@
 .dice-page__dice-picker button, .dice-page__roll { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .35em; font-family: var(--dm-font-display); }
 .dice-page__dice-picker button { min-width: 72px; }
 .dice-page__dice-picker button.is-selected { color: var(--dm-accent); border-color: var(--dm-accent); box-shadow: 0 0 12px rgba(114, 214, 208, .25); }
-.dice-page__selectors { display: flex; flex-wrap: wrap; gap: .75em; }
-.dice-page__selectors label { display: grid; gap: .3em; color: var(--dm-text-muted); }
-.dice-page__selectors select { min-height: 44px; }
+.dice-page__selectors { display: flex; flex-wrap: wrap; align-items: start; gap: .75em; }
+.dice-page__selectors label { display: grid; align-content: start; gap: .3em; color: var(--dm-text-muted); }
+.dice-page__selectors select { min-height: 44px; overflow-y: auto; }
+.dice-page__selectors select[size]:not([size="1"]) { min-height: 0; padding-block: .25em; }
+.dice-page__selectors select[size]:not([size="1"]) option { min-height: 44px; padding: .65em .75em; }
 .dice-page__selectors label:last-child select { min-width: 12em; }
 .dice-page__roll { justify-self: start; min-width: 132px; }
 .dice-page__rolling-icon { display: inline-flex; }
