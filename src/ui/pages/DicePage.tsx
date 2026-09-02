@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { playDiceRollSound } from "../../audio/uiSounds";
 import type { RollResult } from "../../state/types";
 import "./DicePage.css";
 
@@ -21,6 +22,7 @@ export function DicePage() {
   async function roll(expr: string) {
     try {
       const result = await invoke<RollResult>("roll_dice", { expression: expr });
+      playDiceRollSound();
       setLog((prev) => [{ id: crypto.randomUUID(), label: expr, result }, ...prev]);
     } catch (e) {
       setLog((prev) => [{ id: crypto.randomUUID(), label: expr, error: String(e) }, ...prev]);
