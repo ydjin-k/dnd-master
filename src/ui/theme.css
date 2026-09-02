@@ -19,15 +19,19 @@
 }
 
 :root {
-  --dm-bg: #1a1410;
-  --dm-panel: #241c15;
-  --dm-panel-raised: #2e2419;
-  --dm-border: #4a3a26;
-  --dm-text: #e8dcc4;
-  --dm-text-muted: #a8977d;
-  --dm-accent: #c9a227;
-  --dm-accent-hover: #e0b830;
-  --dm-danger: #a8402f;
+  --dm-bg: #081126;
+  --dm-panel: #101d38;
+  --dm-panel-raised: #17284a;
+  --dm-panel-glow: #21345b;
+  --dm-border: #3c5578;
+  --dm-border-bright: #72d6d0;
+  --dm-text: #e8f4ff;
+  --dm-text-muted: #9db9d5;
+  --dm-accent: #72d6d0;
+  --dm-accent-hover: #b4fff7;
+  --dm-secondary: #d39bee;
+  --dm-danger: #ff7f9a;
+  --dm-shadow: rgba(1, 6, 18, 0.48);
 
   --dm-font-display: "Asset Fantasy", Georgia, "Palatino Linotype", serif;
   --dm-font-body: "Source Serif 4", Georgia, serif;
@@ -45,7 +49,10 @@ body {
 }
 
 body {
-  background: var(--dm-bg);
+  background:
+    radial-gradient(circle at 82% 8%, rgba(105, 67, 158, 0.3), transparent 33%),
+    radial-gradient(circle at 17% 90%, rgba(55, 160, 164, 0.16), transparent 38%),
+    var(--dm-bg);
   color: var(--dm-text);
   font-family: var(--dm-font-body);
   font-size: 16px;
@@ -66,6 +73,7 @@ h3 {
   font-weight: 400;
   letter-spacing: 0.035em;
   line-height: 1.18;
+  text-shadow: 0 0 18px rgba(114, 214, 208, 0.26);
 }
 
 h1 { font-size: 2rem; }
@@ -79,44 +87,96 @@ dd {
 }
 
 strong {
-  color: #f3e3bd;
+  color: #f0d6ff;
   font-weight: 750;
 }
 
 .typography-term-line {
-  color: #f3e3bd;
+  color: #f0d6ff;
   font-weight: 750;
 }
 
 button {
   font-family: var(--dm-font-body);
-  background: var(--dm-panel-raised);
+  min-height: 44px;
+  background: linear-gradient(145deg, var(--dm-panel-glow), var(--dm-panel-raised));
   color: var(--dm-text);
   border: 1px solid var(--dm-border);
-  border-radius: 4px;
+  border-radius: 10px;
   padding: 0.5em 1em;
   cursor: pointer;
   font-weight: 650;
   letter-spacing: 0.01em;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 5px 14px var(--dm-shadow);
+  transition: border-color 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
 button:hover {
   border-color: var(--dm-accent);
   color: var(--dm-accent-hover);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), 0 0 15px rgba(114, 214, 208, 0.17);
+  transform: translateY(-1px);
 }
 
+button:active { transform: translateY(1px); }
+button:disabled { cursor: not-allowed; opacity: 0.42; transform: none; box-shadow: none; }
+
 input,
-textarea {
+textarea,
+select {
   font-family: var(--dm-font-body);
-  background: var(--dm-bg);
+  min-height: 44px;
+  background: rgba(7, 15, 33, 0.88);
   color: var(--dm-text);
   border: 1px solid var(--dm-border);
-  border-radius: 4px;
-  padding: 0.4em 0.6em;
+  border-radius: 10px;
+  padding: 0.55em 0.75em;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--dm-accent);
+  box-shadow: 0 0 0 3px rgba(114, 214, 208, 0.13), inset 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+select,
+option,
+input[list] {
+  font-family: var(--dm-font-display);
+  letter-spacing: 0.025em;
+}
+
+option { background: var(--dm-panel); color: var(--dm-text); }
+::placeholder { color: #718ca9; opacity: 1; }
+::selection { color: #081126; background: var(--dm-accent); }
+a { color: var(--dm-accent); }
+a:hover { color: var(--dm-secondary); }
+hr { border: 0; border-top: 1px solid var(--dm-border); }
+table { border-color: var(--dm-border); }
+th { color: var(--dm-accent); font-family: var(--dm-font-display); letter-spacing: 0.025em; }
+summary { font-family: var(--dm-font-display); letter-spacing: 0.025em; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: #09142a; }
+::-webkit-scrollbar-thumb { background: #344f70; border: 2px solid #09142a; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #548c9d; }
+
+.ui-icon { width: 1.35em; height: 1.35em; flex: 0 0 auto; filter: drop-shadow(0 0 5px rgba(114, 214, 208, 0.18)); }
+
+.adventure-page__scene,
+.character-card,
+.journal-entry,
+.journal-page__form,
+.wizard,
+.rule-block__table-wrap,
+.spell-view,
+.bestiary-statblock,
+.combat-sidebar,
+.launcher__item {
+  background: linear-gradient(145deg, rgba(23, 40, 74, 0.95), rgba(13, 25, 49, 0.95));
+  border: 1px solid var(--dm-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 36px var(--dm-shadow), inset 0 1px rgba(255, 255, 255, 0.035);
 }

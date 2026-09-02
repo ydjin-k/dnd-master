@@ -32,7 +32,7 @@ describe("DicePage", () => {
     render(<DicePage />);
 
     fireEvent.click(screen.getByText("d20"));
-    await waitFor(() => expect(screen.getByText("4")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Кость d20, результат 4")).toBeInTheDocument());
 
     const manualInput = screen.getByPlaceholderText(/результат броска в реальности/);
     fireEvent.change(manualInput, { target: { value: "17" } });
@@ -61,5 +61,16 @@ describe("DicePage", () => {
 
     await waitFor(() => expect(screen.getByText("Error: bad expression")).toBeInTheDocument());
     expect(playDiceRollSoundMock).not.toHaveBeenCalled();
+  });
+
+  it("renders distinct die shapes in the roll log", async () => {
+    render(<DicePage />);
+    fireEvent.click(screen.getByText("d4"));
+    fireEvent.click(screen.getByText("d6"));
+    fireEvent.click(screen.getByText("d20"));
+
+    await waitFor(() => expect(screen.getByLabelText("Кость d20, результат 4")).toBeInTheDocument());
+    expect(screen.getByLabelText("Кость d4, результат 4")).toHaveAttribute("data-die", "d4");
+    expect(screen.getByLabelText("Кость d6, результат 4")).toHaveAttribute("data-die", "d6");
   });
 });
