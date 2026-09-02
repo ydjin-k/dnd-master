@@ -23,6 +23,7 @@ interface CampaignContextValue {
   removeCharacter: (id: string) => Promise<void>;
   updateCharacter: (id: string, updater: (character: Character) => Character) => Promise<void>;
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
+  removeJournalEntry: (id: string) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
   startAdventure: () => Promise<void>;
   chooseOption: (optionId: string) => Promise<void>;
@@ -92,6 +93,13 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const addJournalEntry = useCallback(
     async (entry: JournalEntry) => {
       await persist({ ...state, journal: [...state.journal, entry] });
+    },
+    [state, persist],
+  );
+
+  const removeJournalEntry = useCallback(
+    async (id: string) => {
+      await persist({ ...state, journal: state.journal.filter((entry) => entry.id !== id) });
     },
     [state, persist],
   );
@@ -197,6 +205,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         removeCharacter,
         updateCharacter,
         addJournalEntry,
+        removeJournalEntry,
         setCampaignName,
         startAdventure,
         chooseOption,

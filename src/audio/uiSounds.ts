@@ -75,6 +75,41 @@ export function playDiceRollSound() {
   source.stop(now + duration);
 }
 
+export function playQuillWritingSound() {
+  const audio = getAudioContext();
+  if (!audio) return;
+
+  const now = audio.currentTime;
+  const duration = 0.42;
+  const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+  const samples = buffer.getChannelData(0);
+
+  for (let i = 0; i < samples.length; i += 1) {
+    const progress = i / samples.length;
+    const stroke = 0.45 + Math.sin(progress * Math.PI * 18) * 0.22;
+    const envelope = Math.sin(progress * Math.PI);
+    samples[i] = (Math.random() * 2 - 1) * stroke * envelope;
+  }
+
+  const source = audio.createBufferSource();
+  const filter = audio.createBiquadFilter();
+  const gain = audio.createGain();
+  source.buffer = buffer;
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1850, now);
+  filter.frequency.linearRampToValueAtTime(1150, now + duration);
+  filter.Q.value = 1.4;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.07, now + 0.035);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audio.destination);
+  source.start(now);
+  source.stop(now + duration);
+}
+
 export function installButtonClickSound(
   owner: Document = document,
   play: () => void = playButtonClickSound,
