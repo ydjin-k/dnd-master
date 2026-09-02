@@ -98,6 +98,9 @@ vi.mock("@tauri-apps/api/core", () => ({
   }),
 }));
 
+const sounds = vi.hoisted(() => ({ playCoinsSound: vi.fn(), playDiceRollSound: vi.fn(), playLimitSound: vi.fn() }));
+vi.mock("../audio/uiSounds", () => sounds);
+
 const addCharacter = vi.fn();
 vi.mock("../state/CampaignContext", () => ({
   useCampaign: () => ({ addCharacter }),
@@ -272,12 +275,12 @@ describe("CharacterWizard", () => {
       fireEvent.click(addButton);
     }
     expect(await screen.findByText(/7\/7/)).toBeInTheDocument();
-    expect(addButton).toBeDisabled();
+    expect(addButton).toHaveAttribute("aria-disabled", "true");
 
     // Removing one frees up a slot again.
     fireEvent.click(screen.getAllByText("✕")[0]);
     await screen.findByText(/6\/7/);
-    expect(addButton).not.toBeDisabled();
+    expect(addButton).toHaveAttribute("aria-disabled", "false");
   });
 
   it("offers the full item catalog (not just adventuring gear) for custom background equipment", async () => {
@@ -446,6 +449,7 @@ describe("CharacterWizard", () => {
 
   it("rolling ability scores fills the manual fields, which stay freely editable afterward", async () => {
     addCharacter.mockClear();
+    sounds.playDiceRollSound.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
@@ -461,6 +465,7 @@ describe("CharacterWizard", () => {
 
     fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
     fireEvent.click(screen.getByText("Бросить кубики"));
+    expect(sounds.playDiceRollSound).toHaveBeenCalledOnce();
     await screen.findByText(/Выпало/);
 
     // abilityRolls fixture totals are [15, 14, 13, 11, 9, 7], filled in
@@ -947,6 +952,7 @@ describe("CharacterWizard", () => {
 
   it("clamps a typed age above the visible limit to that limit, and shows the limit as text", async () => {
     addCharacter.mockClear();
+    sounds.playLimitSound.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
@@ -970,6 +976,8 @@ describe("CharacterWizard", () => {
     expect(screen.getByText(/Возраст \(до 500 лет\)/)).toBeInTheDocument();
     const ageInput = document.querySelector('input[type="number"]') as HTMLInputElement;
     fireEvent.change(ageInput, { target: { value: "99999" } });
+    expect(ageInput).toHaveClass("character-card__danger");
+    expect(sounds.playLimitSound).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByText("Создать персонажа"));
 
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));

@@ -46,6 +46,24 @@
   border-color: var(--dm-accent);
 }
 
+.character-card__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.character-card__collapse {
+  min-height: 44px;
+  font-size: 0.8em;
+  padding: 0.25em 0.65em;
+}
+
+.character-card__compact-meta {
+  color: var(--dm-text-muted);
+  font-size: 0.9em;
+  margin-top: 0.25em;
+}
+
 .character-card__meta,
 .character-card__hp,
 .character-card__prof {
@@ -163,6 +181,36 @@
 
 .character-card__item span:first-child {
   flex: 1;
+}
+
+.character-card__coin-row {
+  width: max-content;
+  gap: 0.3em;
+}
+
+.coin-icon {
+  display: inline-flex;
+  width: 2em;
+  height: 2em;
+  flex: 0 0 2em;
+}
+
+.coin-icon svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.character-card__coin-row button {
+  min-width: 44px;
+  padding-inline: 0.65em;
+}
+
+.character-card__coin-count {
+  min-width: 3ch;
+  text-align: center;
+  font-weight: 700;
+  color: var(--dm-accent);
 }
 
 .character-card__conditions {

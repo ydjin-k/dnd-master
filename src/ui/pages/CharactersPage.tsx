@@ -35,6 +35,8 @@ import {
 } from "../characterCreationData";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
+import { CoinIcon } from "../CoinIcon";
+import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
 type Panel = "none" | "wizard";
@@ -119,6 +121,7 @@ function CharacterCard({
   conditionEffects,
   classHitDiceByTitle,
   raceHpBonusByTitle,
+  collapsible,
   onRemove,
   onUpdate,
 }: {
@@ -127,6 +130,7 @@ function CharacterCard({
   conditionEffects: Record<string, string[]>;
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
+  collapsible: boolean;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -136,8 +140,11 @@ function CharacterCard({
   const [asiPanelOpen, setAsiPanelOpen] = useState(false);
   const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
+  const [collapsed, setCollapsed] = useState(false);
 
   function adjustCoin(key: keyof Coins, delta: number) {
+    if (delta < 0 && c.coins[key] === 0) return;
+    playCoinsSound();
     onUpdate((ch) => ({ ...ch, coins: { ...ch.coins, [key]: Math.max(0, ch.coins[key] + delta) } }));
   }
 
@@ -198,6 +205,7 @@ function CharacterCard({
   }
 
   function useSpellSlot() {
+    playSpellCastSound();
     onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: Math.max(0, ch.spellSlotsLevel1Current - 1) }));
   }
 
@@ -232,12 +240,16 @@ function CharacterCard({
       currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
       subclass: grantedSubclass ?? ch.subclass,
     }));
+    playLevelUpSound();
   }
 
   /** На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см. confirmAsi). */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
-    if (!canLevelUp(c.level, c.experiencePoints)) return;
+    if (!canLevelUp(c.level, c.experiencePoints)) {
+      playLimitSound();
+      return;
+    }
     if (c.level + 1 === 4) {
       setAsiMode("plus2");
       setAsiKeys([]);
@@ -319,11 +331,18 @@ function CharacterCard({
   return (
     <li className="character-card">
       <div className="character-card__name">
-        {c.name}
-        <button className="character-card__delete" title="Удалить персонажа" onClick={onRemove}>
-          ✕
-        </button>
+        <span>{c.name}</span>
+        <span className="character-card__header-actions">
+          {collapsible && (
+            <button type="button" className="character-card__collapse" aria-expanded={!collapsed} aria-label={`${collapsed ? "Развернуть" : "Свернуть"} карточку ${c.name}`} onClick={() => setCollapsed((value) => !value)}>
+              {collapsed ? "Развернуть" : "Свернуть"}
+            </button>
+          )}
+          <button className="character-card__delete" title="Удалить персонажа" onClick={onRemove}>✕</button>
+        </span>
       </div>
+      {collapsed && <div className="character-card__compact-meta">{c.class || "класс не указан"} · ур. {c.level} · HP {c.currentHp}/{c.maxHp}</div>}
+      {!collapsed && <div className="character-card__body">
       <div className="character-card__meta">
         {c.race || "раса не указана"} · {c.class || "класс не указан"}
         {c.subclass && <> ({c.subclass})</>}
@@ -353,7 +372,9 @@ function CharacterCard({
         <button
           type="button"
           onClick={requestLevelUp}
-          disabled={c.level >= MAX_LEVEL || asiPanelOpen || !levelUpReady}
+          disabled={c.level >= MAX_LEVEL || asiPanelOpen}
+          aria-disabled={!levelUpReady}
+          className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
         >
           {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
         </button>
@@ -488,9 +509,10 @@ function CharacterCard({
               <span>{item.quantity}</span>
               <button
                 type="button"
-                disabled={wouldExceedCapacity(item.weightLb)}
+                aria-disabled={wouldExceedCapacity(item.weightLb)}
+                className={wouldExceedCapacity(item.weightLb) ? "character-card__danger" : undefined}
                 title={wouldExceedCapacity(item.weightLb) ? "Достигнута максимальная грузоподъёмность" : undefined}
-                onClick={() => adjustItemQuantity(item.id, 1)}
+                onClick={() => wouldExceedCapacity(item.weightLb) ? playLimitSound() : adjustItemQuantity(item.id, 1)}
               >
                 +
               </button>
@@ -518,7 +540,7 @@ function CharacterCard({
               );
             })}
           </datalist>
-          <button type="button" disabled={addItemBlocked} onClick={addItem}>
+          <button type="button" aria-disabled={addItemBlocked} className={addItemBlocked ? "character-card__danger" : undefined} onClick={() => addItemBlocked ? playLimitSound() : addItem()}>
             Добавить
           </button>
           {addItemBlocked && (
@@ -530,14 +552,14 @@ function CharacterCard({
       <details className="character-card__coins" open>
         <summary>Деньги (итого {coinsTotalGold(c.coins)} зм)</summary>
         <ul>
-          {COIN_DENOMINATIONS.map(({ key, label }) => (
-            <li key={key} className="character-card__item">
-              <span>{label}</span>
-              <button type="button" onClick={() => adjustCoin(key, -1)}>
+          {COIN_DENOMINATIONS.map((denomination) => (
+            <li key={denomination.key} className="character-card__item character-card__coin-row">
+              <CoinIcon denomination={denomination} />
+              <button type="button" onClick={() => adjustCoin(denomination.key, -1)}>
                 −
               </button>
-              <span>{c.coins[key]}</span>
-              <button type="button" onClick={() => adjustCoin(key, 1)}>
+              <span className="character-card__coin-count">{c.coins[denomination.key]}</span>
+              <button type="button" onClick={() => adjustCoin(denomination.key, 1)}>
                 +
               </button>
             </li>
@@ -637,6 +659,7 @@ function CharacterCard({
           )}
         </details>
       )}
+      </div>}
     </li>
   );
 }
@@ -698,6 +721,7 @@ export function CharactersPage() {
             conditionEffects={conditionEffects}
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
+            collapsible={state.characters.length > 1}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);

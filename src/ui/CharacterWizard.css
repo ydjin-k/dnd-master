@@ -280,3 +280,10 @@
   color: var(--dm-danger);
   font-style: normal;
 }
+
+.wizard input.character-card__danger,
+.wizard button.character-card__danger {
+  border-color: var(--dm-danger);
+  color: var(--dm-danger);
+  background: rgba(168, 64, 47, 0.14);
+}
