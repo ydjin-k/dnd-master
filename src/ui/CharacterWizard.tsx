@@ -1362,11 +1362,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </ul>
             </li>
             <li>
-              Снаряжение:{" "}
+              <strong>Снаряжение:</strong>{" "}
               {inventoryItems.length > 0
                 ? inventoryItems.map((item, index) => (
                     <Fragment key={`${item}-${index}`}>
-                      {index > 0 ? ", " : ""}<strong>{item}</strong>
+                      {index > 0 ? ", " : ""}{item}
                     </Fragment>
                   ))
                 : "—"}

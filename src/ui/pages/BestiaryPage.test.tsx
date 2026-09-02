@@ -1,7 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
 import { BestiaryPage } from "./BestiaryPage";
 import type { MonsterTemplate } from "../../state/types";
+
+const invokeMock = vi.mocked(invoke);
 
 const monsters: MonsterTemplate[] = [
   {
@@ -49,6 +52,8 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 describe("BestiaryPage", () => {
+  beforeEach(() => invokeMock.mockClear());
+
   it("loads monsters, shows the first one's stat block by default, and switches on click", async () => {
     render(<BestiaryPage />);
 
@@ -70,5 +75,16 @@ describe("BestiaryPage", () => {
 
     await waitFor(() => expect(screen.queryByText("Разбойник")).not.toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument();
+  });
+
+  it("preloads each available image once and shares it between the list and detail", async () => {
+    render(<BestiaryPage />);
+
+    const portraits = await screen.findAllByRole("img", { name: "Волк" });
+    expect(portraits).toHaveLength(2);
+    expect(portraits.every((portrait) => portrait.getAttribute("src")?.startsWith("data:image/"))).toBe(true);
+    expect(
+      invokeMock.mock.calls.filter(([command]) => command === "get_bestiary_image"),
+    ).toHaveLength(1);
   });
 });
