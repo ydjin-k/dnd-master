@@ -96,6 +96,10 @@ describe("CharactersPage", () => {
       age: 0,
       languages: [],
       level: 1,
+      // Высокий запас опыта по умолчанию — level-up тесты в этом файле не про XP-гейтинг
+      // (characters-experience-and-levelup-gating) и не должны на него наткнуться;
+      // граничные значения порога проверяются отдельными тестами ниже.
+      experiencePoints: 999999,
       abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
       maxHp: 10,
       currentHp: 10,
@@ -130,6 +134,7 @@ describe("CharactersPage", () => {
           age: 0,
           languages: [],
           level: 1,
+          experiencePoints: 0,
           abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
           maxHp: 10,
           currentHp: 10,
@@ -219,24 +224,60 @@ describe("CharactersPage", () => {
     expect(current.inventory).toHaveLength(0);
   });
 
-  it("shows a Перегрузка! warning once carried weight exceeds Сила × 15, hidden once it drops back under", () => {
-    // Сила 10 -> грузоподъёмность 150 фнт (characters-carrying-capacity).
-    const heavy = {
+  // Сила 10 -> грузоподъёмность 150 фнт, пороги нагрузки 50/100 фнт (characters-encumbrance-tiers).
+  function withWeight(weightLb: number) {
+    return {
       ...characterWithInventory(),
-      inventory: [{ id: "armor-1", name: "Кольчуга", quantity: 3, notes: "", weightLb: 55 }], // 165 фнт
+      inventory: [{ id: "load-1", name: "Груз", quantity: 1, notes: "", weightLb }],
     };
-    mockState = baseState({ characters: [heavy] });
-    const { unmount } = render(<CharactersPage />);
-    expect(screen.getByText("Перегрузка!")).toBeInTheDocument();
-    unmount();
+  }
 
-    const light = {
-      ...heavy,
-      inventory: [{ id: "armor-1", name: "Кольчуга", quantity: 1, notes: "", weightLb: 55 }], // 55 фнт
-    };
-    mockState = baseState({ characters: [light] });
+  it("shows no encumbrance tier and full speed under 50 фнт", () => {
+    mockState = baseState({ characters: [withWeight(40)] });
     render(<CharactersPage />);
-    expect(screen.queryByText("Перегрузка!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Нагружен")).not.toBeInTheDocument();
+    expect(screen.queryByText("Сильно нагружен")).not.toBeInTheDocument();
+    expect(screen.getByText(/Скорость 30 фт(?! \()/)).toBeInTheDocument();
+  });
+
+  it("60 фнт (> Сила×5): Нагружен, скорость реально падает на 10 (30 → 20)", () => {
+    mockState = baseState({ characters: [withWeight(60)] });
+    render(<CharactersPage />);
+    expect(screen.getByText("Нагружен")).toBeInTheDocument();
+    expect(screen.getByText(/Скорость 20 фт \(30 − 10, нагружен\)/)).toBeInTheDocument();
+    expect(screen.queryByText("Сильно нагружен")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Помеха на проверки/)).not.toBeInTheDocument();
+  });
+
+  it("110 фнт (> Сила×10): Сильно нагружен, скорость −20 (30 → 10), помеха-напоминание видна", () => {
+    mockState = baseState({ characters: [withWeight(110)] });
+    render(<CharactersPage />);
+    expect(screen.getByText("Сильно нагружен")).toBeInTheDocument();
+    expect(screen.getByText(/Скорость 10 фт \(30 − 20, сильно нагружен\)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Помеха на проверки характеристик, броски атаки и спасброски/),
+    ).toBeInTheDocument();
+  });
+
+  it("at exactly max carrying capacity (150 фнт), add-item and quantity-increase are disabled; decrease/remove stay enabled", () => {
+    mockState = baseState({ characters: [withWeight(150)] });
+    render(<CharactersPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // in catalog, weight > 0
+    expect(screen.getAllByText("Добавить")[0]).toBeDisabled();
+    expect(screen.getByText("Достигнута максимальная грузоподъёмность")).toBeInTheDocument();
+
+    const item = screen.getByText("Груз").closest("li") as HTMLElement;
+    expect(within(item).getByText("+")).toBeDisabled();
+    expect(within(item).getByText("−")).toBeEnabled();
+    expect(within(item).getByTitle("Убрать предмет")).toBeEnabled();
+  });
+
+  it("below max capacity, adding an item that would push weight over it is still disabled", () => {
+    mockState = baseState({ characters: [withWeight(145)] });
+    render(<CharactersPage />);
+    fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // ~10 фнт in catalog
+    expect(screen.getAllByText("Добавить")[0]).toBeDisabled();
   });
 
   it("adding a new item and a condition (typed, SRD or custom) calls updateCharacter correctly", async () => {
@@ -562,6 +603,52 @@ describe("CharactersPage", () => {
     expect(screen.getByText(/Всплеск действий/)).toBeInTheDocument(); // level 2 class feature
     expect(screen.getByText(/Улучшенные критические попадания/)).toBeInTheDocument(); // subclass feature at 3
     expect(screen.getByText(/Дополнительная атака/)).toBeInTheDocument(); // level 5 class feature
+  });
+
+  it("shows the XP row with the threshold for the next level, and adding XP updates it via updateCharacter", async () => {
+    mockState = baseState({ characters: [{ ...characterWithInventory(), experiencePoints: 150 }] });
+    render(<CharactersPage />);
+
+    expect(screen.getByText(/Опыт: 150 \/ 300 до 2 уровня/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Добавить опыт"), { target: { value: "50" } });
+    fireEvent.click(screen.getByText("Добавить опыт"));
+
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater({ ...characterWithInventory(), experiencePoints: 150 }).experiencePoints).toBe(200);
+  });
+
+  it("at max level (5), the XP row shows no threshold, just the total", () => {
+    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 5, experiencePoints: 7000 }] });
+    render(<CharactersPage />);
+    expect(screen.getByText(/Опыт: 7000 \(максимум уровня достигнут\)/)).toBeInTheDocument();
+  });
+
+  it("«Повысить уровень» is disabled below the XP threshold for each 1→2→3→4→5 transition, and enabled at/above it", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+    );
+    // level 1 -> 2 needs 300 XP.
+    const below = { ...characterWithInventory(), level: 1, experiencePoints: 299 };
+    mockState = baseState({ characters: [below] });
+    const { unmount } = render(<CharactersPage />);
+    expect(screen.getByText("Повысить уровень")).toBeDisabled();
+    unmount();
+
+    const atThreshold = { ...below, experiencePoints: 300 };
+    mockState = baseState({ characters: [atThreshold] });
+    render(<CharactersPage />);
+    expect(screen.getByText("Повысить уровень")).toBeEnabled();
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+  });
+
+  it("clicking a disabled «Повысить уровень» (XP below threshold) does not call updateCharacter (defense in depth beyond the disabled attribute)", () => {
+    const char = { ...characterWithInventory(), level: 1, experiencePoints: 0 };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    expect(updateCharacter).not.toHaveBeenCalled();
   });
 });
 

@@ -59,6 +59,26 @@
   font-size: 0.9em;
 }
 
+.character-card__danger--heavy {
+  background: rgba(168, 64, 47, 0.15);
+  border: 1px solid var(--dm-danger);
+  border-radius: 4px;
+  padding: 0.3em 0.5em;
+  margin: 0.3em 0;
+}
+
+.character-card__xp {
+  margin-top: 0.3em;
+  font-size: 0.9em;
+  color: var(--dm-text-muted);
+}
+
+.character-card__hint {
+  flex-basis: 100%;
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
 .character-card__level {
   margin-top: 0.3em;
   font-size: 0.9em;

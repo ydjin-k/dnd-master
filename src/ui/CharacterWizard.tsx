@@ -537,6 +537,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       age,
       languages: finalLanguages,
       level: 1,
+      experiencePoints: 0,
       abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,

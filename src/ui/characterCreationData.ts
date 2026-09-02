@@ -806,6 +806,31 @@ export function proficiencyBonusHint(level: number): string {
 }
 
 /**
+ * Опыт, необходимый для достижения уровня (индекс = уровень) — сверено по
+ * rules.json → character-beyond-1-level, таблица «Развитие персонажа».
+ * Табличные значения SRD, не формула — левелинг ограничен уровнями 1-5,
+ * см. characters-leveling-1-5.
+ */
+export const XP_THRESHOLDS: Record<number, number> = {
+  1: 0,
+  2: 300,
+  3: 900,
+  4: 2700,
+  5: 6500,
+};
+
+/** Опыт, нужный для следующего уровня — null на максимальном/неизвестном уровне (нет порога дальше). */
+export function xpNeededForNextLevel(level: number): number | null {
+  return XP_THRESHOLDS[level + 1] ?? null;
+}
+
+/** Достаточно ли накопленного опыта, чтобы повысить уровень — гейтинг кнопки «Повысить уровень». */
+export function canLevelUp(level: number, experiencePoints: number): boolean {
+  const needed = xpNeededForNextLevel(level);
+  return needed !== null && experiencePoints >= needed;
+}
+
+/**
  * Курс обмена номиналов SRD 5.1 (rules.json → equipment-coins), в медных
  * монетах: мм=1, см=10, эм=50, зм=100, пм=1000. Единственный владелец курса —
  * мастер персонажа и карточка берут значения отсюда, не задваивают.
@@ -880,6 +905,37 @@ export function catalogWeightLb(itemName: string): number {
 export function carryingCapacityLb(strength: number): number {
   return strength * 15;
 }
+
+export type EncumbranceLevel = "normal" | "encumbered" | "heavily-encumbered";
+
+/**
+ * Вариативное правило «Нагрузка» (rules.json → gameplay-abilities, дословно —
+ * см. карточку characters-encumbrance-tiers), поверх базовой грузоподъёмности
+ * (Сила × 15, carryingCapacityLb, остаётся жёстким потолком): вес > Сила×5 —
+ * нагружен, вес > Сила×10 (вплоть до потолка) — сильно нагружен.
+ */
+export function encumbranceLevel(totalWeightLb: number, strength: number): EncumbranceLevel {
+  if (totalWeightLb > strength * 10) return "heavily-encumbered";
+  if (totalWeightLb > strength * 5) return "encumbered";
+  return "normal";
+}
+
+/** Штраф к скорости в футах для уровня нагрузки (0 для обычного). */
+export function encumbranceSpeedPenaltyFeet(level: EncumbranceLevel): number {
+  if (level === "heavily-encumbered") return 20;
+  if (level === "encumbered") return 10;
+  return 0;
+}
+
+export const ENCUMBRANCE_LABELS: Record<EncumbranceLevel, string> = {
+  normal: "",
+  encumbered: "Нагружен",
+  "heavily-encumbered": "Сильно нагружен",
+};
+
+/** Дословно из rules.json → gameplay-abilities, часть про «сильно нагружен». */
+export const HEAVILY_ENCUMBERED_DISADVANTAGE_HINT =
+  "Помеха на проверки характеристик, броски атаки и спасброски, использующие Силу, Ловкость или Телосложение.";
 
 /** Суммарный вес инвентаря (без монет) — сумма веса единицы × количество по всем предметам. */
 export function inventoryWeightLb(inventory: { weightLb: number; quantity: number }[]): number {
