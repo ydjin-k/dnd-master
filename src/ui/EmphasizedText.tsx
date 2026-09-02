@@ -8,7 +8,8 @@ import type { ReactNode } from "react";
 export function EmphasizedText({ children }: { children: string }): ReactNode {
   const colon = children.indexOf(":");
   const period = children.indexOf(".");
-  const separator = colon > 0 && colon <= 80 ? colon : period > 0 && period <= 80 ? period : -1;
+  const candidates = [colon, period].filter((index) => index > 0 && index <= 80);
+  const separator = candidates.length > 0 ? Math.min(...candidates) : -1;
 
   if (separator === -1) return children;
 

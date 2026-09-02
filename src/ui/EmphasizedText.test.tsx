@@ -13,6 +13,12 @@ describe("EmphasizedText", () => {
     expect(screen.getByText("Острый нюх").tagName).toBe("STRONG");
   });
 
+  it("uses the earliest delimiter in a stat-block action", () => {
+    render(<p><EmphasizedText>Укус. Рукопашная атака: +4 к попаданию.</EmphasizedText></p>);
+    expect(screen.getByText("Укус").tagName).toBe("STRONG");
+    expect(screen.queryByText("Укус. Рукопашная атака")).not.toBeInTheDocument();
+  });
+
   it("leaves ordinary prose intact", () => {
     render(<p><EmphasizedText>Это обычный абзац без именованного свойства</EmphasizedText></p>);
     expect(screen.queryByRole("strong")).not.toBeInTheDocument();
