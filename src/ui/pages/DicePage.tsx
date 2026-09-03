@@ -1,12 +1,13 @@
-import { Children, useRef, useState, type ReactNode, type SelectHTMLAttributes } from "react";
+import { Children, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RollResult } from "../../state/types";
 import { DiceIcon, dieSidesFromExpression, type DieSides } from "../DiceIcon";
+import { playCriticalFailSound, playCriticalSuccessSound, playDiceRollSound } from "../../audio/uiSounds";
 import "./DicePage.css";
 
 const DICE_SIDES: DieSides[] = [4, 6, 8, 10, 12, 20, 100];
 const COUNTS = Array.from({ length: 100 }, (_, index) => index + 1);
-const MODIFIERS = Array.from({ length: 41 }, (_, index) => index - 20);
+const MODIFIERS = Array.from({ length: 21 }, (_, index) => index - 10);
 const ROLL_ANIMATION_MS = 550;
 type RollMode = "normal" | "adv" | "dis";
 type SelectorName = "count" | "modifier" | "mode";
@@ -55,18 +56,17 @@ export function DicePage() {
   const [isRolling, setIsRolling] = useState(false);
   const [manualValue, setManualValue] = useState("");
   const [log, setLog] = useState<LogItem[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   async function roll() {
     if (isRolling) return;
     const expression = buildExpression(sides, count, modifier, mode);
     setIsRolling(true);
-    const audio = audioRef.current ?? new Audio("/audio/dice-roll.wav");
-    audioRef.current = audio;
-    audio.currentTime = 0;
-    void audio.play().catch(() => undefined);
     try {
       const [result] = await Promise.all([invoke<RollResult>("roll_dice", { expression }), waitForRollAnimation()]);
+      const entrySides = dieSidesFromExpression(expression);
+      if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 20) playCriticalSuccessSound();
+      else if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 1) playCriticalFailSound();
+      else playDiceRollSound();
       setLog((prev) => [{ id: crypto.randomUUID(), label: expression, result }, ...prev]);
     } catch (e) {
       setLog((prev) => [{ id: crypto.randomUUID(), label: expression, error: String(e) }, ...prev]);
@@ -117,7 +117,9 @@ export function DicePage() {
       const showRollBreakdown = item.result && (item.result.rolls.length !== 1 || item.result.modifier !== 0);
       const showDetail = showRollBreakdown || Boolean(item.result?.dropped);
       return <li key={item.id} className="dice-log-entry">
-        {entrySides && <DiceIcon sides={entrySides} value={item.result?.total} />}
+        {entrySides && (item.result && item.result.rolls.length > 1
+          ? <span className="dice-log-entry__icons">{item.result.rolls.map((roll, index) => <DiceIcon key={index} sides={entrySides} value={roll} compact />)}</span>
+          : <DiceIcon sides={entrySides} value={item.result?.total} />)}
         <span className="dice-log-entry__expr">{item.label}</span>
         {item.result && <><span className="dice-log-entry__total">{item.result.total}</span>{showDetail && <span className="dice-log-entry__detail">
           {showRollBreakdown && <>[{item.result.rolls.join(", ")}]

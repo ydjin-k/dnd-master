@@ -38,15 +38,14 @@
    item.result.rolls.length === 1` → `rolls[0] === 20` играет звук крит. успеха, `rolls[0] === 1` —
    звук крит. провала (вместо обычного `playDiceRollSound`, не вместе с ним). Другие кости (d4/d6/d8/
    d10/d12/d100) и множественные d20 (`2d20` и т.п.) это правило не затрагивают — обычный звук.
-   **Обновление: звуки не синтезировать — владелец продукта уже положил готовые файлы**
-   `public/audio/dice-crit-success.mp3` и `public/audio/dice-crit-fail.mp3` (переименованы из его
-   исходных «Критический успех.mp3»/«Неудача.mp3» под конвенцию именования остальных файлов в
-   `public/audio/`). Добавить в `src/audio/uiSounds.ts` `playCriticalSuccessSound()`/
-   `playCriticalFailSound()` тем же паттерном, что уже есть у `playLevelUpSound`/`playCoinsSound`
-   (обёртка `playAudioFile("/audio/...", volume)` — обычный `<audio>`, не Web Audio/осцилляторы,
-   файлы уже готовы). Проигрывать в момент получения результата броска (`roll()` в `DicePage.tsx`,
-   после `invoke("roll_dice", …)`, вместо `dice-roll.wav` — не вместе с ним, как и раньше
-   формулировалось).
+   Новые звуки — готовые файлы от владельца продукта: `public/audio/dice-crit-success.mp3` и
+   `public/audio/dice-crit-fail.mp3` (переименованы из его исходных «Критический успех.mp3»/
+   «Неудача.mp3» под конвенцию именования остальных файлов в `public/audio/`). Добавить
+   `playCriticalSuccessSound()`/`playCriticalFailSound()` в `src/audio/uiSounds.ts` тем же паттерном,
+   что уже есть у `playLevelUpSound`/`playCoinsSound` (обёртка `playAudioFile(src, volume)` над
+   `<audio>`, без Web Audio/осцилляторов). Проигрывать в момент получения результата броска (`roll()`
+   в `DicePage.tsx`, после `invoke("roll_dice", …)`, аналогично тому, как сейчас там играется
+   `dice-roll.wav`).
 
 ## DoD
 

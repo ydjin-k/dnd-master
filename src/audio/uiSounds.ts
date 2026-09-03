@@ -98,6 +98,14 @@ export function playLimitSound() {
   tone.stop(now + 0.23);
 }
 
+export function playCriticalSuccessSound() {
+  playAudioFile("/audio/dice-crit-success.mp3", 0.65);
+}
+
+export function playCriticalFailSound() {
+  playAudioFile("/audio/dice-crit-fail.mp3", 0.6);
+}
+
 export function installButtonClickSound(
   owner: Document = document,
   play: () => void = playButtonClickSound,

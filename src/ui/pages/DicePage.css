@@ -20,6 +20,7 @@
 .dice-page__manual button { min-height: 44px; }
 .dice-page__log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35em; }
 .dice-log-entry { display: flex; align-items: center; gap: .75em; border: 1px solid var(--dm-border); border-radius: 14px; padding: .65em .85em; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); }
+.dice-log-entry__icons { display: flex; flex-wrap: wrap; gap: .3em; }
 .dice-log-entry__expr { color: var(--dm-text-muted); min-width: 5em; }
 .dice-log-entry__total { font-family: var(--dm-font-display); color: var(--dm-accent); font-size: 1.2em; }
 .dice-log-entry__detail { color: var(--dm-text-muted); font-size: .85em; }
