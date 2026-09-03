@@ -12,7 +12,7 @@ const shapes: Record<Coin["icon"]["shape"], string> = {
 
 export function CoinIcon({ denomination }: { denomination: Coin }) {
   return (
-    <span className="coin-icon" role="img" aria-label={denomination.label} title={denomination.label}>
+    <span className="coin-icon" role="img" aria-label={denomination.fullName} title={denomination.fullName}>
       <svg viewBox="0 0 64 64" aria-hidden="true">
         <path d={shapes[denomination.icon.shape]} fill={denomination.icon.fill} stroke={denomination.icon.rim} strokeWidth="4" />
         <circle cx="32" cy="32" r="12" fill="none" stroke={denomination.icon.rim} strokeWidth="3" opacity=".8" />
