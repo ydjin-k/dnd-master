@@ -48,6 +48,20 @@ const FIGHTER_TOPIC: RuleTopic = {
   ],
 };
 
+const DRUID_TOPIC: RuleTopic = {
+  id: "classes-druid",
+  category: "classes",
+  title: "Друид",
+  sourceUrl: "",
+  blocks: [
+    { type: "paragraph", text: "Кость хитов: 1к8 за каждый уровень друида" },
+    {
+      type: "paragraph",
+      text: "Хиты на следующих уровнях: 1к8 (или 5) + модификатор Телосложения за каждый уровень друида после первого",
+    },
+  ],
+};
+
 const addCharacter = vi.fn();
 const removeCharacter = vi.fn();
 const updateCharacter = vi.fn();
@@ -618,7 +632,14 @@ describe("CharactersPage", () => {
     applyLatestUpdate();
     expect(char.level).toBe(2);
 
-    fireEvent.click(screen.getByText("Повысить уровень")); // 2 -> 3, subclass granted
+    fireEvent.click(screen.getByText("Повысить уровень")); // 2 -> 3 opens the subclass panel (3 archetypes now, not autopicked)
+    expect(updateCharacter).not.toHaveBeenCalledTimes(2);
+    const subclassRadios = screen.getAllByRole("radio");
+    const fighterLabel = subclassRadios
+      .map((r) => (r.closest("label")?.textContent ?? "").trim())
+      .findIndex((l) => l.startsWith("Воитель"));
+    fireEvent.click(subclassRadios[fighterLabel]);
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
     applyLatestUpdate();
     expect(char.level).toBe(3);
     expect(char.subclass).toBe("Воитель");
@@ -640,6 +661,34 @@ describe("CharactersPage", () => {
     expect(screen.getByText(/Всплеск действий/)).toBeInTheDocument(); // level 2 class feature
     expect(screen.getByText(/Улучшенные критические попадания/)).toBeInTheDocument(); // subclass feature at 3
     expect(screen.getByText(/Дополнительная атака/)).toBeInTheDocument(); // level 5 class feature
+  });
+
+  it("levelling a Druid from 1 to 2 opens the subclass panel with all 3 circles and saves the chosen one, not the default first (characters-original-subclasses)", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [DRUID_TOPIC, CONDITIONS_TOPIC] : [],
+    );
+    const char: Character = { ...characterWithInventory(), class: "Друид", level: 1, conditions: ["Ослеплённое"] };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+    await screen.findByText(/не может видеть/); // waits for the same get_rules resolution that fills classHitDiceByTitle
+
+    fireEvent.click(await screen.findByText("Повысить уровень"));
+    expect(updateCharacter).not.toHaveBeenCalled(); // subclass panel opens instead of levelling immediately
+
+    const radios = screen.getAllByRole("radio");
+    const labels = radios.map((r) => (r.closest("label")?.textContent ?? "").trim());
+    expect(labels.some((l) => l.startsWith("Круг земли"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("Круг луны"))).toBe(true);
+    expect(labels.some((l) => l.startsWith("Круг звёзд"))).toBe(true);
+
+    fireEvent.click(radios[labels.findIndex((l) => l.startsWith("Круг звёзд"))]); // not the default first option
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    expect(updated.level).toBe(2);
+    expect(updated.subclass).toBe("Круг звёзд");
   });
 
   it("shows the XP row with the threshold for the next level, and adding XP updates it via updateCharacter", async () => {

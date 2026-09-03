@@ -141,6 +141,8 @@ function CharacterCard({
   const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [subclassPanelOpen, setSubclassPanelOpen] = useState(false);
+  const [subclassChoiceIndex, setSubclassChoiceIndex] = useState(0);
 
   function adjustCoin(key: keyof Coins, delta: number) {
     if (delta < 0 && c.coins[key] === 0) return;
@@ -216,7 +218,7 @@ function CharacterCard({
    * лечит, стандартное правило SRD). Принимает abilities явно — на 4 уровне
    * они уже включают выбор улучшения характеристик (ASI), см. confirmAsi.
    */
-  function applyLevelUp(abilities: AbilityScores) {
+  function applyLevelUp(abilities: AbilityScores, chosenSubclassName?: string) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
     const conMod = abilityMod(abilities.constitution);
@@ -227,10 +229,12 @@ function CharacterCard({
     const hpGained = Math.max(0, newMaxHp - c.maxHp);
     // Подкласс, выбираемый левел-апом (2 или 3 уровень — для Жреца/Колдуна/
     // Чародея он уже назначен мастером на 1 уровне, см. CharacterWizard.tsx).
+    // При единственном варианте (SRD) назначается автоматически; при
+    // нескольких — выбранное имя приходит из confirmSubclass (см. requestLevelUp).
     const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
     const grantedSubclass =
       subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
-        ? subclassInfo.subclasses[0]?.name
+        ? (chosenSubclassName ?? subclassInfo.subclasses[0]?.name)
         : undefined;
     onUpdate((ch) => ({
       ...ch,
@@ -243,20 +247,43 @@ function CharacterCard({
     playLevelUpSound();
   }
 
-  /** На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см. confirmAsi). */
+  /**
+   * На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см.
+   * confirmAsi). На уровне выбора архетипа (chosenAtLevel), если вариантов
+   * больше одного, сперва открывает выбор архетипа (см. confirmSubclass) —
+   * оба уровня не совпадают ни у одного класса, ветки взаимоисключающие.
+   */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
     if (!canLevelUp(c.level, c.experiencePoints)) {
       playLimitSound();
       return;
     }
-    if (c.level + 1 === 4) {
+    const newLevel = c.level + 1;
+    const dice = classHitDiceByTitle[c.class];
+    const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
+    if (subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel && subclassInfo.subclasses.length > 1) {
+      setSubclassChoiceIndex(0);
+      setSubclassPanelOpen(true);
+      return;
+    }
+    if (newLevel === 4) {
       setAsiMode("plus2");
       setAsiKeys([]);
       setAsiPanelOpen(true);
       return;
     }
     applyLevelUp(c.abilities);
+  }
+
+  const levelUpDice = subclassPanelOpen ? classHitDiceByTitle[c.class] : undefined;
+  const levelUpSubclassInfo = levelUpDice ? CLASS_SUBCLASSES[levelUpDice.id] : undefined;
+
+  function confirmSubclass() {
+    const chosen = levelUpSubclassInfo?.subclasses[subclassChoiceIndex]?.name;
+    if (!chosen) return;
+    applyLevelUp(c.abilities, chosen);
+    setSubclassPanelOpen(false);
   }
 
   function setAsiModeAndReset(mode: "plus2" | "plus1plus1") {
@@ -372,7 +399,7 @@ function CharacterCard({
         <button
           type="button"
           onClick={requestLevelUp}
-          disabled={c.level >= MAX_LEVEL || asiPanelOpen}
+          disabled={c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen}
           aria-disabled={!levelUpReady}
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
         >
@@ -400,6 +427,33 @@ function CharacterCard({
           </button>
         </div>
       </div>
+      {subclassPanelOpen && levelUpSubclassInfo && (
+        <div className="character-card__asi">
+          <p>Выберите архетип ({c.level + 1} уровень):</p>
+          <div className="character-card__asi-mode">
+            {levelUpSubclassInfo.subclasses.map((s, i) => (
+              <label key={s.name}>
+                <input
+                  type="radio"
+                  name="subclass-choice"
+                  checked={subclassChoiceIndex === i}
+                  onChange={() => setSubclassChoiceIndex(i)}
+                />{" "}
+                <strong>{s.name}</strong>
+                {s.description && <> — {s.description}</>}
+              </label>
+            ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button type="button" onClick={confirmSubclass}>
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={() => setSubclassPanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
       {asiPanelOpen && (
         <div className="character-card__asi">
           <p>

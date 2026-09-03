@@ -2,11 +2,52 @@ import { describe, it, expect } from "vitest";
 import {
   carryingCapacityLb,
   catalogWeightLb,
+  CLASS_SUBCLASSES,
   coinsWeightLb,
   inventoryWeightLb,
   parseItemWeightLb,
 } from "./characterCreationData";
 import { emptyCoins } from "../state/types";
+
+/** Все 12 базовых классов SRD 5.1 (rules.json → category "classes") — см. таблицу в карточке characters-original-subclasses. */
+const ALL_12_CLASSES = [
+  "classes-bard",
+  "classes-barbarian",
+  "classes-fighter",
+  "classes-wizard",
+  "classes-druid",
+  "classes-cleric",
+  "classes-warlock",
+  "classes-monk",
+  "classes-paladin",
+  "classes-rogue",
+  "classes-ranger",
+  "classes-sorcerer",
+];
+
+describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
+  it("has exactly 12 classes", () => {
+    expect(new Set(Object.keys(CLASS_SUBCLASSES))).toEqual(new Set(ALL_12_CLASSES));
+  });
+
+  it.each(ALL_12_CLASSES)("%s has exactly 3 subclasses (1 SRD + 2 original), all with distinct non-empty names", (classId) => {
+    const info = CLASS_SUBCLASSES[classId];
+    expect(info.subclasses).toHaveLength(3);
+    const names = info.subclasses.map((s) => s.name);
+    expect(new Set(names).size).toBe(3);
+    for (const name of names) expect(name.trim().length).toBeGreaterThan(0);
+  });
+
+  it("the 2 original subclasses of every class carry a description and at least one feature at chosenAtLevel", () => {
+    for (const classId of ALL_12_CLASSES) {
+      const info = CLASS_SUBCLASSES[classId];
+      for (const original of info.subclasses.slice(1)) {
+        expect(original.description).toBeTruthy();
+        expect(original.featuresByLevel[info.chosenAtLevel]?.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
 
 describe("parseItemWeightLb", () => {
   it("parses a whole-number weight string", () => {

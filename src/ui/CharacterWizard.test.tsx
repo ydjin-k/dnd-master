@@ -44,6 +44,13 @@ const topics: RuleTopic[] = [
     sourceUrl: "",
     blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень монаха" }],
   },
+  {
+    id: "classes-cleric",
+    category: "classes",
+    title: "Жрец",
+    sourceUrl: "",
+    blocks: [{ type: "paragraph", text: "Кость хитов: 1к8 за уровень жреца" }],
+  },
 ];
 
 function makeSpell(id: string, name: string, level: 0 | 1, classes: string[]): Spell {
@@ -79,6 +86,10 @@ const spells: Spell[] = [
   makeSpell("wizard-cantrip-3", "Заговор Волшебника 3", 0, ["classes-wizard"]),
   makeSpell("wizard-spell-1", "Заклинание Волшебника 1", 1, ["classes-wizard"]),
   makeSpell("wizard-spell-2", "Заклинание Волшебника 2", 1, ["classes-wizard"]),
+  makeSpell("cleric-cantrip-1", "Заговор Жреца 1", 0, ["classes-cleric"]),
+  makeSpell("cleric-cantrip-2", "Заговор Жреца 2", 0, ["classes-cleric"]),
+  makeSpell("cleric-cantrip-3", "Заговор Жреца 3", 0, ["classes-cleric"]),
+  makeSpell("cleric-spell-1", "Заклинание Жреца 1", 1, ["classes-cleric"]),
 ];
 
 const abilityRolls: AbilityScoreRoll[] = [
@@ -1379,5 +1390,51 @@ describe("CharacterWizard", () => {
     expect(
       screen.queryByText("Распредели все шесть характеристик, чтобы продолжить."),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders all 3 Cleric domains on the review step and saves the chosen one, not always the first (characters-original-subclasses acceptance scenario)", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Жрец"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее")); // abilities: keep defaults (Wis mod 0 -> 1 prepared spell)
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее")); // equipment: keep defaults
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Тестовый Жрец" },
+    });
+
+    const subclassSelect = await screen.findByLabelText("Архетип");
+    const optionLabels = Array.from(subclassSelect.querySelectorAll("option")).map((o) => o.textContent);
+    expect(optionLabels).toEqual(["Домен жизни", "Домен войны", "Домен обмана"]);
+    fireEvent.change(subclassSelect, { target: { value: "2" } }); // "Домен обмана" — not the first/default option
+    expect(screen.getByText("Домен обмана")).toBeInTheDocument();
+    expect(screen.getByText(/Благословенная маска/)).toBeInTheDocument(); // level-1 feature of the chosen domain
+
+    await screen.findByText("Заговор Жреца 1");
+    const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[1]);
+    fireEvent.click(boxes[2]);
+    fireEvent.click(boxes[3]); // 3 cantrips + 1 prepared spell
+
+    const createButton = screen.getByText("Создать персонажа");
+    expect(createButton).not.toBeDisabled();
+    fireEvent.click(createButton);
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.subclass).toBe("Домен обмана");
   });
 });
