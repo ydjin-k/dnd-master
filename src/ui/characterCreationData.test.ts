@@ -2,11 +2,40 @@ import { describe, it, expect } from "vitest";
 import {
   carryingCapacityLb,
   catalogWeightLb,
+  CLASS_SUBCLASSES,
   coinsWeightLb,
   inventoryWeightLb,
   parseItemWeightLb,
 } from "./characterCreationData";
 import { emptyCoins } from "../state/types";
+
+/**
+ * characters-original-subclasses: каждый класс должен предлагать ровно 3
+ * архетипа (1 SRD + 2 оригинальных). Пока карточка выполняется по классам
+ * инкрементально, список ниже растёт вместе с CLASS_SUBCLASSES — не
+ * добавляй сюда класс раньше, чем допишешь его архетипы.
+ */
+const CLASSES_WITH_THREE_SUBCLASSES = ["classes-cleric"];
+
+describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
+  it.each(CLASSES_WITH_THREE_SUBCLASSES)("%s has exactly 3 subclasses, all with distinct non-empty names", (classId) => {
+    const info = CLASS_SUBCLASSES[classId];
+    expect(info.subclasses).toHaveLength(3);
+    const names = info.subclasses.map((s) => s.name);
+    expect(new Set(names).size).toBe(3);
+    for (const name of names) expect(name.trim().length).toBeGreaterThan(0);
+  });
+
+  it("the 2 original subclasses of each finished class carry a description and at least one feature at chosenAtLevel", () => {
+    for (const classId of CLASSES_WITH_THREE_SUBCLASSES) {
+      const info = CLASS_SUBCLASSES[classId];
+      for (const original of info.subclasses.slice(1)) {
+        expect(original.description).toBeTruthy();
+        expect(original.featuresByLevel[info.chosenAtLevel]?.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
 
 describe("parseItemWeightLb", () => {
   it("parses a whole-number weight string", () => {

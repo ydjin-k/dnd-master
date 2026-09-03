@@ -132,6 +132,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState<Step>("race");
   const [raceId, setRaceId] = useState<string | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
+  const [chosenSubclassIndex, setChosenSubclassIndex] = useState(0);
   const [backgroundId, setBackgroundId] = useState<string | null>(null);
   const [customBackground, setCustomBackground] = useState({
     title: "",
@@ -238,10 +239,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const classProf = classId ? CLASS_PROFICIENCIES[classId] : undefined;
   const classEquipment = classId ? CLASS_EQUIPMENT[classId] : undefined;
   // Жрец/Колдун/Чародей выбирают архетип уже на 1 уровне (см. таблицу в
-  // карточке characters-leveling-1-5) — назначается автоматически, т.к. SRD
-  // даёт по одному архетипу на класс (см. комментарий над CLASS_SUBCLASSES).
+  // карточке characters-leveling-1-5) — при единственном варианте (SRD)
+  // назначается автоматически, при нескольких (см. CLASS_SUBCLASSES) игрок
+  // выбирает через `chosenSubclassIndex` на шаге «Итог».
   const subclassInfo = classId ? CLASS_SUBCLASSES[classId] : undefined;
-  const level1Subclass = subclassInfo?.chosenAtLevel === 1 ? subclassInfo.subclasses[0] : undefined;
+  const level1Subclass =
+    subclassInfo?.chosenAtLevel === 1 ? subclassInfo.subclasses[chosenSubclassIndex] : undefined;
   const background: BackgroundData | undefined =
     backgroundId === CUSTOM_BACKGROUND_ID
       ? {
@@ -335,6 +338,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   function selectClass(id: string) {
     setClassId(id);
+    setChosenSubclassIndex(0);
     setClassSkills([]);
     setEquipmentChoice({});
     setFightingStyle("");
@@ -1295,7 +1299,23 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
             {level1Subclass && (
               <li>
-                Архетип: <strong>{level1Subclass.name}</strong>
+                Архетип:{" "}
+                {subclassInfo && subclassInfo.subclasses.length > 1 ? (
+                  <select
+                    aria-label="Архетип"
+                    value={chosenSubclassIndex}
+                    onChange={(e) => setChosenSubclassIndex(Number(e.currentTarget.value))}
+                  >
+                    {subclassInfo.subclasses.map((s, i) => (
+                      <option key={s.name} value={i}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <strong>{level1Subclass.name}</strong>
+                )}
+                {level1Subclass.description && <p className="wizard__hint">{level1Subclass.description}</p>}
                 <ul className="wizard__traits">
                   {(level1Subclass.featuresByLevel[1] ?? []).map((f) => (
                     <li key={f.name}>
