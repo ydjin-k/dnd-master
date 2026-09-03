@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import "./JournalPage.css";
+import { packJournalEntries } from "./journalPagination";
 
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
@@ -10,8 +11,9 @@ export function JournalPage() {
   const pageFlipAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const entries = [...state.journal].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const spreadCount = Math.max(1, Math.ceil(entries.length / 6));
-  const visibleEntries = entries.slice(spreadIndex * 6, spreadIndex * 6 + 6);
+  const spreads = packJournalEntries(entries);
+  const spreadCount = Math.max(1, spreads.length);
+  const visibleSpread = spreads[spreadIndex] ?? { left: [], right: [] };
 
   useEffect(() => {
     setSpreadIndex((current) => Math.min(current, spreadCount - 1));
@@ -47,32 +49,36 @@ export function JournalPage() {
       <h2>Дневник путешествий</h2>
 
       <div className="journal-page">
-        <ul className="journal-page__list">
-          {visibleEntries.map((entry) => (
-            <li key={entry.id} className="journal-entry">
-              <div className="journal-entry__heading">
-                <div className="journal-entry__time">
-                  {new Date(entry.timestamp).toLocaleString()}
-                </div>
-                <button
-                  className="journal-entry__remove"
-                  type="button"
-                  aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
-                  title="Удалить запись"
-                  onClick={() => void removeJournalEntry(entry.id)}
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              </div>
-              <div className="journal-entry__text">{entry.text}</div>
-            </li>
+        <div className="journal-page__list">
+          {[visibleSpread.left, visibleSpread.right].map((column, columnIndex) => (
+            <ul className="journal-page__column" key={columnIndex}>
+              {column.map((entry) => (
+                <li key={entry.id} className="journal-entry">
+                  <div className="journal-entry__heading">
+                    <div className="journal-entry__time">
+                      {new Date(entry.timestamp).toLocaleString()}
+                    </div>
+                    <button
+                      className="journal-entry__remove"
+                      type="button"
+                      aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
+                      title="Удалить запись"
+                      onClick={() => void removeJournalEntry(entry.id)}
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </div>
+                  <div className="journal-entry__text">{entry.text}</div>
+                </li>
+              ))}
+            </ul>
           ))}
           {entries.length === 0 && (
-            <li className="journal-page__empty">Записей пока нет.</li>
+            <p className="journal-page__empty">Записей пока нет.</p>
           )}
-        </ul>
+        </div>
 
-        {entries.length > 6 && (
+        {spreadCount > 1 && (
           <nav className="journal-page__pagination" aria-label="Листание дневника">
             <button
               type="button"

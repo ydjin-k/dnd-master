@@ -79,13 +79,13 @@ describe("JournalPage", () => {
     expect(removeJournalEntry).toHaveBeenCalledWith("entry-to-remove");
   });
 
-  it("shows six entries per spread and disables pagination at its boundaries", () => {
-    mockState = createStateWithEntries(8);
+  it("paginates packed spreads and disables pagination at its boundaries", () => {
+    mockState = createStateWithEntries(8, 120);
     render(<JournalPage />);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(6);
-    expect(screen.getByText("Запись 8")).toBeInTheDocument();
-    expect(screen.queryByText("Запись 2")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByText(/Запись 8/)).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 2/)).not.toBeInTheDocument();
 
     const previous = screen.getByRole("button", { name: "Предыдущий разворот" });
     const next = screen.getByRole("button", { name: "Следующий разворот" });
@@ -94,8 +94,8 @@ describe("JournalPage", () => {
 
     fireEvent.click(next);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
-    expect(screen.getByText("Запись 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    expect(screen.getByText(/Запись 4/)).toBeInTheDocument();
     expect(previous).toBeEnabled();
     expect(next).toBeDisabled();
     expect(audioInstances[0]).toMatchObject({ src: "/audio/page-flip.mp3", currentTime: 0 });
@@ -103,21 +103,21 @@ describe("JournalPage", () => {
   });
 
   it("returns to the first spread after adding an entry", async () => {
-    mockState = createStateWithEntries(8);
+    mockState = createStateWithEntries(8, 120);
     render(<JournalPage />);
     fireEvent.click(screen.getByRole("button", { name: "Следующий разворот" }));
-    expect(screen.getByText("Запись 2")).toBeInTheDocument();
+    expect(screen.getByText(/Запись 4/)).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Что произошло?"), { target: { value: "Новая запись" } });
     fireEvent.click(screen.getByText("Записать"));
 
     await waitFor(() => expect(addJournalEntry).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("Запись 8")).toBeInTheDocument();
-    expect(screen.queryByText("Запись 2")).not.toBeInTheDocument();
+    expect(screen.getByText(/Запись 8/)).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 4/)).not.toBeInTheDocument();
   });
 });
 
-function createStateWithEntries(count: number): CampaignState {
+function createStateWithEntries(count: number, textLength = 0): CampaignState {
   return {
     id: "c1",
     campaignName: "Тест",
@@ -125,7 +125,7 @@ function createStateWithEntries(count: number): CampaignState {
     journal: Array.from({ length: count }, (_, index) => ({
       id: `e${index + 1}`,
       timestamp: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
-      text: `Запись ${index + 1}`,
+      text: `Запись ${index + 1} ${"т".repeat(textLength)}`,
     })),
     currentSceneId: null,
     adventureLog: [],
