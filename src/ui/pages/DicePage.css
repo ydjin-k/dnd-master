@@ -18,6 +18,14 @@
 @media (prefers-reduced-motion: reduce) { .dice-page__rolling-icon.is-rolling { animation: none; } }
 .dice-page__manual { display: flex; align-items: center; gap: .5em; margin-bottom: 1em; }
 .dice-page__manual input { width: 5ch; min-height: 44px; flex: 0 0 5ch; }
+.dice-page__manual input::-webkit-outer-spin-button,
+.dice-page__manual input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.dice-page__manual input[type="number"] {
+  -moz-appearance: textfield;
+}
 .dice-page__manual button { min-height: 44px; }
 .dice-page__log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35em; }
 .dice-log-entry { display: flex; align-items: center; gap: .75em; border: 1px solid var(--dm-border); border-radius: 14px; padding: .65em .85em; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); }
