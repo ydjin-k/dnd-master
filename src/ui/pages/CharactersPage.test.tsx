@@ -279,19 +279,19 @@ describe("CharactersPage", () => {
   it("60 фнт (> Сила×5): Нагружен, скорость реально падает на 10 (30 → 20)", () => {
     mockState = baseState({ characters: [withWeight(60)] });
     render(<CharactersPage />);
-    expect(screen.getByText("Нагружен")).toBeInTheDocument();
-    expect(screen.getByText(/Скорость 20 фт \(30 − 10, нагружен\)/)).toBeInTheDocument();
-    expect(screen.queryByText("Сильно нагружен")).not.toBeInTheDocument();
+    expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Скорость 20 фт(?! \()/)).toBeInTheDocument();
+    expect(screen.queryByText(/Сильно нагружен/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Помеха на проверки/)).not.toBeInTheDocument();
   });
 
   it("110 фнт (> Сила×10): Сильно нагружен, скорость −20 (30 → 10), помеха-напоминание видна", () => {
     mockState = baseState({ characters: [withWeight(110)] });
     render(<CharactersPage />);
-    expect(screen.getByText("Сильно нагружен")).toBeInTheDocument();
-    expect(screen.getByText(/Скорость 10 фт \(30 − 20, сильно нагружен\)/)).toBeInTheDocument();
+    expect(screen.getByText(/⚠ Сильно нагружен — скорость 10 фт \(было 30 фт\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Скорость 10 фт(?! \()/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Помеха на проверки характеристик, броски атаки и спасброски/),
+      screen.getByText(/⚠ Помеха на проверки характеристик, броски атаки и спасброски/),
     ).toBeInTheDocument();
   });
 

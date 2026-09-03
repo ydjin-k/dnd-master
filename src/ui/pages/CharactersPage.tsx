@@ -343,10 +343,7 @@ function CharacterCard({
   const encLevel = encumbranceLevel(totalWeightLb, c.abilities.strength);
   const speedPenaltyFeet = encumbranceSpeedPenaltyFeet(encLevel);
   const effectiveSpeedFeet = Math.max(0, c.speedFeet - speedPenaltyFeet);
-  const speedLabel =
-    speedPenaltyFeet > 0
-      ? `${effectiveSpeedFeet} фт (${c.speedFeet} − ${speedPenaltyFeet}, ${ENCUMBRANCE_LABELS[encLevel].toLowerCase()})`
-      : `${c.speedFeet} фт`;
+  const speedLabel = speedPenaltyFeet > 0 ? `${effectiveSpeedFeet} фт` : `${c.speedFeet} фт`;
   /** Жёсткий потолок (Сила × 15): нельзя добавить предмет, если это довело бы вес выше грузоподъёмности. */
   function wouldExceedCapacity(additionalWeightLb: number): boolean {
     return totalWeightLb + additionalWeightLb > carryingCapacity;
@@ -384,14 +381,8 @@ function CharacterCard({
         {c.passivePerception} · Вес: {Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.
       </div>
       {encLevel !== "normal" && (
-        <div
-          className={
-            encLevel === "heavily-encumbered"
-              ? "character-card__danger character-card__danger--heavy"
-              : "character-card__danger"
-          }
-        >
-          {ENCUMBRANCE_LABELS[encLevel]}
+        <div className="character-card__danger character-card__danger--heavy">
+          ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effectiveSpeedFeet} фт (было {c.speedFeet} фт)
         </div>
       )}
       <div className="character-card__level">
@@ -506,7 +497,7 @@ function CharacterCard({
         <summary>Спасброски и навыки</summary>
         {encLevel === "heavily-encumbered" && (
           <p className="character-card__danger character-card__danger--heavy">
-            {HEAVILY_ENCUMBERED_DISADVANTAGE_HINT}
+            ⚠ {HEAVILY_ENCUMBERED_DISADVANTAGE_HINT}
           </p>
         )}
         <p className="character-card__prof">{proficiencyBonusHint(c.level)}</p>

@@ -90,7 +90,7 @@ export function playLimitSound() {
   tone.type = "triangle";
   tone.frequency.setValueAtTime(196, now);
   tone.frequency.exponentialRampToValueAtTime(146.83, now + 0.18);
-  gain.gain.setValueAtTime(0.035, now);
+  gain.gain.setValueAtTime(0.11, now);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
   tone.connect(gain);
   gain.connect(audio.destination);
