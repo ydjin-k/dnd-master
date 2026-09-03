@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { JournalPage } from "./JournalPage";
+import { JOURNAL_ENTRY_MAX_LENGTH, JournalPage } from "./JournalPage";
 import type { CampaignState } from "../../state/types";
 
 const { addJournalEntry, removeJournalEntry, audioPlayMock } = vi.hoisted(() => ({
@@ -102,6 +102,24 @@ describe("JournalPage", () => {
     expect(next).toBeDisabled();
     expect(audioInstances[0]).toMatchObject({ src: "/audio/page-flip.mp3", currentTime: 0 });
     expect(audioPlayMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows disabled pagination when the first spread is exactly full", () => {
+    mockState = createStateWithEntries(6);
+    render(<JournalPage />);
+
+    expect(screen.getByRole("button", { name: "Предыдущий разворот" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Следующий разворот" })).toBeDisabled();
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+  });
+
+  it("limits a new entry and displays the limit beside the field", () => {
+    mockState = createStateWithEntries(0);
+    render(<JournalPage />);
+
+    const textarea = screen.getByPlaceholderText("Что произошло?");
+    expect(textarea).toHaveAttribute("maxlength", String(JOURNAL_ENTRY_MAX_LENGTH));
+    expect(screen.getByText(`До ${JOURNAL_ENTRY_MAX_LENGTH} символов.`)).toBeInTheDocument();
   });
 
   it("returns to the first spread after adding an entry", async () => {

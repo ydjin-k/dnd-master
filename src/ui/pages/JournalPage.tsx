@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import "./JournalPage.css";
 
+export const JOURNAL_ENTRY_MAX_LENGTH = 200;
+
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
   const [text, setText] = useState("");
@@ -76,7 +78,7 @@ export function JournalPage() {
           )}
         </div>
 
-        {spreadCount > 1 && (
+        {entries.length >= 6 && (
           <nav className="journal-page__pagination" aria-label="Листание дневника">
             <button
               type="button"
@@ -102,10 +104,15 @@ export function JournalPage() {
       <form className="journal-page__form" onSubmit={handleSubmit}>
         <textarea
           rows={2}
+          maxLength={JOURNAL_ENTRY_MAX_LENGTH}
           placeholder="Что произошло?"
           value={text}
           onChange={(e) => setText(e.currentTarget.value)}
+          aria-describedby="journal-entry-limit"
         />
+        <span className="journal-page__form-hint" id="journal-entry-limit">
+          До {JOURNAL_ENTRY_MAX_LENGTH} символов.
+        </span>
         <button type="submit">Записать</button>
       </form>
     </section>

@@ -108,7 +108,7 @@
 
 .journal-entry__text {
   max-height: 20rem;
-  overflow-y: auto;
+  overflow: hidden;
   overflow-wrap: anywhere;
   color: var(--journal-ink);
   font-family: "Caveat", cursive;
@@ -178,6 +178,7 @@
 
 .journal-page__form textarea { min-height: 4.4rem; max-height: 18rem; resize: vertical; color: var(--dm-text); background: rgba(4, 12, 26, 0.84); border-color: rgba(121, 151, 184, 0.55); field-sizing: content; }
 .journal-page__form textarea::placeholder { color: #8399b3; }
+.journal-page__form-hint { color: var(--journal-muted); font-size: 0.9rem; }
 .journal-page__form button { align-self: flex-end; }
 
 @media (max-width: 560px) {
