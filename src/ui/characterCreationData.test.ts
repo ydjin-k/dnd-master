@@ -15,7 +15,13 @@ import { emptyCoins } from "../state/types";
  * инкрементально, список ниже растёт вместе с CLASS_SUBCLASSES — не
  * добавляй сюда класс раньше, чем допишешь его архетипы.
  */
-const CLASSES_WITH_THREE_SUBCLASSES = ["classes-cleric", "classes-warlock", "classes-sorcerer"];
+const CLASSES_WITH_THREE_SUBCLASSES = [
+  "classes-cleric",
+  "classes-warlock",
+  "classes-sorcerer",
+  "classes-wizard",
+  "classes-druid",
+];
 
 describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
   it.each(CLASSES_WITH_THREE_SUBCLASSES)("%s has exactly 3 subclasses, all with distinct non-empty names", (classId) => {
