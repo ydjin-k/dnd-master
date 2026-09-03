@@ -45,6 +45,12 @@ function buildExpression(sides: DieSides, count: number, modifier: number, mode:
   return `${count === 1 ? "" : count}d${sides}${modifier === 0 ? "" : modifier > 0 ? `+${modifier}` : modifier}${mode === "normal" ? "" : mode}`;
 }
 
+function buildDiceLabel(sides: DieSides, count: number) {
+  return `${count === 1 ? "" : count}d${sides}`;
+}
+
+const LOG_LIMIT = 10;
+
 const waitForRollAnimation = () => new Promise<void>((resolve) => window.setTimeout(resolve, ROLL_ANIMATION_MS));
 
 export function DicePage() {
@@ -67,9 +73,9 @@ export function DicePage() {
       if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 20) playCriticalSuccessSound();
       else if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 1) playCriticalFailSound();
       else playDiceRollSound();
-      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, result }, ...prev]);
+      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, result }, ...prev].slice(0, LOG_LIMIT));
     } catch (e) {
-      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, error: String(e) }, ...prev]);
+      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, error: String(e) }, ...prev].slice(0, LOG_LIMIT));
     } finally {
       setIsRolling(false);
     }
@@ -79,8 +85,13 @@ export function DicePage() {
     e.preventDefault();
     const value = Number(manualValue);
     if (!Number.isFinite(value)) return;
-    setLog((prev) => [{ id: crypto.randomUUID(), label: "Вручную", manual: value }, ...prev]);
+    const diceLabel = buildDiceLabel(sides, count);
+    setLog((prev) => [{ id: crypto.randomUUID(), label: `Вручную (${diceLabel})`, manual: value }, ...prev].slice(0, LOG_LIMIT));
     setManualValue("");
+  }
+
+  function clearLog() {
+    setLog([]);
   }
 
   return <div className="dice-page">
@@ -112,6 +123,9 @@ export function DicePage() {
       <input aria-label="Результат ручного броска" type="number" value={manualValue} onChange={(event) => setManualValue(event.currentTarget.value)} placeholder="0" />
       <button type="submit">Записать вручную</button>
     </form>
+    {log.length > 0 && <div className="dice-page__log-actions">
+      <button type="button" onClick={clearLog}>Очистить историю</button>
+    </div>}
     <ul className="dice-page__log">{log.map((item) => {
       const entrySides = item.result ? dieSidesFromExpression(item.label) : null;
       const showRollBreakdown = item.result && (item.result.rolls.length !== 1 || item.result.modifier !== 0);
