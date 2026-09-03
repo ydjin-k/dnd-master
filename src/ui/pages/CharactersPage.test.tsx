@@ -632,7 +632,14 @@ describe("CharactersPage", () => {
     applyLatestUpdate();
     expect(char.level).toBe(2);
 
-    fireEvent.click(screen.getByText("Повысить уровень")); // 2 -> 3, subclass granted
+    fireEvent.click(screen.getByText("Повысить уровень")); // 2 -> 3 opens the subclass panel (3 archetypes now, not autopicked)
+    expect(updateCharacter).not.toHaveBeenCalledTimes(2);
+    const subclassRadios = screen.getAllByRole("radio");
+    const fighterLabel = subclassRadios
+      .map((r) => (r.closest("label")?.textContent ?? "").trim())
+      .findIndex((l) => l.startsWith("Воитель"));
+    fireEvent.click(subclassRadios[fighterLabel]);
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
     applyLatestUpdate();
     expect(char.level).toBe(3);
     expect(char.subclass).toBe("Воитель");

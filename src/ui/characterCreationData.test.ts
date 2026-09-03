@@ -21,6 +21,9 @@ const CLASSES_WITH_THREE_SUBCLASSES = [
   "classes-sorcerer",
   "classes-wizard",
   "classes-druid",
+  "classes-bard",
+  "classes-barbarian",
+  "classes-fighter",
 ];
 
 describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
