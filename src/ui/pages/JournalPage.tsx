@@ -1,11 +1,21 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import "./JournalPage.css";
 
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
   const [text, setText] = useState("");
+  const [spreadIndex, setSpreadIndex] = useState(0);
   const quillAudioRef = useRef<HTMLAudioElement | null>(null);
+  const pageFlipAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const entries = [...state.journal].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const spreadCount = Math.max(1, Math.ceil(entries.length / 6));
+  const visibleEntries = entries.slice(spreadIndex * 6, spreadIndex * 6 + 6);
+
+  useEffect(() => {
+    setSpreadIndex((current) => Math.min(current, spreadCount - 1));
+  }, [spreadCount]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,38 +30,70 @@ export function JournalPage() {
     audio.currentTime = 0;
     void audio.play().catch(() => undefined);
     setText("");
+    setSpreadIndex(0);
   }
 
-  const entries = [...state.journal].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  function turnPage(nextIndex: number) {
+    if (nextIndex < 0 || nextIndex >= spreadCount || nextIndex === spreadIndex) return;
+    setSpreadIndex(nextIndex);
+    const audio = pageFlipAudioRef.current ?? new Audio("/audio/page-flip.mp3");
+    pageFlipAudioRef.current = audio;
+    audio.currentTime = 0;
+    void audio.play().catch(() => undefined);
+  }
 
   return (
-    <div className="journal-page">
+    <section className="journal-page-layout">
       <h2>Дневник путешествий</h2>
 
-      <ul className="journal-page__list">
-        {entries.map((entry) => (
-          <li key={entry.id} className="journal-entry">
-            <div className="journal-entry__heading">
-              <div className="journal-entry__time">
-                {new Date(entry.timestamp).toLocaleString()}
+      <div className="journal-page">
+        <ul className="journal-page__list">
+          {visibleEntries.map((entry) => (
+            <li key={entry.id} className="journal-entry">
+              <div className="journal-entry__heading">
+                <div className="journal-entry__time">
+                  {new Date(entry.timestamp).toLocaleString()}
+                </div>
+                <button
+                  className="journal-entry__remove"
+                  type="button"
+                  aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
+                  title="Удалить запись"
+                  onClick={() => void removeJournalEntry(entry.id)}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
               </div>
-              <button
-                className="journal-entry__remove"
-                type="button"
-                aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
-                title="Удалить запись"
-                onClick={() => void removeJournalEntry(entry.id)}
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div className="journal-entry__text">{entry.text}</div>
-          </li>
-        ))}
-        {entries.length === 0 && (
-          <li className="journal-page__empty">Записей пока нет.</li>
+              <div className="journal-entry__text">{entry.text}</div>
+            </li>
+          ))}
+          {entries.length === 0 && (
+            <li className="journal-page__empty">Записей пока нет.</li>
+          )}
+        </ul>
+
+        {entries.length > 6 && (
+          <nav className="journal-page__pagination" aria-label="Листание дневника">
+            <button
+              type="button"
+              aria-label="Предыдущий разворот"
+              disabled={spreadIndex === 0}
+              onClick={() => turnPage(spreadIndex - 1)}
+            >
+              <span aria-hidden="true">‹</span>
+            </button>
+            <span>{spreadIndex + 1} / {spreadCount}</span>
+            <button
+              type="button"
+              aria-label="Следующий разворот"
+              disabled={spreadIndex === spreadCount - 1}
+              onClick={() => turnPage(spreadIndex + 1)}
+            >
+              <span aria-hidden="true">›</span>
+            </button>
+          </nav>
         )}
-      </ul>
+      </div>
 
       <form className="journal-page__form" onSubmit={handleSubmit}>
         <textarea
@@ -62,6 +104,6 @@ export function JournalPage() {
         />
         <button type="submit">Записать</button>
       </form>
-    </div>
+    </section>
   );
 }

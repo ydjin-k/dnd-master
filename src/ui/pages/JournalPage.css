@@ -1,14 +1,28 @@
-.journal-page {
+.journal-page-layout {
   --journal-ink: #dce9f5;
   --journal-muted: #b8a37b;
   --journal-brass: #8b6739;
   --journal-brass-bright: #d7b86a;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.journal-page-layout > h2 {
+  margin: 0 0 1rem;
+  color: var(--journal-brass-bright);
+  font-family: var(--dm-font-display);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 2px 14px rgba(218, 187, 108, 0.3);
+}
+
+.journal-page {
   position: relative;
   isolation: isolate;
-  max-width: 960px;
   min-height: 520px;
-  margin: 0 auto;
-  padding: clamp(4.5rem, 9vw, 6.3rem) clamp(3rem, 7vw, 5.6rem) clamp(2rem, 5vw, 3.4rem);
+  padding: clamp(2.4rem, 5vw, 3.4rem) clamp(3rem, 7vw, 5.6rem) clamp(4.5rem, 8vw, 5.6rem);
   overflow: hidden;
   color: var(--journal-ink);
   background:
@@ -47,39 +61,26 @@
 
 .journal-page > * { position: relative; z-index: 1; min-width: 0; }
 
-.journal-page h2 {
-  position: absolute;
-  top: 1.25rem;
-  left: 50%;
-  width: min(80%, 38rem);
-  margin: 0;
-  translate: -50% 0;
-  color: var(--journal-brass-bright);
-  font-family: var(--dm-font-display);
-  font-size: clamp(1.35rem, 3vw, 1.85rem);
-  letter-spacing: 0.08em;
-  text-align: center;
-  text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(218, 187, 108, 0.3);
-}
-
 .journal-page__list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, max-content);
+  grid-auto-flow: column;
   align-content: start;
   gap: 0 clamp(3.5rem, 8vw, 6.7rem);
   list-style: none;
-  margin: 0 0 1.6rem;
+  margin: 0;
   padding: 0;
 }
 
 .journal-page__empty {
-  grid-column: 1 / -1;
+  grid-column: 1;
+  grid-row: 1;
   color: var(--journal-muted);
   font-family: "Caveat", cursive;
   font-size: 1.35rem;
   font-style: italic;
-  text-align: center;
+  text-align: left;
 }
 
 .journal-page .journal-entry {
@@ -128,14 +129,42 @@
   line-height: 1;
 }
 
-.journal-entry__remove:hover { color: var(--dm-danger); border-color: rgba(255, 127, 154, 0.28); background: rgba(255, 127, 154, 0.07); box-shadow: none; }
+.journal-entry__remove:hover { color: var(--dm-danger); }
 
-.journal-page .journal-page__form {
+.journal-page__pagination {
+  position: absolute;
+  bottom: 0.55rem;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  translate: -50% 0;
+  color: var(--journal-muted);
+  font-family: "Caveat", cursive;
+  font-size: 1.05rem;
+}
+
+.journal-page__pagination button {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  color: var(--journal-brass-bright);
+  background: rgba(4, 13, 28, 0.58);
+  border: 1px solid rgba(182, 147, 88, 0.42);
+  border-radius: 50%;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.journal-page__pagination button:disabled { opacity: 0.32; }
+
+.journal-page-layout > .journal-page__form {
   display: flex;
   flex-direction: column;
   gap: 0.5em;
-  width: calc(50% - clamp(1.75rem, 4vw, 3.35rem));
-  margin-left: auto;
+  width: min(100%, 31rem);
+  margin: 1.35rem 0 0;
   padding: 1em;
   background: rgba(4, 13, 28, 0.68);
   border: 1px solid rgba(182, 147, 88, 0.48);
@@ -150,7 +179,7 @@
 @media (max-width: 560px) {
   .journal-page {
     min-height: 0;
-    padding: 4.7rem 2rem 1.4rem 2.7rem;
+    padding: 2rem 2rem 4.3rem 2.7rem;
     background: radial-gradient(ellipse at 35% 5%, rgba(82, 121, 164, 0.2), transparent 38%), repeating-linear-gradient(103deg, rgba(210, 229, 244, 0.025) 0 1px, transparent 1px 8px), linear-gradient(145deg, #152a4a, #0b1930 55%, #172d4c);
     border-radius: 8px 14px 10px 7px;
     box-shadow: 0 18px 35px rgba(1, 6, 18, 0.5), inset 18px 0 28px rgba(1, 6, 18, 0.32);
@@ -158,9 +187,9 @@
 
   .journal-page::before { inset: 0 auto 0 0; width: 22px; translate: 0; border-radius: 5px 0 0 5px; box-shadow: 5px 0 13px rgba(1, 5, 14, 0.48), inset -1px 0 rgba(246, 220, 153, 0.22); }
   .journal-page::after { inset: 7px; }
-  .journal-page h2 { top: 1.25rem; width: calc(100% - 4rem); font-size: 1.2rem; }
-  .journal-page__list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .journal-page-layout > h2 { font-size: 1.2rem; }
+  .journal-page__list { display: block; }
   .journal-page__empty { grid-column: auto; }
-  .journal-page .journal-page__form { width: 100%; padding: 0.75rem; }
+  .journal-page-layout > .journal-page__form { width: 100%; padding: 0.75rem; }
   .journal-entry__text { font-size: 1.3rem; }
 }
