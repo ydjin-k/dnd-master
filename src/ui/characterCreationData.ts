@@ -842,11 +842,11 @@ export const COIN_DENOMINATIONS: {
   copperValue: number;
   icon: { fill: string; rim: string; shape: "round" | "square" | "scalloped" | "diamond" | "octagonal" };
 }[] = [
-  { key: "copper", label: "мм", fullName: "Медная монета", copperValue: 1, icon: { fill: "#b66a42", rim: "#efad75", shape: "round" } },
-  { key: "silver", label: "см", fullName: "Серебряная монета", copperValue: 10, icon: { fill: "#aeb9c7", rim: "#edf5ff", shape: "square" } },
-  { key: "electrum", label: "эм", fullName: "Электрумовая монета", copperValue: 50, icon: { fill: "#b6b88b", rim: "#f1f0b5", shape: "scalloped" } },
-  { key: "gold", label: "зм", fullName: "Золотая монета", copperValue: 100, icon: { fill: "#d6a62e", rim: "#ffe17a", shape: "diamond" } },
-  { key: "platinum", label: "пм", fullName: "Платиновая монета", copperValue: 1000, icon: { fill: "#80bad0", rim: "#ddf8ff", shape: "octagonal" } },
+  { key: "copper", label: "мм", fullName: "Медные монеты", copperValue: 1, icon: { fill: "#b66a42", rim: "#efad75", shape: "round" } },
+  { key: "silver", label: "см", fullName: "Серебряные монеты", copperValue: 10, icon: { fill: "#aeb9c7", rim: "#edf5ff", shape: "square" } },
+  { key: "electrum", label: "эм", fullName: "Электрумовые монеты", copperValue: 50, icon: { fill: "#b6b88b", rim: "#f1f0b5", shape: "scalloped" } },
+  { key: "gold", label: "зм", fullName: "Золотые монеты", copperValue: 100, icon: { fill: "#d6a62e", rim: "#ffe17a", shape: "diamond" } },
+  { key: "platinum", label: "пм", fullName: "Платиновые монеты", copperValue: 1000, icon: { fill: "#80bad0", rim: "#ddf8ff", shape: "octagonal" } },
 ];
 
 /** Суммарная стоимость монет всех номиналов в золотых эквивалентах. */
