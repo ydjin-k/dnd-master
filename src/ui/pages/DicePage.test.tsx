@@ -73,6 +73,50 @@ describe("DicePage", () => {
     expect(input).toHaveValue(null);
   });
 
+  it("labels a manual entry with the dice picked at the top (count and sides)", async () => {
+    render(<DicePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
+    fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Результат ручного броска"), { target: { value: "12" } });
+    fireEvent.click(screen.getByText("Записать вручную"));
+    expect(await screen.findByText("Вручную (3d6)")).toBeInTheDocument();
+  });
+
+  it("omits the count prefix for a single manual die, matching the auto-roll expression format", async () => {
+    render(<DicePage />);
+    fireEvent.change(screen.getByLabelText("Результат ручного броска"), { target: { value: "12" } });
+    fireEvent.click(screen.getByText("Записать вручную"));
+    expect(await screen.findByText("Вручную (d20)")).toBeInTheDocument();
+  });
+
+  it("keeps only the 10 most recent entries, newest first", async () => {
+    let expression = 0;
+    invokeMock.mockImplementation(async (_cmd: string, args: { expression: string }): Promise<RollResult> => {
+      expression += 1;
+      return { expression: args.expression, rolls: [expression], modifier: 0, total: expression, dropped: null };
+    });
+    render(<DicePage />);
+    const rollButton = screen.getByRole("button", { name: "Бросить" });
+    for (let i = 0; i < 11; i += 1) {
+      fireEvent.click(rollButton);
+      await waitFor(() => expect(rollButton).not.toBeDisabled(), { timeout: 1000 });
+    }
+    const items = screen.getAllByRole("listitem");
+    expect(items).toHaveLength(10);
+    const totals = screen.getAllByText(/.*/, { selector: ".dice-log-entry__total" }).map((el) => el.textContent);
+    expect(totals).toEqual(["11", "10", "9", "8", "7", "6", "5", "4", "3", "2"]);
+  }, 15000);
+
+  it("shows a clear-history button only when the log has entries, and clears on click", async () => {
+    render(<DicePage />);
+    expect(screen.queryByText("Очистить историю")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(screen.getByText("Очистить историю")).toBeInTheDocument(), { timeout: 1000 });
+    fireEvent.click(screen.getByText("Очистить историю"));
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.queryByText("Очистить историю")).not.toBeInTheDocument();
+  });
+
   it("expands selectors inline so the manual form stays outside their option list", () => {
     render(<DicePage />);
     const manualButton = screen.getByRole("button", { name: "Записать вручную" });
