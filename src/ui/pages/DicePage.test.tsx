@@ -3,26 +3,28 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { DicePage } from "./DicePage";
 import type { RollResult } from "../../state/types";
 
-const { invokeMock, audioPlayMock } = vi.hoisted(() => ({ invokeMock: vi.fn(), audioPlayMock: vi.fn(() => Promise.resolve()) }));
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-class AudioMock {
-  currentTime = 0;
-  constructor(public src: string) {}
-  play = audioPlayMock;
-}
+const sounds = vi.hoisted(() => ({
+  playDiceRollSound: vi.fn(),
+  playCriticalSuccessSound: vi.fn(),
+  playCriticalFailSound: vi.fn(),
+}));
+vi.mock("../../audio/uiSounds", () => sounds);
 
 describe("DicePage", () => {
   beforeEach(() => {
-    vi.stubGlobal("Audio", AudioMock);
     invokeMock.mockReset();
-    audioPlayMock.mockClear();
+    sounds.playDiceRollSound.mockClear();
+    sounds.playCriticalSuccessSound.mockClear();
+    sounds.playCriticalFailSound.mockClear();
     invokeMock.mockImplementation(async (_cmd: string, args: { expression: string }): Promise<RollResult> => ({
       expression: args.expression, rolls: [4], modifier: 0, total: 4, dropped: null,
     }));
   });
 
-  it("assembles an expression from all selectors and plays the supplied sound", async () => {
+  it("assembles an expression from all selectors and plays the normal roll sound", async () => {
     render(<DicePage />);
     fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
     fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
@@ -30,8 +32,10 @@ describe("DicePage", () => {
     fireEvent.change(screen.getByLabelText("Преимущество или помеха"), { target: { value: "adv" } });
     fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
     expect(invokeMock).toHaveBeenCalledWith("roll_dice", { expression: "2d6+3adv" });
-    expect(audioPlayMock).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.getByText("2d6+3adv")).toBeInTheDocument(), { timeout: 1000 });
+    expect(sounds.playDiceRollSound).toHaveBeenCalledTimes(1);
+    expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
+    expect(sounds.playCriticalFailSound).not.toHaveBeenCalled();
   });
 
   it("hides redundant roll detail for one unmodified die", async () => {
@@ -82,5 +86,61 @@ describe("DicePage", () => {
       fireEvent.blur(select);
       expect(select).toHaveAttribute("size", "1");
     }
+  });
+
+  it("limits the modifier options to -10..+10", () => {
+    render(<DicePage />);
+    const select = screen.getByLabelText<HTMLSelectElement>("Модификатор");
+    const values = Array.from(select.options).map((option) => option.value);
+    expect(values).toEqual(Array.from({ length: 21 }, (_, index) => String(index - 10)));
+  });
+
+  it("shows one dice icon per roll on a multi-die roll, plus the total as text", async () => {
+    invokeMock.mockResolvedValueOnce({ expression: "3d6", rolls: [2, 5, 6], modifier: 0, total: 13, dropped: null });
+    render(<DicePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
+    fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(screen.getByText("3d6")).toBeInTheDocument(), { timeout: 1000 });
+    expect(screen.getByLabelText("Кость d6, результат 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("Кость d6, результат 5")).toBeInTheDocument();
+    expect(screen.getByLabelText("Кость d6, результат 6")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Кость d6, результат 13")).not.toBeInTheDocument();
+    expect(screen.getByText("13", { selector: ".dice-log-entry__total" })).toBeInTheDocument();
+  });
+
+  it("plays the critical success sound instead of the normal sound on a natural 20", async () => {
+    invokeMock.mockResolvedValueOnce({ expression: "d20", rolls: [20], modifier: 0, total: 20, dropped: null });
+    render(<DicePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    expect(sounds.playDiceRollSound).not.toHaveBeenCalled();
+    expect(sounds.playCriticalFailSound).not.toHaveBeenCalled();
+  });
+
+  it("plays the critical fail sound instead of the normal sound on a natural 1", async () => {
+    invokeMock.mockResolvedValueOnce({ expression: "d20", rolls: [1], modifier: 0, total: 1, dropped: null });
+    render(<DicePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(sounds.playCriticalFailSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    expect(sounds.playDiceRollSound).not.toHaveBeenCalled();
+    expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
+  });
+
+  it("plays the normal sound for a natural 20 rolled as part of a multi-d20 pool", async () => {
+    invokeMock.mockResolvedValueOnce({ expression: "2d20", rolls: [20, 20], modifier: 0, total: 40, dropped: null });
+    render(<DicePage />);
+    fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(sounds.playDiceRollSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
+  });
+
+  it("plays the critical success sound for a natural 20 kept from advantage (single saved d20)", async () => {
+    invokeMock.mockResolvedValueOnce({ expression: "d20adv", rolls: [20], modifier: 0, total: 20, dropped: [7] });
+    render(<DicePage />);
+    fireEvent.change(screen.getByLabelText("Преимущество или помеха"), { target: { value: "adv" } });
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await waitFor(() => expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
   });
 });
