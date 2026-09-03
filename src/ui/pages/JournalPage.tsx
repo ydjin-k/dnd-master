@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import "./JournalPage.css";
-import { packJournalEntries } from "./journalPagination";
 
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
@@ -11,9 +10,8 @@ export function JournalPage() {
   const pageFlipAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const entries = [...state.journal].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const spreads = packJournalEntries(entries);
-  const spreadCount = Math.max(1, spreads.length);
-  const visibleSpread = spreads[spreadIndex] ?? { left: [], right: [] };
+  const spreadCount = Math.max(1, Math.ceil(entries.length / 6));
+  const visibleEntries = entries.slice(spreadIndex * 6, spreadIndex * 6 + 6);
 
   useEffect(() => {
     setSpreadIndex((current) => Math.min(current, spreadCount - 1));
@@ -50,7 +48,7 @@ export function JournalPage() {
 
       <div className="journal-page">
         <div className="journal-page__list">
-          {[visibleSpread.left, visibleSpread.right].map((column, columnIndex) => (
+          {[visibleEntries.slice(0, 3), visibleEntries.slice(3, 6)].map((column, columnIndex) => (
             <ul className="journal-page__column" key={columnIndex}>
               {column.map((entry) => (
                 <li key={entry.id} className="journal-entry">

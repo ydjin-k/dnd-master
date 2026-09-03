@@ -79,13 +79,14 @@ describe("JournalPage", () => {
     expect(removeJournalEntry).toHaveBeenCalledWith("entry-to-remove");
   });
 
-  it("paginates packed spreads and disables pagination at its boundaries", () => {
-    mockState = createStateWithEntries(8, 120);
+  it("paginates six entries per spread regardless of text length", () => {
+    mockState = createStateWithEntries(7, 1_000);
     render(<JournalPage />);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.getByText(/Запись 8/)).toBeInTheDocument();
-    expect(screen.queryByText(/Запись 2/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.getByText(/Запись 7/)).toBeInTheDocument();
+    expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 1/)).not.toBeInTheDocument();
 
     const previous = screen.getByRole("button", { name: "Предыдущий разворот" });
     const next = screen.getByRole("button", { name: "Следующий разворот" });
@@ -94,8 +95,9 @@ describe("JournalPage", () => {
 
     fireEvent.click(next);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
-    expect(screen.getByText(/Запись 4/)).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByText(/Запись 1/)).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 2/)).not.toBeInTheDocument();
     expect(previous).toBeEnabled();
     expect(next).toBeDisabled();
     expect(audioInstances[0]).toMatchObject({ src: "/audio/page-flip.mp3", currentTime: 0 });
@@ -106,14 +108,14 @@ describe("JournalPage", () => {
     mockState = createStateWithEntries(8, 120);
     render(<JournalPage />);
     fireEvent.click(screen.getByRole("button", { name: "Следующий разворот" }));
-    expect(screen.getByText(/Запись 4/)).toBeInTheDocument();
+    expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Что произошло?"), { target: { value: "Новая запись" } });
     fireEvent.click(screen.getByText("Записать"));
 
     await waitFor(() => expect(addJournalEntry).toHaveBeenCalledTimes(1));
     expect(screen.getByText(/Запись 8/)).toBeInTheDocument();
-    expect(screen.queryByText(/Запись 4/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Запись 2/)).not.toBeInTheDocument();
   });
 });
 
