@@ -79,7 +79,7 @@ export function DicePage() {
     e.preventDefault();
     const value = Number(manualValue);
     if (!Number.isFinite(value)) return;
-    setLog((prev) => [{ id: crypto.randomUUID(), label: "вручную", manual: value }, ...prev]);
+    setLog((prev) => [{ id: crypto.randomUUID(), label: "Вручную", manual: value }, ...prev]);
     setManualValue("");
   }
 
