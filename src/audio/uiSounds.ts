@@ -32,28 +32,33 @@ export function playButtonClickSound() {
   if (!audio) return;
 
   const now = audio.currentTime;
-  const gain = audio.createGain();
-  const lowChime = audio.createOscillator();
-  const highChime = audio.createOscillator();
+  const bodyGain = audio.createGain();
+  const body = audio.createOscillator();
+  const strikeGain = audio.createGain();
+  const strike = audio.createOscillator();
 
-  lowChime.type = "triangle";
-  lowChime.frequency.setValueAtTime(330, now);
-  lowChime.frequency.exponentialRampToValueAtTime(247, now + 0.075);
-  highChime.type = "sine";
-  highChime.frequency.setValueAtTime(660, now);
-  highChime.frequency.exponentialRampToValueAtTime(494, now + 0.055);
+  body.type = "triangle";
+  body.frequency.setValueAtTime(240, now);
+  body.frequency.exponentialRampToValueAtTime(150, now + 0.075);
+  bodyGain.gain.setValueAtTime(0.0001, now);
+  bodyGain.gain.exponentialRampToValueAtTime(0.075, now + 0.004);
+  bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
 
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.055, now + 0.006);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+  strike.type = "square";
+  strike.frequency.setValueAtTime(1700, now);
+  strike.frequency.exponentialRampToValueAtTime(1250, now + 0.025);
+  strikeGain.gain.setValueAtTime(0.0001, now);
+  strikeGain.gain.exponentialRampToValueAtTime(0.032, now + 0.003);
+  strikeGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
 
-  lowChime.connect(gain);
-  highChime.connect(gain);
-  gain.connect(audio.destination);
-  lowChime.start(now);
-  highChime.start(now);
-  lowChime.stop(now + 0.1);
-  highChime.stop(now + 0.1);
+  body.connect(bodyGain);
+  strike.connect(strikeGain);
+  bodyGain.connect(audio.destination);
+  strikeGain.connect(audio.destination);
+  body.start(now);
+  strike.start(now);
+  body.stop(now + 0.085);
+  strike.stop(now + 0.035);
 }
 
 export function playDiceRollSound() {
