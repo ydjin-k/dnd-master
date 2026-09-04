@@ -204,6 +204,16 @@
   flex: 1;
 }
 
+.character-card__resource-list strong {
+  flex: 1;
+}
+
+.character-card__resource-count {
+  min-width: 8ch;
+  font-weight: 700;
+  color: var(--dm-accent);
+}
+
 .character-card__coin-row {
   width: max-content;
   gap: 0.3em;

@@ -918,7 +918,12 @@ function CharacterCard({
                 {missingCantrips > 0 && <> — новых заговоров: {missingCantrips}</>}
                 {missingSpells > 0 && <> — новых заклинаний: {missingSpells}</>}.
               </p>
-              {missingCantrips > 0 && (
+              {missingCantrips > 0 && learnableCantrips.length === 0 && (
+                <p className="character-card__hint">
+                  Списка заговоров этого класса в приложении пока нет — веди новые заговоры сам по книге.
+                </p>
+              )}
+              {missingCantrips > 0 && learnableCantrips.length > 0 && (
                 <>
                   <p>
                     Заговоры ({chosenCantrips.length}/{missingCantrips}):
@@ -939,7 +944,12 @@ function CharacterCard({
                   </ul>
                 </>
               )}
-              {missingSpells > 0 && (
+              {missingSpells > 0 && learnableSpells.length === 0 && (
+                <p className="character-card__hint">
+                  Списка заклинаний этого класса в приложении пока нет — веди новые заклинания сам по книге.
+                </p>
+              )}
+              {missingSpells > 0 && learnableSpells.length > 0 && (
                 <>
                   <p>
                     Заклинания до {highestCircle} круга ({chosenSpells.length}/{missingSpells}):
@@ -960,15 +970,20 @@ function CharacterCard({
                   </ul>
                 </>
               )}
-              <div className="character-card__asi-actions">
-                <button
-                  type="button"
-                  disabled={chosenCantrips.length !== missingCantrips || chosenSpells.length !== missingSpells}
-                  onClick={learnChosen}
-                >
-                  Выучить
-                </button>
-              </div>
+              {(learnableCantrips.length > 0 || learnableSpells.length > 0) && (
+                <div className="character-card__asi-actions">
+                  <button
+                    type="button"
+                    disabled={
+                      chosenCantrips.length !== Math.min(missingCantrips, learnableCantrips.length) ||
+                      chosenSpells.length !== Math.min(missingSpells, learnableSpells.length)
+                    }
+                    onClick={learnChosen}
+                  >
+                    Выучить
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {spellsKnownKind === "prepared" && (
