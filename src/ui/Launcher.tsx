@@ -74,7 +74,9 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     if (!newName.trim() || campaignLimitReached) return;
     try {
       const state = await invoke<CampaignState>("create_campaign", { name: newName.trim() });
-      onEnter(state);
+      refresh();
+      setNewName("");
+      setSelectedId(state.id);
     } catch (e) { setError(String(e)); }
   }
 
@@ -155,7 +157,9 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
                 <h2 title={selected.name}>{selected.name || "Без названия"}</h2>
                 <p className="launcher__portal-meta">Героев: {selected.characterCount}</p>
                 <div className="launcher__campaign-actions">
-                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>Продолжить</button>
+                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>
+                    {selected.characterCount === 0 ? "Начать" : "Продолжить"}
+                  </button>
                   <button className="launcher__portal-delete" onClick={() => deleteCampaign(selected.id, selected.name)}>Удалить</button>
                 </div>
               </>
