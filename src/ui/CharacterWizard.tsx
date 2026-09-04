@@ -57,6 +57,7 @@ import {
   fmtMod,
   subclassGrants,
   subclassSpellsUpToLevel,
+  toolProficienciesFor,
   weaponProficienciesFor,
   type AbilityKey,
   type BackgroundData,
@@ -596,6 +597,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       skillProficiencies: allSkillProficiencies,
       armorProficiencies: armorProficienciesFor(classId, level1Subclass?.name),
       weaponProficiencies: weaponProficienciesFor(classId, level1Subclass?.name),
+      toolProficiencies: toolProficienciesFor(classId, level1Subclass?.name),
       fightingStyle: finalFightingStyle,
       knownCantrips: spellAbility ? knownCantrips : [],
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму

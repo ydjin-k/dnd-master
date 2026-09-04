@@ -1541,6 +1541,24 @@ export type SubclassEffect =
   | { kind: "saving-throw"; against: AbilityKey }
   /** Бонус к броскам атаки от характеристики, не ниже `min` (Священное оружие). */
   | { kind: "attack-bonus"; ability: AbilityKey; min: number }
+  /** Временные хиты самому персонажу: `perLevel` × уровень плюс модификатор характеристики (Благословение темнейшего, Крепкая форма). */
+  | { kind: "temp-hp-self"; perLevel: number; ability?: AbilityKey; min?: number }
+  /** Кость, бросок которой прибавляется к чужому или своему броску (кость превосходства, Благословение созвездия). */
+  | { kind: "bonus-dice"; count: number; die: number }
+  /** Дополнительный урон костями (Стихийный всплеск — 1к6, Заряженный клинок — 1к8). */
+  | { kind: "bonus-damage-dice"; count: number; die: number }
+  /** Дополнительный урон плоским числом от уровня или бонуса мастерства (Первый и последний удар, Сокрушительный напор). */
+  | { kind: "bonus-damage-flat"; per: "level" | "proficiency" }
+  /** Число существ/целей от круга заклинания: круг + `plus` (Лепка заклинаний — 1 + круг). */
+  | { kind: "spell-circle-plus"; plus: number }
+  /** Половина круга заклинания с округлением вверх (Живучая плоть). */
+  | { kind: "spell-circle-half" }
+  /** Половина уровня персонажа с округлением вверх (Естественное восстановление). */
+  | { kind: "half-level" }
+  /** Максимум хитов звериного спутника: `perLevel` × уровень. */
+  | { kind: "companion-hp"; perLevel: number }
+  /** Восстановление потраченной ячейки заклинаний указанного круга — единственный эффект, который реально меняет ячейки. */
+  | { kind: "restore-slot"; circle: number }
   /** Эффект без числа — целиком описан текстом особенности (сопротивление, преимущество союзнику). */
   | { kind: "descriptive" };
 
@@ -1556,6 +1574,20 @@ export interface SubclassResourceOption {
   name: string;
   minLevel: number;
   effect: SubclassEffect;
+  /** Сколько использований ресурса тратит применение; по умолчанию одно (Тень между вздохов — 2 очка ци). */
+  cost?: number;
+}
+
+/**
+ * Число архетипа, которое действует всегда и ничего не тратит, — аналог
+ * `ClassScalingValue` класса, но считается от уровня и характеристик тем же
+ * `subclassEffectValue`, что и варианты с кнопкой. Владелец числа один, текст
+ * особенности остаётся в `featuresByLevel`.
+ */
+export interface SubclassScalingValue {
+  name: string;
+  minLevel: number;
+  effect: SubclassEffect;
 }
 
 /**
@@ -1568,6 +1600,16 @@ export interface SubclassGrants {
   weaponCategories?: WeaponProficiencyCategory[];
   weapons?: string[];
   skills?: string[];
+  /** Владение инструментами по названию набора (воровские инструменты, набор для отравления). */
+  toolProficiencies?: string[];
+  /** Сопротивление видам урона, действующее постоянно (Дитя шторма — электричество и гром). */
+  damageResistances?: string[];
+  /** Заговоры сверх нормы класса: сколько и из чьего списка (Мистический ловкач — два заговора волшебника). */
+  bonusCantrips?: { count: number; fromClassId?: string };
+  /** Наименьший результат кости атаки, считающийся критическим попаданием (Воитель — 19 вместо 20). */
+  critRange?: number;
+  /** Числа архетипа, действующие всегда и ничего не тратящие. */
+  scaling?: SubclassScalingValue[];
   /** Безоспешная защита архетипа: КД = `base` + модификатор Ловкости (Драконья устойчивость — 13). */
   unarmoredAc?: { base: number };
   /** Собственный ресурс архетипа сверх классовых — тот же тип, что у класса. */
@@ -1789,12 +1831,24 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         // SRD текстом упоминает три покровителя (Архифея, Исчадие, Великий Древний), но только «Исчадие» расписано полностью в rules.json.
         name: "Исчадие",
+        grants: {
+          // Расширенный список Исчадия SRD 5.1 по кругам договора: 1-2 уровни —
+          // 1 круг, 3-4 — 2 круг, 5 — 3 круг (PACT_MAGIC_SLOTS в classProgression.ts).
+          spellsByLevel: {
+            1: ["burning-hands", "command"],
+            3: ["blindness-deafness", "scorching-ray"],
+            5: ["fireball", "stinking-cloud"],
+          },
+          scaling: [
+            { name: "Благословение темнейшего", minLevel: 1, effect: { kind: "temp-hp-self", perLevel: 1, ability: "charisma", min: 1 } },
+          ],
+        },
         featuresByLevel: {
           1: [
             {
               name: "Расширенный список заклинаний",
               description:
-                "Исчадие добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (например, 1 круг: огненные ладони, приказ).",
+                "Исчадие добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (1 круг: огненные ладони, приказ; 2 круг: слепота/глухота, палящий луч; 3 круг: огненный шар, зловонное облако).",
             },
             {
               name: "Благословение темнейшего",
@@ -1811,12 +1865,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Покровитель-Архифея",
         description:
           "Ваш покровитель — существо из Страны Фей, обещающее не силу разрушения, а тайное знание и благосклонность природы, взамен на услуги в её вечных играх.",
+        grants: {
+          // Список подобран из заклинаний spells.json по теме очарования и
+          // иллюзии — покровитель оригинальный, книжного списка у него нет.
+          spellsByLevel: {
+            1: ["charm-person", "faerie-fire"],
+            3: ["calm-emotions", "invisibility"],
+            5: ["blink", "plant-growth"],
+          },
+        },
         featuresByLevel: {
           1: [
             {
               name: "Расширенный список заклинаний",
               description:
-                "Архифея добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (например, 1 круг: доброжелательность, зачарование личности).",
+                "Архифея добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (1 круг: очарование личности, огонь фей; 2 круг: успокоение эмоций, невидимость; 3 круг: мерцание, рост растений).",
             },
             {
               name: "Обманчивый шаг",
@@ -1830,12 +1893,22 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Покровитель-Древний Ужас",
         description:
           "Ваш покровитель — разум, дремлющий за гранью звёзд; его дары пугающе действенны, а цена — эхо его чуждых мыслей, изредка проступающее в вашей голове.",
+        grants: {
+          // Список подобран из заклинаний spells.json по теме разума и страха —
+          // покровитель оригинальный, книжного списка у него нет.
+          spellsByLevel: {
+            1: ["hideous-laughter", "false-life"],
+            3: ["detect-thoughts", "hold-person"],
+            5: ["fear", "hypnotic-pattern"],
+          },
+          scaling: [{ name: "Шёпот безумия", minLevel: 1, effect: { kind: "saving-throw", against: "wisdom" } }],
+        },
         featuresByLevel: {
           1: [
             {
               name: "Расширенный список заклинаний",
               description:
-                "Древний Ужас добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (например, 1 круг: длань стража, вызывающий страх взгляд).",
+                "Древний Ужас добавляет в ваш список заклинаний колдуна дополнительные заклинания по кругам (1 круг: жуткий хохот, ложная жизнь; 2 круг: обнаружение мыслей, удержание личности; 3 круг: страх, гипнотический узор).",
             },
             {
               name: "Шёпот безумия",
@@ -1878,6 +1951,19 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Дикая магия",
         description:
           "Ваша магия чародея пришла не от предка и не от осознанной сделки — она хлынула в вас случайно, и по сей день порой выплёскивается непредсказуемо, стоит вам напрячь волю сильнее обычного.",
+        grants: {
+          // «Дикий всплеск» числом не выражается: это бросок Мастера, а не
+          // ресурс персонажа, — остаётся текстом особенности.
+          resourceOptions: [
+            {
+              id: "saving-magic",
+              resourceId: "sorcery-points",
+              name: "Спасительная магия",
+              minLevel: 2,
+              effect: { kind: "bonus-dice", count: 1, die: 6 },
+            },
+          ],
+        },
         featuresByLevel: {
           1: [
             {
@@ -1896,6 +1982,29 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Происхождение от бури",
         description: "Кровь бури течёт в ваших жилах — гроза не пугает вас, потому что часть её силы всегда была вашей.",
+        grants: {
+          damageResistances: ["Электричество", "Гром"],
+          // Ресурс самой бури, а не классовые Очки чар: он есть уже на 1 уровне,
+          // когда очков чар у чародея ещё нет.
+          resources: [
+            {
+              id: "storm-wind",
+              name: "Ветер потомка бури",
+              maxFrom: { ability: "charisma", plus: 0, min: 1 },
+              recharge: "long",
+              unit: "использование",
+            },
+          ],
+          resourceOptions: [
+            {
+              id: "storm-wind-push",
+              resourceId: "storm-wind",
+              name: "Порыв ветра",
+              minLevel: 1,
+              effect: { kind: "saving-throw", against: "strength" },
+            },
+          ],
+        },
         featuresByLevel: {
           1: [
             {
@@ -1918,6 +2027,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Школа эвокации",
+        grants: {
+          scaling: [{ name: "Лепка заклинаний", minLevel: 2, effect: { kind: "spell-circle-plus", plus: 1 } }],
+        },
         featuresByLevel: {
           2: [
             {
@@ -1940,6 +2052,12 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Школа иллюзий",
         description:
           "Иллюзионисты плетут ложь настолько плотную, что она обманывает не только зрение, но и инстинкты — их сила не в разрушении, а в подмене реальности перед глазами противника.",
+        grants: {
+          // Число «Иллюзорной точности» — та самая СЛ спасброска волшебника,
+          // против которой существо разгадывает иллюзию; своего числа у
+          // особенности нет, поэтому она показывает общее, а не заводит второе.
+          scaling: [{ name: "Иллюзорная точность", minLevel: 2, effect: { kind: "saving-throw", against: "intelligence" } }],
+        },
         featuresByLevel: {
           2: [
             {
@@ -1959,6 +2077,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Школа некромантии",
         description:
           "Некроманты Волшебника изучают грань между жизнью и смертью не из порочности, а из любопытства исследователя — их знание крепнет с каждым разрушенным и восстановленным телом.",
+        grants: {
+          scaling: [{ name: "Живучая плоть", minLevel: 2, effect: { kind: "spell-circle-half" } }],
+        },
         featuresByLevel: {
           2: [
             {
@@ -1980,6 +2101,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Круг земли",
+        grants: {
+          bonusCantrips: { count: 1 },
+          resources: [
+            { id: "natural-recovery", name: "Естественное восстановление", max: 1, recharge: "long", unit: "использование" },
+          ],
+          resourceOptions: [
+            {
+              id: "natural-recovery-slots",
+              resourceId: "natural-recovery",
+              name: "Естественное восстановление",
+              minLevel: 2,
+              effect: { kind: "half-level" },
+            },
+          ],
+        },
         featuresByLevel: {
           2: [
             {
@@ -1992,16 +2128,17 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
                 "Начиная со 2 уровня, во время короткого отдыха вы можете восстановить потраченные ячейки заклинаний суммарным уровнем не выше половины уровня друида (округляя вверх), ни одна не выше 5 круга — раз за длинный отдых.",
             },
           ],
-          // «Заклинания круга» (3, 5, 7, 9 уровни) зависят от выбора местности и
-          // ссылаются на заклинания выше 1 уровня, которых пока нет в
-          // spells.json (та же граница, что и пункт 5 карточки про заклинания
-          // 2-3 круга) — показываем только текстом-предупреждением, без
-          // реального списка заклинаний, честно как есть, не заглушкой.
+          // «Заклинания круга» зависят от выбранной при посвящении местности, а
+          // выбора местности в приложении пока нет: `spellsByLevel` — один
+          // список на архетип, ветвиться по местности он не умеет. Заклинания
+          // нужных кругов в spells.json уже есть, упирается только выбор — до
+          // появления UI честно показываем текстом, а не наугад выбранной
+          // местностью.
           3: [
             {
               name: "Заклинания круга",
               description:
-                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний. В приложении пока нет заклинаний выше 1 уровня, поэтому конкретный список здесь не показан.",
+                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний. Выбор местности в приложении пока не сделан, поэтому конкретный список здесь не показан.",
             },
           ],
         },
@@ -2014,6 +2151,12 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Круг луны",
         description:
           "Друиды круга Луны видят в Диком облике не вспомогательный инструмент, а главное оружие — они бросаются в звериную форму первыми и покидают её последними.",
+        grants: {
+          // «Боевой облик» (превращение бонусным действием) и «Расширенный
+          // облик» (потолок УО зверя) остаются текстом: ни экономики действий,
+          // ни списка форм Дикого облика в приложении пока нет.
+          scaling: [{ name: "Крепкая форма", minLevel: 2, effect: { kind: "temp-hp-self", perLevel: 2 } }],
+        },
         featuresByLevel: {
           2: [
             {
@@ -2039,6 +2182,20 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Круг звёзд",
         description:
           "Друиды этого круга не сражаются сами — они читают предзнаменования в узорах ночного неба, направляя решения группы задолго до того, как прольётся кровь.",
+        grants: {
+          bonusCantrips: { count: 1 },
+          resources: [{ id: "star-omen", name: "Звёздное знамение", max: 1, recharge: "short", unit: "использование" }],
+          resourceOptions: [
+            {
+              id: "star-omen-read",
+              resourceId: "star-omen",
+              name: "Прочесть знамение",
+              minLevel: 2,
+              effect: { kind: "descriptive" },
+            },
+          ],
+          scaling: [{ name: "Благословение созвездия", minLevel: 2, effect: { kind: "bonus-dice", count: 1, die: 4 } }],
+        },
         featuresByLevel: {
           2: [
             {
@@ -2068,6 +2225,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Коллегия знаний",
+        grants: {
+          // «Дополнительные навыки» — выбор трёх навыков игроком, а `skills` —
+          // фиксированный список; выбор требует своего UI и остаётся текстом.
+          // Кость Острых слов не дублируется: её владелец — `scaling` класса
+          // («Кость Вдохновения барда» в classProgression.ts).
+          resourceOptions: [
+            {
+              id: "cutting-words",
+              resourceId: "bardic-inspiration",
+              name: "Острые слова",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2110,6 +2282,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Коллегия шёпота",
         description:
           "Барды коллегии шёпота выступают в тавернах и на улицах, но истинное ремесло ведут в тени: сплетни, компромат и тихое запугивание — их инструменты не хуже лютни.",
+        grants: { toolProficiencies: ["Воровские инструменты"] },
         featuresByLevel: {
           3: [
             {
@@ -2132,6 +2305,13 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Путь Берсерка",
+        // Неистовство объявляется той же яростью, в которую варвар входит, —
+        // поэтому кнопка тратит использование Ярости, а не заводит второй счётчик.
+        grants: {
+          resourceOptions: [
+            { id: "frenzy", resourceId: "rage", name: "Неистовство", minLevel: 3, effect: { kind: "descriptive" } },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2150,6 +2330,15 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь Тотемного воина",
         description:
           "Берсерк-тотемист чувствует дух зверя-покровителя ещё до посвящения в путь и просит его защиты и силы в бою, а не просто впадает в слепую ярость.",
+        // Дух выбирается на текущую ярость, поэтому это три варианта одной и той
+        // же траты Ярости, а не постоянное сопротивление урону.
+        grants: {
+          resourceOptions: [
+            { id: "totem-bear", resourceId: "rage", name: "Дух зверя: Медведь", minLevel: 3, effect: { kind: "descriptive" } },
+            { id: "totem-eagle", resourceId: "rage", name: "Дух зверя: Орёл", minLevel: 3, effect: { kind: "descriptive" } },
+            { id: "totem-wolf", resourceId: "rage", name: "Дух зверя: Волк", minLevel: 3, effect: { kind: "descriptive" } },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2164,6 +2353,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь Штурмовика",
         description:
           "Штурмовик превращает ярость в чистый напор: вместо звериных духов он полагается на инерцию собственного тела, вкладывая всю массу в один сокрушительный рывок.",
+        grants: {
+          scaling: [{ name: "Сокрушительный напор", minLevel: 3, effect: { kind: "bonus-damage-flat", per: "proficiency" } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2181,6 +2373,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Воитель",
+        grants: { critRange: 19 },
         featuresByLevel: {
           // В rules.json у этой особенности написано «Если вы выбрали этот
           // архетип на 19 уровне» — явная ошибка исходного текста (архетип
@@ -2202,6 +2395,32 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Мастер боя",
         description: "Мастер боя изучает поле сражения как шахматную доску: побеждает не только силой удара, но выбором момента и позиции.",
+        grants: {
+          resources: [{ id: "superiority-dice", name: "Кости превосходства", max: 4, recharge: "long", unit: "кость" }],
+          resourceOptions: [
+            {
+              id: "maneuver-distracting",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Отвлекающий удар",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "maneuver-rally",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Ободряющий рывок",
+              minLevel: 3,
+              effect: { kind: "bonus-dice", count: 1, die: 8 },
+            },
+            {
+              id: "maneuver-precision",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Точный выпад",
+              minLevel: 3,
+              effect: { kind: "bonus-dice", count: 1, die: 8 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2216,6 +2435,20 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Мистический рыцарь",
         description:
           "Мистический рыцарь вплетает в удары клинка отголоски чужой магии — не становясь чародеем, он бесстрашно прожигает резерв воли ради решающего момента боя.",
+        grants: {
+          resources: [
+            { id: "arcane-charge", name: "Очки мистической энергии", max: 2, recharge: "long", unit: "очко" },
+          ],
+          resourceOptions: [
+            {
+              id: "charged-blade",
+              resourceId: "arcane-charge",
+              name: "Заряженный клинок",
+              minLevel: 3,
+              effect: { kind: "bonus-damage-dice", count: 1, die: 8 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2233,6 +2466,33 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Путь открытой ладони",
+        // Эффект накладывается попаданием Шквала ударов, а Шквал стоит очко ци —
+        // поэтому все три варианта тратят тот же классовый ресурс.
+        grants: {
+          resourceOptions: [
+            {
+              id: "open-hand-prone",
+              resourceId: "ki",
+              name: "Открытая ладонь: сбить с ног",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "dexterity" },
+            },
+            {
+              id: "open-hand-push",
+              resourceId: "ki",
+              name: "Открытая ладонь: оттолкнуть",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "strength" },
+            },
+            {
+              id: "open-hand-no-reactions",
+              resourceId: "ki",
+              name: "Открытая ладонь: лишить реакций",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2254,6 +2514,18 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь тени",
         description:
           "Монахи Пути тени тренируются как лазутчики и охотники: тишина и внезапность разят вернее прямого удара, потому что противник узнаёт о битве, когда она уже окончена.",
+        grants: {
+          resourceOptions: [
+            {
+              id: "shadow-step",
+              resourceId: "ki",
+              name: "Тень между вздохов",
+              minLevel: 3,
+              cost: 2,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2268,6 +2540,17 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь четырёх стихий",
         description:
           "Монахи этого пути направляют ци не только в тело, но и вовне — в короткие всплески огня, льда и ветра, служащие продолжением их ударов, а не отдельной магией.",
+        grants: {
+          resourceOptions: [
+            {
+              id: "elemental-burst",
+              resourceId: "ki",
+              name: "Стихийный всплеск",
+              minLevel: 3,
+              effect: { kind: "bonus-damage-dice", count: 1, die: 6 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2390,6 +2673,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Вор",
+        // «Форточник» (лазание и прыжок) числом не выражается: скорости лазания
+        // и дальности прыжка на листе персонажа пока нет.
+        grants: { toolProficiencies: ["Воровские инструменты"] },
         featuresByLevel: {
           3: [
             {
@@ -2413,6 +2699,10 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Убийца",
         description:
           "Убийцы превращают ремесло плута в точную науку смерти: они изучают жертву заранее и наносят один-единственный решающий удар, пока никто не готов.",
+        grants: {
+          toolProficiencies: ["Набор для отравления", "Маскировочный набор"],
+          scaling: [{ name: "Первый и последний удар", minLevel: 3, effect: { kind: "bonus-damage-flat", per: "level" } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2431,6 +2721,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Мистический ловкач",
         description:
           "Мистические ловкачи подсматривают магию у чародеев и волшебников ровно настолько, чтобы обвести вокруг пальца — не ради разрушительной силы, а ради ещё одного трюка в рукаве.",
+        grants: { bonusCantrips: { count: 2, fromClassId: "classes-wizard" } },
         featuresByLevel: {
           3: [
             {
@@ -2470,6 +2761,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Укротитель зверей",
         description: "Укротители зверей следопыта делят путь с диким спутником — тот сражается и выслеживает добычу рядом с хозяином, а не остаётся в лагере.",
+        grants: {
+          scaling: [{ name: "Звериный спутник", minLevel: 3, effect: { kind: "companion-hp", perLevel: 4 } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2483,6 +2777,18 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Странник",
         description: "Странники следопыта не привязаны ни к одному покровителю или зверю — их сила в чистой выносливости человека, идущего в одиночку туда, куда другие не решаются.",
+        grants: {
+          resources: [{ id: "tireless-step", name: "Неутомимый шаг", max: 1, recharge: "long", unit: "использование" }],
+          resourceOptions: [
+            {
+              id: "tireless-step-slot",
+              resourceId: "tireless-step",
+              name: "Вернуть ячейку 1 круга",
+              minLevel: 3,
+              effect: { kind: "restore-slot", circle: 1 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2533,6 +2839,18 @@ export function weaponProficienciesFor(
   ];
 }
 
+/**
+ * Владение инструментами, данное архетипом. Таблицы владения инструментами у
+ * самих классов пока нет — когда появится, она встанет сюда первым слагаемым,
+ * как `CLASS_PROFICIENCIES` у оружия и доспехов выше.
+ */
+export function toolProficienciesFor(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+): string[] {
+  return [...new Set(subclassGrants(classId, subclassName)?.toolProficiencies ?? [])];
+}
+
 /** Заклинания домена/архетипа, открытые к этому уровню персонажа (всегда подготовлены). */
 export function subclassSpellsUpToLevel(
   classId: string | null | undefined,
@@ -2557,6 +2875,15 @@ export function subclassResourceOptionsAt(
   return (subclassGrants(classId, subclassName)?.resourceOptions ?? []).filter((o) => o.minLevel <= level);
 }
 
+/** Постоянные числа архетипа, открытые к этому уровню персонажа. */
+export function subclassScalingAt(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  level: number,
+): SubclassScalingValue[] {
+  return (subclassGrants(classId, subclassName)?.scaling ?? []).filter((s) => s.minLevel <= level);
+}
+
 /**
  * СЛ спасброска от заклинаний персонажа (SRD 5.1): 8 + бонус мастерства +
  * модификатор базовой характеристики класса.
@@ -2568,14 +2895,25 @@ export function spellSaveDc(classId: string | null | undefined, abilities: Abili
 }
 
 /**
- * Число, которое даёт применение варианта архетипа, — или `null` у вариантов
+ * Величина, которую даёт применение варианта архетипа, — или `null` у вариантов
  * без числа (преимущество союзнику). Само описание эффекта словами живёт в
- * тексте особенности (`featuresByLevel`) и здесь не повторяется.
+ * тексте особенности (`featuresByLevel`) и здесь не повторяется. Значение бывает
+ * и строкой («1к8»): кость — такая же величина эффекта, как число, и второго
+ * владельца ей заводить незачем.
+ *
+ * `spellCircle` — наивысший доступный круг заклинаний; его владелец
+ * `highestSpellCircle` в classProgression.ts, поэтому число приходит параметром,
+ * а не считается здесь заново.
  */
 export function subclassEffectValue(
   effect: SubclassEffect,
-  { classId, abilities, level }: { classId: string; abilities: AbilityScores; level: number },
-): { label: string; value: number } | null {
+  {
+    classId,
+    abilities,
+    level,
+    spellCircle = 0,
+  }: { classId: string; abilities: AbilityScores; level: number; spellCircle?: number },
+): { label: string; value: number | string } | null {
   switch (effect.kind) {
     case "healing-pool":
       return { label: "хитов на распределение", value: effect.perLevel * level };
@@ -2587,6 +2925,29 @@ export function subclassEffectValue(
     }
     case "attack-bonus":
       return { label: "к броскам атаки", value: Math.max(effect.min, abilityMod(abilities[effect.ability])) };
+    case "temp-hp-self": {
+      const fromAbility = effect.ability ? abilityMod(abilities[effect.ability]) : 0;
+      return { label: "временных хитов", value: Math.max(effect.min ?? 0, effect.perLevel * level + fromAbility) };
+    }
+    case "bonus-dice":
+      return { label: "к броску", value: `${effect.count}к${effect.die}` };
+    case "bonus-damage-dice":
+      return { label: "дополнительного урона", value: `${effect.count}к${effect.die}` };
+    case "bonus-damage-flat":
+      return {
+        label: "дополнительного урона",
+        value: effect.per === "level" ? level : proficiencyBonusForLevel(level),
+      };
+    case "spell-circle-plus":
+      return { label: "целей не задеты заклинанием", value: spellCircle + effect.plus };
+    case "spell-circle-half":
+      return { label: "восстановленных хитов", value: Math.ceil(spellCircle / 2) };
+    case "half-level":
+      return { label: "суммарных кругов ячеек", value: Math.ceil(level / 2) };
+    case "companion-hp":
+      return { label: "хитов у звериного спутника", value: effect.perLevel * level };
+    case "restore-slot":
+      return { label: `восстановленная ячейка ${effect.circle} круга`, value: 1 };
     case "descriptive":
       return null;
   }

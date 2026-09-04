@@ -106,6 +106,9 @@ pub struct Character {
     /// оружие — категориями ("simple"/"martial") и отдельными названиями.
     pub armor_proficiencies: Vec<String>,
     pub weapon_proficiencies: Vec<String>,
+    /// Владение инструментами по названию набора — снимок таблицы архетипа
+    /// (`SubclassGrants.toolProficiencies`), тем же правилом, что и владения выше.
+    pub tool_proficiencies: Vec<String>,
     /// Боевой стиль воина, выбранный при создании: входит в расчёт КД
     /// («Оборона» — +1 в доспехе), поэтому должен пережить сохранение.
     pub fighting_style: String,

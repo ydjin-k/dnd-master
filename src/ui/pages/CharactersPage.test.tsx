@@ -162,6 +162,7 @@ describe("CharactersPage", () => {
       savingThrowProficiencies: [],
       armorProficiencies: [],
       weaponProficiencies: [],
+      toolProficiencies: [],
       fightingStyle: "",
       skillProficiencies: [],
       knownCantrips: [],
@@ -205,6 +206,7 @@ describe("CharactersPage", () => {
           savingThrowProficiencies: [],
           armorProficiencies: [],
           weaponProficiencies: [],
+          toolProficiencies: [],
           fightingStyle: "",
           skillProficiencies: [],
           knownCantrips: [],
@@ -486,6 +488,7 @@ describe("CharactersPage", () => {
       savingThrowProficiencies: ["Сила"],
       armorProficiencies: [],
       weaponProficiencies: [],
+      toolProficiencies: [],
       fightingStyle: "",
       skillProficiencies: ["Акробатика"], // Dexterity-based skill
     };
@@ -1036,6 +1039,178 @@ describe("CharactersPage", () => {
       mockState = baseState({ characters: [char] });
       render(<CharactersPage />);
       expect(await screen.findByTitle("Применить: Священное оружие (тратит Проведение энергии)")).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * characters-subclass-features-remaining-archetypes — приёмка карточки:
+   * новые ключи гранта обязаны доходить до листа персонажа, а не оставаться
+   * данными. Каждая проба идёт парой «архетип с грантом» / «архетип без него».
+   */
+  describe("механика оставшихся архетипов на листе", () => {
+    async function renderWith(
+      classId: string,
+      title: string,
+      die: string,
+      avg: string,
+      char: Character,
+      extraTopics: RuleTopic[] = [],
+    ) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [classTopic(classId, title, die, avg), ...extraTopics, CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    function rogue(subclass: string, extra: Partial<Character> = {}): Character {
+      return { ...characterWithInventory(), class: "Плут", subclass, level: 3, conditions: ["Ослеплённое"], ...extra };
+    }
+
+    it("Убийца показывает владение инструментами, Мистический ловкач — нет", async () => {
+      await renderWith("classes-rogue", "Плут", "8", "5", rogue("Убийца"));
+      expect(screen.getByText(/Инструменты: Набор для отравления, Маскировочный набор/)).toBeInTheDocument();
+      // Урон Первого и последнего удара — уровень плута, то есть 3.
+      expect(screen.getByText(/Первый и последний удар: 3 дополнительного урона/)).toBeInTheDocument();
+
+      cleanup();
+      await renderWith("classes-rogue", "Плут", "8", "5", rogue("Мистический ловкач"), [
+        classTopic("classes-wizard", "Волшебник", "6", "4"),
+      ]);
+      expect(screen.queryByText(/Инструменты:/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Первый и последний удар/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Заговоры сверх нормы класса: 2 \(из списка класса «Волшебник»\)/)).toBeInTheDocument();
+    });
+
+    it("Мистический ловкач выбирает заговоры волшебника, которых у плута своих нет", async () => {
+      await renderWith("classes-rogue", "Плут", "8", "5", rogue("Мистический ловкач"));
+      // «Огненный снаряд» — заговор волшебника; в списке заговоров плута его нет вовсе.
+      expect(await screen.findByText(/Огненный снаряд/)).toBeInTheDocument();
+
+      cleanup();
+      await renderWith("classes-rogue", "Плут", "8", "5", rogue("Убийца"));
+      expect(screen.queryByText(/Огненный снаряд/)).not.toBeInTheDocument();
+    });
+
+    it("Воитель улучшает крит в строке атаки, Мастер боя тем же мечом — нет", async () => {
+      const sword = [{ id: "sword-1", name: "Длинный меч", quantity: 1, notes: "", weightLb: 3 }];
+      const fighter = (subclass: string): Character => ({
+        ...characterWithInventory(),
+        class: "Воин",
+        subclass,
+        level: 3,
+        conditions: ["Ослеплённое"],
+        inventory: sword,
+        weaponProficiencies: ["martial"],
+      });
+      await renderWith("classes-fighter", "Воин", "10", "6", fighter("Воитель"));
+      expect(screen.getByText(/Длинный меч:.*· крит 19-20/)).toBeInTheDocument();
+
+      cleanup();
+      await renderWith("classes-fighter", "Воин", "10", "6", fighter("Мастер боя"));
+      expect(screen.queryByText(/крит 19-20/)).not.toBeInTheDocument();
+      expect(screen.getByText(/4\/4 кость/)).toBeInTheDocument();
+    });
+
+    it("Происхождение от бури показывает сопротивление урону, Дикая магия — нет", async () => {
+      const sorcerer = (subclass: string): Character => ({
+        ...characterWithInventory(),
+        class: "Чародей",
+        subclass,
+        level: 2,
+        conditions: ["Ослеплённое"],
+      });
+      await renderWith("classes-sorcerer", "Чародей", "6", "4", sorcerer("Происхождение от бури"));
+      expect(screen.getByText(/Сопротивление урону: Электричество, Гром/)).toBeInTheDocument();
+
+      cleanup();
+      await renderWith("classes-sorcerer", "Чародей", "6", "4", sorcerer("Дикая магия"));
+      expect(screen.queryByText(/Сопротивление урону/)).not.toBeInTheDocument();
+    });
+
+    it("Тень между вздохов тратит сразу два очка ци, Стихийный всплеск — одно", async () => {
+      const monk = (subclass: string): Character => ({
+        ...characterWithInventory(),
+        class: "Монах",
+        subclass,
+        level: 3,
+        conditions: ["Ослеплённое"],
+        featureUses: [{ featureId: "ki", usesCurrent: 3 }],
+      });
+      const shadow = monk("Путь тени");
+      await renderWith("classes-monk", "Монах", "8", "5", shadow);
+      fireEvent.click(screen.getByTitle("Применить: Тень между вздохов (тратит Ци, 2)"));
+      const afterShadow = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(shadow);
+      expect(afterShadow.featureUses).toContainEqual({ featureId: "ki", usesCurrent: 1 });
+
+      cleanup();
+      updateCharacter.mockClear();
+      const elemental = monk("Путь четырёх стихий");
+      await renderWith("classes-monk", "Монах", "8", "5", elemental);
+      fireEvent.click(screen.getByTitle("Применить: Стихийный всплеск (тратит Ци)"));
+      const afterBurst = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(elemental);
+      expect(afterBurst.featureUses).toContainEqual({ featureId: "ki", usesCurrent: 2 });
+    });
+
+    it("двух очков ци не хватает на Тень между вздохов — применение отклоняется", async () => {
+      await renderWith("classes-monk", "Монах", "8", "5", {
+        ...characterWithInventory(),
+        class: "Монах",
+        subclass: "Путь тени",
+        level: 3,
+        conditions: ["Ослеплённое"],
+        featureUses: [{ featureId: "ki", usesCurrent: 1 }],
+      });
+      fireEvent.click(screen.getByTitle("Применить: Тень между вздохов (тратит Ци, 2)"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(sounds.playLimitSound).toHaveBeenCalled();
+    });
+
+    it("Неутомимый шаг Странника действительно возвращает ячейку, а полному запасу — не даёт", async () => {
+      const ranger = (extra: Partial<Character>): Character => ({
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "Странник",
+        level: 3,
+        conditions: ["Ослеплённое"],
+        spellSlotsMax: [3, 0, 0, 0, 0],
+        ...extra,
+      });
+      const spent = ranger({ spellSlotsCurrent: [1, 0, 0, 0, 0] });
+      await renderWith("classes-ranger", "Следопыт", "10", "6", spent);
+      fireEvent.click(screen.getByTitle("Применить: Вернуть ячейку 1 круга (тратит Неутомимый шаг)"));
+      const restored = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(spent);
+      expect(restored.spellSlotsCurrent).toEqual([2, 0, 0, 0, 0]);
+      expect(restored.featureUses).toContainEqual({ featureId: "tireless-step", usesCurrent: 0 });
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-ranger", "Следопыт", "10", "6", ranger({ spellSlotsCurrent: [3, 0, 0, 0, 0] }));
+      fireEvent.click(screen.getByTitle("Применить: Вернуть ячейку 1 круга (тратит Неутомимый шаг)"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("левел-ап до архетипа с инструментами кладёт их в снимок владений персонажа", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Плут",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-rogue", "Плут", "8", "5", char);
+      expect(screen.queryByText(/Инструменты:/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Убийца"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.subclass).toBe("Убийца");
+      expect(char.toolProficiencies).toEqual(["Набор для отравления", "Маскировочный набор"]);
     });
   });
 

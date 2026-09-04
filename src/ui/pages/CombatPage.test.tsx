@@ -87,6 +87,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         savingThrowProficiencies: [],
         armorProficiencies: [],
         weaponProficiencies: [],
+        toolProficiencies: [],
         fightingStyle: "",
         skillProficiencies: [],
         knownCantrips: [],
