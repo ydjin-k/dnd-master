@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CampaignState, CampaignSummary } from "../state/types";
 import "./Launcher.css";
 
 const CAMPAIGNS_PER_RING = 6;
+const MAX_CAMPAIGNS = 6;
 
 export type DialPosition = { x: number; y: number; ring: number };
 
@@ -27,8 +28,11 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
   const positions = useMemo(() => getDialPositions(campaigns.length), [campaigns.length]);
   const selected = campaigns.find((campaign) => campaign.id === selectedId) ?? null;
+  const campaignLimitReached = campaigns.length >= MAX_CAMPAIGNS;
 
   function refresh() {
     setLoading(true);
@@ -47,13 +51,24 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     const music = new Audio("/audio/launcher-theme.mp3");
     music.loop = true;
     music.volume = 0.32;
+    musicRef.current = music;
     void music.play().catch(() => undefined);
-    return () => { music.pause(); music.currentTime = 0; };
+    return () => {
+      music.pause();
+      music.currentTime = 0;
+      musicRef.current = null;
+    };
   }, []);
+
+  function toggleMusic() {
+    const nextMuted = !isMusicMuted;
+    setIsMusicMuted(nextMuted);
+    if (musicRef.current) musicRef.current.muted = nextMuted;
+  }
 
   async function createCampaign(e: React.FormEvent) {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (!newName.trim() || campaignLimitReached) return;
     try {
       const state = await invoke<CampaignState>("create_campaign", { name: newName.trim() });
       onEnter(state);
@@ -77,6 +92,17 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
 
   return (
     <div className="launcher">
+      <video className="launcher__background" src="/video/launcher-background.mp4" autoPlay loop muted playsInline aria-hidden="true" />
+      <button
+        type="button"
+        className="launcher__music-toggle"
+        aria-label={isMusicMuted ? "Включить музыку" : "Выключить музыку"}
+        aria-pressed={isMusicMuted}
+        title={isMusicMuted ? "Включить музыку" : "Выключить музыку"}
+        onClick={toggleMusic}
+      >
+        <span aria-hidden="true">{isMusicMuted ? "🔇" : "🔊"}</span>
+      </button>
       <header className="launcher__masthead">
         <span className="launcher__eyebrow">Лунный арканум</span>
         <h1 className="launcher__title">D&amp;D Master</h1>
@@ -140,9 +166,10 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
       <form className="launcher__new" onSubmit={createCampaign}>
         <label htmlFor="launcher-new-name">Новая история</label>
         <div className="launcher__new-controls">
-          <input id="launcher-new-name" placeholder="Название новой кампании" value={newName} onChange={(e) => setNewName(e.currentTarget.value)} />
-          <button type="submit" disabled={!newName.trim()}>Новая кампания</button>
+          <input id="launcher-new-name" placeholder="Название новой кампании" value={newName} onChange={(e) => setNewName(e.currentTarget.value)} aria-describedby={campaignLimitReached ? "launcher-campaign-limit" : undefined} />
+          <button type="submit" disabled={!newName.trim() || campaignLimitReached}>Новая кампания</button>
         </div>
+        {campaignLimitReached && <p id="launcher-campaign-limit" className="launcher__campaign-limit">Достигнут предел в 6 кампаний</p>}
       </form>
     </div>
   );

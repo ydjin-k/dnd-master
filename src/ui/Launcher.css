@@ -1,7 +1,9 @@
 .launcher { position: relative; isolation: isolate; width: min(76rem, calc(100% - 2rem)); min-height: 100%; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 1rem 3rem; }
-.launcher::before, .launcher::after { content: ""; position: fixed; z-index: -2; inset: 0; }
-.launcher::before { background: url("/images/launcher-background.png") center / cover no-repeat; }
+.launcher::after { content: ""; position: fixed; z-index: -1; inset: 0; }
+.launcher__background { position: fixed; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .launcher::after { z-index: -1; background: radial-gradient(ellipse at 50% 48%, rgba(8, 15, 35, 0.12) 0 24%, rgba(5, 10, 25, 0.58) 72%), linear-gradient(180deg, rgba(2, 7, 20, 0.35), rgba(2, 7, 20, 0.82)); backdrop-filter: saturate(0.82); }
+.launcher__music-toggle { position: fixed; z-index: 10; top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; padding: 0; color: #e5f4f2; background: rgba(5, 13, 30, 0.78); border: 1px solid rgba(142, 203, 207, 0.62); border-radius: 50%; font-size: 1.2rem; line-height: 1; backdrop-filter: blur(8px); }
+.launcher__music-toggle:hover, .launcher__music-toggle:focus-visible { color: #fff1bd; background: rgba(18, 29, 49, 0.94); border-color: #f0d494; }
 .launcher__masthead { text-align: center; text-shadow: 0 2px 18px #020712; }
 .launcher__eyebrow { color: #b7dbe0; font-size: 0.78rem; letter-spacing: 0.24em; text-transform: uppercase; }
 .launcher__title { margin: 0.2rem 0 0; font-size: clamp(2.25rem, 6vw, 3.6rem); letter-spacing: 0.08em; }
@@ -20,8 +22,8 @@
 .launcher__hands .is-selected circle { fill: #f0d494; }
 .launcher__campaign-marker { position: absolute; z-index: 2; display: grid; width: clamp(5.8rem, 14vw, 8rem); min-height: 44px; padding: 0.3rem 0.45rem; color: #d9e8e8; background: rgba(5, 13, 30, 0.82); border: 1px solid rgba(142, 203, 207, 0.48); border-radius: 999px; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); font-family: var(--dm-font-display); font-size: clamp(0.68rem, 1.5vw, 0.82rem); line-height: 1.15; transform: translate(-50%, -50%); }
 .launcher__campaign-marker span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible, .launcher__campaign-marker.is-selected { z-index: 4; color: #fff1bd; background: rgba(30, 35, 54, 0.96); border-color: #f0d494; box-shadow: 0 0 20px rgba(240, 212, 148, 0.4); }
-.launcher__dial-center { z-index: 3; display: grid; place-items: center; align-content: center; width: clamp(10.5rem, 25vw, 14rem); aspect-ratio: 1; padding: 1.25rem; overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 35%, rgba(42, 61, 91, 0.98), rgba(7, 15, 34, 0.99) 70%); border: 2px solid rgba(148, 207, 210, 0.78); border-radius: 50%; box-shadow: 0 0 35px rgba(114, 214, 208, 0.25), inset 0 0 22px rgba(211, 155, 238, 0.13); }
+.launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible, .launcher__campaign-marker.is-selected { z-index: 4; color: #fff1bd; background: rgba(30, 35, 54, 0.96); border-color: #f0d494; }
+.launcher__dial-center { z-index: 3; display: grid; place-items: center; align-content: center; width: clamp(15rem, 30vw, 17rem); aspect-ratio: 1; padding: clamp(1.5rem, 3vw, 2rem); overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 35%, rgba(42, 61, 91, 0.98), rgba(7, 15, 34, 0.99) 70%); border: 2px solid rgba(148, 207, 210, 0.78); border-radius: 50%; box-shadow: 0 0 35px rgba(114, 214, 208, 0.25), inset 0 0 22px rgba(211, 155, 238, 0.13); }
 .launcher__dial-center.is-open { border-color: #f0d494; }
 .launcher__dial-center h2 { display: -webkit-box; max-width: 100%; margin: 0; overflow: hidden; overflow-wrap: anywhere; color: var(--dm-text); font-size: clamp(1rem, 2.4vw, 1.35rem); line-height: 1.08; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .launcher__dial-center > p:last-child { margin: 0.35rem 0 0; color: var(--dm-text-muted); font-size: 0.8rem; }
@@ -42,4 +44,5 @@
 .launcher__new-controls { display: flex; gap: 0.6rem; }
 .launcher__new input { flex: 1; min-width: 0; }
 .launcher__new button { min-height: 44px; }
-@media (max-width: 620px) { .launcher { width: 100%; padding-inline: 0.5rem; } .launcher__dial { min-height: 31rem; } .launcher__dial-plane, .launcher__hands { width: 96%; height: 72%; } .launcher__campaign-marker { width: 5.6rem; } .launcher__dial-center { width: 10.3rem; padding: 1rem; } .launcher__new-controls { flex-direction: column; } }
+.launcher__campaign-limit { margin: 0.65rem 0 0; color: #f0d494; font-size: 0.82rem; text-align: center; }
+@media (max-width: 620px) { .launcher { width: 100%; padding-inline: 0.5rem; } .launcher__dial { min-height: 31rem; } .launcher__dial-plane, .launcher__hands { width: 96%; height: 72%; } .launcher__campaign-marker { width: 5.6rem; } .launcher__dial-center { width: 14.5rem; padding: 1.4rem; } .launcher__new-controls { flex-direction: column; } }
