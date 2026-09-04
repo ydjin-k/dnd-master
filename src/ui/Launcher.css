@@ -1,77 +1,45 @@
-.launcher {
-  position: relative;
-  isolation: isolate;
-  width: min(68rem, calc(100% - 2rem));
-  min-height: 100%;
-  margin: 0 auto;
-  padding: clamp(2rem, 5vw, 4rem) 1rem 3rem;
-}
-
-.launcher::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  background: radial-gradient(circle at 50% 38%, rgba(75, 112, 169, 0.28), transparent 27rem), radial-gradient(circle at 50% 38%, rgba(211, 155, 238, 0.13), transparent 18rem), linear-gradient(rgba(114, 214, 208, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(114, 214, 208, 0.025) 1px, transparent 1px);
-  background-size: auto, auto, 48px 48px, 48px 48px;
-}
-
-.launcher__masthead { text-align: center; }
-.launcher__eyebrow { color: var(--dm-text-muted); font-size: 0.78rem; letter-spacing: 0.24em; text-transform: uppercase; }
+.launcher { position: relative; isolation: isolate; width: min(76rem, calc(100% - 2rem)); min-height: 100%; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 1rem 3rem; }
+.launcher::before, .launcher::after { content: ""; position: fixed; z-index: -2; inset: 0; }
+.launcher::before { background: url("/images/launcher-background.png") center / cover no-repeat; }
+.launcher::after { z-index: -1; background: radial-gradient(ellipse at 50% 48%, rgba(8, 15, 35, 0.12) 0 24%, rgba(5, 10, 25, 0.58) 72%), linear-gradient(180deg, rgba(2, 7, 20, 0.35), rgba(2, 7, 20, 0.82)); backdrop-filter: saturate(0.82); }
+.launcher__masthead { text-align: center; text-shadow: 0 2px 18px #020712; }
+.launcher__eyebrow { color: #b7dbe0; font-size: 0.78rem; letter-spacing: 0.24em; text-transform: uppercase; }
 .launcher__title { margin: 0.2rem 0 0; font-size: clamp(2.25rem, 6vw, 3.6rem); letter-spacing: 0.08em; }
-.launcher__tagline { margin: 0.25rem 0 1.5rem; color: var(--dm-text-muted); }
-.launcher__error { max-width: 42rem; margin: 0 auto 1rem; color: var(--dm-danger); text-align: center; }
-
-.launcher__portal {
-  position: relative;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  width: clamp(18rem, 48vw, 25rem);
-  aspect-ratio: 1;
-  margin: 0 auto 1.75rem;
-  padding: 4rem;
-  overflow: hidden;
-  text-align: center;
-  background: radial-gradient(circle, rgba(23, 40, 74, 0.94), rgba(8, 17, 38, 0.98) 68%);
-  border: 2px solid var(--dm-accent);
-  border-radius: 50%;
-  box-shadow: 0 0 65px rgba(114, 214, 208, 0.17), inset 0 0 45px rgba(211, 155, 238, 0.1);
-}
-
-.launcher__portal::before,
-.launcher__portal::after { content: ""; position: absolute; inset: 1.25rem; border: 1px solid rgba(211, 155, 238, 0.58); border-radius: 50%; pointer-events: none; }
-.launcher__portal::after { inset: 2.1rem; border-color: rgba(114, 214, 208, 0.2); border-style: dashed; }
-.launcher__orbit { position: absolute; inset: 0; background: linear-gradient(var(--dm-accent), var(--dm-accent)) 50% 0 / 3px 25px no-repeat, linear-gradient(var(--dm-accent), var(--dm-accent)) 50% 100% / 3px 25px no-repeat, linear-gradient(90deg, var(--dm-accent), var(--dm-accent)) 0 50% / 25px 3px no-repeat, linear-gradient(90deg, var(--dm-accent), var(--dm-accent)) 100% 50% / 25px 3px no-repeat; opacity: 0.75; }
-.launcher__moon { position: absolute; top: 17%; width: 3.1rem; aspect-ratio: 1; border-radius: 50%; background: #d8ecf4; box-shadow: inset -15px 1px #7284ad, 0 0 22px rgba(216, 236, 244, 0.48); opacity: 0.9; }
-.launcher__portal > :not(.launcher__orbit, .launcher__moon) { position: relative; z-index: 1; }
-.launcher__portal-kicker { margin: 3.2rem 0 0.3rem; color: var(--dm-text-muted); font-size: 0.73rem; letter-spacing: 0.13em; text-transform: uppercase; }
-.launcher__portal h2 { margin: 0; max-width: 15rem; color: var(--dm-text); font-size: clamp(1.4rem, 3vw, 2rem); }
-.launcher__portal-meta { margin: 0.4rem 0 0.9rem; color: var(--dm-text-muted); }
-.launcher__continue { min-width: 10rem; border-color: var(--dm-accent); border-radius: 999px; }
-.launcher__portal-delete { min-height: 32px; margin-top: 0.3rem; padding: 0.15rem 0.6rem; color: var(--dm-text-muted); background: transparent; border-color: transparent; box-shadow: none; font-size: 0.78rem; }
+.launcher__tagline { margin: 0.25rem 0 0.5rem; color: #c1cbd9; }
+.launcher__error, .launcher__loading { max-width: 42rem; margin: 1rem auto; text-align: center; }
+.launcher__error { color: var(--dm-danger); }
+.launcher__dial, .launcher__portal { position: relative; display: grid; place-items: center; width: min(100%, 58rem); min-height: clamp(31rem, 63vw, 40rem); margin: 0 auto 1rem; }
+.launcher__dial { overflow: hidden; }
+.launcher__dial-plane { position: absolute; width: 88%; height: 76%; border: 1px solid rgba(191, 231, 231, 0.55); border-radius: 50%; background: radial-gradient(ellipse, rgba(10, 21, 44, 0.88) 0 27%, rgba(9, 19, 40, 0.62) 50%, rgba(4, 10, 24, 0.88) 73%); box-shadow: 0 0 70px rgba(114, 214, 208, 0.18), inset 0 0 50px rgba(174, 139, 225, 0.12); transform: perspective(50rem) rotateX(12deg); }
+.launcher__dial-plane::before, .launcher__dial-plane::after { content: ""; position: absolute; inset: 8%; border: 1px dashed rgba(211, 155, 238, 0.35); border-radius: 50%; }
+.launcher__dial-plane::after { inset: 22%; border-color: rgba(114, 214, 208, 0.2); }
+.launcher__hands { position: absolute; width: 88%; height: 76%; overflow: visible; filter: drop-shadow(0 0 4px rgba(114, 214, 208, 0.55)); }
+.launcher__hands line { stroke: rgba(160, 210, 218, 0.42); stroke-width: 0.34; vector-effect: non-scaling-stroke; }
+.launcher__hands circle { fill: #9edadd; stroke: #eef9f4; stroke-width: 0.3; vector-effect: non-scaling-stroke; }
+.launcher__hands .is-selected line { stroke: #f0d494; stroke-width: 0.6; }
+.launcher__hands .is-selected circle { fill: #f0d494; }
+.launcher__campaign-marker { position: absolute; z-index: 2; display: grid; width: clamp(5.8rem, 14vw, 8rem); min-height: 44px; padding: 0.3rem 0.45rem; color: #d9e8e8; background: rgba(5, 13, 30, 0.82); border: 1px solid rgba(142, 203, 207, 0.48); border-radius: 999px; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); font-family: var(--dm-font-display); font-size: clamp(0.68rem, 1.5vw, 0.82rem); line-height: 1.15; transform: translate(-50%, -50%); }
+.launcher__campaign-marker span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible, .launcher__campaign-marker.is-selected { z-index: 4; color: #fff1bd; background: rgba(30, 35, 54, 0.96); border-color: #f0d494; box-shadow: 0 0 20px rgba(240, 212, 148, 0.4); }
+.launcher__dial-center { z-index: 3; display: grid; place-items: center; align-content: center; width: clamp(10.5rem, 25vw, 14rem); aspect-ratio: 1; padding: 1.25rem; overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 35%, rgba(42, 61, 91, 0.98), rgba(7, 15, 34, 0.99) 70%); border: 2px solid rgba(148, 207, 210, 0.78); border-radius: 50%; box-shadow: 0 0 35px rgba(114, 214, 208, 0.25), inset 0 0 22px rgba(211, 155, 238, 0.13); }
+.launcher__dial-center.is-open { border-color: #f0d494; }
+.launcher__dial-center h2 { display: -webkit-box; max-width: 100%; margin: 0; overflow: hidden; overflow-wrap: anywhere; color: var(--dm-text); font-size: clamp(1rem, 2.4vw, 1.35rem); line-height: 1.08; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.launcher__dial-center > p:last-child { margin: 0.35rem 0 0; color: var(--dm-text-muted); font-size: 0.8rem; }
+.launcher__center-sigil { color: #f0d494; font-size: 2rem; }
+.launcher__portal-kicker { margin: 0 0 0.3rem; color: #b6c3d1; font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.launcher__portal-meta { margin: 0.35rem 0 0.55rem; color: var(--dm-text-muted); font-size: 0.83rem; }
+.launcher__campaign-actions { display: grid; gap: 0.2rem; width: min(9.5rem, 100%); }
+.launcher__continue { min-height: 44px; border-color: var(--dm-accent); border-radius: 999px; }
+.launcher__portal-delete { min-height: 44px; padding: 0.25rem 0.6rem; color: var(--dm-text-muted); background: transparent; border-color: transparent; box-shadow: none; font-size: 0.75rem; }
 .launcher__portal-delete:hover { color: var(--dm-danger); border-color: transparent; box-shadow: none; }
-.launcher__portal--empty { border-color: var(--dm-border); }
+.launcher__portal { align-content: center; width: min(24rem, calc(100vw - 2.5rem)); min-height: 0; aspect-ratio: 1; padding: 4rem; overflow: hidden; text-align: center; background: radial-gradient(circle, rgba(23, 40, 74, 0.94), rgba(8, 17, 38, 0.98) 68%); border: 2px solid var(--dm-border); border-radius: 50%; box-shadow: 0 0 65px rgba(114, 214, 208, 0.17), inset 0 0 45px rgba(211, 155, 238, 0.1); }
+.launcher__portal .launcher__portal-kicker { margin-top: 3.5rem; }
+.launcher__portal h2 { margin: 0; font-size: clamp(1.35rem, 4vw, 1.9rem); }
+.launcher__moon { position: absolute; top: 16%; width: 3.1rem; aspect-ratio: 1; border-radius: 50%; background: #d8ecf4; box-shadow: inset -15px 1px #7284ad, 0 0 22px rgba(216, 236, 244, 0.48); opacity: 0.9; }
 .launcher__empty { margin: 0.55rem 0 0; color: var(--dm-text-muted); font-size: 0.9rem; }
-
-.launcher__new { width: min(34rem, 100%); margin: 0 auto 1.5rem; padding: 1rem; background: rgba(10, 21, 44, 0.78); border: 1px solid var(--dm-border); border-radius: 16px; box-shadow: 0 12px 30px var(--dm-shadow); }
+.launcher__new { position: relative; z-index: 5; width: min(34rem, 100%); margin: 0 auto; padding: 1rem; background: rgba(6, 15, 34, 0.9); border: 1px solid rgba(151, 205, 208, 0.55); border-radius: 16px; box-shadow: 0 12px 30px var(--dm-shadow); backdrop-filter: blur(8px); }
 .launcher__new label { display: block; margin-bottom: 0.55rem; color: var(--dm-secondary); font-family: var(--dm-font-display); letter-spacing: 0.04em; }
 .launcher__new-controls { display: flex; gap: 0.6rem; }
 .launcher__new input { flex: 1; min-width: 0; }
-.launcher__subtitle { margin: 2rem 0 0.75rem; font-size: 1.2rem; text-align: center; }
-.launcher__list { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.75rem; }
-.launcher__item { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 1rem; }
-.launcher__item-info { display: flex; min-width: 0; flex-direction: column; }
-.launcher__item-name { overflow: hidden; color: var(--dm-accent); font-family: var(--dm-font-display); text-overflow: ellipsis; white-space: nowrap; }
-.launcher__item-meta { color: var(--dm-text-muted); font-size: 0.85em; }
-.launcher__item-actions { display: flex; gap: 0.4em; }
-.launcher__item-actions button { padding-inline: 0.75rem; }
-.launcher__delete:hover { border-color: var(--dm-danger); color: var(--dm-danger); }
-
-@media (max-width: 560px) {
-  .launcher { width: 100%; padding-inline: 0.75rem; }
-  .launcher__portal { width: min(21rem, calc(100vw - 2.5rem)); padding: 3rem; }
-  .launcher__new-controls { flex-direction: column; }
-  .launcher__item { align-items: stretch; flex-direction: column; }
-  .launcher__item-actions button { flex: 1; }
-}
+.launcher__new button { min-height: 44px; }
+@media (max-width: 620px) { .launcher { width: 100%; padding-inline: 0.5rem; } .launcher__dial { min-height: 31rem; } .launcher__dial-plane, .launcher__hands { width: 96%; height: 72%; } .launcher__campaign-marker { width: 5.6rem; } .launcher__dial-center { width: 10.3rem; padding: 1rem; } .launcher__new-controls { flex-direction: column; } }
