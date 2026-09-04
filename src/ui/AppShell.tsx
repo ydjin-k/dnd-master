@@ -26,7 +26,7 @@ export function AppShell({
   const { state, setCampaignName } = useCampaign();
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-active-tab={tab}>
       <header className="app-shell__header">
         <span className="app-shell__title"><UIIcon name="campaign" />D&amp;D Master</span>
         <input
@@ -43,6 +43,7 @@ export function AppShell({
         {TABS.map((t) => (
           <button
             key={t.id}
+            data-tab={t.id}
             className={
               "app-shell__nav-item" +
               (t.id === tab ? " app-shell__nav-item--active" : "")

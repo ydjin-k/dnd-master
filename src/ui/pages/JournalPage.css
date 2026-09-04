@@ -1,7 +1,10 @@
 .journal-page-layout {
-  --journal-ink: #dce9f5;
-  --journal-muted: #b8a37b;
-  --journal-brass: #8b6739;
+  --journal-ink: #24180f;
+  --journal-muted: #59412c;
+  --journal-paper: #d2b477;
+  --journal-paper-light: #e2cd9a;
+  --journal-paper-edge: #8a623a;
+  --journal-brass: #78532f;
   --journal-brass-bright: #d7b86a;
   max-width: 1200px;
   margin: 0 auto;
@@ -26,14 +29,14 @@
   overflow: hidden;
   color: var(--journal-ink);
   background:
-    linear-gradient(90deg, transparent calc(50% - 13px), rgba(48, 31, 15, 0.72) calc(50% - 13px), rgba(177, 137, 70, 0.96) calc(50% - 7px), #8b6739 50%, rgba(181, 140, 72, 0.96) calc(50% + 7px), rgba(48, 31, 15, 0.72) calc(50% + 13px), transparent calc(50% + 13px)),
-    radial-gradient(ellipse at 25% 7%, rgba(82, 121, 164, 0.2), transparent 36%),
-    radial-gradient(ellipse at 75% 7%, rgba(82, 121, 164, 0.2), transparent 36%),
-    repeating-linear-gradient(103deg, rgba(210, 229, 244, 0.025) 0 1px, transparent 1px 8px),
-    linear-gradient(90deg, #152a4a 0 49.8%, #172d4c 50.2% 100%);
-  border: 3px solid #9b7942;
-  border-radius: 10% 10% 5% 5% / 5% 5% 3% 3%;
-  box-shadow: 0 22px 44px rgba(1, 6, 18, 0.55), inset 24px 0 35px rgba(1, 6, 18, 0.25), inset -24px 0 35px rgba(1, 6, 18, 0.25);
+    linear-gradient(90deg, transparent calc(50% - 15px), rgba(89, 59, 32, 0.38) calc(50% - 15px), rgba(244, 222, 169, 0.3) calc(50% - 3px), rgba(91, 58, 30, 0.48) 50%, rgba(244, 222, 169, 0.3) calc(50% + 3px), rgba(89, 59, 32, 0.38) calc(50% + 15px), transparent calc(50% + 15px)),
+    radial-gradient(ellipse at 18% 16%, rgba(104, 65, 29, 0.17), transparent 18%),
+    radial-gradient(ellipse at 83% 74%, rgba(91, 54, 24, 0.14), transparent 22%),
+    repeating-linear-gradient(96deg, rgba(72, 45, 23, 0.035) 0 1px, transparent 1px 7px),
+    radial-gradient(ellipse at 50% 43%, var(--journal-paper-light), var(--journal-paper) 68%, var(--journal-paper-edge) 112%);
+  border: 3px solid #6b482c;
+  border-radius: 7% 5% 6% 4% / 4% 6% 3% 5%;
+  box-shadow: 0 22px 44px rgba(1, 6, 18, 0.58), inset 28px 0 38px rgba(75, 43, 19, 0.22), inset -28px 0 38px rgba(75, 43, 19, 0.22), inset 0 0 26px rgba(65, 39, 19, 0.2);
 }
 
 .journal-page::before {
@@ -44,8 +47,8 @@
   width: 26px;
   translate: 50% 0;
   border-radius: 10px 10px 3px 3px;
-  background: linear-gradient(90deg, rgba(48, 29, 14, 0.75), transparent 22% 76%, rgba(48, 29, 14, 0.75)), repeating-linear-gradient(0deg, #76542d 0 11px, #a47a40 11px 13px, #624322 13px 25px);
-  box-shadow: -8px 0 14px rgba(1, 5, 14, 0.42), 8px 0 14px rgba(1, 5, 14, 0.42), inset 1px 0 rgba(246, 220, 153, 0.25);
+  background: linear-gradient(90deg, rgba(75, 45, 22, 0.65), rgba(226, 199, 139, 0.3) 44% 56%, rgba(75, 45, 22, 0.65));
+  box-shadow: -9px 0 16px rgba(76, 45, 21, 0.2), 9px 0 16px rgba(76, 45, 21, 0.2), inset 1px 0 rgba(255, 239, 195, 0.45);
   pointer-events: none;
 }
 
@@ -54,8 +57,9 @@
   position: absolute;
   z-index: 0;
   inset: 12px;
-  border: 1px solid rgba(190, 151, 86, 0.42);
+  border: 1px solid rgba(91, 60, 31, 0.38);
   border-radius: inherit;
+  background: repeating-linear-gradient(7deg, rgba(66, 40, 20, 0.025) 0 1px, transparent 1px 9px);
   pointer-events: none;
 }
 
@@ -82,6 +86,7 @@
   font-family: "Caveat", cursive;
   font-size: 1.35rem;
   font-style: italic;
+  font-weight: 600;
   text-align: left;
 }
 
@@ -91,7 +96,7 @@
   padding: 1rem 0 1.15rem;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid rgba(185, 148, 85, 0.45);
+  border-bottom: 1px solid rgba(89, 65, 44, 0.34);
 }
 
 .journal-entry__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; min-width: 0; }
@@ -102,7 +107,8 @@
   color: var(--journal-muted);
   font-family: "Caveat", cursive;
   font-size: 1.05rem;
-  font-weight: 550;
+  font-style: italic;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -113,7 +119,7 @@
   color: var(--journal-ink);
   font-family: "Caveat", cursive;
   font-size: clamp(1.18rem, 2vw, 1.48rem);
-  font-weight: 500;
+  font-weight: 550;
   line-height: 1.28;
   white-space: pre-wrap;
 }
@@ -149,9 +155,9 @@
   width: 44px;
   min-height: 44px;
   padding: 0;
-  color: var(--journal-brass-bright);
-  background: rgba(4, 13, 28, 0.58);
-  border: 1px solid rgba(182, 147, 88, 0.42);
+  color: var(--journal-ink);
+  background: rgba(202, 169, 105, 0.68);
+  border: 1px solid rgba(89, 65, 44, 0.48);
   border-radius: 50%;
   font-size: 2rem;
   line-height: 1;
@@ -166,11 +172,11 @@
   width: fit-content;
   margin: 0.85rem auto 0;
   padding: 0.3rem 1.1rem;
-  color: var(--journal-brass-bright);
-  background: rgba(4, 13, 28, 0.68);
-  border: 1px solid rgba(182, 147, 88, 0.48);
+  color: var(--journal-ink);
+  background: linear-gradient(145deg, #ddc58f, #b58e55);
+  border: 1px solid #765233;
   border-radius: 999px;
-  box-shadow: inset 0 0 12px rgba(1, 6, 18, 0.32);
+  box-shadow: inset 0 0 12px rgba(88, 54, 24, 0.18), 0 4px 12px rgba(1, 6, 18, 0.25);
   font-family: "Caveat", cursive;
   font-size: 1.1rem;
   text-align: center;
@@ -198,9 +204,9 @@
   .journal-page {
     height: 520px;
     padding: 2rem 2rem 4.3rem 2.7rem;
-    background: radial-gradient(ellipse at 35% 5%, rgba(82, 121, 164, 0.2), transparent 38%), repeating-linear-gradient(103deg, rgba(210, 229, 244, 0.025) 0 1px, transparent 1px 8px), linear-gradient(145deg, #152a4a, #0b1930 55%, #172d4c);
+    background: radial-gradient(ellipse at 18% 18%, rgba(104, 65, 29, 0.18), transparent 22%), radial-gradient(ellipse at 76% 72%, rgba(91, 54, 24, 0.13), transparent 25%), repeating-linear-gradient(96deg, rgba(72, 45, 23, 0.035) 0 1px, transparent 1px 7px), radial-gradient(ellipse at 50% 43%, var(--journal-paper-light), var(--journal-paper) 68%, var(--journal-paper-edge) 115%);
     border-radius: 8px 14px 10px 7px;
-    box-shadow: 0 18px 35px rgba(1, 6, 18, 0.5), inset 18px 0 28px rgba(1, 6, 18, 0.32);
+    box-shadow: 0 18px 35px rgba(1, 6, 18, 0.52), inset 20px 0 30px rgba(75, 43, 19, 0.24), inset -10px 0 24px rgba(75, 43, 19, 0.12);
   }
 
   .journal-page::before { inset: 0 auto 0 0; width: 22px; translate: 0; border-radius: 5px 0 0 5px; box-shadow: 5px 0 13px rgba(1, 5, 14, 0.48), inset -1px 0 rgba(246, 220, 153, 0.22); }
