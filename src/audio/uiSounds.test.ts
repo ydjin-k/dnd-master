@@ -28,4 +28,18 @@ describe("installButtonClickSound", () => {
     uninstall();
     document.body.replaceChildren();
   });
+
+  it("skips buttons that already play their own dedicated sound", () => {
+    const play = vi.fn();
+    const uninstall = installButtonClickSound(document, play);
+    const ownSound = document.createElement("button");
+    ownSound.setAttribute("data-own-sound", "");
+    document.body.append(ownSound);
+
+    ownSound.click();
+
+    expect(play).not.toHaveBeenCalled();
+    uninstall();
+    document.body.replaceChildren();
+  });
 });

@@ -85,6 +85,7 @@ export function JournalPage() {
               aria-label="Предыдущий разворот"
               disabled={spreadIndex === 0}
               onClick={() => turnPage(spreadIndex - 1)}
+              data-own-sound
             >
               <span aria-hidden="true">‹</span>
             </button>
@@ -94,6 +95,7 @@ export function JournalPage() {
               aria-label="Следующий разворот"
               disabled={spreadIndex === spreadCount - 1}
               onClick={() => turnPage(spreadIndex + 1)}
+              data-own-sound
             >
               <span aria-hidden="true">›</span>
             </button>
@@ -117,7 +119,7 @@ export function JournalPage() {
         <span className="journal-page__form-hint" id="journal-entry-limit">
           До {JOURNAL_ENTRY_MAX_LENGTH} символов.
         </span>
-        <button type="submit">Записать</button>
+        <button type="submit" data-own-sound>Записать</button>
       </form>
     </section>
   );

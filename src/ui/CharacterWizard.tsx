@@ -1152,7 +1152,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 в поля ниже. Либо нажми «Бросить кубики» — движок сделает это сам, а число всё равно
                 можно поправить вручную.
               </p>
-              <button type="button" onClick={rollAbilityScores} disabled={rolling}>
+              <button type="button" onClick={rollAbilityScores} disabled={rolling} data-own-sound>
                 {rolling ? "Бросаю…" : abilityRolls ? "Перебросить" : "Бросить кубики"}
               </button>
               {abilityRolls && (

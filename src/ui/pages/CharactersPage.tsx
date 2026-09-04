@@ -504,6 +504,7 @@ function CharacterCard({
           disabled={c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen}
           aria-disabled={!levelUpReady}
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
+          data-own-sound
         >
           {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
         </button>
@@ -547,7 +548,7 @@ function CharacterCard({
             ))}
           </div>
           <div className="character-card__asi-actions">
-            <button type="button" onClick={confirmSubclass}>
+            <button type="button" onClick={confirmSubclass} data-own-sound>
               Подтвердить и повысить уровень
             </button>
             <button type="button" onClick={() => setSubclassPanelOpen(false)}>
@@ -595,7 +596,7 @@ function CharacterCard({
             ))}
           </div>
           <div className="character-card__asi-actions">
-            <button type="button" onClick={confirmAsi} disabled={!asiReady}>
+            <button type="button" onClick={confirmAsi} disabled={!asiReady} data-own-sound>
               Подтвердить и повысить уровень
             </button>
             <button type="button" onClick={() => setAsiPanelOpen(false)}>
@@ -751,11 +752,11 @@ function CharacterCard({
           {COIN_DENOMINATIONS.map((denomination) => (
             <li key={denomination.key} className="character-card__item character-card__coin-row">
               <CoinIcon denomination={denomination} />
-              <button type="button" onClick={() => adjustCoin(denomination.key, -1)}>
+              <button type="button" onClick={() => adjustCoin(denomination.key, -1)} data-own-sound>
                 −
               </button>
               <span className="character-card__coin-count">{c.coins[denomination.key]}</span>
-              <button type="button" onClick={() => adjustCoin(denomination.key, 1)}>
+              <button type="button" onClick={() => adjustCoin(denomination.key, 1)} data-own-sound>
                 +
               </button>
             </li>
@@ -884,6 +885,7 @@ function CharacterCard({
                         type="button"
                         onClick={() => useSpellSlot(circle)}
                         disabled={freeSlotIndex(c.spellSlotsCurrent, circle) === -1}
+                        data-own-sound
                       >
                         Использовать
                       </button>

@@ -119,7 +119,12 @@ export function installButtonClickSound(
     const origin = event.target;
     if (!(origin instanceof Element)) return;
     const button = origin.closest<HTMLElement>('button, [role="button"]');
-    if (!button || button.matches(":disabled") || button.getAttribute("aria-disabled") === "true") {
+    if (
+      !button ||
+      button.matches(":disabled") ||
+      button.getAttribute("aria-disabled") === "true" ||
+      button.hasAttribute("data-own-sound")
+    ) {
       return;
     }
     play();
