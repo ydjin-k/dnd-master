@@ -12,13 +12,17 @@ import {
   parseItemWeightLb,
   spellSaveDc,
   subclassEffectValue,
+  subclassGrants,
   subclassResourceOptionsAt,
+  subclassScalingAt,
   subclassSpellsUpToLevel,
+  toolProficienciesFor,
   unproficientArmorIssue,
   weaponAttackFor,
   weaponProficienciesFor,
   WEAPONS,
 } from "./characterCreationData";
+import { characterResources, PROGRESSION_MAX_LEVEL } from "./classProgression";
 import { emptyAbilityScores, emptyCoins } from "../state/types";
 
 /** Все 12 базовых классов SRD 5.1 (rules.json → category "classes") — см. таблицу в карточке characters-original-subclasses. */
@@ -156,6 +160,140 @@ describe("эффекты вариантов архетипа", () => {
   it("запас лечения не поднимает жреца выше половины его максимума хитов", () => {
     expect(healingPoolSelfHeal(10, 2, 20)).toBe(8);
     expect(healingPoolSelfHeal(10, 12, 20)).toBe(0);
+  });
+});
+
+/**
+ * Каждый архетип, получивший механику карточкой
+ * characters-subclass-features-remaining-archetypes, назван здесь вместе с
+ * ключом гранта, который у него обязан быть. Таблица, а не 27 отдельных проб:
+ * пробы сторожат дефект «архетип снова стал только текстом», и одного
+ * перечисления для этого достаточно.
+ */
+const GRANTED_ARCHETYPES: [classId: string, subclass: string, key: keyof NonNullable<ReturnType<typeof subclassGrants>>][] = [
+  ["classes-warlock", "Исчадие", "spellsByLevel"],
+  ["classes-warlock", "Покровитель-Архифея", "spellsByLevel"],
+  ["classes-warlock", "Покровитель-Древний Ужас", "spellsByLevel"],
+  ["classes-sorcerer", "Дикая магия", "resourceOptions"],
+  ["classes-sorcerer", "Происхождение от бури", "resources"],
+  ["classes-wizard", "Школа эвокации", "scaling"],
+  ["classes-wizard", "Школа иллюзий", "scaling"],
+  ["classes-wizard", "Школа некромантии", "scaling"],
+  ["classes-druid", "Круг земли", "resources"],
+  ["classes-druid", "Круг луны", "scaling"],
+  ["classes-druid", "Круг звёзд", "resources"],
+  ["classes-bard", "Коллегия знаний", "resourceOptions"],
+  ["classes-bard", "Коллегия шёпота", "toolProficiencies"],
+  ["classes-barbarian", "Путь Берсерка", "resourceOptions"],
+  ["classes-barbarian", "Путь Тотемного воина", "resourceOptions"],
+  ["classes-barbarian", "Путь Штурмовика", "scaling"],
+  ["classes-fighter", "Воитель", "critRange"],
+  ["classes-fighter", "Мастер боя", "resources"],
+  ["classes-fighter", "Мистический рыцарь", "resources"],
+  ["classes-monk", "Путь открытой ладони", "resourceOptions"],
+  ["classes-monk", "Путь тени", "resourceOptions"],
+  ["classes-monk", "Путь четырёх стихий", "resourceOptions"],
+  ["classes-rogue", "Вор", "toolProficiencies"],
+  ["classes-rogue", "Убийца", "toolProficiencies"],
+  ["classes-rogue", "Мистический ловкач", "bonusCantrips"],
+  ["classes-ranger", "Укротитель зверей", "scaling"],
+  ["classes-ranger", "Странник", "resources"],
+];
+
+describe("механика архетипов", () => {
+  it.each(GRANTED_ARCHETYPES)("%s / %s даёт %s", (classId, subclass, key) => {
+    expect(subclassGrants(classId, subclass)?.[key]).toBeDefined();
+  });
+
+  it("архетип, до которого карточка не дошла, механики не получил", () => {
+    // Добыча охотника — выбор одного из трёх умений, для него нужен свой UI;
+    // проба краснеет, когда выбор появится, и тогда строка отсюда уходит.
+    expect(subclassGrants("classes-ranger", "Охотник")).toBeUndefined();
+  });
+
+  it("без архетипа грантов нет вовсе", () => {
+    expect(subclassGrants("classes-fighter", null)).toBeUndefined();
+    expect(subclassGrants(null, "Воитель")).toBeUndefined();
+  });
+});
+
+describe("владение инструментами", () => {
+  it("даётся архетипом, который его обещает", () => {
+    expect(toolProficienciesFor("classes-rogue", "Убийца")).toEqual(["Набор для отравления", "Маскировочный набор"]);
+    expect(toolProficienciesFor("classes-bard", "Коллегия шёпота")).toEqual(["Воровские инструменты"]);
+  });
+
+  it("у архетипа без такого гранта список пуст", () => {
+    expect(toolProficienciesFor("classes-rogue", "Мистический ловкач")).toEqual([]);
+    expect(toolProficienciesFor("classes-rogue", null)).toEqual([]);
+  });
+});
+
+describe("постоянные числа архетипа", () => {
+  const abilities = { ...emptyAbilityScores(), charisma: 16, wisdom: 16, intelligence: 16 };
+
+  it("Благословение темнейшего считает временные хиты от Харизмы и уровня", () => {
+    const entry = subclassScalingAt("classes-warlock", "Исчадие", 3)[0];
+    expect(subclassEffectValue(entry.effect, { classId: "classes-warlock", abilities, level: 3 })).toEqual({
+      label: "временных хитов",
+      value: 6,
+    });
+  });
+
+  it("Сокрушительный напор считает урон по бонусу мастерства, Первый и последний удар — по уровню", () => {
+    const rush = subclassScalingAt("classes-barbarian", "Путь Штурмовика", 5)[0];
+    expect(subclassEffectValue(rush.effect, { classId: "classes-barbarian", abilities, level: 5 })?.value).toBe(3);
+    const strike = subclassScalingAt("classes-rogue", "Убийца", 5)[0];
+    expect(subclassEffectValue(strike.effect, { classId: "classes-rogue", abilities, level: 5 })?.value).toBe(5);
+  });
+
+  it("числа школ волшебника считаются от круга заклинаний, а не от уровня", () => {
+    const ctx = { classId: "classes-wizard", abilities, level: 5, spellCircle: 3 };
+    const sculpt = subclassScalingAt("classes-wizard", "Школа эвокации", 5)[0];
+    expect(subclassEffectValue(sculpt.effect, ctx)?.value).toBe(4);
+    const flesh = subclassScalingAt("classes-wizard", "Школа некромантии", 5)[0];
+    expect(subclassEffectValue(flesh.effect, ctx)?.value).toBe(2);
+  });
+
+  it("Звериный спутник получает учетверённый уровень следопыта хитами", () => {
+    const companion = subclassScalingAt("classes-ranger", "Укротитель зверей", 5)[0];
+    expect(subclassEffectValue(companion.effect, { classId: "classes-ranger", abilities, level: 5 })).toEqual({
+      label: "хитов у звериного спутника",
+      value: 20,
+    });
+  });
+
+  it("кость эффекта показывается костью, а не числом", () => {
+    const maneuver = subclassResourceOptionsAt("classes-fighter", "Мастер боя", 3).find((o) => o.id === "maneuver-precision")!;
+    expect(subclassEffectValue(maneuver.effect, { classId: "classes-fighter", abilities, level: 3 })).toEqual({
+      label: "к броску",
+      value: "1к8",
+    });
+  });
+
+  it("до нужного уровня постоянных чисел нет, и у архетипа без них список пуст", () => {
+    expect(subclassScalingAt("classes-ranger", "Укротитель зверей", 2)).toEqual([]);
+    expect(subclassScalingAt("classes-bard", "Коллегия шёпота", 5)).toEqual([]);
+  });
+});
+
+describe("собственные ресурсы архетипа", () => {
+  it("Тень между вздохов стоит два очка ци, остальные варианты — одно", () => {
+    const shadow = subclassResourceOptionsAt("classes-monk", "Путь тени", 3)[0];
+    expect(shadow.cost).toBe(2);
+    const burst = subclassResourceOptionsAt("classes-monk", "Путь четырёх стихий", 3)[0];
+    expect(burst.cost).toBeUndefined();
+  });
+
+  it("варианты архетипа тратят ресурс, который у персонажа действительно есть", () => {
+    for (const [classId, subclass] of GRANTED_ARCHETYPES) {
+      const grants = subclassGrants(classId, subclass);
+      const ownIds = (grants?.resources ?? []).map((r) => r.id);
+      for (const option of grants?.resourceOptions ?? []) {
+        const fromClass = characterResources(classId, subclass, PROGRESSION_MAX_LEVEL).map((r) => r.id);
+        expect([...ownIds, ...fromClass]).toContain(option.resourceId);
+      }
+    }
   });
 });
 
