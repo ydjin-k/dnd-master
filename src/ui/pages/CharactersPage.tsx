@@ -121,7 +121,6 @@ function CharacterCard({
   conditionEffects,
   classHitDiceByTitle,
   raceHpBonusByTitle,
-  collapsible,
   onRemove,
   onUpdate,
 }: {
@@ -130,7 +129,6 @@ function CharacterCard({
   conditionEffects: Record<string, string[]>;
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
-  collapsible: boolean;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -357,11 +355,9 @@ function CharacterCard({
       <div className="character-card__name">
         <span>{c.name}</span>
         <span className="character-card__header-actions">
-          {collapsible && (
-            <button type="button" className="character-card__collapse" aria-expanded={!collapsed} aria-label={`${collapsed ? "Развернуть" : "Свернуть"} карточку ${c.name}`} onClick={() => setCollapsed((value) => !value)}>
-              {collapsed ? "Развернуть" : "Свернуть"}
-            </button>
-          )}
+          <button type="button" className="character-card__collapse" aria-expanded={!collapsed} aria-label={`${collapsed ? "Развернуть" : "Свернуть"} карточку ${c.name}`} onClick={() => setCollapsed((value) => !value)}>
+            {collapsed ? "Развернуть" : "Свернуть"}
+          </button>
           <button className="character-card__delete" title="Удалить персонажа" onClick={onRemove}>✕</button>
         </span>
       </div>
@@ -612,6 +608,47 @@ function CharacterCard({
         </ul>
       </details>
 
+      <details
+        className="character-card__traits"
+        open={!!(c.personalityTraits || c.ideals || c.bonds || c.flaws)}
+      >
+        <summary>Черты характера, идеалы, привязанности, слабости</summary>
+        <div className="character-card__traits-grid">
+          <label>
+            Черты характера
+            <textarea
+              rows={2}
+              value={c.personalityTraits}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, personalityTraits: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Идеалы
+            <textarea
+              rows={2}
+              value={c.ideals}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, ideals: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Привязанности
+            <textarea
+              rows={2}
+              value={c.bonds}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, bonds: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Слабости
+            <textarea
+              rows={2}
+              value={c.flaws}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, flaws: e.currentTarget.value }))}
+            />
+          </label>
+        </div>
+      </details>
+
       <details className="character-card__conditions" open={c.conditions.length > 0}>
         <summary>Состояния ({c.conditions.length})</summary>
         <div className="character-card__conditions-hint">{CONDITIONS_GENERAL_HINT}</div>
@@ -766,7 +803,6 @@ export function CharactersPage() {
             conditionEffects={conditionEffects}
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
-            collapsible={state.characters.length > 1}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);

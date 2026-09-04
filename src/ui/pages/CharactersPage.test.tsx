@@ -113,6 +113,10 @@ describe("CharactersPage", () => {
       class: "Воин",
       subclass: "",
       background: "",
+      personalityTraits: "",
+      ideals: "",
+      bonds: "",
+      flaws: "",
       alignment: "",
       gender: "",
       age: 0,
@@ -151,6 +155,10 @@ describe("CharactersPage", () => {
           class: "Воин",
           subclass: "",
           background: "",
+          personalityTraits: "",
+          ideals: "",
+          bonds: "",
+          flaws: "",
           alignment: "",
           gender: "",
           age: 0,
@@ -218,6 +226,15 @@ describe("CharactersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Развернуть карточку Герой" }));
     expect(screen.getAllByText(/Опыт: 999999/)).toHaveLength(2);
+  });
+
+  it("also offers the collapse button with only a single character", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Свернуть карточку Герой" }));
+    expect(screen.queryByText(/Опыт: 999999/)).not.toBeInTheDocument();
+    expect(screen.getByText("Воин · ур. 1 · HP 10/10")).toBeInTheDocument();
   });
 
   it("spending 3 of 5 torches updates the tracked quantity, not just removes one", async () => {

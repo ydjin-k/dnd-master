@@ -30,6 +30,10 @@ export interface Character {
   class: string;
   subclass: string;
   background: string;
+  personalityTraits: string;
+  ideals: string;
+  bonds: string;
+  flaws: string;
   alignment: string;
   gender: string;
   age: number;

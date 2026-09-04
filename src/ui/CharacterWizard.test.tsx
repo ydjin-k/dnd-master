@@ -1064,9 +1064,14 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect(dexSelect().value).toBe("8"));
     fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее")); // -> equipment
+    // Light armor, no shield (leather armor's full Dex bonus keeps AC tracking
+    // Dexterity below — a heavy-armor/shield loadout like the class default
+    // would mask that, see `characters-armor-class-from-worn-armor`).
+    fireEvent.click(await screen.findByLabelText("Кожаный доспех, длинный лук и 20 стрел"));
+    fireEvent.click(screen.getByLabelText("Два воинских оружия"));
     fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
-    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 9\b/);
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 10\b/);
 
     // Back to abilities, switch to point buy, raise Dexterity to 14.
     fireEvent.click(screen.getByText("Назад"));
@@ -1081,7 +1086,7 @@ describe("CharacterWizard", () => {
     fireEvent.click(screen.getByText("Далее")); // -> equipment
     fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
-    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 12\b/);
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 13\b/);
 
     // Back to abilities, switch to manual entry, set Dexterity to 18.
     fireEvent.click(screen.getByText("Назад"));
@@ -1094,7 +1099,31 @@ describe("CharacterWizard", () => {
     fireEvent.click(screen.getByText("Далее")); // -> equipment
     fillStandardAbilities();
     fireEvent.click(await screen.findByText("Далее")); // -> review
-    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 14\b/);
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 15\b/);
+  });
+
+  it("АС on the review step includes worn armor and a shield (regression: owner saw AC 8 on a mail-armored character)", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    // Race doesn't affect AC in SRD 5.1 — any race reproduces the bug; using
+    // one already covered by this test file's race mocks.
+    fireEvent.click(await screen.findByText("Дварф"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Беспризорник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее")); // -> equipment
+
+    // Default equipment choice: "Кольчуга" (chain mail, AC 16, no Dex) + "Воинское оружие и щит" (shield, +2).
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее")); // -> review
+    expect((await screen.findByText(/КД:/)).textContent).toMatch(/КД: 18\b/);
   });
 
   it("lets a Monk choose one artisan's or musical instrument tool, reflected in the review text", async () => {

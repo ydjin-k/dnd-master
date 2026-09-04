@@ -54,6 +54,13 @@ pub struct Character {
     pub class: String,
     pub subclass: String,
     pub background: String,
+    /// Черты характера/Идеалы/Привязанности/Слабости (SRD 5.1) — свободный
+    /// текст, заполняется на шаге «Итог» мастера персонажа, редактируется и
+    /// после создания (см. CharactersPage.tsx).
+    pub personality_traits: String,
+    pub ideals: String,
+    pub bonds: String,
+    pub flaws: String,
     pub alignment: String,
     pub gender: String,
     pub age: u32,

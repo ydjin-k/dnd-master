@@ -13,6 +13,7 @@ import {
 } from "../state/types";
 import { RuleBlockView } from "./RuleBlockView";
 import { EmphasizedText } from "./EmphasizedText";
+import { CoinIcon } from "./CoinIcon";
 import { playCoinsSound, playDiceRollSound, playLimitSound } from "../audio/uiSounds";
 import {
   ABILITY_LABELS,
@@ -32,6 +33,7 @@ import {
   CLASS_SPELL_PROGRESSION,
   CLASS_SUBCLASSES,
   catalogWeightLb,
+  computeArmorClass,
   COIN_DENOMINATIONS,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
@@ -143,6 +145,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   });
   const [gearToAdd, setGearToAdd] = useState(ALL_ITEMS_WITH_COST[0]?.name ?? "");
   const [alignment, setAlignment] = useState("Нейтральный");
+  const [personalityTraits, setPersonalityTraits] = useState("");
+  const [ideals, setIdeals] = useState("");
+  const [bonds, setBonds] = useState("");
+  const [flaws, setFlaws] = useState("");
   const [chosenLanguage, setChosenLanguage] = useState("");
   const [raceSkillChoices, setRaceSkillChoices] = useState<string[]>([]);
   const [chosenDwarfTool, setChosenDwarfTool] = useState("");
@@ -173,9 +179,6 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [goldLimitHit, setGoldLimitHit] = useState(false);
   const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
   const [knownSpells, setKnownSpells] = useState<string[]>([]);
-  // Донастройка монет на шаге «Итог»: пока номинал не тронут вручную, «зм»
-  // берётся из золота предыстории, остальные — 0 (см. `coins` ниже).
-  const [coinEdits, setCoinEdits] = useState<Partial<Coins>>({});
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -189,6 +192,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const classes = useMemo(() => topics.filter((t) => t.category === "classes"), [topics]);
   const race = races.find((r) => r.id === raceId);
   const klass = classes.find((c) => c.id === classId);
+  // Шаг «Класс» показывает только «шапку» класса из SRD (кости хитов,
+  // владения, стартовое снаряжение) — не полный текст со всеми фичами по
+  // уровням и таблицей прогрессии; это можно посмотреть на вкладке «Правила».
+  // У всех 12 классов один и тот же порядок блоков в rules.json, поэтому
+  // срез «до первого списка» стабильно даёт именно этот заголовочный кусок.
+  const classIntroListIndex = klass?.blocks.findIndex((b) => b.type === "list") ?? -1;
+  const classIntroBlocks = klass
+    ? klass.blocks.slice(0, classIntroListIndex === -1 ? klass.blocks.length : classIntroListIndex + 1)
+    : [];
   const hitDie = parseHitDie(klass);
   const raceBonus = raceId ? RACE_ABILITY_BONUSES[raceId] : undefined;
   const raceHpBonus = raceId ? (RACE_HP_BONUS[raceId] ?? 0) : 0;
@@ -258,17 +270,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       : backgroundId
         ? BACKGROUNDS.find((b) => b.id === backgroundId)
         : undefined;
+  // Стартовые монеты фиксированы золотом предыстории — перераспределять по
+  // номиналам можно только после создания персонажа (см. `adjustCoin` в
+  // CharactersPage.tsx), не на этом шаге.
   const coins: Coins = {
-    copper: coinEdits.copper ?? 0,
-    silver: coinEdits.silver ?? 0,
-    electrum: coinEdits.electrum ?? 0,
-    gold: coinEdits.gold ?? (background?.gold ?? 0),
-    platinum: coinEdits.platinum ?? 0,
+    copper: 0,
+    silver: 0,
+    electrum: 0,
+    gold: background?.gold ?? 0,
+    platinum: 0,
   };
-  function setCoin(key: keyof Coins, value: number) {
-    if (coins[key] !== Math.max(0, value)) playCoinsSound();
-    setCoinEdits((prev) => ({ ...prev, [key]: Math.max(0, value) }));
-  }
 
   function toggleCustomBackgroundSkill(skill: string) {
     setCustomBackground((prev) => {
@@ -522,6 +533,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     }),
     ...(background?.equipment ?? []),
   ];
+  const armorClass = computeArmorClass({
+    classId: classId ?? "",
+    abilities: totalAbilities,
+    inventoryItemNames: inventoryItems,
+    fightingStyle: classId === "classes-fighter" ? fightingStyle || fighterFightingStyles[0]?.name : undefined,
+    hasDraconicResilience: level1Subclass?.name === "Наследие драконьей крови",
+  });
 
   async function finish() {
     if (!name.trim()) return;
@@ -542,6 +560,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       class: klass?.title ?? "",
       subclass: level1Subclass?.name ?? "",
       background: background?.title ?? "",
+      personalityTraits: personalityTraits.trim(),
+      ideals: ideals.trim(),
+      bonds: bonds.trim(),
+      flaws: flaws.trim(),
       alignment,
       gender,
       age,
@@ -551,7 +573,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,
-      armorClass: 10 + initiative,
+      armorClass,
       speedFeet,
       initiative,
       passivePerception,
@@ -899,9 +921,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </select>
                   </p>
                 )}
-                {klass.blocks.map((b, i) => (
+                {classIntroBlocks.map((b, i) => (
                   <RuleBlockView key={i} block={b} />
                 ))}
+                <p className="wizard__hint">
+                  Полное описание классовых способностей по уровням — на вкладке «Правила».
+                </p>
               </>
             ) : (
               <p className="wizard__hint">Выбери класс слева — здесь появятся его свойства из SRD.</p>
@@ -1294,6 +1319,28 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               }}
             />
           </label>
+          <div className="wizard__traits">
+            <label className="wizard__hint">
+              Черты характера
+              <textarea
+                rows={3}
+                value={personalityTraits}
+                onChange={(e) => setPersonalityTraits(e.currentTarget.value)}
+              />
+            </label>
+            <label className="wizard__hint">
+              Идеалы
+              <textarea rows={3} value={ideals} onChange={(e) => setIdeals(e.currentTarget.value)} />
+            </label>
+            <label className="wizard__hint">
+              Привязанности
+              <textarea rows={3} value={bonds} onChange={(e) => setBonds(e.currentTarget.value)} />
+            </label>
+            <label className="wizard__hint">
+              Слабости
+              <textarea rows={3} value={flaws} onChange={(e) => setFlaws(e.currentTarget.value)} />
+            </label>
+          </div>
           <ul className="wizard__summary">
             <li>Раса: {race?.title ?? "не выбрана"}</li>
             <li>Класс: {klass?.title ?? "не выбран"}{hitDie ? ` (кость хитов 1к${hitDie})` : ""}</li>
@@ -1329,7 +1376,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>Языки: {finalLanguages.join(", ") || "—"}</li>
             <li>
               HP: {Math.max(1, (hitDie ?? 8) + abilityMod(totalAbilities.constitution) + raceHpBonus)} · КД:{" "}
-              {10 + initiative} (безоружный, без брони)
+              {armorClass}
             </li>
             <li>
               Скорость: {speedFeet} фт · Инициатива: {fmtMod(initiative)} · Пассивная внимательность:{" "}
@@ -1338,19 +1385,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>
               Деньги:
               <div className="wizard__coins">
-                {COIN_DENOMINATIONS.map(({ key, label }) => (
-                  <label key={key} className="wizard__hint">
-                    {label}:{" "}
-                    <input
-                      type="number"
-                      min={0}
-                      value={coins[key] === 0 ? "" : coins[key]}
-                      onChange={(e) => {
-                        const raw = e.currentTarget.value;
-                        setCoin(key, raw === "" ? 0 : Number(raw) || 0);
-                      }}
-                    />
-                  </label>
+                {COIN_DENOMINATIONS.map((denomination) => (
+                  <span key={denomination.key} className="wizard__coin-row">
+                    <CoinIcon denomination={denomination} />
+                    <span className="wizard__coin-count">{coins[denomination.key]}</span>
+                  </span>
                 ))}
               </div>
             </li>
