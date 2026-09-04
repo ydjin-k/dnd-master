@@ -122,18 +122,26 @@ describe("JournalPage", () => {
     expect(screen.getByText(`До ${JOURNAL_ENTRY_MAX_LENGTH} символов.`)).toBeInTheDocument();
   });
 
-  it("returns to the first spread after adding an entry", async () => {
+  it("stays on the current spread after adding an entry", async () => {
     mockState = createStateWithEntries(8, 120);
     render(<JournalPage />);
     fireEvent.click(screen.getByRole("button", { name: "Следующий разворот" }));
     expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("Что произошло?"), { target: { value: "Новая запись" } });
     fireEvent.click(screen.getByText("Записать"));
 
     await waitFor(() => expect(addJournalEntry).toHaveBeenCalledTimes(1));
-    expect(screen.getByText(/Запись 8/)).toBeInTheDocument();
-    expect(screen.queryByText(/Запись 2/)).not.toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 8/)).not.toBeInTheDocument();
+  });
+
+  it("shows the page-count window even with a single spread", () => {
+    mockState = createStateWithEntries(2);
+    render(<JournalPage />);
+
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
   });
 });
 

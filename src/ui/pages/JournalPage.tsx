@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import "./JournalPage.css";
 
-export const JOURNAL_ENTRY_MAX_LENGTH = 200;
+export const JOURNAL_ENTRY_MAX_LENGTH = 100;
 
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
@@ -32,7 +32,6 @@ export function JournalPage() {
     audio.currentTime = 0;
     void audio.play().catch(() => undefined);
     setText("");
-    setSpreadIndex(0);
   }
 
   function turnPage(nextIndex: number) {
@@ -82,15 +81,16 @@ export function JournalPage() {
           <nav className="journal-page__pagination" aria-label="Листание дневника">
             <button
               type="button"
+              className="journal-page__nav journal-page__nav--prev"
               aria-label="Предыдущий разворот"
               disabled={spreadIndex === 0}
               onClick={() => turnPage(spreadIndex - 1)}
             >
               <span aria-hidden="true">‹</span>
             </button>
-            <span>{spreadIndex + 1} / {spreadCount}</span>
             <button
               type="button"
+              className="journal-page__nav journal-page__nav--next"
               aria-label="Следующий разворот"
               disabled={spreadIndex === spreadCount - 1}
               onClick={() => turnPage(spreadIndex + 1)}
@@ -99,6 +99,10 @@ export function JournalPage() {
             </button>
           </nav>
         )}
+      </div>
+
+      <div className="journal-page__page-count">
+        {spreadIndex + 1} / {spreadCount}
       </div>
 
       <form className="journal-page__form" onSubmit={handleSubmit}>

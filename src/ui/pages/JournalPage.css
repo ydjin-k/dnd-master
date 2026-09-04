@@ -112,7 +112,7 @@
   overflow-wrap: anywhere;
   color: var(--journal-ink);
   font-family: "Caveat", cursive;
-  font-size: clamp(1.35rem, 2vw, 1.65rem);
+  font-size: clamp(1.18rem, 2vw, 1.48rem);
   font-weight: 500;
   line-height: 1.28;
   white-space: pre-wrap;
@@ -137,19 +137,15 @@
 
 .journal-page__pagination {
   position: absolute;
-  bottom: 0.55rem;
-  left: 50%;
+  inset: 0;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  translate: -50% 0;
-  color: var(--journal-muted);
-  font-family: "Caveat", cursive;
-  font-size: 1.05rem;
+  pointer-events: none;
 }
 
-.journal-page__pagination button {
+.journal-page__nav {
+  position: absolute;
+  bottom: clamp(0.9rem, 2.4vw, 1.5rem);
+  pointer-events: auto;
   width: 44px;
   min-height: 44px;
   padding: 0;
@@ -161,7 +157,24 @@
   line-height: 1;
 }
 
-.journal-page__pagination button:disabled { opacity: 0.32; }
+.journal-page__nav:disabled { opacity: 0.32; }
+
+.journal-page__nav--prev { left: clamp(1rem, 3vw, 2.2rem); }
+.journal-page__nav--next { right: clamp(1rem, 3vw, 2.2rem); }
+
+.journal-page__page-count {
+  width: fit-content;
+  margin: 0.85rem auto 0;
+  padding: 0.3rem 1.1rem;
+  color: var(--journal-brass-bright);
+  background: rgba(4, 13, 28, 0.68);
+  border: 1px solid rgba(182, 147, 88, 0.48);
+  border-radius: 999px;
+  box-shadow: inset 0 0 12px rgba(1, 6, 18, 0.32);
+  font-family: "Caveat", cursive;
+  font-size: 1.1rem;
+  text-align: center;
+}
 
 .journal-page-layout > .journal-page__form {
   display: flex;
@@ -196,5 +209,7 @@
   .journal-page__list { gap: 1.5rem; }
   .journal-page__empty { grid-column: auto; }
   .journal-page-layout > .journal-page__form { width: 100%; padding: 0.75rem; }
-  .journal-entry__text { font-size: 1.3rem; }
+  .journal-entry__text { font-size: 1.13rem; }
+  .journal-page__nav--prev { left: 0.6rem; }
+  .journal-page__nav--next { right: 0.6rem; }
 }
