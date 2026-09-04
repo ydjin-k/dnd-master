@@ -1,4 +1,8 @@
 import type { AbilityScores, Coins, RuleTopic } from "../state/types";
+// Только тип: ресурсы архетипа считаются тем же механизмом, что и классовые
+// (classProgression.ts владеет и типом, и таблицей классов). Импорт типа
+// стирается сборкой, так что встречного цикла с classProgression.ts нет.
+import type { ClassResource } from "./classProgression";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -78,11 +82,39 @@ export const SKILL_ABILITY: Record<string, AbilityKey> = {
   "Выживание": "wisdom",
 };
 
+/** Категории доспехов SRD 5.1 — этими id хранится владение (`Character.armorProficiencies`). */
+export type ArmorProficiency = "light" | "medium" | "heavy" | "shields";
+
+export const ARMOR_PROFICIENCY_LABELS: Record<ArmorProficiency, string> = {
+  light: "лёгкие доспехи",
+  medium: "средние доспехи",
+  heavy: "тяжёлые доспехи",
+  shields: "щиты",
+};
+
+/**
+ * Категории оружия SRD 5.1. Владение оружием (`Character.weaponProficiencies`)
+ * хранится списком строк: либо эти id категорий, либо название отдельного вида
+ * оружия из `WEAPONS` (Бард/Плут владеют четырьмя воинскими видами поимённо).
+ */
+export type WeaponProficiencyCategory = "simple" | "martial";
+
+export const WEAPON_PROFICIENCY_LABELS: Record<WeaponProficiencyCategory, string> = {
+  simple: "простое оружие",
+  martial: "воинское оружие",
+};
+
 export interface ClassProficiencies {
   savingThrows: AbilityKey[];
   savingThrowLabels: string[];
   skillCount: number;
   skillOptions: string[];
+  /** Доспехи, которыми класс владеет с 1 уровня (SRD 5.1, раздел «Владения» тела класса). */
+  armor: ArmorProficiency[];
+  /** Категории оружия класса; отдельные виды — в `weapons`. */
+  weaponCategories: WeaponProficiencyCategory[];
+  /** Отдельные виды оружия сверх категорий — названия строк таблицы `WEAPONS`. */
+  weapons: string[];
 }
 
 export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
@@ -91,12 +123,18 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
     savingThrowLabels: ["Ловкость", "Харизма"],
     skillCount: 3,
     skillOptions: ALL_SKILLS,
+    armor: ["light"],
+    weaponCategories: ["simple"],
+    weapons: ["Арбалет, ручной", "Длинный меч", "Рапира", "Короткий меч"],
   },
   "classes-barbarian": {
     savingThrows: ["strength", "constitution"],
     savingThrowLabels: ["Сила", "Телосложение"],
     skillCount: 2,
     skillOptions: ["Атлетика", "Восприятие", "Выживание", "Запугивание", "Природа", "Обращение с животными"],
+    armor: ["light", "medium", "shields"],
+    weaponCategories: ["simple", "martial"],
+    weapons: [],
   },
   "classes-fighter": {
     savingThrows: ["strength", "constitution"],
@@ -112,12 +150,18 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
       "Восприятие",
       "Выживание",
     ],
+    armor: ["light", "medium", "heavy", "shields"],
+    weaponCategories: ["simple", "martial"],
+    weapons: [],
   },
   "classes-wizard": {
     savingThrows: ["intelligence", "wisdom"],
     savingThrowLabels: ["Интеллект", "Мудрость"],
     skillCount: 2,
     skillOptions: ["Магия", "История", "Проницательность", "Расследование", "Медицина", "Религия"],
+    armor: [],
+    weaponCategories: [],
+    weapons: ["Кинжал", "Дротик", "Праща", "Боевой посох", "Арбалет, лёгкий"],
   },
   "classes-druid": {
     savingThrows: ["intelligence", "wisdom"],
@@ -133,30 +177,57 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
       "Религия",
       "Выживание",
     ],
+    armor: ["light", "medium", "shields"],
+    weaponCategories: [],
+    // Друид SRD не берёт в руки металлические доспехи и владеет узким списком оружия.
+    weapons: [
+      "Дубинка",
+      "Кинжал",
+      "Дротик",
+      "Метательное копьё",
+      "Булава",
+      "Боевой посох",
+      "Скимитар",
+      "Серп",
+      "Праща",
+      "Копье",
+    ],
   },
   "classes-cleric": {
     savingThrows: ["wisdom", "charisma"],
     savingThrowLabels: ["Мудрость", "Харизма"],
     skillCount: 2,
     skillOptions: ["История", "Медицина", "Проницательность", "Религия", "Убеждение"],
+    armor: ["light", "medium", "shields"],
+    weaponCategories: ["simple"],
+    weapons: [],
   },
   "classes-warlock": {
     savingThrows: ["wisdom", "charisma"],
     savingThrowLabels: ["Мудрость", "Харизма"],
     skillCount: 2,
     skillOptions: ["Магия", "Обман", "История", "Запугивание", "Расследование", "Природа", "Религия"],
+    armor: ["light"],
+    weaponCategories: ["simple"],
+    weapons: [],
   },
   "classes-monk": {
     savingThrows: ["strength", "dexterity"],
     savingThrowLabels: ["Сила", "Ловкость"],
     skillCount: 2,
     skillOptions: ["Акробатика", "Атлетика", "История", "Проницательность", "Религия", "Скрытность"],
+    armor: [],
+    weaponCategories: ["simple"],
+    weapons: ["Короткий меч"],
   },
   "classes-paladin": {
     savingThrows: ["wisdom", "charisma"],
     savingThrowLabels: ["Мудрость", "Харизма"],
     skillCount: 2,
     skillOptions: ["Атлетика", "Запугивание", "Медицина", "Проницательность", "Религия", "Убеждение"],
+    armor: ["light", "medium", "heavy", "shields"],
+    weaponCategories: ["simple", "martial"],
+    weapons: [],
   },
   "classes-rogue": {
     savingThrows: ["dexterity", "intelligence"],
@@ -175,6 +246,9 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
       "Ловкость рук",
       "Скрытность",
     ],
+    armor: ["light"],
+    weaponCategories: ["simple"],
+    weapons: ["Арбалет, ручной", "Длинный меч", "Рапира", "Короткий меч"],
   },
   "classes-ranger": {
     savingThrows: ["strength", "dexterity"],
@@ -190,12 +264,18 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
       "Скрытность",
       "Выживание",
     ],
+    armor: ["light", "medium", "shields"],
+    weaponCategories: ["simple", "martial"],
+    weapons: [],
   },
   "classes-sorcerer": {
     savingThrows: ["constitution", "charisma"],
     savingThrowLabels: ["Телосложение", "Харизма"],
     skillCount: 2,
     skillOptions: ["Запугивание", "Магия", "Обман", "Проницательность", "Религия", "Убеждение"],
+    armor: [],
+    weaponCategories: [],
+    weapons: ["Кинжал", "Дротик", "Праща", "Боевой посох", "Арбалет, лёгкий"],
   },
 };
 
@@ -799,28 +879,34 @@ export const ARMOR_STATS: Record<string, ArmorStats> = {
 const SHIELD_ITEM_NAMES = new Set(["Щит", "Деревянный щит"]);
 
 /**
- * КД персонажа 1 уровня по SRD 5.1: базовое значение доспеха (лёгкий — полный
- * модификатор Ловкости, средний — не больше +2, тяжёлый — без Ловкости) плюс
- * щит (+2), либо, если доспех не надет, безоспешная защита варвара/монаха или
- * «Драконья устойчивость» чародея-дракона, плюс боевой стиль «Оборона» бойца
- * (+1, только в доспехе). Расы в SRD 5.1 не дают бонусов к КД напрямую.
+ * КД персонажа по SRD 5.1: базовое значение доспеха (лёгкий — полный модификатор
+ * Ловкости, средний — не больше +2, тяжёлый — без Ловкости) плюс щит (+2), либо,
+ * если доспех не надет, безоспешная защита варвара/монаха или безоспешная защита
+ * архетипа (`SubclassGrants.unarmoredAc`, например «Драконья устойчивость»), плюс
+ * боевой стиль «Оборона» бойца (+1, только в доспехе). Расы в SRD 5.1 не дают
+ * бонусов к КД напрямую.
+ *
+ * Владение доспехом на КД по SRD не влияет вовсе — надетый не по владению доспех
+ * даёт свою КД полностью, а расплата идёт помехой и запретом творить заклинания
+ * (см. `unproficientArmorIssue`). Единственный владелец формулы КД — эта функция.
  */
 export function computeArmorClass({
   classId,
+  subclassName,
   abilities,
   inventoryItemNames,
   fightingStyle,
-  hasDraconicResilience,
 }: {
   classId: string;
+  subclassName?: string;
   abilities: AbilityScores;
   inventoryItemNames: string[];
   fightingStyle?: string;
-  hasDraconicResilience?: boolean;
 }): number {
   const dexMod = abilityMod(abilities.dexterity);
   const wornArmor = inventoryItemNames.map((n) => ARMOR_STATS[n]).find((a): a is ArmorStats => !!a);
   const hasShield = inventoryItemNames.some((n) => SHIELD_ITEM_NAMES.has(n));
+  const unarmoredAc = subclassGrants(classId, subclassName)?.unarmoredAc;
 
   let base: number;
   if (wornArmor) {
@@ -831,13 +917,95 @@ export function computeArmorClass({
     base = 10 + dexMod + abilityMod(abilities.constitution);
   } else if (classId === "classes-monk" && !hasShield) {
     base = 10 + dexMod + abilityMod(abilities.wisdom);
-  } else if (classId === "classes-sorcerer" && hasDraconicResilience) {
-    base = 13 + dexMod;
+  } else if (unarmoredAc) {
+    base = unarmoredAc.base + dexMod;
   } else {
     base = 10 + dexMod;
   }
 
   return base + (hasShield ? 2 : 0);
+}
+
+/** Доспех/щит в инвентаре, на который у персонажа нет владения, — или `null`, если всё по владению. */
+export function unproficientArmorIssue(
+  inventoryItemNames: string[],
+  armorProficiencies: string[],
+): { items: string[] } | null {
+  const items: string[] = [];
+  for (const name of inventoryItemNames) {
+    const stats = ARMOR_STATS[name];
+    if (stats && !armorProficiencies.includes(stats.category)) items.push(name);
+    if (SHIELD_ITEM_NAMES.has(name) && !armorProficiencies.includes("shields")) items.push(name);
+  }
+  return items.length > 0 ? { items: [...new Set(items)] } : null;
+}
+
+/** Расплата за доспех/щит не по владению — дословное правило SRD 5.1 (rules.json → equipment-armor). */
+export const UNPROFICIENT_ARMOR_HINT =
+  "Доспех или щит не по владению: помеха на проверки, спасброски и броски атаки, использующие Силу или Ловкость, и невозможно творить заклинания.";
+
+/** Владеет ли персонаж этим оружием: по категории («простое»/«воинское») или поимённо. */
+export function isProficientWithWeapon(weapon: WeaponData, weaponProficiencies: string[]): boolean {
+  const category: WeaponProficiencyCategory = weapon.category.startsWith("martial") ? "martial" : "simple";
+  return weaponProficiencies.includes(category) || weaponProficiencies.includes(weapon.name);
+}
+
+/**
+ * Характеристика броска атаки и урона по свойствам оружия (SRD 5.1): дальнобойное —
+ * Ловкость, фехтовальное — что выше из Силы и Ловкости, остальное — Сила.
+ */
+function weaponAttackAbility(weapon: WeaponData, abilities: AbilityScores): AbilityKey {
+  if (weapon.category.endsWith("ranged")) return "dexterity";
+  if (/фехтовальное/i.test(weapon.properties)) {
+    return abilityMod(abilities.strength) >= abilityMod(abilities.dexterity) ? "strength" : "dexterity";
+  }
+  return "strength";
+}
+
+export interface WeaponAttack {
+  weapon: WeaponData;
+  ability: AbilityKey;
+  proficient: boolean;
+  attackBonus: number;
+  /** Кость урона оружия и модификатор характеристики, например «1к8 рубящий +3». */
+  damage: string;
+}
+
+/**
+ * Бросок атаки оружием: модификатор характеристики плюс бонус мастерства, если
+ * персонаж этим оружием владеет. Именно здесь владение оружием (в том числе
+ * данное архетипом) превращается в число — SRD 5.1, «Броски атаки».
+ */
+export function weaponAttackFor(
+  weapon: WeaponData,
+  abilities: AbilityScores,
+  level: number,
+  weaponProficiencies: string[],
+): WeaponAttack {
+  const ability = weaponAttackAbility(weapon, abilities);
+  const mod = abilityMod(abilities[ability]);
+  const proficient = isProficientWithWeapon(weapon, weaponProficiencies);
+  return {
+    weapon,
+    ability,
+    proficient,
+    attackBonus: mod + (proficient ? proficiencyBonusForLevel(level) : 0),
+    damage: `${weapon.damage} ${fmtMod(mod)}`,
+  };
+}
+
+/** Оружие из инвентаря, узнанное по названию строки таблицы `WEAPONS`. */
+export function weaponsInInventory(inventoryItemNames: string[]): WeaponData[] {
+  const seen = new Set<string>();
+  const found: WeaponData[] = [];
+  for (const name of inventoryItemNames) {
+    const weapon = WEAPONS.find((w) => w.name === name);
+    if (weapon && !seen.has(weapon.name)) {
+      seen.add(weapon.name);
+      found.push(weapon);
+    }
+  }
+  return found;
 }
 
 /** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
@@ -1358,6 +1526,60 @@ export const CLASS_LEVEL_FEATURES: Record<string, Record<number, ClassLevelFeatu
   },
 };
 
+/**
+ * Что именно делает применение варианта архетипа. Разбор — в
+ * `subclassEffectValue`: каждый вид считает своё число от уровня и
+ * характеристик, словесное описание живёт в тексте особенности и здесь не
+ * дублируется.
+ */
+export type SubclassEffect =
+  /** Запас хитов на распределение (Сохранение жизни: 5 × уровень). */
+  | { kind: "healing-pool"; perLevel: number }
+  /** Временные хиты союзникам (Боевой клич: уровень жреца). */
+  | { kind: "temp-hp-allies"; perLevel: number }
+  /** Спасбросок против СЛ заклинаний персонажа (Обманный след). */
+  | { kind: "saving-throw"; against: AbilityKey }
+  /** Бонус к броскам атаки от характеристики, не ниже `min` (Священное оружие). */
+  | { kind: "attack-bonus"; ability: AbilityKey; min: number }
+  /** Эффект без числа — целиком описан текстом особенности (сопротивление, преимущество союзнику). */
+  | { kind: "descriptive" };
+
+/**
+ * Применение архетипа, тратящее использование уже существующего ресурса
+ * (`resourceId` — id из таблицы `classProgression.ts`, например
+ * `channel-divinity`). Счётчик один на все варианты: SRD тратит одно
+ * использование Проведения энергии, каким бы вариантом ни воспользовались.
+ */
+export interface SubclassResourceOption {
+  id: string;
+  resourceId: string;
+  name: string;
+  minLevel: number;
+  effect: SubclassEffect;
+}
+
+/**
+ * Механическая часть архетипа — то, что читает движок. Текст особенностей
+ * остаётся в `featuresByLevel` и здесь не повторяется: у каждого факта один
+ * владелец, здесь живут только числа и владения.
+ */
+export interface SubclassGrants {
+  armor?: ArmorProficiency[];
+  weaponCategories?: WeaponProficiencyCategory[];
+  weapons?: string[];
+  skills?: string[];
+  /** Безоспешная защита архетипа: КД = `base` + модификатор Ловкости (Драконья устойчивость — 13). */
+  unarmoredAc?: { base: number };
+  /** Собственный ресурс архетипа сверх классовых — тот же тип, что у класса. */
+  resources?: ClassResource[];
+  /** Варианты траты уже существующего классового ресурса. */
+  resourceOptions?: SubclassResourceOption[];
+  /** Заклинания домена/архетипа по уровню персонажа: всегда подготовлены, сверх обычного списка. */
+  spellsByLevel?: Record<number, string[]>;
+  /** Прибавка к лечению заклинанием: `flat` + круг заклинания (Защитник жизни — 2 + круг). */
+  healingBonus?: { flat: number };
+}
+
 export interface ClassSubclass {
   name: string;
   /**
@@ -1368,6 +1590,12 @@ export interface ClassSubclass {
    */
   description?: string;
   featuresByLevel: Record<number, ClassLevelFeature[]>;
+  /**
+   * Механический эффект архетипа. Пусто у архетипов, чьи особенности пока
+   * только текст, — см. отчёт карточки
+   * characters-subclass-features-have-no-mechanical-effect.
+   */
+  grants?: SubclassGrants;
 }
 
 export interface ClassSubclassInfo {
@@ -1388,6 +1616,19 @@ export interface ClassSubclassInfo {
 }
 
 /**
+ * Проведение энергии паладина — ресурс, которого нет в таблице класса: его даёт
+ * сама клятва (архетип), поэтому он живёт в грантах, а не в
+ * `CLASS_PROGRESSION`. Счётчик один на обе способности клятвы, как и у жреца.
+ */
+const PALADIN_CHANNEL_DIVINITY: ClassResource = {
+  id: "channel-divinity",
+  name: "Проведение энергии",
+  max: 1,
+  recharge: "short",
+  unit: "использование",
+};
+
+/**
  * Архетипы/подклассы по классам — subclasses[0] каждого класса из тела
  * класса в rules.json (SRD 5.1), заголовок архетипа, затем его особенности
  * по уровням. Уровень выбора — см. CLASS_SUBCLASSES[id].chosenAtLevel (для
@@ -1402,6 +1643,25 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Домен жизни",
+        grants: {
+          armor: ["heavy"],
+          healingBonus: { flat: 2 },
+          resourceOptions: [
+            {
+              id: "preserve-life",
+              resourceId: "channel-divinity",
+              name: "Сохранение жизни",
+              minLevel: 2,
+              effect: { kind: "healing-pool", perLevel: 5 },
+            },
+          ],
+          // Заклинания домена SRD 5.1 (rules.json → тело класса Жрец, Домен жизни).
+          spellsByLevel: {
+            1: ["bless", "cure-wounds"],
+            3: ["lesser-restoration", "spiritual-weapon"],
+            5: ["beacon-of-hope", "revivify"],
+          },
+        },
         featuresByLevel: {
           1: [
             {
@@ -1431,6 +1691,33 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Домен войны",
         description:
           "Домен войны служит богам сражения и стойкости — его жрецы не просто исцеляют раненых, а вдохновляют дружину не отступать перед лицом смерти.",
+        grants: {
+          armor: ["heavy"],
+          weaponCategories: ["martial"],
+          resourceOptions: [
+            {
+              id: "voice-of-battle",
+              resourceId: "channel-divinity",
+              name: "Голос сражения",
+              minLevel: 1,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "battle-cry",
+              resourceId: "channel-divinity",
+              name: "Боевой клич",
+              minLevel: 2,
+              effect: { kind: "temp-hp-allies", perLevel: 1 },
+            },
+          ],
+          // Заклинания домена оригинального архетипа — подобраны из уже
+          // имеющегося списка жреца в spells.json, не скопированы из книги.
+          spellsByLevel: {
+            1: ["guiding-bolt", "shield-of-faith"],
+            3: ["spiritual-weapon", "enhance-ability"],
+            5: ["spirit-guardians", "protection-from-energy"],
+          },
+        },
         featuresByLevel: {
           1: [
             {
@@ -1456,6 +1743,23 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Домен обмана",
         description:
           "Домен обмана служит покровителям хитрости и притворства — божественная сила здесь проявляется не молнией с небес, а точным словом в нужный миг.",
+        grants: {
+          skills: ["Обман"],
+          resourceOptions: [
+            {
+              id: "deceptive-trail",
+              resourceId: "channel-divinity",
+              name: "Обманный след",
+              minLevel: 2,
+              effect: { kind: "saving-throw", against: "wisdom" },
+            },
+          ],
+          spellsByLevel: {
+            1: ["sanctuary", "bane"],
+            3: ["blindness-deafness", "silence"],
+            5: ["dispel-magic", "clairvoyance"],
+          },
+        },
         featuresByLevel: {
           1: [
             {
@@ -1549,6 +1853,8 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         // Текст упоминает «дикую магию» как вторую категорию происхождения, но детально расписано только «Наследие драконьей крови».
         name: "Наследие драконьей крови",
+        // «Драконья устойчивость»: КД 13 + Ловкость без доспеха.
+        grants: { unarmoredAc: { base: 13 } },
         featuresByLevel: {
           1: [
             {
@@ -1784,6 +2090,8 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Коллегия доблести",
         description:
           "Барды этой коллегии закаляют голос и тело в передовой линии боя, вплетая ритм сражения в собственные песни. Их музыка воодушевляет союзников идти в атаку, а не только исцеляет после неё.",
+        // «Боевая выправка»: средние доспехи, щиты и воинское оружие с 3 уровня.
+        grants: { armor: ["medium", "shields"], weaponCategories: ["martial"] },
         featuresByLevel: {
           3: [
             {
@@ -1977,6 +2285,25 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Клятва преданности",
+        grants: {
+          resources: [PALADIN_CHANNEL_DIVINITY],
+          resourceOptions: [
+            {
+              id: "sacred-weapon",
+              resourceId: "channel-divinity",
+              name: "Священное оружие",
+              minLevel: 3,
+              effect: { kind: "attack-bonus", ability: "charisma", min: 1 },
+            },
+            {
+              id: "turn-the-unholy",
+              resourceId: "channel-divinity",
+              name: "Изгнать нечистого",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "wisdom" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -1995,6 +2322,25 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Клятва древних",
         description:
           "Паладины Клятвы древних служат свету и жизни в самом первозданном смысле — они защищают красоту мира и связаны словом с духами леса не меньше, чем с богами.",
+        grants: {
+          resources: [PALADIN_CHANNEL_DIVINITY],
+          resourceOptions: [
+            {
+              id: "veil-of-nature",
+              resourceId: "channel-divinity",
+              name: "Пелена природы",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "wrath-of-the-wood",
+              resourceId: "channel-divinity",
+              name: "Гнев леса",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "dexterity" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2008,6 +2354,25 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Клятва мести",
         description: "Паладины Клятвы мести не ищут справедливости для всех — они выслеживают одного конкретного виновника и не останавливаются, пока не покарают его.",
+        grants: {
+          resources: [PALADIN_CHANNEL_DIVINITY],
+          resourceOptions: [
+            {
+              id: "tormentors-threat",
+              resourceId: "channel-divinity",
+              name: "Угроза мучителя",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "wisdom" },
+            },
+            {
+              id: "vow-of-pursuit",
+              resourceId: "channel-divinity",
+              name: "Обет преследования",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2131,6 +2496,111 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     ],
   },
 };
+
+/** Механика выбранного архетипа, или `undefined` — если архетип не выбран либо пока только текст. */
+export function subclassGrants(classId: string | null | undefined, subclassName: string | null | undefined) {
+  if (!classId || !subclassName) return undefined;
+  return CLASS_SUBCLASSES[classId]?.subclasses.find((s) => s.name === subclassName)?.grants;
+}
+
+/**
+ * Владения доспехами класса плюс данные архетипом. Единственный владелец
+ * правила — таблицы `CLASS_PROFICIENCIES`/`CLASS_SUBCLASSES`; персонаж хранит
+ * снимок этого списка (как и владения спасбросками), а не считает его заново.
+ */
+export function armorProficienciesFor(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+): ArmorProficiency[] {
+  const base = (classId ? CLASS_PROFICIENCIES[classId]?.armor : undefined) ?? [];
+  return [...new Set([...base, ...(subclassGrants(classId, subclassName)?.armor ?? [])])];
+}
+
+/** Владения оружием класса плюс данные архетипом: категории и отдельные виды в одном списке. */
+export function weaponProficienciesFor(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+): string[] {
+  const prof = classId ? CLASS_PROFICIENCIES[classId] : undefined;
+  const grants = subclassGrants(classId, subclassName);
+  return [
+    ...new Set([
+      ...(prof?.weaponCategories ?? []),
+      ...(prof?.weapons ?? []),
+      ...(grants?.weaponCategories ?? []),
+      ...(grants?.weapons ?? []),
+    ]),
+  ];
+}
+
+/** Заклинания домена/архетипа, открытые к этому уровню персонажа (всегда подготовлены). */
+export function subclassSpellsUpToLevel(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  level: number,
+): string[] {
+  const byLevel = subclassGrants(classId, subclassName)?.spellsByLevel;
+  if (!byLevel) return [];
+  const ids: string[] = [];
+  for (const [at, spellIds] of Object.entries(byLevel)) {
+    if (Number(at) <= level) ids.push(...spellIds);
+  }
+  return [...new Set(ids)];
+}
+
+/** Варианты траты классового ресурса, открытые архетипом к этому уровню. */
+export function subclassResourceOptionsAt(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  level: number,
+): SubclassResourceOption[] {
+  return (subclassGrants(classId, subclassName)?.resourceOptions ?? []).filter((o) => o.minLevel <= level);
+}
+
+/**
+ * СЛ спасброска от заклинаний персонажа (SRD 5.1): 8 + бонус мастерства +
+ * модификатор базовой характеристики класса.
+ */
+export function spellSaveDc(classId: string | null | undefined, abilities: AbilityScores, level: number): number | null {
+  const key = classId ? CLASS_SPELLCASTING_ABILITY_KEY[classId] : undefined;
+  if (!key) return null;
+  return 8 + proficiencyBonusForLevel(level) + abilityMod(abilities[key]);
+}
+
+/**
+ * Число, которое даёт применение варианта архетипа, — или `null` у вариантов
+ * без числа (преимущество союзнику). Само описание эффекта словами живёт в
+ * тексте особенности (`featuresByLevel`) и здесь не повторяется.
+ */
+export function subclassEffectValue(
+  effect: SubclassEffect,
+  { classId, abilities, level }: { classId: string; abilities: AbilityScores; level: number },
+): { label: string; value: number } | null {
+  switch (effect.kind) {
+    case "healing-pool":
+      return { label: "хитов на распределение", value: effect.perLevel * level };
+    case "temp-hp-allies":
+      return { label: "временных хитов союзникам", value: effect.perLevel * level };
+    case "saving-throw": {
+      const dc = spellSaveDc(classId, abilities, level);
+      return dc === null ? null : { label: `СЛ спасброска (${ABILITY_LABELS.find(([k]) => k === effect.against)?.[1]})`, value: dc };
+    }
+    case "attack-bonus":
+      return { label: "к броскам атаки", value: Math.max(effect.min, abilityMod(abilities[effect.ability])) };
+    case "descriptive":
+      return null;
+  }
+}
+
+/**
+ * Сколько хитов на самом деле восстановит запас лечения «Сохранение жизни»
+ * самому жрецу: SRD-оговорка не поднимает существо выше половины его максимума
+ * хитов, так что выше половины запас не даёт ничего.
+ */
+export function healingPoolSelfHeal(pool: number, currentHp: number, maxHp: number): number {
+  const cap = Math.floor(maxHp / 2);
+  return Math.max(0, Math.min(currentHp + pool, cap) - currentHp);
+}
 
 /** Девять мировоззрений SRD 5.1 (rules.json → character-alignment). */
 export const ALIGNMENTS = [

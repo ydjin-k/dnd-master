@@ -1,4 +1,4 @@
-import { abilityMod, type AbilityKey } from "./characterCreationData";
+import { abilityMod, subclassGrants, type AbilityKey } from "./characterCreationData";
 import type { AbilityScores } from "../state/types";
 
 /** Потолок уровня приложения — вся таблица ниже заполнена только до него (см. MAX_LEVEL в CharactersPage.tsx). */
@@ -268,6 +268,23 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
 export function progressionAt(classId: string | null | undefined, level: number): ClassLevelProgression | undefined {
   if (!classId) return undefined;
   return CLASS_PROGRESSION[classId]?.byLevel[level];
+}
+
+/**
+ * Все ограниченные ресурсы персонажа на этом уровне: классовые из таблицы выше
+ * плюс собственные ресурсы выбранного архетипа. Счётчик у них общий
+ * (`Character.featureUses` по `id`), так что вариант архетипа, тратящий уже
+ * существующий классовый ресурс, второго счётчика не заводит.
+ */
+export function characterResources(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  level: number,
+): ClassResource[] {
+  const classResources = progressionAt(classId, level)?.resources ?? [];
+  const own = subclassGrants(classId, subclassName)?.resources ?? [];
+  const extra = own.filter((r) => !classResources.some((c) => c.id === r.id));
+  return [...classResources, ...extra];
 }
 
 /** Максимум использований ресурса — либо число из таблицы, либо от модификатора характеристики (Вдохновение барда, Божественное чувство). */

@@ -52,12 +52,16 @@ import {
   RANGER_TERRAIN_TYPES,
   SKILL_ABILITY,
   abilityMod,
+  armorProficienciesFor,
   equipmentChoiceFor,
   fmtMod,
+  subclassGrants,
+  subclassSpellsUpToLevel,
+  weaponProficienciesFor,
   type AbilityKey,
   type BackgroundData,
 } from "./characterCreationData";
-import { CLASS_PROGRESSION, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
+import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -420,6 +424,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   };
 
   const level1Progression = progressionAt(classId, 1);
+  const level1SubclassSpells = subclassSpellsUpToLevel(classId, level1Subclass?.name, 1);
   const level1SpellSlots = spellSlotsForLevel(classId, 1);
   const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId)) : [];
   const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && sp.classes.includes(classId)) : [];
@@ -511,6 +516,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       ...(background?.skillProficiencies ?? []),
       ...raceFixedSkills,
       ...raceSkillChoices,
+      // Навык, данный самим архетипом (Домен обмана — Обман): владение реальное,
+      // на модификатор навыка на листе оно влияет так же, как классовое.
+      ...(level1Subclass ? (subclassGrants(classId, level1Subclass.name)?.skills ?? []) : []),
     ]),
   ];
 
@@ -535,12 +543,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     }),
     ...(background?.equipment ?? []),
   ];
+  const finalFightingStyle =
+    classId === "classes-fighter" ? fightingStyle || fighterFightingStyles[0]?.name || "" : "";
   const armorClass = computeArmorClass({
     classId: classId ?? "",
+    subclassName: level1Subclass?.name,
     abilities: totalAbilities,
     inventoryItemNames: inventoryItems,
-    fightingStyle: classId === "classes-fighter" ? fightingStyle || fighterFightingStyles[0]?.name : undefined,
-    hasDraconicResilience: level1Subclass?.name === "Наследие драконьей крови",
+    fightingStyle: finalFightingStyle || undefined,
   });
 
   async function finish() {
@@ -584,13 +594,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       coins,
       savingThrowProficiencies: classProf?.savingThrowLabels ?? [],
       skillProficiencies: allSkillProficiencies,
+      armorProficiencies: armorProficienciesFor(classId, level1Subclass?.name),
+      weaponProficiencies: weaponProficienciesFor(classId, level1Subclass?.name),
+      fightingStyle: finalFightingStyle,
       knownCantrips: spellAbility ? knownCantrips : [],
-      knownSpells: spellAbility ? knownSpells : [],
+      // Заклинания домена архетипа всегда подготовлены и не считаются в норму
+      // класса — добавляются поверх выбранных игроком (SRD, «Заклинания домена»).
+      knownSpells: spellAbility ? [...new Set([...knownSpells, ...level1SubclassSpells])] : [],
       spellSlotsMax: level1SpellSlots,
       spellSlotsCurrent: [...level1SpellSlots],
       // Классовые ресурсы 1 уровня (Второе дыхание воина, Вдохновение барда,
-      // Наложение рук паладина) — сразу полными, тратить их будет карточка.
-      featureUses: (level1Progression?.resources ?? []).map((resource) => ({
+      // Наложение рук паладина) плюс собственные ресурсы архетипа — сразу полными.
+      featureUses: characterResources(classId, level1Subclass?.name, 1).map((resource) => ({
         featureId: resource.id,
         usesCurrent: resourceMax(resource, totalAbilities),
       })),

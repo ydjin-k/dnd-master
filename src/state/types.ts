@@ -63,6 +63,12 @@ export interface Character {
   coins: Coins;
   savingThrowProficiencies: string[];
   skillProficiencies: string[];
+  /** Категории доспехов (`ArmorProficiency` в characterCreationData.ts) — снимок класса + архетипа. */
+  armorProficiencies: string[];
+  /** Владение оружием: категории "simple"/"martial" и отдельные виды по названию. */
+  weaponProficiencies: string[];
+  /** Боевой стиль воина, выбранный при создании — «Оборона» даёт +1 КД в доспехе. */
+  fightingStyle: string;
   knownCantrips: string[];
   knownSpells: string[];
   /** Ячейки заклинаний по кругам 1..5 — индекс 0 это 1 круг (см. SPELL_CIRCLES в classProgression.ts). */

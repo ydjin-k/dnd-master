@@ -159,6 +159,9 @@ describe("CharactersPage", () => {
       inventory: [{ id: "torch-1", name: "Факел", quantity: 5, notes: "", weightLb: 1 }],
       coins: emptyCoins(),
       savingThrowProficiencies: [],
+      armorProficiencies: [],
+      weaponProficiencies: [],
+      fightingStyle: "",
       skillProficiencies: [],
       knownCantrips: [],
       knownSpells: [],
@@ -199,6 +202,9 @@ describe("CharactersPage", () => {
           inventory: [],
           coins: emptyCoins(),
           savingThrowProficiencies: [],
+          armorProficiencies: [],
+          weaponProficiencies: [],
+          fightingStyle: "",
           skillProficiencies: [],
           knownCantrips: [],
           knownSpells: [],
@@ -477,6 +483,9 @@ describe("CharactersPage", () => {
       ...characterWithInventory(),
       abilities: { strength: 14, dexterity: 16, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
       savingThrowProficiencies: ["Сила"],
+      armorProficiencies: [],
+      weaponProficiencies: [],
+      fightingStyle: "",
       skillProficiencies: ["Акробатика"], // Dexterity-based skill
     };
     mockState = baseState({ characters: [char] });

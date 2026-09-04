@@ -100,6 +100,15 @@ pub struct Character {
     pub coins: Coins,
     pub saving_throw_proficiencies: Vec<String>,
     pub skill_proficiencies: Vec<String>,
+    /// Владения доспехами и оружием — снимок таблиц класса и архетипа на
+    /// стороне UI (`characterCreationData.ts`), как и владения спасбросками
+    /// выше. Доспехи хранятся категориями ("light"/"medium"/"heavy"/"shields"),
+    /// оружие — категориями ("simple"/"martial") и отдельными названиями.
+    pub armor_proficiencies: Vec<String>,
+    pub weapon_proficiencies: Vec<String>,
+    /// Боевой стиль воина, выбранный при создании: входит в расчёт КД
+    /// («Оборона» — +1 в доспехе), поэтому должен пережить сохранение.
+    pub fighting_style: String,
     pub known_cantrips: Vec<String>,
     pub known_spells: Vec<String>,
     /// Устарело — ячейки заклинаний были только 1 круга, до прогрессии по
@@ -263,6 +272,10 @@ mod tests {
         assert!(character.spell_slots_current.is_empty());
         assert!(character.feature_uses.is_empty());
         assert_eq!(character.experience_points, 0);
+        // characters-subclass-features-have-no-mechanical-effect
+        assert!(character.armor_proficiencies.is_empty());
+        assert!(character.weapon_proficiencies.is_empty());
+        assert_eq!(character.fighting_style, "");
     }
 
     /// characters-class-feature-progression-1-5: сохранение с ячейками только
