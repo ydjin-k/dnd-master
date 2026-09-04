@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="700" viewBox="0 0 1100 700">
+  <defs>
+    <radialGradient id="desk"><stop stop-color="#17284a"/><stop offset="1" stop-color="#081126"/></radialGradient>
+    <radialGradient id="paper"><stop offset="0" stop-color="#dfc68f"/><stop offset=".72" stop-color="#c9a96d"/><stop offset="1" stop-color="#89633d"/></radialGradient>
+    <filter id="rough"><feTurbulence baseFrequency=".018 .08" numOctaves="3" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter>
+    <filter id="grain"><feTurbulence baseFrequency=".7" numOctaves="3" seed="4"/><feColorMatrix values="0 0 0 0 .25 0 0 0 0 .16 0 0 0 0 .08 0 0 0 .12 0"/></filter>
+  </defs>
+  <rect width="1100" height="700" rx="28" fill="url(#desk)"/>
+  <text x="550" y="58" text-anchor="middle" fill="#d7b86a" font-family="Georgia" font-size="30" letter-spacing="4">ДНЕВНИК · ВАРИАНТ D</text>
+  <text x="550" y="88" text-anchor="middle" fill="#9db9d5" font-family="sans-serif" font-size="15">состаренный пергамент · каллиграфия Caveat · чёрные чернила</text>
+  <path d="M82 128Q92 112 125 118H535Q550 118 550 140V606Q538 585 515 590H120Q92 594 82 575Z" fill="url(#paper)" stroke="#6b482c" stroke-width="5" filter="url(#rough)"/>
+  <path d="M1018 128Q1008 112 975 118H565Q550 118 550 140V606Q562 585 585 590H980Q1008 594 1018 575Z" fill="url(#paper)" stroke="#6b482c" stroke-width="5" filter="url(#rough)"/>
+  <path d="M550 137V594" stroke="#684525" stroke-width="18" opacity=".55"/><path d="M550 137V594" stroke="#e4cc94" stroke-width="3" opacity=".5"/>
+  <rect x="100" y="135" width="900" height="445" filter="url(#grain)" opacity=".42"/>
+  <g fill="none" stroke="#7a5738" opacity=".34"><path d="M120 205h385M120 286h385M120 405h385M595 205h385M595 325h385M595 445h385"/><path d="M135 146q-25 65-4 132t-6 143q-13 70 8 136M967 146q21 63 2 130t5 142q13 73-9 139"/></g>
+  <g fill="#24180f" font-family="Caveat, Segoe Print, cursive">
+    <text x="145" y="181" font-size="26" font-weight="700">14 День месяца Урожая</text>
+    <text x="145" y="235" font-size="29">К вечеру мы добрались до старой</text><text x="145" y="272" font-size="29">башни. Камни хранили тепло,</text><text x="145" y="309" font-size="29">а в окне мерцал одинокий огонь.</text>
+    <text x="145" y="374" font-size="26" font-weight="700">Поздний час</text>
+    <text x="145" y="428" font-size="29">Элира нашла под лестницей знак —</text><text x="145" y="465" font-size="29">такой же, как на карте друида.</text>
+    <text x="620" y="181" font-size="26" font-weight="700">15 День месяца Урожая</text>
+    <text x="620" y="235" font-size="29">Чернила расплылись от дождя,</text><text x="620" y="272" font-size="29">но дорога ясна: на север,</text><text x="620" y="309" font-size="29">к холмам над серебряной рекой.</text>
+    <text x="620" y="390" font-size="29">«Не всякая запертая дверь</text><text x="620" y="427" font-size="29">желает оставаться закрытой».</text>
+  </g>
+  <g fill="#59412c" font-family="Caveat, Segoe Print, cursive" font-size="20" font-style="italic"><text x="145" y="530">запись сделана у костра</text><text x="620" y="492">— пометка на полях</text></g>
+  <path d="M115 620h870" stroke="#d7b86a" opacity=".5"/><text x="550" y="657" text-anchor="middle" fill="#9db9d5" font-family="sans-serif" font-size="14">Форма ввода остаётся тёмной частью оболочки; светлым становится только раскрытый гримуар.</text>
+</svg>
