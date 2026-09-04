@@ -2466,6 +2466,33 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Путь открытой ладони",
+        // Эффект накладывается попаданием Шквала ударов, а Шквал стоит очко ци —
+        // поэтому все три варианта тратят тот же классовый ресурс.
+        grants: {
+          resourceOptions: [
+            {
+              id: "open-hand-prone",
+              resourceId: "ki",
+              name: "Открытая ладонь: сбить с ног",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "dexterity" },
+            },
+            {
+              id: "open-hand-push",
+              resourceId: "ki",
+              name: "Открытая ладонь: оттолкнуть",
+              minLevel: 3,
+              effect: { kind: "saving-throw", against: "strength" },
+            },
+            {
+              id: "open-hand-no-reactions",
+              resourceId: "ki",
+              name: "Открытая ладонь: лишить реакций",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2487,6 +2514,18 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь тени",
         description:
           "Монахи Пути тени тренируются как лазутчики и охотники: тишина и внезапность разят вернее прямого удара, потому что противник узнаёт о битве, когда она уже окончена.",
+        grants: {
+          resourceOptions: [
+            {
+              id: "shadow-step",
+              resourceId: "ki",
+              name: "Тень между вздохов",
+              minLevel: 3,
+              cost: 2,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2501,6 +2540,17 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь четырёх стихий",
         description:
           "Монахи этого пути направляют ци не только в тело, но и вовне — в короткие всплески огня, льда и ветра, служащие продолжением их ударов, а не отдельной магией.",
+        grants: {
+          resourceOptions: [
+            {
+              id: "elemental-burst",
+              resourceId: "ki",
+              name: "Стихийный всплеск",
+              minLevel: 3,
+              effect: { kind: "bonus-damage-dice", count: 1, die: 6 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2623,6 +2673,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Вор",
+        // «Форточник» (лазание и прыжок) числом не выражается: скорости лазания
+        // и дальности прыжка на листе персонажа пока нет.
+        grants: { toolProficiencies: ["Воровские инструменты"] },
         featuresByLevel: {
           3: [
             {
@@ -2646,6 +2699,10 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Убийца",
         description:
           "Убийцы превращают ремесло плута в точную науку смерти: они изучают жертву заранее и наносят один-единственный решающий удар, пока никто не готов.",
+        grants: {
+          toolProficiencies: ["Набор для отравления", "Маскировочный набор"],
+          scaling: [{ name: "Первый и последний удар", minLevel: 3, effect: { kind: "bonus-damage-flat", per: "level" } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2664,6 +2721,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Мистический ловкач",
         description:
           "Мистические ловкачи подсматривают магию у чародеев и волшебников ровно настолько, чтобы обвести вокруг пальца — не ради разрушительной силы, а ради ещё одного трюка в рукаве.",
+        grants: { bonusCantrips: { count: 2, fromClassId: "classes-wizard" } },
         featuresByLevel: {
           3: [
             {
@@ -2703,6 +2761,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Укротитель зверей",
         description: "Укротители зверей следопыта делят путь с диким спутником — тот сражается и выслеживает добычу рядом с хозяином, а не остаётся в лагере.",
+        grants: {
+          scaling: [{ name: "Звериный спутник", minLevel: 3, effect: { kind: "companion-hp", perLevel: 4 } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2716,6 +2777,18 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Странник",
         description: "Странники следопыта не привязаны ни к одному покровителю или зверю — их сила в чистой выносливости человека, идущего в одиночку туда, куда другие не решаются.",
+        grants: {
+          resources: [{ id: "tireless-step", name: "Неутомимый шаг", max: 1, recharge: "long", unit: "использование" }],
+          resourceOptions: [
+            {
+              id: "tireless-step-slot",
+              resourceId: "tireless-step",
+              name: "Вернуть ячейку 1 круга",
+              minLevel: 3,
+              effect: { kind: "restore-slot", circle: 1 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
