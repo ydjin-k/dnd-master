@@ -37,7 +37,9 @@ import {
   subclassEffectValue,
   subclassGrants,
   subclassResourceOptionsAt,
+  subclassScalingAt,
   subclassSpellsUpToLevel,
+  toolProficienciesFor,
   unproficientArmorIssue,
   weaponAttackFor,
   weaponProficienciesFor,
@@ -180,6 +182,8 @@ function CharacterCard({
   const armorProficiencies = c.armorProficiencies.length > 0 ? c.armorProficiencies : armorProficienciesFor(classId, c.subclass);
   const weaponProficiencies =
     c.weaponProficiencies.length > 0 ? c.weaponProficiencies : weaponProficienciesFor(classId, c.subclass);
+  const toolProficiencies =
+    c.toolProficiencies.length > 0 ? c.toolProficiencies : toolProficienciesFor(classId, c.subclass);
 
   /**
    * КД пересчитывается по инвентарю при каждом его изменении — единственный
@@ -318,14 +322,17 @@ function CharacterCard({
    * Применение варианта архетипа: тратит использование ТОГО ЖЕ классового
    * ресурса (второго счётчика у архетипа нет) и применяет к персонажу то, что
    * вариант действительно меняет в его состоянии. «Сохранение жизни» лечит
-   * самого жреца из запаса, не поднимая выше половины максимума хитов; у
-   * остальных вариантов цель — союзник или враг, так что на листе владельца
-   * меняется только счётчик, а посчитанное число видно на кнопке.
+   * самого жреца из запаса, не поднимая выше половины максимума хитов;
+   * «Неутомимый шаг» возвращает потраченную ячейку заклинаний; у остальных
+   * вариантов цель — союзник или враг, так что на листе владельца меняется
+   * только счётчик, а посчитанное число видно на кнопке.
    */
   function applySubclassOption(option: SubclassResourceOption) {
     const resource = classResources.find((r) => r.id === option.resourceId);
     if (!resource) return;
-    if (resourceCurrent(resource) <= 0) {
+    const cost = option.cost ?? 1;
+    const current = resourceCurrent(resource);
+    if (current < cost) {
       playLimitSound();
       return;
     }
@@ -337,13 +344,21 @@ function CharacterCard({
       playLimitSound();
       return;
     }
-    const current = resourceCurrent(resource);
+    // Ячейку некуда возвращать, если ни одной этого круга не потрачено.
+    const restoredCircle = option.effect.kind === "restore-slot" ? option.effect.circle : 0;
+    if (restoredCircle > 0 && c.spellSlotsCurrent[restoredCircle - 1] >= (c.spellSlotsMax[restoredCircle - 1] ?? 0)) {
+      playLimitSound();
+      return;
+    }
     onUpdate((ch) => {
       const rest = ch.featureUses.filter((u) => u.featureId !== resource.id);
       return {
         ...ch,
         currentHp: Math.min(ch.maxHp, ch.currentHp + selfHeal),
-        featureUses: [...rest, { featureId: resource.id, usesCurrent: current - 1 }],
+        spellSlotsCurrent: ch.spellSlotsCurrent.map((free, i) =>
+          i === restoredCircle - 1 ? Math.min(ch.spellSlotsMax[i] ?? 0, free + 1) : free,
+        ),
+        featureUses: [...rest, { featureId: resource.id, usesCurrent: current - cost }],
       };
     });
   }
@@ -394,6 +409,7 @@ function CharacterCard({
       // домена — на левел-апе они появляются вместе с ним.
       armorProficiencies: armorProficienciesFor(dice?.id, subclassName),
       weaponProficiencies: weaponProficienciesFor(dice?.id, subclassName),
+      toolProficiencies: toolProficienciesFor(dice?.id, subclassName),
       skillProficiencies: [
         ...new Set([...ch.skillProficiencies, ...(subclassGrants(dice?.id, subclassName)?.skills ?? [])]),
       ],
@@ -514,9 +530,13 @@ function CharacterCard({
    * появления прогрессии.
    */
   const progression = progressionAt(classId, c.level);
+  const grants = subclassGrants(classId, c.subclass);
   const spellsKnownKind = classId ? CLASS_PROGRESSION[classId]?.spellsKnownKind : undefined;
   const highestCircle = highestSpellCircle(classId, c.level);
-  const missingCantrips = Math.max(0, (progression?.cantripsKnown ?? 0) - c.knownCantrips.length);
+  // Архетип может добавить заговоры сверх нормы класса (Круг земли, Круг звёзд,
+  // Мистический ловкач) — норма растёт вместе с ним, иначе недобор не виден.
+  const cantripsNorm = (progression?.cantripsKnown ?? 0) + (grants?.bonusCantrips?.count ?? 0);
+  const missingCantrips = Math.max(0, cantripsNorm - c.knownCantrips.length);
   const missingSpells =
     spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.knownSpells.length) : 0;
   // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
@@ -525,18 +545,27 @@ function CharacterCard({
   const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
   );
+  const subclassScaling = subclassScalingAt(classId, c.subclass, c.level);
   const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level);
   const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
   const weaponAttacks = weaponsInInventory(c.inventory.map((item) => item.name)).map((weapon) =>
     weaponAttackFor(weapon, c.abilities, c.level, weaponProficiencies),
   );
-  const healingBonus = subclassGrants(classId, c.subclass)?.healingBonus;
+  const healingBonus = grants?.healingBonus;
   const isSpellcaster =
     c.knownCantrips.length > 0 || c.knownSpells.length > 0 || highestCircle > 0 || missingCantrips > 0;
 
-  const learnableCantrips = classId
-    ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId) && !c.knownCantrips.includes(sp.id))
+  // Заговоры своего класса плюс чужой список, если архетип открывает именно его
+  // (Мистический ловкач учит заговоры волшебника, своих у плута нет вовсе).
+  const cantripClassIds = classId
+    ? [classId, ...(grants?.bonusCantrips?.fromClassId ? [grants.bonusCantrips.fromClassId] : [])]
     : [];
+  const bonusCantripClassTitle = Object.entries(classHitDiceByTitle).find(
+    ([, dice]) => dice.id === grants?.bonusCantrips?.fromClassId,
+  )?.[0];
+  const learnableCantrips = spells.filter(
+    (sp) => sp.level === 0 && sp.classes.some((id) => cantripClassIds.includes(id)) && !c.knownCantrips.includes(sp.id),
+  );
   const learnableSpells = classId
     ? spells.filter(
         (sp) =>
@@ -759,6 +788,7 @@ function CharacterCard({
               <li key={attack.weapon.name} className="typography-term-line">
                 {attack.weapon.name}: атака {fmtMod(attack.attackBonus)}, урон {attack.damage}
                 {attack.proficient ? " · владение" : " · без владения"}
+                {grants?.critRange !== undefined && ` · крит ${grants.critRange}-20`}
               </li>
             ))}
           </ul>
@@ -771,6 +801,9 @@ function CharacterCard({
             ? armorProficiencies.map((id) => ARMOR_PROFICIENCY_LABELS[id as ArmorProficiency] ?? id).join(", ")
             : "нет владений"}
         </p>
+        {toolProficiencies.length > 0 && (
+          <p className="character-card__prof">Инструменты: {toolProficiencies.join(", ")}</p>
+        )}
       </details>
       {(classFeatures.length > 0 || classResources.length > 0 || classScaling.length > 0) && (
         <details className="character-card__class-features" open>
@@ -811,9 +844,14 @@ function CharacterCard({
               {subclassOptions.map((option) => {
                 const resource = classResources.find((r) => r.id === option.resourceId)!;
                 const value = classId
-                  ? subclassEffectValue(option.effect, { classId, abilities: c.abilities, level: c.level })
+                  ? subclassEffectValue(option.effect, {
+                      classId,
+                      abilities: c.abilities,
+                      level: c.level,
+                      spellCircle: highestCircle,
+                    })
                   : null;
-                const spent = resourceCurrent(resource) === 0;
+                const spent = resourceCurrent(resource) < (option.cost ?? 1);
                 return (
                   <li key={option.id} className="character-card__item">
                     <strong>{option.name}</strong>{" "}
@@ -824,7 +862,9 @@ function CharacterCard({
                     )}
                     <button
                       type="button"
-                      title={`Применить: ${option.name} (тратит ${resource.name})`}
+                      title={`Применить: ${option.name} (тратит ${resource.name}${
+                        (option.cost ?? 1) > 1 ? `, ${option.cost}` : ""
+                      })`}
                       aria-disabled={spent}
                       className={spent ? "character-card__danger" : undefined}
                       onClick={() => applySubclassOption(option)}
@@ -835,6 +875,33 @@ function CharacterCard({
                 );
               })}
             </ul>
+          )}
+          {subclassScaling.length > 0 && classId && (
+            <ul className="character-card__skill-list">
+              {subclassScaling.map((entry) => {
+                const value = subclassEffectValue(entry.effect, {
+                  classId,
+                  abilities: c.abilities,
+                  level: c.level,
+                  spellCircle: highestCircle,
+                });
+                return (
+                  <li key={entry.name} className="typography-term-line">
+                    {entry.name}
+                    {value && `: ${value.value} ${value.label}`}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {grants?.damageResistances && grants.damageResistances.length > 0 && (
+            <p className="character-card__prof">Сопротивление урону: {grants.damageResistances.join(", ")}</p>
+          )}
+          {grants?.bonusCantrips && (
+            <p className="character-card__prof">
+              Заговоры сверх нормы класса: {grants.bonusCantrips.count}
+              {bonusCantripClassTitle && ` (из списка класса «${bonusCantripClassTitle}»)`}
+            </p>
           )}
           {healingBonus && (
             <p className="character-card__prof">

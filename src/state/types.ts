@@ -67,6 +67,8 @@ export interface Character {
   armorProficiencies: string[];
   /** Владение оружием: категории "simple"/"martial" и отдельные виды по названию. */
   weaponProficiencies: string[];
+  /** Владение инструментами по названию набора — снимок таблицы архетипа, как и владения выше. */
+  toolProficiencies: string[];
   /** Боевой стиль воина, выбранный при создании — «Оборона» даёт +1 КД в доспехе. */
   fightingStyle: string;
   knownCantrips: string[];

@@ -1541,6 +1541,24 @@ export type SubclassEffect =
   | { kind: "saving-throw"; against: AbilityKey }
   /** Бонус к броскам атаки от характеристики, не ниже `min` (Священное оружие). */
   | { kind: "attack-bonus"; ability: AbilityKey; min: number }
+  /** Временные хиты самому персонажу: `perLevel` × уровень плюс модификатор характеристики (Благословение темнейшего, Крепкая форма). */
+  | { kind: "temp-hp-self"; perLevel: number; ability?: AbilityKey; min?: number }
+  /** Кость, бросок которой прибавляется к чужому или своему броску (кость превосходства, Благословение созвездия). */
+  | { kind: "bonus-dice"; count: number; die: number }
+  /** Дополнительный урон костями (Стихийный всплеск — 1к6, Заряженный клинок — 1к8). */
+  | { kind: "bonus-damage-dice"; count: number; die: number }
+  /** Дополнительный урон плоским числом от уровня или бонуса мастерства (Первый и последний удар, Сокрушительный напор). */
+  | { kind: "bonus-damage-flat"; per: "level" | "proficiency" }
+  /** Число существ/целей от круга заклинания: круг + `plus` (Лепка заклинаний — 1 + круг). */
+  | { kind: "spell-circle-plus"; plus: number }
+  /** Половина круга заклинания с округлением вверх (Живучая плоть). */
+  | { kind: "spell-circle-half" }
+  /** Половина уровня персонажа с округлением вверх (Естественное восстановление). */
+  | { kind: "half-level" }
+  /** Максимум хитов звериного спутника: `perLevel` × уровень. */
+  | { kind: "companion-hp"; perLevel: number }
+  /** Восстановление потраченной ячейки заклинаний указанного круга — единственный эффект, который реально меняет ячейки. */
+  | { kind: "restore-slot"; circle: number }
   /** Эффект без числа — целиком описан текстом особенности (сопротивление, преимущество союзнику). */
   | { kind: "descriptive" };
 
@@ -1556,6 +1574,20 @@ export interface SubclassResourceOption {
   name: string;
   minLevel: number;
   effect: SubclassEffect;
+  /** Сколько использований ресурса тратит применение; по умолчанию одно (Тень между вздохов — 2 очка ци). */
+  cost?: number;
+}
+
+/**
+ * Число архетипа, которое действует всегда и ничего не тратит, — аналог
+ * `ClassScalingValue` класса, но считается от уровня и характеристик тем же
+ * `subclassEffectValue`, что и варианты с кнопкой. Владелец числа один, текст
+ * особенности остаётся в `featuresByLevel`.
+ */
+export interface SubclassScalingValue {
+  name: string;
+  minLevel: number;
+  effect: SubclassEffect;
 }
 
 /**
@@ -1568,6 +1600,16 @@ export interface SubclassGrants {
   weaponCategories?: WeaponProficiencyCategory[];
   weapons?: string[];
   skills?: string[];
+  /** Владение инструментами по названию набора (воровские инструменты, набор для отравления). */
+  toolProficiencies?: string[];
+  /** Сопротивление видам урона, действующее постоянно (Дитя шторма — электричество и гром). */
+  damageResistances?: string[];
+  /** Заговоры сверх нормы класса: сколько и из чьего списка (Мистический ловкач — два заговора волшебника). */
+  bonusCantrips?: { count: number; fromClassId?: string };
+  /** Наименьший результат кости атаки, считающийся критическим попаданием (Воитель — 19 вместо 20). */
+  critRange?: number;
+  /** Числа архетипа, действующие всегда и ничего не тратящие. */
+  scaling?: SubclassScalingValue[];
   /** Безоспешная защита архетипа: КД = `base` + модификатор Ловкости (Драконья устойчивость — 13). */
   unarmoredAc?: { base: number };
   /** Собственный ресурс архетипа сверх классовых — тот же тип, что у класса. */
@@ -2533,6 +2575,18 @@ export function weaponProficienciesFor(
   ];
 }
 
+/**
+ * Владение инструментами, данное архетипом. Таблицы владения инструментами у
+ * самих классов пока нет — когда появится, она встанет сюда первым слагаемым,
+ * как `CLASS_PROFICIENCIES` у оружия и доспехов выше.
+ */
+export function toolProficienciesFor(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+): string[] {
+  return [...new Set(subclassGrants(classId, subclassName)?.toolProficiencies ?? [])];
+}
+
 /** Заклинания домена/архетипа, открытые к этому уровню персонажа (всегда подготовлены). */
 export function subclassSpellsUpToLevel(
   classId: string | null | undefined,
@@ -2557,6 +2611,15 @@ export function subclassResourceOptionsAt(
   return (subclassGrants(classId, subclassName)?.resourceOptions ?? []).filter((o) => o.minLevel <= level);
 }
 
+/** Постоянные числа архетипа, открытые к этому уровню персонажа. */
+export function subclassScalingAt(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  level: number,
+): SubclassScalingValue[] {
+  return (subclassGrants(classId, subclassName)?.scaling ?? []).filter((s) => s.minLevel <= level);
+}
+
 /**
  * СЛ спасброска от заклинаний персонажа (SRD 5.1): 8 + бонус мастерства +
  * модификатор базовой характеристики класса.
@@ -2568,14 +2631,25 @@ export function spellSaveDc(classId: string | null | undefined, abilities: Abili
 }
 
 /**
- * Число, которое даёт применение варианта архетипа, — или `null` у вариантов
+ * Величина, которую даёт применение варианта архетипа, — или `null` у вариантов
  * без числа (преимущество союзнику). Само описание эффекта словами живёт в
- * тексте особенности (`featuresByLevel`) и здесь не повторяется.
+ * тексте особенности (`featuresByLevel`) и здесь не повторяется. Значение бывает
+ * и строкой («1к8»): кость — такая же величина эффекта, как число, и второго
+ * владельца ей заводить незачем.
+ *
+ * `spellCircle` — наивысший доступный круг заклинаний; его владелец
+ * `highestSpellCircle` в classProgression.ts, поэтому число приходит параметром,
+ * а не считается здесь заново.
  */
 export function subclassEffectValue(
   effect: SubclassEffect,
-  { classId, abilities, level }: { classId: string; abilities: AbilityScores; level: number },
-): { label: string; value: number } | null {
+  {
+    classId,
+    abilities,
+    level,
+    spellCircle = 0,
+  }: { classId: string; abilities: AbilityScores; level: number; spellCircle?: number },
+): { label: string; value: number | string } | null {
   switch (effect.kind) {
     case "healing-pool":
       return { label: "хитов на распределение", value: effect.perLevel * level };
@@ -2587,6 +2661,29 @@ export function subclassEffectValue(
     }
     case "attack-bonus":
       return { label: "к броскам атаки", value: Math.max(effect.min, abilityMod(abilities[effect.ability])) };
+    case "temp-hp-self": {
+      const fromAbility = effect.ability ? abilityMod(abilities[effect.ability]) : 0;
+      return { label: "временных хитов", value: Math.max(effect.min ?? 0, effect.perLevel * level + fromAbility) };
+    }
+    case "bonus-dice":
+      return { label: "к броску", value: `${effect.count}к${effect.die}` };
+    case "bonus-damage-dice":
+      return { label: "дополнительного урона", value: `${effect.count}к${effect.die}` };
+    case "bonus-damage-flat":
+      return {
+        label: "дополнительного урона",
+        value: effect.per === "level" ? level : proficiencyBonusForLevel(level),
+      };
+    case "spell-circle-plus":
+      return { label: "целей не задеты заклинанием", value: spellCircle + effect.plus };
+    case "spell-circle-half":
+      return { label: "восстановленных хитов", value: Math.ceil(spellCircle / 2) };
+    case "half-level":
+      return { label: "суммарных кругов ячеек", value: Math.ceil(level / 2) };
+    case "companion-hp":
+      return { label: "хитов у звериного спутника", value: effect.perLevel * level };
+    case "restore-slot":
+      return { label: `восстановленная ячейка ${effect.circle} круга`, value: 1 };
     case "descriptive":
       return null;
   }

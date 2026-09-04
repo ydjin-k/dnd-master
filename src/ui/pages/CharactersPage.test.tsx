@@ -162,6 +162,7 @@ describe("CharactersPage", () => {
       savingThrowProficiencies: [],
       armorProficiencies: [],
       weaponProficiencies: [],
+      toolProficiencies: [],
       fightingStyle: "",
       skillProficiencies: [],
       knownCantrips: [],
@@ -205,6 +206,7 @@ describe("CharactersPage", () => {
           savingThrowProficiencies: [],
           armorProficiencies: [],
           weaponProficiencies: [],
+          toolProficiencies: [],
           fightingStyle: "",
           skillProficiencies: [],
           knownCantrips: [],
@@ -486,6 +488,7 @@ describe("CharactersPage", () => {
       savingThrowProficiencies: ["Сила"],
       armorProficiencies: [],
       weaponProficiencies: [],
+      toolProficiencies: [],
       fightingStyle: "",
       skillProficiencies: ["Акробатика"], // Dexterity-based skill
     };
