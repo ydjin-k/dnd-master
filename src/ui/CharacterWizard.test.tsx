@@ -1465,5 +1465,47 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.subclass).toBe("Домен обмана");
+    // characters-subclass-features-have-no-mechanical-effect: выбранный домен
+    // даёт владение навыком, а не только строчку текста на «Итоге».
+    expect(character.skillProficiencies).toContain("Обман");
+    expect(character.knownSpells).toEqual(expect.arrayContaining(["sanctuary", "bane"]));
+    expect(character.armorProficiencies).not.toContain("heavy");
+  });
+
+  /** characters-subclass-features-have-no-mechanical-effect — приёмка: Домен войны 1 уровня. */
+  it("сохраняет жрецу Домена войны владение тяжёлыми доспехами и воинским оружием", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Жрец"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Жрец войны" },
+    });
+    fireEvent.change(await screen.findByLabelText("Архетип"), { target: { value: "1" } }); // Домен войны
+
+    await screen.findByText("Заговор Жреца 1");
+    const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    for (const box of boxes.slice(0, 4)) fireEvent.click(box);
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.subclass).toBe("Домен войны");
+    expect(character.armorProficiencies).toEqual(expect.arrayContaining(["light", "medium", "shields", "heavy"]));
+    expect(character.weaponProficiencies).toEqual(expect.arrayContaining(["simple", "martial"]));
   });
 });

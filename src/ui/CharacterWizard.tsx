@@ -1393,6 +1393,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </li>
                   ))}
                 </ul>
+                {level1SubclassSpells.length > 0 && (
+                  <p className="wizard__hint">
+                    Заклинания архетипа (всегда подготовлены):{" "}
+                    {level1SubclassSpells.map((id) => spells.find((sp) => sp.id === id)?.name ?? id).join(", ")}
+                  </p>
+                )}
               </li>
             )}
             <li>Предыстория: {background?.title ?? "не выбрана"}</li>
