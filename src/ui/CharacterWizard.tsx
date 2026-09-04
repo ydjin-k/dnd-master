@@ -30,7 +30,6 @@ import {
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
   CLASS_SPELLCASTING_ABILITY_KEY,
-  CLASS_SPELL_PROGRESSION,
   CLASS_SUBCLASSES,
   catalogWeightLb,
   computeArmorClass,
@@ -58,6 +57,7 @@ import {
   type AbilityKey,
   type BackgroundData,
 } from "./characterCreationData";
+import { CLASS_PROGRESSION, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -419,18 +419,20 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     charisma: baseAbilities.charisma + racialBonusFor("charisma"),
   };
 
-  const spellProgression = classId ? CLASS_SPELL_PROGRESSION[classId] : undefined;
+  const level1Progression = progressionAt(classId, 1);
+  const level1SpellSlots = spellSlotsForLevel(classId, 1);
   const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId)) : [];
   const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && sp.classes.includes(classId)) : [];
-  const requiredCantrips = spellProgression?.cantripsKnown ?? 0;
+  const requiredCantrips = level1Progression?.cantripsKnown ?? 0;
   // Волшебник/Друид/Жрец «подготавливают» заклинания: мод. заклинательной
-  // характеристики + уровень персонажа (всегда 1, см. решение отложить
-  // систему уровней), минимум одно — не фиксированное число из таблицы.
-  const requiredSpells =
-    spellProgression?.spellsKnownFixed ??
-    (classId && spellProgression
-      ? Math.max(1, abilityMod(totalAbilities[CLASS_SPELLCASTING_ABILITY_KEY[classId]]) + 1)
-      : 0);
+  // характеристики + уровень персонажа (в мастере всегда 1), минимум одно —
+  // не фиксированное число из таблицы (у тех классов spellsKnown = 0).
+  const spellAbilityKey = classId ? CLASS_SPELLCASTING_ABILITY_KEY[classId] : undefined;
+  const requiredSpells = !spellAbilityKey
+    ? 0
+    : CLASS_PROGRESSION[classId!]?.spellsKnownKind === "known"
+      ? (level1Progression?.spellsKnown ?? 0)
+      : Math.max(1, abilityMod(totalAbilities[spellAbilityKey]) + 1);
   const reviewMissing: string | null = !name.trim()
     ? "Впиши имя персонажа, чтобы продолжить."
     : spellAbility && knownCantrips.length !== requiredCantrips
@@ -584,8 +586,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       skillProficiencies: allSkillProficiencies,
       knownCantrips: spellAbility ? knownCantrips : [],
       knownSpells: spellAbility ? knownSpells : [],
-      spellSlotsLevel1Max: spellAbility ? (spellProgression?.spellSlotsLevel1 ?? 0) : 0,
-      spellSlotsLevel1Current: spellAbility ? (spellProgression?.spellSlotsLevel1 ?? 0) : 0,
+      spellSlotsMax: level1SpellSlots,
+      spellSlotsCurrent: [...level1SpellSlots],
+      // Классовые ресурсы 1 уровня (Второе дыхание воина, Вдохновение барда,
+      // Наложение рук паладина) — сразу полными, тратить их будет карточка.
+      featureUses: (level1Progression?.resources ?? []).map((resource) => ({
+        featureId: resource.id,
+        usesCurrent: resourceMax(resource, totalAbilities),
+      })),
     };
     await addCharacter(character);
     onDone();
@@ -1534,7 +1542,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     ))}
                     {classLevel1Spells.length === 0 && <li>Загрузка списка заклинаний…</li>}
                   </ul>
-                  <p className="wizard__hint">Ячейки заклинаний 1 уровня: {spellProgression?.spellSlotsLevel1 ?? 0}</p>
+                  <p className="wizard__hint">Ячейки заклинаний 1 уровня: {level1SpellSlots[0]}</p>
                 </div>
               </li>
             )}

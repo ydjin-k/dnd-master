@@ -45,6 +45,17 @@ impl Coins {
     }
 }
 
+/// Потраченные использования классового ресурса с ограниченным числом раз
+/// (Ярость, Ци, Проведение энергии…). Максимум не хранится: его владелец —
+/// таблица прогрессии класса на стороне UI (`src/ui/classProgression.ts`),
+/// как и веса предметов, — модель хранит только текущий счётчик.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FeatureUses {
+    pub feature_id: String,
+    pub uses_current: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Character {
@@ -91,8 +102,18 @@ pub struct Character {
     pub skill_proficiencies: Vec<String>,
     pub known_cantrips: Vec<String>,
     pub known_spells: Vec<String>,
+    /// Устарело — ячейки заклинаний были только 1 круга, до прогрессии по
+    /// уровням (см. `spell_slots_max`). Читается только для миграции старых
+    /// сохранений (`migrate_legacy_spell_slots`), новые сохранения не пишут.
+    #[serde(skip_serializing)]
     pub spell_slots_level1_max: i32,
+    #[serde(skip_serializing)]
     pub spell_slots_level1_current: i32,
+    /// Ячейки заклинаний по кругам 1..5 — индекс 0 это 1 круг. Длину задаёт
+    /// таблица прогрессии на стороне UI; здесь это просто вектор чисел.
+    pub spell_slots_max: Vec<i32>,
+    pub spell_slots_current: Vec<i32>,
+    pub feature_uses: Vec<FeatureUses>,
 }
 
 impl Character {
@@ -105,6 +126,30 @@ impl Character {
             self.coins.gold = self.gold as i32;
         }
         self.gold = 0;
+    }
+
+    /// Персонажи, сохранённые до прогрессии ячеек по кругам, хранили только
+    /// 1 круг двумя числами. Вызывается на каждой загрузке рядом с
+    /// `migrate_legacy_gold` — идемпотентна: после переноса устаревшие поля
+    /// обнулены, а непустой `spell_slots_max` второй перенос уже не тронет.
+    pub fn migrate_legacy_spell_slots(&mut self) {
+        if self.spell_slots_max.is_empty() && self.spell_slots_level1_max > 0 {
+            self.spell_slots_max = vec![self.spell_slots_level1_max, 0, 0, 0, 0];
+            self.spell_slots_current = vec![self.spell_slots_level1_current, 0, 0, 0, 0];
+        }
+        self.spell_slots_level1_max = 0;
+        self.spell_slots_level1_current = 0;
+    }
+
+    /// Индекс наименьшей свободной ячейки круга `circle` или выше — SRD
+    /// позволяет творить заклинание ячейкой своего круга и любого старше, а
+    /// Колдун вообще получает ячейки только высшего доступного круга.
+    pub fn free_spell_slot_index(&self, circle: u8) -> Option<usize> {
+        if circle == 0 {
+            return None;
+        }
+        (usize::from(circle) - 1..self.spell_slots_current.len())
+            .find(|&i| self.spell_slots_current[i] > 0)
     }
 }
 
@@ -214,9 +259,38 @@ mod tests {
         assert_eq!(character.age, 0);
         assert!(character.known_cantrips.is_empty());
         assert!(character.known_spells.is_empty());
-        assert_eq!(character.spell_slots_level1_max, 0);
-        assert_eq!(character.spell_slots_level1_current, 0);
+        assert!(character.spell_slots_max.is_empty());
+        assert!(character.spell_slots_current.is_empty());
+        assert!(character.feature_uses.is_empty());
         assert_eq!(character.experience_points, 0);
+    }
+
+    /// characters-class-feature-progression-1-5: сохранение с ячейками только
+    /// 1 круга должно стать вектором по кругам, не потеряв потраченные ячейки.
+    #[test]
+    fn legacy_level1_spell_slots_migrate_into_per_circle_vector() {
+        let old_json = r#"{
+            "id": "abc", "name": "Бард", "race": "Эльф", "class": "Бард", "level": 3,
+            "abilities": {
+                "strength": 10, "dexterity": 10, "constitution": 10,
+                "intelligence": 10, "wisdom": 10, "charisma": 16
+            },
+            "maxHp": 20, "currentHp": 20, "armorClass": 12,
+            "conditions": [], "inventory": [],
+            "spellSlotsLevel1Max": 4, "spellSlotsLevel1Current": 1
+        }"#;
+        let mut character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert!(character.spell_slots_max.is_empty(), "до миграции вектор ещё пуст");
+
+        character.migrate_legacy_spell_slots();
+
+        assert_eq!(character.spell_slots_max, vec![4, 0, 0, 0, 0]);
+        assert_eq!(character.spell_slots_current, vec![1, 0, 0, 0, 0]);
+        assert_eq!(character.spell_slots_level1_max, 0, "после миграции устаревшее поле обнулено");
+
+        // Идемпотентность: повторный вызов не затирает уже перенесённые ячейки.
+        character.migrate_legacy_spell_slots();
+        assert_eq!(character.spell_slots_current, vec![1, 0, 0, 0, 0]);
     }
 
     /// characters-currency-denominations: старое сохранение с `gold: number`

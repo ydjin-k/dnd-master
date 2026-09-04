@@ -1313,8 +1313,8 @@ describe("CharacterWizard", () => {
       new Set(["wizard-cantrip-1", "wizard-cantrip-2", "wizard-cantrip-3"]),
     );
     expect(character.knownSpells).toEqual(["wizard-spell-1"]);
-    expect(character.spellSlotsLevel1Max).toBe(2);
-    expect(character.spellSlotsLevel1Current).toBe(2);
+    expect(character.spellSlotsMax).toEqual([2, 0, 0, 0, 0]);
+    expect(character.spellSlotsCurrent).toEqual([2, 0, 0, 0, 0]);
   });
 
   it("a non-spellcaster (Воин) shows no spellcasting UI at all on the review step", async () => {
