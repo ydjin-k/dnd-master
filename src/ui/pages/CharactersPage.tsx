@@ -33,6 +33,14 @@ import {
   type AbilityKey,
   type ClassLevelFeature,
 } from "../characterCreationData";
+import {
+  CLASS_PROGRESSION,
+  highestSpellCircle,
+  progressionAt,
+  resourceMax,
+  spellSlotsForLevel,
+  type ClassResource,
+} from "../classProgression";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { CoinIcon } from "../CoinIcon";
@@ -141,6 +149,8 @@ function CharacterCard({
   const [collapsed, setCollapsed] = useState(false);
   const [subclassPanelOpen, setSubclassPanelOpen] = useState(false);
   const [subclassChoiceIndex, setSubclassChoiceIndex] = useState(0);
+  const [chosenCantrips, setChosenCantrips] = useState<string[]>([]);
+  const [chosenSpells, setChosenSpells] = useState<string[]>([]);
 
   function adjustCoin(key: keyof Coins, delta: number) {
     if (delta < 0 && c.coins[key] === 0) return;
@@ -201,12 +211,53 @@ function CharacterCard({
   }
 
   function restoreSpellSlots() {
-    onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: ch.spellSlotsLevel1Max }));
+    onUpdate((ch) => ({ ...ch, spellSlotsCurrent: [...ch.spellSlotsMax] }));
   }
 
-  function useSpellSlot() {
+  /** SRD: заклинание творится ячейкой своего круга или любого старшего — тратим наименьшую подходящую. */
+  function freeSlotIndex(slots: number[], circle: number): number {
+    return slots.findIndex((free, i) => i >= circle - 1 && free > 0);
+  }
+
+  function useSpellSlot(circle: number) {
+    const index = freeSlotIndex(c.spellSlotsCurrent, circle);
+    if (index === -1) {
+      playLimitSound();
+      return;
+    }
     playSpellCastSound();
-    onUpdate((ch) => ({ ...ch, spellSlotsLevel1Current: Math.max(0, ch.spellSlotsLevel1Current - 1) }));
+    onUpdate((ch) => ({
+      ...ch,
+      spellSlotsCurrent: ch.spellSlotsCurrent.map((free, i) => (i === index ? Math.max(0, free - 1) : free)),
+    }));
+  }
+
+  function resourceCurrent(resource: ClassResource): number {
+    const stored = c.featureUses.find((u) => u.featureId === resource.id);
+    const max = resourceMax(resource, c.abilities);
+    // Максимум владеет таблица прогрессии: у персонажа, сохранённого до этой
+    // карточки, счётчика ещё нет — показываем полный запас, а не ноль.
+    return stored ? Math.min(max, Math.max(0, stored.usesCurrent)) : max;
+  }
+
+  function setResourceCurrent(resource: ClassResource, value: number) {
+    onUpdate((ch) => {
+      const rest = ch.featureUses.filter((u) => u.featureId !== resource.id);
+      return { ...ch, featureUses: [...rest, { featureId: resource.id, usesCurrent: value }] };
+    });
+  }
+
+  function spendResource(resource: ClassResource) {
+    const current = resourceCurrent(resource);
+    if (current <= 0) {
+      playLimitSound();
+      return;
+    }
+    setResourceCurrent(resource, current - 1);
+  }
+
+  function restoreResource(resource: ClassResource) {
+    setResourceCurrent(resource, resourceMax(resource, c.abilities));
   }
 
   /**
@@ -234,6 +285,13 @@ function CharacterCard({
       subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
         ? (chosenSubclassName ?? subclassInfo.subclasses[0]?.name)
         : undefined;
+    // Прогрессия по таблице класса: ячейки заклинаний по кругам и классовые
+    // ресурсы с ограниченным числом использований (classProgression.ts).
+    // Прибавка идёт и в максимум, и в текущий запас — тем же правилом, что
+    // уже применяется к хитам выше: новый уровень даёт новые ресурсы сразу.
+    const newSlotsMax = spellSlotsForLevel(dice?.id, newLevel);
+    const newResources = progressionAt(dice?.id, newLevel)?.resources ?? [];
+    const oldResources = progressionAt(dice?.id, c.level)?.resources ?? [];
     onUpdate((ch) => ({
       ...ch,
       level: newLevel,
@@ -241,6 +299,19 @@ function CharacterCard({
       maxHp: newMaxHp,
       currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
       subclass: grantedSubclass ?? ch.subclass,
+      spellSlotsMax: newSlotsMax,
+      spellSlotsCurrent: newSlotsMax.map((max, i) => {
+        const gained = Math.max(0, max - (ch.spellSlotsMax[i] ?? 0));
+        return Math.min(max, (ch.spellSlotsCurrent[i] ?? 0) + gained);
+      }),
+      featureUses: newResources.map((resource) => {
+        const max = resourceMax(resource, abilities);
+        const before = oldResources.find((r) => r.id === resource.id);
+        const previousMax = before ? resourceMax(before, abilities) : 0;
+        const stored = ch.featureUses.find((u) => u.featureId === resource.id);
+        const current = stored ? Math.min(previousMax, Math.max(0, stored.usesCurrent)) : previousMax;
+        return { featureId: resource.id, usesCurrent: Math.min(max, current + (max - previousMax)) };
+      }),
     }));
     playLevelUpSound();
   }
@@ -314,8 +385,6 @@ function CharacterCard({
     setAsiPanelOpen(false);
   }
 
-  const isSpellcaster = c.knownCantrips.length > 0 || c.knownSpells.length > 0;
-
   /**
    * Классовые особенности уровней 2..текущий (CLASS_LEVEL_FEATURES) + особенности
    * подкласса уровней 1..текущий, если подкласс уже выбран (CLASS_SUBCLASSES).
@@ -334,6 +403,49 @@ function CharacterCard({
         classFeatures.push(...(subclass.featuresByLevel[lvl] ?? []));
       }
     }
+  }
+
+  /**
+   * Строка таблицы прогрессии на текущем уровне: сколько ячеек по кругам,
+   * заговоров и известных заклинаний класс обязан иметь (classProgression.ts).
+   * Недобор считается прямо из неё, а не хранится отдельным флагом — тогда он
+   * виден и после отмены выбора на левел-апе, и у персонажей, сохранённых до
+   * появления прогрессии.
+   */
+  const progression = progressionAt(classId, c.level);
+  const spellsKnownKind = classId ? CLASS_PROGRESSION[classId]?.spellsKnownKind : undefined;
+  const highestCircle = highestSpellCircle(classId, c.level);
+  const missingCantrips = Math.max(0, (progression?.cantripsKnown ?? 0) - c.knownCantrips.length);
+  const missingSpells =
+    spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.knownSpells.length) : 0;
+  const classResources = progression?.resources ?? [];
+  const classScaling = progression?.scaling ?? [];
+  const isSpellcaster =
+    c.knownCantrips.length > 0 || c.knownSpells.length > 0 || highestCircle > 0 || missingCantrips > 0;
+
+  const learnableCantrips = classId
+    ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId) && !c.knownCantrips.includes(sp.id))
+    : [];
+  const learnableSpells = classId
+    ? spells.filter(
+        (sp) =>
+          sp.level >= 1 && sp.level <= highestCircle && sp.classes.includes(classId) && !c.knownSpells.includes(sp.id),
+      )
+    : [];
+
+  function toggleLearn(id: string, limit: number, selected: string[], setSelected: (ids: string[]) => void) {
+    if (selected.includes(id)) setSelected(selected.filter((x) => x !== id));
+    else if (selected.length < limit) setSelected([...selected, id]);
+  }
+
+  function learnChosen() {
+    onUpdate((ch) => ({
+      ...ch,
+      knownCantrips: [...ch.knownCantrips, ...chosenCantrips],
+      knownSpells: [...ch.knownSpells, ...chosenSpells],
+    }));
+    setChosenCantrips([]);
+    setChosenSpells([]);
   }
 
   const totalWeightLb = inventoryWeightLb(c.inventory) + coinsWeightLb(c.coins);
@@ -522,9 +634,49 @@ function CharacterCard({
           })}
         </ul>
       </details>
-      {classFeatures.length > 0 && (
+      {(classFeatures.length > 0 || classResources.length > 0 || classScaling.length > 0) && (
         <details className="character-card__class-features" open>
-          <summary>Особенности класса ({classFeatures.length})</summary>
+          <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
+          {classResources.length > 0 && (
+            <ul className="character-card__resource-list">
+              {classResources.map((resource) => {
+                const max = resourceMax(resource, c.abilities);
+                const current = resourceCurrent(resource);
+                return (
+                  <li key={resource.id} className="character-card__item">
+                    <strong>{resource.name}</strong>{" "}
+                    <span className="character-card__resource-count">
+                      {current}/{max} {resource.unit}
+                    </span>
+                    <button
+                      type="button"
+                      title={`Потратить: ${resource.name}`}
+                      aria-disabled={current === 0}
+                      className={current === 0 ? "character-card__danger" : undefined}
+                      onClick={() => spendResource(resource)}
+                    >
+                      Потратить
+                    </button>
+                    <button type="button" disabled={current >= max} onClick={() => restoreResource(resource)}>
+                      Восстановить
+                    </button>
+                    <span className="character-card__hint">
+                      {resource.recharge === "short" ? "короткий или длинный отдых" : "длинный отдых"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {classScaling.length > 0 && (
+            <ul className="character-card__skill-list">
+              {classScaling.map((value) => (
+                <li key={value.name} className="typography-term-line">
+                  {value.name}: {value.value}
+                </li>
+              ))}
+            </ul>
+          )}
           <ul className="character-card__traits">
             {classFeatures.map((f) => (
               <li key={f.name}>
@@ -717,27 +869,110 @@ function CharacterCard({
           )}
           {c.knownSpells.length > 0 && (
             <div className="character-card__spell-group">
-              Заклинания 1 уровня:
+              {spellsKnownKind === "prepared" ? "Подготовленные заклинания:" : "Известные заклинания:"}
               <ul className="character-card__spell-list">
-                {c.knownSpells.map((id) => (
-                  <li key={id}>
-                    {spellName(id)}{" "}
-                    <button type="button" onClick={useSpellSlot} disabled={c.spellSlotsLevel1Current === 0}>
-                      Использовать
-                    </button>
-                  </li>
-                ))}
+                {c.knownSpells.map((id) => {
+                  const spell = findSpell(id);
+                  const circle = spell?.level ?? 1;
+                  return (
+                    <li key={id}>
+                      {spellName(id)} ({circle} круг){" "}
+                      <button
+                        type="button"
+                        onClick={() => useSpellSlot(circle)}
+                        disabled={freeSlotIndex(c.spellSlotsCurrent, circle) === -1}
+                      >
+                        Использовать
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
           <div className="character-card__spell-group">
-            Ячейки 1 уровня: {c.spellSlotsLevel1Current}/{c.spellSlotsLevel1Max}{" "}
-            <button type="button" onClick={restoreSpellSlots} disabled={c.spellSlotsLevel1Current >= c.spellSlotsLevel1Max}>
+            <ul className="character-card__spell-list">
+              {c.spellSlotsMax.map((max, i) =>
+                max > 0 ? (
+                  <li key={i}>
+                    Ячейки {i + 1} круга: {c.spellSlotsCurrent[i] ?? 0}/{max}
+                  </li>
+                ) : null,
+              )}
+            </ul>
+            <button
+              type="button"
+              onClick={restoreSpellSlots}
+              disabled={c.spellSlotsMax.every((max, i) => (c.spellSlotsCurrent[i] ?? 0) >= max)}
+            >
               Восстановить все ячейки
             </button>
           </div>
-          {c.level >= 2 && (
-            <p className="character-card__spell-info">Заклинания 2+ круга — пока в разработке, список известных заклинаний не растёт выше выбора 1 уровня.</p>
+          {(missingCantrips > 0 || missingSpells > 0) && (
+            <div className="character-card__asi">
+              <p>
+                По таблице класса на {c.level} уровне доступно больше магии, чем выбрано
+                {missingCantrips > 0 && <> — новых заговоров: {missingCantrips}</>}
+                {missingSpells > 0 && <> — новых заклинаний: {missingSpells}</>}.
+              </p>
+              {missingCantrips > 0 && (
+                <>
+                  <p>
+                    Заговоры ({chosenCantrips.length}/{missingCantrips}):
+                  </p>
+                  <ul className="character-card__spell-list">
+                    {learnableCantrips.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={chosenCantrips.includes(sp.id)}
+                            onChange={() => toggleLearn(sp.id, missingCantrips, chosenCantrips, setChosenCantrips)}
+                          />{" "}
+                          {sp.name}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {missingSpells > 0 && (
+                <>
+                  <p>
+                    Заклинания до {highestCircle} круга ({chosenSpells.length}/{missingSpells}):
+                  </p>
+                  <ul className="character-card__spell-list">
+                    {learnableSpells.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={chosenSpells.includes(sp.id)}
+                            onChange={() => toggleLearn(sp.id, missingSpells, chosenSpells, setChosenSpells)}
+                          />{" "}
+                          {sp.name} ({sp.level} круг)
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <div className="character-card__asi-actions">
+                <button
+                  type="button"
+                  disabled={chosenCantrips.length !== missingCantrips || chosenSpells.length !== missingSpells}
+                  onClick={learnChosen}
+                >
+                  Выучить
+                </button>
+              </div>
+            </div>
+          )}
+          {spellsKnownKind === "prepared" && (
+            <p className="character-card__spell-info">
+              Класс готовит заклинания заново после длинного отдыха: доступен весь список класса до {highestCircle} круга,
+              список выше — то, что подготовлено сейчас.
+            </p>
           )}
         </details>
       )}

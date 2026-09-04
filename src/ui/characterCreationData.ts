@@ -2362,35 +2362,6 @@ export const CLASS_SPELLCASTING_ABILITY_KEY: Record<string, AbilityKey> = {
   "classes-wizard": "intelligence",
 };
 
-export interface ClassSpellProgression {
-  cantripsKnown: number;
-  spellSlotsLevel1: number;
-  /**
-   * Только у классов с фиксированным списком известных заклинаний (Бард,
-   * Чародей, Колдун) — число заклинаний 1 круга на 1 уровне персонажа.
-   * У Волшебника/Друида/Жреца оставлено undefined: они «подготавливают»
-   * заклинания каждый день, число равно мод. заклинательной характеристики +
-   * уровень (минимум 1) — считается в мастере персонажа по totalAbilities,
-   * не хранится тут числом.
-   */
-  spellsKnownFixed?: number;
-}
-
-/**
- * Числа для 1 уровня персонажа — строка «1» таблицы прогрессии каждого
- * класса в rules.json (столбцы «Известные заговоры» и ячейки 1 круга;
- * «Известные заклинания» — только у Барда/Чародея/Колдуна, у остальных
- * это подготовка, см. ClassSpellProgression.spellsKnownFixed).
- */
-export const CLASS_SPELL_PROGRESSION: Record<string, ClassSpellProgression> = {
-  "classes-bard": { cantripsKnown: 2, spellSlotsLevel1: 2, spellsKnownFixed: 4 },
-  "classes-cleric": { cantripsKnown: 3, spellSlotsLevel1: 2 },
-  "classes-druid": { cantripsKnown: 2, spellSlotsLevel1: 2 },
-  "classes-sorcerer": { cantripsKnown: 4, spellSlotsLevel1: 2, spellsKnownFixed: 2 },
-  "classes-warlock": { cantripsKnown: 2, spellSlotsLevel1: 1, spellsKnownFixed: 2 },
-  "classes-wizard": { cantripsKnown: 3, spellSlotsLevel1: 2 },
-};
-
 /**
  * Дварф: «Владение инструментами. Вы владеете ремесленными инструментами по
  * вашему выбору: инструментами кузнеца, пивовара или каменщика.» — цена/вес

@@ -100,8 +100,8 @@ describe("CharactersPage", () => {
       ...characterWithInventory(),
       knownCantrips: ["cantrip-1"],
       knownSpells: ["spell-1"],
-      spellSlotsLevel1Max: 2,
-      spellSlotsLevel1Current: 2,
+      spellSlotsMax: [2, 0, 0, 0, 0],
+      spellSlotsCurrent: [2, 0, 0, 0, 0],
     };
   }
 
@@ -140,8 +140,9 @@ describe("CharactersPage", () => {
       skillProficiencies: [],
       knownCantrips: [],
       knownSpells: [],
-      spellSlotsLevel1Max: 0,
-      spellSlotsLevel1Current: 0,
+      spellSlotsMax: [0, 0, 0, 0, 0],
+      spellSlotsCurrent: [0, 0, 0, 0, 0],
+      featureUses: [],
     };
   }
 
@@ -179,8 +180,9 @@ describe("CharactersPage", () => {
           skillProficiencies: [],
           knownCantrips: [],
           knownSpells: [],
-          spellSlotsLevel1Max: 0,
-          spellSlotsLevel1Current: 0,
+          spellSlotsMax: [0, 0, 0, 0, 0],
+          spellSlotsCurrent: [0, 0, 0, 0, 0],
+          featureUses: [],
         },
       ],
     });
@@ -490,7 +492,7 @@ describe("CharactersPage", () => {
 
     expect(updateCharacter).toHaveBeenCalledTimes(1);
     const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-    expect(updater(spellcaster()).spellSlotsLevel1Current).toBe(1);
+    expect(updater(spellcaster()).spellSlotsCurrent).toEqual([1, 0, 0, 0, 0]);
     expect(sounds.playSpellCastSound).toHaveBeenCalledOnce();
   });
 
@@ -508,7 +510,7 @@ describe("CharactersPage", () => {
   });
 
   it("the level-1 'Использовать' button is disabled at 0 slots, and the updater itself floors at 0 too", async () => {
-    const empty = { ...spellcaster(), spellSlotsLevel1Current: 0 };
+    const empty = { ...spellcaster(), spellSlotsCurrent: [0, 0, 0, 0, 0] };
     mockState = baseState({ characters: [empty] });
     render(<CharactersPage />);
 
@@ -675,7 +677,8 @@ describe("CharactersPage", () => {
 
     expect(screen.getByText("Максимальный уровень (5)")).toBeDisabled();
     expect(screen.getByText(/даёт \+3 \(бонус мастерства\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Всплеск действий/)).toBeInTheDocument(); // level 2 class feature
+    // Дважды: счётчик использований из таблицы прогрессии и описание особенности.
+    expect(screen.getAllByText(/Всплеск действий/)).toHaveLength(2); // level 2 class feature
     expect(screen.getByText(/Улучшенные критические попадания/)).toBeInTheDocument(); // subclass feature at 3
     expect(screen.getByText(/Дополнительная атака/)).toBeInTheDocument(); // level 5 class feature
   });

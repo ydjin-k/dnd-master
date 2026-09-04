@@ -77,6 +77,7 @@ fn read_campaign_file(path: &Path) -> Result<CampaignState, String> {
         serde_json::from_str(&raw).map_err(|e| format!("повреждён {path:?}: {e}"))?;
     for character in state.characters.iter_mut() {
         character.migrate_legacy_gold();
+        character.migrate_legacy_spell_slots();
     }
     Ok(state)
 }
