@@ -21,20 +21,36 @@ import {
   inventoryWeightLb,
   RACE_HP_BONUS,
   SKILL_ABILITY,
+  ARMOR_PROFICIENCY_LABELS,
+  UNPROFICIENT_ARMOR_HINT,
   abilityMod,
+  armorProficienciesFor,
   coinsTotalGold,
+  computeArmorClass,
   fmtMod,
+  healingPoolSelfHeal,
   maxHpForLevel,
   parseHitDie,
   parseHitDieAverage,
   proficiencyBonusForLevel,
   proficiencyBonusHint,
+  subclassEffectValue,
+  subclassGrants,
+  subclassResourceOptionsAt,
+  subclassSpellsUpToLevel,
+  unproficientArmorIssue,
+  weaponAttackFor,
+  weaponProficienciesFor,
+  weaponsInInventory,
   xpNeededForNextLevel,
   type AbilityKey,
+  type ArmorProficiency,
   type ClassLevelFeature,
+  type SubclassResourceOption,
 } from "../characterCreationData";
 import {
   CLASS_PROGRESSION,
+  characterResources,
   highestSpellCircle,
   progressionAt,
   resourceMax,
@@ -152,6 +168,38 @@ function CharacterCard({
   const [chosenCantrips, setChosenCantrips] = useState<string[]>([]);
   const [chosenSpells, setChosenSpells] = useState<string[]>([]);
 
+  /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
+  const classId = classHitDiceByTitle[c.class]?.id;
+
+  /**
+   * Владения доспехами/оружием персонаж хранит снимком (как и владения
+   * спасбросками), но у персонажей, сохранённых до появления этих полей, снимка
+   * ещё нет — тогда берём его прямо из таблиц класса и архетипа, тем же
+   * правилом, что и у счётчика ресурсов ниже.
+   */
+  const armorProficiencies = c.armorProficiencies.length > 0 ? c.armorProficiencies : armorProficienciesFor(classId, c.subclass);
+  const weaponProficiencies =
+    c.weaponProficiencies.length > 0 ? c.weaponProficiencies : weaponProficienciesFor(classId, c.subclass);
+
+  /**
+   * КД пересчитывается по инвентарю при каждом его изменении — единственный
+   * владелец формулы — `computeArmorClass`, поле `armorClass` персонажа только
+   * хранит её последний результат.
+   */
+  function withRecomputedArmorClass(ch: Character): Character {
+    if (!classId) return ch;
+    return {
+      ...ch,
+      armorClass: computeArmorClass({
+        classId,
+        subclassName: ch.subclass,
+        abilities: ch.abilities,
+        inventoryItemNames: ch.inventory.map((item) => item.name),
+        fightingStyle: ch.fightingStyle || undefined,
+      }),
+    };
+  }
+
   function adjustCoin(key: keyof Coins, delta: number) {
     if (delta < 0 && c.coins[key] === 0) return;
     playCoinsSound();
@@ -159,28 +207,34 @@ function CharacterCard({
   }
 
   function adjustItemQuantity(itemId: string, delta: number) {
-    onUpdate((ch) => ({
-      ...ch,
-      inventory: ch.inventory
-        .map((item) => (item.id === itemId ? { ...item, quantity: item.quantity + delta } : item))
-        .filter((item) => item.quantity > 0),
-    }));
+    onUpdate((ch) =>
+      withRecomputedArmorClass({
+        ...ch,
+        inventory: ch.inventory
+          .map((item) => (item.id === itemId ? { ...item, quantity: item.quantity + delta } : item))
+          .filter((item) => item.quantity > 0),
+      }),
+    );
   }
 
   function removeItem(itemId: string) {
-    onUpdate((ch) => ({ ...ch, inventory: ch.inventory.filter((item) => item.id !== itemId) }));
+    onUpdate((ch) =>
+      withRecomputedArmorClass({ ...ch, inventory: ch.inventory.filter((item) => item.id !== itemId) }),
+    );
   }
 
   function addItem() {
     const name = newItemName.trim();
     if (!name) return;
-    onUpdate((ch) => ({
-      ...ch,
-      inventory: [
-        ...ch.inventory,
-        { id: crypto.randomUUID(), name, quantity: 1, notes: "", weightLb: catalogWeightLb(name) },
-      ],
-    }));
+    onUpdate((ch) =>
+      withRecomputedArmorClass({
+        ...ch,
+        inventory: [
+          ...ch.inventory,
+          { id: crypto.randomUUID(), name, quantity: 1, notes: "", weightLb: catalogWeightLb(name) },
+        ],
+      }),
+    );
     setNewItemName("");
   }
 
@@ -261,6 +315,40 @@ function CharacterCard({
   }
 
   /**
+   * Применение варианта архетипа: тратит использование ТОГО ЖЕ классового
+   * ресурса (второго счётчика у архетипа нет) и применяет к персонажу то, что
+   * вариант действительно меняет в его состоянии. «Сохранение жизни» лечит
+   * самого жреца из запаса, не поднимая выше половины максимума хитов; у
+   * остальных вариантов цель — союзник или враг, так что на листе владельца
+   * меняется только счётчик, а посчитанное число видно на кнопке.
+   */
+  function applySubclassOption(option: SubclassResourceOption) {
+    const resource = classResources.find((r) => r.id === option.resourceId);
+    if (!resource) return;
+    if (resourceCurrent(resource) <= 0) {
+      playLimitSound();
+      return;
+    }
+    const selfHeal =
+      option.effect.kind === "healing-pool"
+        ? healingPoolSelfHeal(option.effect.perLevel * c.level, c.currentHp, c.maxHp)
+        : 0;
+    if (option.effect.kind === "healing-pool" && selfHeal === 0) {
+      playLimitSound();
+      return;
+    }
+    const current = resourceCurrent(resource);
+    onUpdate((ch) => {
+      const rest = ch.featureUses.filter((u) => u.featureId !== resource.id);
+      return {
+        ...ch,
+        currentHp: Math.min(ch.maxHp, ch.currentHp + selfHeal),
+        featureUses: [...rest, { featureId: resource.id, usesCurrent: current - 1 }],
+      };
+    });
+  }
+
+  /**
    * Левел-ап: level+1, maxHp пересчитывается полностью по формуле (не
    * инкрементально) — см. maxHpForLevel и «Архитектурное решение» в карточке
    * characters-leveling-1-5. currentHp растёт на ту же прибавку (левел-ап
@@ -290,15 +378,28 @@ function CharacterCard({
     // Прибавка идёт и в максимум, и в текущий запас — тем же правилом, что
     // уже применяется к хитам выше: новый уровень даёт новые ресурсы сразу.
     const newSlotsMax = spellSlotsForLevel(dice?.id, newLevel);
-    const newResources = progressionAt(dice?.id, newLevel)?.resources ?? [];
-    const oldResources = progressionAt(dice?.id, c.level)?.resources ?? [];
-    onUpdate((ch) => ({
+    // Архетип, действующий после этого левел-апа: ресурсы, владения и
+    // заклинания домена считаются уже по нему, а не по прежнему пустому.
+    const subclassName = grantedSubclass ?? c.subclass;
+    const newResources = characterResources(dice?.id, subclassName, newLevel);
+    const oldResources = characterResources(dice?.id, c.subclass, c.level);
+    onUpdate((ch) => withRecomputedArmorClass({
       ...ch,
       level: newLevel,
       abilities,
       maxHp: newMaxHp,
       currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
-      subclass: grantedSubclass ?? ch.subclass,
+      subclass: subclassName,
+      // Архетип может давать владения, навык и всегда подготовленные заклинания
+      // домена — на левел-апе они появляются вместе с ним.
+      armorProficiencies: armorProficienciesFor(dice?.id, subclassName),
+      weaponProficiencies: weaponProficienciesFor(dice?.id, subclassName),
+      skillProficiencies: [
+        ...new Set([...ch.skillProficiencies, ...(subclassGrants(dice?.id, subclassName)?.skills ?? [])]),
+      ],
+      knownSpells: [
+        ...new Set([...ch.knownSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel)]),
+      ],
       spellSlotsMax: newSlotsMax,
       spellSlotsCurrent: newSlotsMax.map((max, i) => {
         const gained = Math.max(0, max - (ch.spellSlotsMax[i] ?? 0));
@@ -391,10 +492,7 @@ function CharacterCard({
   /**
    * Классовые особенности уровней 2..текущий (CLASS_LEVEL_FEATURES) + особенности
    * подкласса уровней 1..текущий, если подкласс уже выбран (CLASS_SUBCLASSES).
-   * `Character.class` хранит текст, id класса ищем через ту же карту, что и
-   * для хитов на левел-апе (classHitDiceByTitle содержит id).
    */
-  const classId = classHitDiceByTitle[c.class]?.id;
   const classFeatures: ClassLevelFeature[] = [];
   if (classId) {
     for (let lvl = 2; lvl <= c.level; lvl++) {
@@ -421,8 +519,18 @@ function CharacterCard({
   const missingCantrips = Math.max(0, (progression?.cantripsKnown ?? 0) - c.knownCantrips.length);
   const missingSpells =
     spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.knownSpells.length) : 0;
-  const classResources = progression?.resources ?? [];
+  // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
+  const classResources = characterResources(classId, c.subclass, c.level);
   const classScaling = progression?.scaling ?? [];
+  const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level).filter((option) =>
+    classResources.some((r) => r.id === option.resourceId),
+  );
+  const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level);
+  const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
+  const weaponAttacks = weaponsInInventory(c.inventory.map((item) => item.name)).map((weapon) =>
+    weaponAttackFor(weapon, c.abilities, c.level, weaponProficiencies),
+  );
+  const healingBonus = subclassGrants(classId, c.subclass)?.healingBonus;
   const isSpellcaster =
     c.knownCantrips.length > 0 || c.knownSpells.length > 0 || highestCircle > 0 || missingCantrips > 0;
 
@@ -638,6 +746,32 @@ function CharacterCard({
           })}
         </ul>
       </details>
+      <details className="character-card__gear-proficiency">
+        <summary>Оружие и доспехи ({weaponAttacks.length})</summary>
+        {armorIssue && (
+          <p className="character-card__danger character-card__danger--heavy">
+            ⚠ {armorIssue.items.join(", ")}: {UNPROFICIENT_ARMOR_HINT}
+          </p>
+        )}
+        {weaponAttacks.length > 0 ? (
+          <ul className="character-card__skill-list">
+            {weaponAttacks.map((attack) => (
+              <li key={attack.weapon.name} className="typography-term-line">
+                {attack.weapon.name}: атака {fmtMod(attack.attackBonus)}, урон {attack.damage}
+                {attack.proficient ? " · владение" : " · без владения"}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="character-card__hint">Оружия из таблицы SRD в инвентаре нет.</p>
+        )}
+        <p className="character-card__prof">
+          Доспехи:{" "}
+          {armorProficiencies.length > 0
+            ? armorProficiencies.map((id) => ARMOR_PROFICIENCY_LABELS[id as ArmorProficiency] ?? id).join(", ")
+            : "нет владений"}
+        </p>
+      </details>
       {(classFeatures.length > 0 || classResources.length > 0 || classScaling.length > 0) && (
         <details className="character-card__class-features" open>
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
@@ -671,6 +805,48 @@ function CharacterCard({
                 );
               })}
             </ul>
+          )}
+          {subclassOptions.length > 0 && (
+            <ul className="character-card__resource-list">
+              {subclassOptions.map((option) => {
+                const resource = classResources.find((r) => r.id === option.resourceId)!;
+                const value = classId
+                  ? subclassEffectValue(option.effect, { classId, abilities: c.abilities, level: c.level })
+                  : null;
+                const spent = resourceCurrent(resource) === 0;
+                return (
+                  <li key={option.id} className="character-card__item">
+                    <strong>{option.name}</strong>{" "}
+                    {value && (
+                      <span className="character-card__resource-count">
+                        {value.value} {value.label}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      title={`Применить: ${option.name} (тратит ${resource.name})`}
+                      aria-disabled={spent}
+                      className={spent ? "character-card__danger" : undefined}
+                      onClick={() => applySubclassOption(option)}
+                    >
+                      Применить
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {healingBonus && (
+            <p className="character-card__prof">
+              Лечение заклинанием усилено: +{healingBonus.flat} и ещё +1 за каждый круг заклинания
+              (1 круг — +{healingBonus.flat + 1}, {highestCircle > 0 ? highestCircle : 1} круг — +
+              {healingBonus.flat + Math.max(1, highestCircle)}).
+            </p>
+          )}
+          {domainSpells.length > 0 && (
+            <p className="character-card__prof">
+              Заклинания архетипа (всегда подготовлены): {domainSpells.map(spellName).join(", ")}
+            </p>
           )}
           {classScaling.length > 0 && (
             <ul className="character-card__skill-list">

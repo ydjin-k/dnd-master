@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import bundledSpells from "../../../src-tauri/rules/spells.json";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription } from "./CharactersPage";
+import { armorProficienciesFor, weaponProficienciesFor } from "../characterCreationData";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
@@ -159,6 +160,9 @@ describe("CharactersPage", () => {
       inventory: [{ id: "torch-1", name: "Факел", quantity: 5, notes: "", weightLb: 1 }],
       coins: emptyCoins(),
       savingThrowProficiencies: [],
+      armorProficiencies: [],
+      weaponProficiencies: [],
+      fightingStyle: "",
       skillProficiencies: [],
       knownCantrips: [],
       knownSpells: [],
@@ -199,6 +203,9 @@ describe("CharactersPage", () => {
           inventory: [],
           coins: emptyCoins(),
           savingThrowProficiencies: [],
+          armorProficiencies: [],
+          weaponProficiencies: [],
+          fightingStyle: "",
           skillProficiencies: [],
           knownCantrips: [],
           knownSpells: [],
@@ -477,6 +484,9 @@ describe("CharactersPage", () => {
       ...characterWithInventory(),
       abilities: { strength: 14, dexterity: 16, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
       savingThrowProficiencies: ["Сила"],
+      armorProficiencies: [],
+      weaponProficiencies: [],
+      fightingStyle: "",
       skillProficiencies: ["Акробатика"], // Dexterity-based skill
     };
     mockState = baseState({ characters: [char] });
@@ -890,6 +900,142 @@ describe("CharactersPage", () => {
       expect(run.char.level).toBe(3);
       expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0]);
       expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0]);
+    });
+  });
+
+  /**
+   * characters-subclass-features-have-no-mechanical-effect — приёмка карточки:
+   * выбор архетипа обязан менять числа и владения, а не только текст на экране.
+   */
+  describe("механика архетипа на листе", () => {
+    const CLERIC_TOPIC = classTopic("classes-cleric", "Жрец", "8", "5");
+
+    function cleric(subclass: string, extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Жрец",
+        subclass,
+        conditions: ["Ослеплённое"],
+        armorProficiencies: armorProficienciesFor("classes-cleric", subclass),
+        weaponProficiencies: weaponProficienciesFor("classes-cleric", subclass),
+        ...extra,
+      };
+    }
+
+    async function renderCleric(char: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [CLERIC_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    const longswordInHand = [
+      { id: "sword-1", name: "Длинный меч", quantity: 1, notes: "", weightLb: 3 },
+    ];
+
+    it("Домен войны добавляет бонус мастерства к атаке воинским оружием, другой домен — нет", async () => {
+      await renderCleric(cleric("Домен войны", { inventory: longswordInHand }));
+      expect(screen.getByText(/Длинный меч: атака \+2, урон 1к8 рубящий \+0 · владение/)).toBeInTheDocument();
+    });
+
+    it("тот же меч у Домена жизни бьёт без бонуса мастерства", async () => {
+      await renderCleric(cleric("Домен жизни", { inventory: longswordInHand }));
+      expect(screen.getByText(/Длинный меч: атака \+0, урон 1к8 рубящий \+0 · без владения/)).toBeInTheDocument();
+    });
+
+    it("надетые латы пересчитывают КД, а без владения к ним предупреждают о расплате SRD", async () => {
+      await renderCleric(cleric("Домен обмана", { inventory: [], armorClass: 10 }));
+      expect(screen.queryByText(/помеха на проверки/)).not.toBeInTheDocument();
+
+      const addRow = screen.getByPlaceholderText("Новый предмет").parentElement!;
+      fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Латы" } });
+      fireEvent.click(within(addRow).getByText("Добавить"));
+      const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      const wearing = updater(cleric("Домен обмана", { inventory: [], armorClass: 10 }));
+      expect(wearing.armorClass).toBe(18);
+
+      cleanup();
+      await renderCleric(wearing);
+      expect(screen.getByText(/Латы: Доспех или щит не по владению/)).toBeInTheDocument();
+    });
+
+    it("тот же доспех у Домена войны идёт по владению — предупреждения нет, КД то же самое", async () => {
+      const warCleric = cleric("Домен войны", {
+        inventory: [{ id: "plate-1", name: "Латы", quantity: 1, notes: "", weightLb: 65 }],
+        armorClass: 18,
+      });
+      await renderCleric(warCleric);
+      expect(screen.queryByText(/не по владению/)).not.toBeInTheDocument();
+      expect(screen.getByText(/КД 18/)).toBeInTheDocument();
+    });
+
+    it("Проведение энергии домена: применение тратит использование и лечит по числу уровня", async () => {
+      const start = cleric("Домен жизни", { level: 2, maxHp: 20, currentHp: 2 });
+      await renderCleric(start);
+
+      // 5 хитов на уровень жреца: на 2 уровне запас 10.
+      expect(screen.getByText(/10 хитов на распределение/)).toBeInTheDocument();
+      expect(screen.getByText(/1\/1 использование/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTitle("Применить: Сохранение жизни (тратит Проведение энергии)"));
+      const applied = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(start);
+      expect(applied.featureUses).toContainEqual({ featureId: "channel-divinity", usesCurrent: 0 });
+      // SRD-оговорка: не выше половины максимума хитов, то есть 2 → 10, а не 2 → 12.
+      expect(applied.currentHp).toBe(10);
+
+      cleanup();
+      await renderCleric(applied);
+      expect(screen.getByText(/0\/1 использование/)).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Восстановить"));
+      const restored = (
+        updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character
+      )(applied);
+      expect(restored.featureUses).toContainEqual({ featureId: "channel-divinity", usesCurrent: 1 });
+    });
+
+    it("вариант архетипа не применяется, когда использование уже потрачено", async () => {
+      const spent = cleric("Домен жизни", {
+        level: 2,
+        maxHp: 20,
+        currentHp: 2,
+        featureUses: [{ featureId: "channel-divinity", usesCurrent: 0 }],
+      });
+      await renderCleric(spent);
+
+      fireEvent.click(screen.getByTitle("Применить: Сохранение жизни (тратит Проведение энергии)"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(sounds.playLimitSound).toHaveBeenCalled();
+    });
+
+    it("левел-ап паладина до клятвы заводит Проведение энергии, которого нет у класса", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [classTopic("classes-paladin", "Паладин", "10", "6"), CONDITIONS_TOPIC] : [],
+      );
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Паладин",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+      expect(screen.queryByText(/Проведение энергии/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.subclass).toBe("Клятва преданности");
+      expect(char.featureUses).toContainEqual({ featureId: "channel-divinity", usesCurrent: 1 });
+
+      cleanup();
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      expect(await screen.findByTitle("Применить: Священное оружие (тратит Проведение энергии)")).toBeInTheDocument();
     });
   });
 

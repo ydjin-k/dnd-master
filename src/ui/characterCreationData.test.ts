@@ -1,13 +1,25 @@
 import { describe, it, expect } from "vitest";
 import {
+  armorProficienciesFor,
   carryingCapacityLb,
   catalogWeightLb,
+  CLASS_PROFICIENCIES,
   CLASS_SUBCLASSES,
   coinsWeightLb,
+  computeArmorClass,
+  healingPoolSelfHeal,
   inventoryWeightLb,
   parseItemWeightLb,
+  spellSaveDc,
+  subclassEffectValue,
+  subclassResourceOptionsAt,
+  subclassSpellsUpToLevel,
+  unproficientArmorIssue,
+  weaponAttackFor,
+  weaponProficienciesFor,
+  WEAPONS,
 } from "./characterCreationData";
-import { emptyCoins } from "../state/types";
+import { emptyAbilityScores, emptyCoins } from "../state/types";
 
 /** Все 12 базовых классов SRD 5.1 (rules.json → category "classes") — см. таблицу в карточке characters-original-subclasses. */
 const ALL_12_CLASSES = [
@@ -46,6 +58,116 @@ describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
         expect(original.featuresByLevel[info.chosenAtLevel]?.length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+/** characters-subclass-features-have-no-mechanical-effect — владения как структурные данные. */
+describe("владения доспехами и оружием", () => {
+  it.each(ALL_12_CLASSES)("%s: каждый поимённый вид оружия есть в таблице WEAPONS", (classId) => {
+    for (const name of CLASS_PROFICIENCIES[classId].weapons) {
+      expect(WEAPONS.some((w) => w.name === name), `${name} нет в WEAPONS`).toBe(true);
+    }
+  });
+
+  it("Домен войны добавляет жрецу тяжёлые доспехи и воинское оружие поверх классовых", () => {
+    expect(armorProficienciesFor("classes-cleric", null)).toEqual(["light", "medium", "shields"]);
+    expect(armorProficienciesFor("classes-cleric", "Домен войны")).toContain("heavy");
+    expect(weaponProficienciesFor("classes-cleric", null)).toEqual(["simple"]);
+    expect(weaponProficienciesFor("classes-cleric", "Домен войны")).toEqual(["simple", "martial"]);
+  });
+
+  it("Домен жизни даёт тяжёлые доспехи, но не воинское оружие", () => {
+    expect(armorProficienciesFor("classes-cleric", "Домен жизни")).toContain("heavy");
+    expect(weaponProficienciesFor("classes-cleric", "Домен жизни")).not.toContain("martial");
+  });
+});
+
+describe("weaponAttackFor (владение оружием превращается в число)", () => {
+  const longsword = WEAPONS.find((w) => w.name === "Длинный меч")!;
+  const abilities = { ...emptyAbilityScores(), strength: 16 };
+
+  it("жрец без Домена войны бьёт длинным мечом только по характеристике", () => {
+    const attack = weaponAttackFor(longsword, abilities, 1, weaponProficienciesFor("classes-cleric", "Домен жизни"));
+    expect(attack.proficient).toBe(false);
+    expect(attack.attackBonus).toBe(3);
+  });
+
+  it("Домен войны добавляет к тому же броску бонус мастерства", () => {
+    const attack = weaponAttackFor(longsword, abilities, 1, weaponProficienciesFor("classes-cleric", "Домен войны"));
+    expect(attack.proficient).toBe(true);
+    expect(attack.attackBonus).toBe(5);
+  });
+
+  it("дальнобойное оружие считается по Ловкости, а фехтовальное — по лучшей из Силы и Ловкости", () => {
+    const shortbow = WEAPONS.find((w) => w.name === "Короткий лук")!;
+    const rapier = WEAPONS.find((w) => w.name === "Рапира")!;
+    const dexy = { ...emptyAbilityScores(), strength: 8, dexterity: 18 };
+    expect(weaponAttackFor(shortbow, dexy, 1, []).ability).toBe("dexterity");
+    expect(weaponAttackFor(rapier, dexy, 1, []).ability).toBe("dexterity");
+    expect(weaponAttackFor(rapier, abilities, 1, []).ability).toBe("strength");
+  });
+});
+
+describe("unproficientArmorIssue (расплата SRD за доспех не по владению)", () => {
+  it("латы у жреца без домена, дающего тяжёлые доспехи, — нарушение владения", () => {
+    const issue = unproficientArmorIssue(["Латы"], armorProficienciesFor("classes-cleric", "Домен обмана"));
+    expect(issue?.items).toEqual(["Латы"]);
+  });
+
+  it("те же латы у Домена войны нарушением не считаются", () => {
+    expect(unproficientArmorIssue(["Латы"], armorProficienciesFor("classes-cleric", "Домен войны"))).toBeNull();
+  });
+
+  it("КД при этом одинаковое: владение по SRD на само КД не влияет", () => {
+    const abilities = { ...emptyAbilityScores(), dexterity: 14 };
+    const ac = (subclassName: string) =>
+      computeArmorClass({ classId: "classes-cleric", subclassName, abilities, inventoryItemNames: ["Латы"] });
+    expect(ac("Домен войны")).toBe(18);
+    expect(ac("Домен обмана")).toBe(18);
+  });
+
+  it("«Драконья устойчивость» чародея-дракона по-прежнему даёт КД 13 + Ловкость", () => {
+    const abilities = { ...emptyAbilityScores(), dexterity: 14 };
+    const args = { classId: "classes-sorcerer", abilities, inventoryItemNames: [] };
+    expect(computeArmorClass({ ...args, subclassName: "Наследие драконьей крови" })).toBe(15);
+    expect(computeArmorClass({ ...args, subclassName: "Дикая магия" })).toBe(12);
+  });
+});
+
+describe("эффекты вариантов архетипа", () => {
+  const ctx = { classId: "classes-cleric", abilities: { ...emptyAbilityScores(), wisdom: 16 }, level: 2 };
+
+  it("Сохранение жизни даёт 5 × уровень хитов на распределение", () => {
+    const option = subclassResourceOptionsAt("classes-cleric", "Домен жизни", 2)[0];
+    expect(option.resourceId).toBe("channel-divinity");
+    expect(subclassEffectValue(option.effect, ctx)).toEqual({ label: "хитов на распределение", value: 10 });
+  });
+
+  it("варианты, ещё не открытые уровнем, не предлагаются", () => {
+    expect(subclassResourceOptionsAt("classes-cleric", "Домен жизни", 1)).toHaveLength(0);
+  });
+
+  it("Обманный след считает СЛ спасброска от заклинаний жреца", () => {
+    const option = subclassResourceOptionsAt("classes-cleric", "Домен обмана", 2)[0];
+    expect(spellSaveDc("classes-cleric", ctx.abilities, 2)).toBe(13);
+    expect(subclassEffectValue(option.effect, ctx)?.value).toBe(13);
+  });
+
+  it("запас лечения не поднимает жреца выше половины его максимума хитов", () => {
+    expect(healingPoolSelfHeal(10, 2, 20)).toBe(8);
+    expect(healingPoolSelfHeal(10, 12, 20)).toBe(0);
+  });
+});
+
+describe("заклинания домена", () => {
+  it("открываются по уровню персонажа и накапливаются", () => {
+    expect(subclassSpellsUpToLevel("classes-cleric", "Домен жизни", 1)).toEqual(["bless", "cure-wounds"]);
+    expect(subclassSpellsUpToLevel("classes-cleric", "Домен жизни", 3)).toHaveLength(4);
+    expect(subclassSpellsUpToLevel("classes-cleric", "Домен жизни", 5)).toHaveLength(6);
+  });
+
+  it("у архетипа без заклинаний домена список пуст", () => {
+    expect(subclassSpellsUpToLevel("classes-fighter", "Воитель", 5)).toEqual([]);
   });
 });
 

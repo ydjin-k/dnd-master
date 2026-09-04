@@ -3,6 +3,7 @@ import {
   CLASS_PROGRESSION,
   PROGRESSION_MAX_LEVEL,
   SPELL_CIRCLES,
+  characterResources,
   highestSpellCircle,
   progressionAt,
   resourceMax,
@@ -137,5 +138,20 @@ describe("CLASS_PROGRESSION", () => {
         expect(progressionAt(classId, level)!.spellsKnown, `${classId} ур. ${level}`).toBe(0);
       }
     }
+  });
+});
+
+/** characters-subclass-features-have-no-mechanical-effect — ресурсы архетипа тем же механизмом. */
+describe("characterResources", () => {
+  it("клятва паладина добавляет Проведение энергии, которого нет в таблице класса", () => {
+    const withoutOath = characterResources("classes-paladin", null, 3).map((r) => r.id);
+    const withOath = characterResources("classes-paladin", "Клятва преданности", 3).map((r) => r.id);
+    expect(withoutOath).not.toContain("channel-divinity");
+    expect(withOath).toContain("channel-divinity");
+  });
+
+  it("архетип не заводит второй счётчик для ресурса, который уже есть у класса", () => {
+    const ids = characterResources("classes-cleric", "Домен жизни", 2).map((r) => r.id);
+    expect(ids.filter((id) => id === "channel-divinity")).toHaveLength(1);
   });
 });
