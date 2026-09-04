@@ -623,11 +623,32 @@ function CharacterCard({
         {c.gender && <> · {c.gender}</>}
         {c.age > 0 && <> · {c.age} л.</>}
       </div>
-      <div className="character-card__hp">
-        HP {c.currentHp}/{c.maxHp} · КД {c.armorClass} · Скорость {speedLabel} · Иниц.{" "}
-        {c.initiative >= 0 ? `+${c.initiative}` : c.initiative} · Пас. внимательность{" "}
-        {c.passivePerception} · Вес: {Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.
-      </div>
+      <dl className="character-card__hp" aria-label="Характеристики персонажа">
+        <div className="character-card__stat">
+          <dt>HP</dt>
+          <dd>{c.currentHp}/{c.maxHp}</dd>
+        </div>
+        <div className="character-card__stat">
+          <dt>КД</dt>
+          <dd>{c.armorClass}</dd>
+        </div>
+        <div className="character-card__stat">
+          <dt>Скорость</dt>
+          <dd>{speedLabel}</dd>
+        </div>
+        <div className="character-card__stat">
+          <dt>Инициатива</dt>
+          <dd>{c.initiative >= 0 ? `+${c.initiative}` : c.initiative}</dd>
+        </div>
+        <div className="character-card__stat">
+          <dt>Пас. внимательность</dt>
+          <dd>{c.passivePerception}</dd>
+        </div>
+        <div className="character-card__stat">
+          <dt>Вес</dt>
+          <dd>{Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.</dd>
+        </div>
+      </dl>
       {encLevel !== "normal" && (
         <div className="character-card__danger character-card__danger--heavy">
           ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effectiveSpeedFeet} фт (было {c.speedFeet} фт)
