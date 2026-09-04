@@ -5,6 +5,7 @@ import "./Launcher.css";
 
 const CAMPAIGNS_PER_RING = 6;
 const MAX_CAMPAIGNS = 6;
+let isLauncherMusicMuted = false;
 
 export type DialPosition = { x: number; y: number; ring: number };
 
@@ -28,7 +29,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const [isMusicMuted, setIsMusicMuted] = useState(isLauncherMusicMuted);
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const positions = useMemo(() => getDialPositions(campaigns.length), [campaigns.length]);
   const selected = campaigns.find((campaign) => campaign.id === selectedId) ?? null;
@@ -51,6 +52,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     const music = new Audio("/audio/launcher-theme.mp3");
     music.loop = true;
     music.volume = 0.32;
+    music.muted = isLauncherMusicMuted;
     musicRef.current = music;
     void music.play().catch(() => undefined);
     return () => {
@@ -62,6 +64,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
 
   function toggleMusic() {
     const nextMuted = !isMusicMuted;
+    isLauncherMusicMuted = nextMuted;
     setIsMusicMuted(nextMuted);
     if (musicRef.current) musicRef.current.muted = nextMuted;
   }
@@ -71,7 +74,9 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     if (!newName.trim() || campaignLimitReached) return;
     try {
       const state = await invoke<CampaignState>("create_campaign", { name: newName.trim() });
-      onEnter(state);
+      refresh();
+      setNewName("");
+      setSelectedId(state.id);
     } catch (e) { setError(String(e)); }
   }
 
@@ -117,7 +122,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
           <div className="launcher__moon" aria-hidden="true" />
           <p className="launcher__portal-kicker">Врата ожидают</p>
           <h2>Начни первую историю</h2>
-          <p className="launcher__empty">Дай кампании имя — её знак появится в астральном круге.</p>
+          <p className="launcher__empty">Дай кампании имя — её знак появится в круге.</p>
         </section>
       )}
 
@@ -152,7 +157,9 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
                 <h2 title={selected.name}>{selected.name || "Без названия"}</h2>
                 <p className="launcher__portal-meta">Героев: {selected.characterCount}</p>
                 <div className="launcher__campaign-actions">
-                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>Продолжить</button>
+                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>
+                    {selected.characterCount === 0 ? "Начать" : "Продолжить"}
+                  </button>
                   <button className="launcher__portal-delete" onClick={() => deleteCampaign(selected.id, selected.name)}>Удалить</button>
                 </div>
               </>

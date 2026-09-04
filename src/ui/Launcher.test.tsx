@@ -22,7 +22,9 @@ let summaries: CampaignSummary[];
 const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
   switch (cmd) {
     case "list_campaigns": return summaries;
-    case "create_campaign": return { id: "new", campaignName: args?.name ?? "" } as CampaignState;
+    case "create_campaign":
+      summaries = [...summaries, { id: "new", name: String(args?.name ?? ""), characterCount: 0 }];
+      return { id: "new", campaignName: args?.name ?? "" } as CampaignState;
     case "switch_campaign": return { id: args?.id, campaignName: "Старая кампания" } as CampaignState;
     case "delete_campaign": return null;
     default: return null;
@@ -72,13 +74,26 @@ describe("Launcher", () => {
     }
   });
 
-  it("creates a new campaign from the separate form", async () => {
+  it("creates and selects a new campaign without entering it", async () => {
     const onEnter = vi.fn();
     render(<Launcher onEnter={onEnter} />);
     await screen.findByRole("button", { name: /Открыть кампанию/ });
-    fireEvent.change(screen.getByPlaceholderText("Название новой кампании"), { target: { value: "Новый поход" } });
+    const nameInput = screen.getByPlaceholderText("Название новой кампании");
+    fireEvent.change(nameInput, { target: { value: "Новый поход" } });
     fireEvent.click(screen.getByText("Новая кампания"));
+
+    const newMarker = await screen.findByRole("button", { name: "Открыть кампанию Новый поход" });
+    expect(onEnter).not.toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("list_campaigns");
+    expect(nameInput).toHaveValue("");
+    expect(newMarker).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Новый поход" })).toBeInTheDocument();
+    const startButton = screen.getByRole("button", { name: "Начать" });
+    expect(screen.getByRole("button", { name: "Удалить" })).toBeInTheDocument();
+
+    fireEvent.click(startButton);
     await waitFor(() => expect(onEnter).toHaveBeenCalled());
+    expect(invoke).toHaveBeenCalledWith("switch_campaign", { id: "new" });
   });
 
   it("blocks creation after six campaigns and explains the limit", async () => {
@@ -121,6 +136,20 @@ describe("Launcher", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
     expect(audioInstances[0].muted).toBe(false);
+  });
+
+  it("keeps launcher music muted after the launcher is remounted", async () => {
+    const firstMount = render(<Launcher onEnter={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Выключить музыку" }));
+    expect(audioInstances[0].muted).toBe(true);
+
+    firstMount.unmount();
+    render(<Launcher onEnter={() => {}} />);
+
+    expect(await screen.findByRole("button", { name: "Включить музыку" })).toHaveAttribute("aria-pressed", "true");
+    expect(audioInstances[1].muted).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
   });
 
   it("renders the bundled video as a silent looping background", () => {
