@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import bundledSpells from "../../../src-tauri/rules/spells.json";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription } from "./CharactersPage";
@@ -890,6 +891,26 @@ describe("CharactersPage", () => {
       expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0]);
       expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0]);
     });
+  });
+
+  // Настоящий поставляемый spells.json, а не фикстура: заглушка «списка нет» держалась
+  // ровно на отсутствии данных, поэтому подсунутый список ничего бы не доказал.
+  it("a level-2 Ranger gets the real class spell list instead of the 'no list yet' placeholder", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_spells"
+        ? (bundledSpells as Spell[])
+        : cmd === "get_rules"
+          ? [classTopic("classes-ranger", "Следопыт", "10", "6")]
+          : [],
+    );
+    mockState = baseState({
+      characters: [{ ...characterWithInventory(), class: "Следопыт", level: 2, spellSlotsMax: [2, 0, 0, 0, 0] }],
+    });
+    render(<CharactersPage />);
+
+    expect(await screen.findByText(/Заклинания до 1 круга/)).toBeInTheDocument();
+    expect(screen.queryByText(/Списка заклинаний этого класса в приложении пока нет/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Метка охотника/)).toBeInTheDocument();
   });
 });
 

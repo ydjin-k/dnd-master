@@ -48,10 +48,12 @@ pub fn load_spells(app: &AppHandle) -> Result<Vec<Spell>, String> {
 mod tests {
     use super::*;
 
-    const KNOWN_SPELLCASTING_CLASSES: [&str; 6] = [
+    const KNOWN_SPELLCASTING_CLASSES: [&str; 8] = [
         "classes-bard",
         "classes-cleric",
         "classes-druid",
+        "classes-paladin",
+        "classes-ranger",
         "classes-sorcerer",
         "classes-warlock",
         "classes-wizard",
@@ -104,5 +106,93 @@ mod tests {
                 spell.level
             );
         }
+    }
+
+    /// Официальные списки SRD 5.1 («Paladin Spells» / «Ranger Spells»). Полузаклинатели
+    /// заговоров не получают, а по `HALF_CASTER_SLOTS` до уровня 5 доходят только до 2 круга,
+    /// поэтому кругов выше здесь и не ожидается.
+    fn assert_class_list(class_id: &str, level: u8, expected: &[&str]) {
+        let mut actual: Vec<String> = load_bundled()
+            .into_iter()
+            .filter(|s| s.level == level && s.classes.iter().any(|c| c == class_id))
+            .map(|s| s.id)
+            .collect();
+        actual.sort();
+        let mut expected: Vec<String> = expected.iter().map(|s| s.to_string()).collect();
+        expected.sort();
+        assert_eq!(actual, expected, "список {class_id} круга {level} разошёлся с SRD");
+    }
+
+    #[test]
+    fn paladin_spell_list_matches_srd() {
+        assert_class_list(
+            "classes-paladin",
+            1,
+            &[
+                "bless",
+                "command",
+                "cure-wounds",
+                "detect-evil-and-good",
+                "detect-magic",
+                "detect-poison-and-disease",
+                "divine-favor",
+                "heroism",
+                "protection-from-evil-and-good",
+                "purify-food-and-drink",
+                "shield-of-faith",
+            ],
+        );
+        assert_class_list(
+            "classes-paladin",
+            2,
+            &[
+                "aid",
+                "branding-smite",
+                "find-steed",
+                "lesser-restoration",
+                "locate-object",
+                "magic-weapon",
+                "protection-from-poison",
+                "zone-of-truth",
+            ],
+        );
+    }
+
+    #[test]
+    fn ranger_spell_list_matches_srd() {
+        assert_class_list(
+            "classes-ranger",
+            1,
+            &[
+                "alarm",
+                "animal-friendship",
+                "cure-wounds",
+                "detect-magic",
+                "detect-poison-and-disease",
+                "fog-cloud",
+                "goodberry",
+                "hunters-mark",
+                "jump",
+                "longstrider",
+                "speak-with-animals",
+            ],
+        );
+        assert_class_list(
+            "classes-ranger",
+            2,
+            &[
+                "animal-messenger",
+                "barkskin",
+                "darkvision",
+                "find-traps",
+                "lesser-restoration",
+                "locate-animals-or-plants",
+                "locate-object",
+                "pass-without-trace",
+                "protection-from-poison",
+                "silence",
+                "spike-growth",
+            ],
+        );
     }
 }
