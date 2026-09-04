@@ -492,8 +492,8 @@ mod tests {
                 id: "pc".into(),
                 name: "pc".into(),
                 known_spells: vec!["test-spell".into()],
-                spell_slots_level1_max: 1,
-                spell_slots_level1_current: 1,
+                spell_slots_max: vec![1, 0, 0, 0, 0],
+                spell_slots_current: vec![1, 0, 0, 0, 0],
                 ..Default::default()
             }],
             combat: Some(combat_state_with(combatant("pc"))),
@@ -502,12 +502,12 @@ mod tests {
         let spell = test_spell(1);
 
         cast_spell_action(&mut state, "pc", &spell, None).unwrap();
-        assert_eq!(state.characters[0].spell_slots_level1_current, 0);
+        assert_eq!(state.characters[0].spell_slots_current[0], 0);
 
         let err = cast_spell_action(&mut state, "pc", &spell, None).unwrap_err();
         assert!(err.contains("ячеек"));
         assert_eq!(
-            state.characters[0].spell_slots_level1_current, 0,
+            state.characters[0].spell_slots_current[0], 0,
             "ячейка не должна уйти в минус"
         );
     }
@@ -519,8 +519,8 @@ mod tests {
                 id: "pc".into(),
                 name: "pc".into(),
                 known_cantrips: vec!["test-spell".into()],
-                spell_slots_level1_max: 1,
-                spell_slots_level1_current: 1,
+                spell_slots_max: vec![1, 0, 0, 0, 0],
+                spell_slots_current: vec![1, 0, 0, 0, 0],
                 ..Default::default()
             }],
             combat: Some(combat_state_with(combatant("pc"))),
@@ -531,6 +531,6 @@ mod tests {
         cast_spell_action(&mut state, "pc", &spell, None).unwrap();
         cast_spell_action(&mut state, "pc", &spell, None).unwrap();
 
-        assert_eq!(state.characters[0].spell_slots_level1_current, 1);
+        assert_eq!(state.characters[0].spell_slots_current[0], 1);
     }
 }
