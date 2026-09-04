@@ -92,11 +92,14 @@ mod tests {
     }
 
     #[test]
-    fn every_spell_is_cantrip_or_first_level() {
+    fn every_spell_level_is_within_the_currently_bundled_range() {
+        // Круги 6-9 ещё не добавлены (см. карточку `rules-spells-data-level-6-9`) —
+        // уровень выше 5 здесь почти наверняка означает опечатку в данных, а не
+        // осознанное новое заклинание.
         for spell in load_bundled() {
             assert!(
-                spell.level == 0 || spell.level == 1,
-                "заклинание {} имеет уровень {} — в этом батче допустимы только 0 и 1",
+                spell.level <= 5,
+                "заклинание {} имеет уровень {} — круги 6-9 в spells.json ещё не добавлены",
                 spell.id,
                 spell.level
             );
