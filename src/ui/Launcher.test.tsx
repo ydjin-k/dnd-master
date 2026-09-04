@@ -4,10 +4,11 @@ import { getDialPositions, Launcher } from "./Launcher";
 import type { CampaignSummary, CampaignState } from "../state/types";
 
 const { audioInstances, AudioMock } = vi.hoisted(() => {
-  const instances: Array<{ src: string; loop: boolean; volume: number; currentTime: number; play: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn> }> = [];
+  const instances: Array<{ src: string; loop: boolean; muted: boolean; volume: number; currentTime: number; play: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn> }> = [];
   class Mock {
     src: string;
     loop = false;
+    muted = false;
     volume = 1;
     currentTime = 0;
     play = vi.fn(() => Promise.resolve());
@@ -80,6 +81,19 @@ describe("Launcher", () => {
     await waitFor(() => expect(onEnter).toHaveBeenCalled());
   });
 
+  it("blocks creation after six campaigns and explains the limit", async () => {
+    summaries = Array.from({ length: 6 }, (_, index) => ({ id: `c${index}`, name: `Хроника ${index + 1}`, characterCount: index }));
+    render(<Launcher onEnter={() => {}} />);
+
+    const createButton = await screen.findByRole("button", { name: "Новая кампания" });
+    fireEvent.change(screen.getByPlaceholderText("Название новой кампании"), { target: { value: "Седьмая" } });
+
+    expect(createButton).toBeDisabled();
+    expect(screen.getByText("Достигнут предел в 6 кампаний")).toBeInTheDocument();
+    fireEvent.submit(createButton.closest("form")!);
+    expect(invoke).not.toHaveBeenCalledWith("create_campaign", expect.anything());
+  });
+
   it("deletes the selected campaign after confirmation", async () => {
     render(<Launcher onEnter={() => {}} />);
     fireEvent.click(await screen.findByRole("button", { name: "Открыть кампанию Старая кампания" }));
@@ -95,5 +109,27 @@ describe("Launcher", () => {
     unmount();
     expect(audioInstances[0].pause).toHaveBeenCalledOnce();
     expect(audioInstances[0].currentTime).toBe(0);
+  });
+
+  it("mutes and unmutes launcher music from the sound button", async () => {
+    render(<Launcher onEnter={() => {}} />);
+    const muteButton = await screen.findByRole("button", { name: "Выключить музыку" });
+
+    fireEvent.click(muteButton);
+    expect(audioInstances[0].muted).toBe(true);
+    expect(screen.getByRole("button", { name: "Включить музыку" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
+    expect(audioInstances[0].muted).toBe(false);
+  });
+
+  it("renders the bundled video as a silent looping background", () => {
+    const { container } = render(<Launcher onEnter={() => {}} />);
+    const video = container.querySelector("video.launcher__background");
+    expect(video).toHaveAttribute("src", "/video/launcher-background.mp4");
+    expect(video).toHaveAttribute("autoplay");
+    expect(video).toHaveAttribute("loop");
+    expect(video).toHaveProperty("muted", true);
+    expect(video).toHaveAttribute("playsinline");
   });
 });
