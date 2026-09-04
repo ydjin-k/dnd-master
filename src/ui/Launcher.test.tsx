@@ -123,6 +123,20 @@ describe("Launcher", () => {
     expect(audioInstances[0].muted).toBe(false);
   });
 
+  it("keeps launcher music muted after the launcher is remounted", async () => {
+    const firstMount = render(<Launcher onEnter={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Выключить музыку" }));
+    expect(audioInstances[0].muted).toBe(true);
+
+    firstMount.unmount();
+    render(<Launcher onEnter={() => {}} />);
+
+    expect(await screen.findByRole("button", { name: "Включить музыку" })).toHaveAttribute("aria-pressed", "true");
+    expect(audioInstances[1].muted).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
+  });
+
   it("renders the bundled video as a silent looping background", () => {
     const { container } = render(<Launcher onEnter={() => {}} />);
     const video = container.querySelector("video.launcher__background");
