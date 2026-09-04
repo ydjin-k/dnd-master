@@ -2225,6 +2225,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Коллегия знаний",
+        grants: {
+          // «Дополнительные навыки» — выбор трёх навыков игроком, а `skills` —
+          // фиксированный список; выбор требует своего UI и остаётся текстом.
+          // Кость Острых слов не дублируется: её владелец — `scaling` класса
+          // («Кость Вдохновения барда» в classProgression.ts).
+          resourceOptions: [
+            {
+              id: "cutting-words",
+              resourceId: "bardic-inspiration",
+              name: "Острые слова",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2267,6 +2282,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Коллегия шёпота",
         description:
           "Барды коллегии шёпота выступают в тавернах и на улицах, но истинное ремесло ведут в тени: сплетни, компромат и тихое запугивание — их инструменты не хуже лютни.",
+        grants: { toolProficiencies: ["Воровские инструменты"] },
         featuresByLevel: {
           3: [
             {
@@ -2289,6 +2305,13 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Путь Берсерка",
+        // Неистовство объявляется той же яростью, в которую варвар входит, —
+        // поэтому кнопка тратит использование Ярости, а не заводит второй счётчик.
+        grants: {
+          resourceOptions: [
+            { id: "frenzy", resourceId: "rage", name: "Неистовство", minLevel: 3, effect: { kind: "descriptive" } },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2307,6 +2330,15 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь Тотемного воина",
         description:
           "Берсерк-тотемист чувствует дух зверя-покровителя ещё до посвящения в путь и просит его защиты и силы в бою, а не просто впадает в слепую ярость.",
+        // Дух выбирается на текущую ярость, поэтому это три варианта одной и той
+        // же траты Ярости, а не постоянное сопротивление урону.
+        grants: {
+          resourceOptions: [
+            { id: "totem-bear", resourceId: "rage", name: "Дух зверя: Медведь", minLevel: 3, effect: { kind: "descriptive" } },
+            { id: "totem-eagle", resourceId: "rage", name: "Дух зверя: Орёл", minLevel: 3, effect: { kind: "descriptive" } },
+            { id: "totem-wolf", resourceId: "rage", name: "Дух зверя: Волк", minLevel: 3, effect: { kind: "descriptive" } },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2321,6 +2353,9 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Путь Штурмовика",
         description:
           "Штурмовик превращает ярость в чистый напор: вместо звериных духов он полагается на инерцию собственного тела, вкладывая всю массу в один сокрушительный рывок.",
+        grants: {
+          scaling: [{ name: "Сокрушительный напор", minLevel: 3, effect: { kind: "bonus-damage-flat", per: "proficiency" } }],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2338,6 +2373,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
     subclasses: [
       {
         name: "Воитель",
+        grants: { critRange: 19 },
         featuresByLevel: {
           // В rules.json у этой особенности написано «Если вы выбрали этот
           // архетип на 19 уровне» — явная ошибка исходного текста (архетип
@@ -2359,6 +2395,32 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Мастер боя",
         description: "Мастер боя изучает поле сражения как шахматную доску: побеждает не только силой удара, но выбором момента и позиции.",
+        grants: {
+          resources: [{ id: "superiority-dice", name: "Кости превосходства", max: 4, recharge: "long", unit: "кость" }],
+          resourceOptions: [
+            {
+              id: "maneuver-distracting",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Отвлекающий удар",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "maneuver-rally",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Ободряющий рывок",
+              minLevel: 3,
+              effect: { kind: "bonus-dice", count: 1, die: 8 },
+            },
+            {
+              id: "maneuver-precision",
+              resourceId: "superiority-dice",
+              name: "Манёвр: Точный выпад",
+              minLevel: 3,
+              effect: { kind: "bonus-dice", count: 1, die: 8 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2373,6 +2435,20 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Мистический рыцарь",
         description:
           "Мистический рыцарь вплетает в удары клинка отголоски чужой магии — не становясь чародеем, он бесстрашно прожигает резерв воли ради решающего момента боя.",
+        grants: {
+          resources: [
+            { id: "arcane-charge", name: "Очки мистической энергии", max: 2, recharge: "long", unit: "очко" },
+          ],
+          resourceOptions: [
+            {
+              id: "charged-blade",
+              resourceId: "arcane-charge",
+              name: "Заряженный клинок",
+              minLevel: 3,
+              effect: { kind: "bonus-damage-dice", count: 1, die: 8 },
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
