@@ -3,10 +3,18 @@
 }
 
 @font-face {
-  font-family: "Asset Fantasy";
-  src: url("/fonts/Asset-Regular.ttf") format("truetype");
+  font-family: "Alegreya";
+  src: url("/fonts/Alegreya-Medium.ttf") format("truetype");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Alegreya";
+  src: url("/fonts/Alegreya-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
   font-display: swap;
 }
 
@@ -41,7 +49,7 @@
   --dm-danger: #ff7f9a;
   --dm-shadow: rgba(1, 6, 18, 0.48);
 
-  --dm-font-display: "Asset Fantasy", Georgia, "Palatino Linotype", serif;
+  --dm-font-display: "Alegreya", Georgia, "Palatino Linotype", serif;
   --dm-font-body: "Source Serif 4", Georgia, serif;
 }
 
@@ -78,7 +86,7 @@ h3 {
   font-family: var(--dm-font-display);
   color: var(--dm-accent);
   margin: 0 0 0.5em;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: 0.035em;
   line-height: 1.18;
   text-shadow: 0 0 18px rgba(114, 214, 208, 0.26);
@@ -141,6 +149,10 @@ select {
   border-radius: 10px;
   padding: 0.55em 0.75em;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--dm-accent);
 }
 
 input:focus,

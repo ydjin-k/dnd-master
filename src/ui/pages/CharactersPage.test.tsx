@@ -108,6 +108,12 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
   };
 }
 
+function expectStat(label: string, value: string) {
+  const tile = screen.getByText(label, { selector: "dt" }).closest(".character-card__stat");
+  expect(tile).not.toBeNull();
+  expect(within(tile as HTMLElement).getByText(value, { selector: "dd" })).toBeInTheDocument();
+}
+
 describe("CharactersPage", () => {
   beforeEach(() => {
     addCharacter.mockClear();
@@ -323,14 +329,14 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
     expect(screen.queryByText("Нагружен")).not.toBeInTheDocument();
     expect(screen.queryByText("Сильно нагружен")).not.toBeInTheDocument();
-    expect(screen.getByText(/Скорость 30 фт(?! \()/)).toBeInTheDocument();
+    expectStat("Скорость", "30 фт");
   });
 
   it("60 фнт (> Сила×5): Нагружен, скорость реально падает на 10 (30 → 20)", () => {
     mockState = baseState({ characters: [withWeight(60)] });
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Скорость 20 фт(?! \()/)).toBeInTheDocument();
+    expectStat("Скорость", "20 фт");
     expect(screen.queryByText(/Сильно нагружен/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Помеха на проверки/)).not.toBeInTheDocument();
   });
@@ -339,7 +345,7 @@ describe("CharactersPage", () => {
     mockState = baseState({ characters: [withWeight(110)] });
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Сильно нагружен — скорость 10 фт \(было 30 фт\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Скорость 10 фт(?! \()/)).toBeInTheDocument();
+    expectStat("Скорость", "10 фт");
     expect(
       screen.getByText(/⚠ Помеха на проверки характеристик, броски атаки и спасброски/),
     ).toBeInTheDocument();
@@ -971,7 +977,7 @@ describe("CharactersPage", () => {
       });
       await renderCleric(warCleric);
       expect(screen.queryByText(/не по владению/)).not.toBeInTheDocument();
-      expect(screen.getByText(/КД 18/)).toBeInTheDocument();
+      expectStat("КД", "18");
     });
 
     it("Проведение энергии домена: применение тратит использование и лечит по числу уровня", async () => {
