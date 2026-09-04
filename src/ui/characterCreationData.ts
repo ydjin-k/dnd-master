@@ -244,8 +244,8 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
   "classes-cleric": [
     slot(["Булава", ["Булава"]], ["Боевой молот (при владении)", ["Боевой молот"]]),
     slot(
-      ["Кольчуга с чешуйками", ["Кольчуга с чешуйками"]],
-      ["Кожаные доспехи", ["Кожаные доспехи"]],
+      ["Чешуйчатый доспех", ["Чешуйчатый доспех"]],
+      ["Кожаный доспех", ["Кожаный доспех"]],
       ["Кольчуга (при владении)", ["Кольчуга"]],
     ),
     slot(["Лёгкий арбалет и 20 болтов", ["Лёгкий арбалет", "Арбалетные болты ×20"]], ["Любое простое оружие", ["Простое оружие (на выбор)"]]),
@@ -256,7 +256,7 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
     slot(["Лёгкий арбалет и 20 болтов", ["Лёгкий арбалет", "Арбалетные болты ×20"]], ["Любое простое оружие", ["Простое оружие (на выбор)"]]),
     slot(["Мешочек с компонентами", ["Мешочек с компонентами"]], ["Магический фокус", ["Магический фокус"]]),
     slot(["Набор учёного", ["Набор учёного"]], ["Набор исследователя подземелий", ["Набор исследователя подземелий"]]),
-    slot(["Кожаная броня, простое оружие и два кинжала", ["Кожаная броня", "Простое оружие (на выбор)", "Кинжал ×2"]]),
+    slot(["Кожаный доспех, простое оружие и два кинжала", ["Кожаный доспех", "Простое оружие (на выбор)", "Кинжал ×2"]]),
   ],
   "classes-monk": [
     slot(["Короткий меч", ["Короткий меч"]], ["Любое простое оружие", ["Простое оружие (на выбор)"]]),
@@ -277,7 +277,7 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
       ["Набор исследователя подземелий", ["Набор исследователя подземелий"]],
       ["Набор путешественника", ["Набор путешественника"]],
     ),
-    slot(["Кожаные доспехи, два кинжала и воровские инструменты", ["Кожаные доспехи", "Кинжал ×2", "Воровские инструменты"]]),
+    slot(["Кожаный доспех, два кинжала и воровские инструменты", ["Кожаный доспех", "Кинжал ×2", "Воровские инструменты"]]),
   ],
   "classes-ranger": [
     slot(["Чешуйчатый доспех", ["Чешуйчатый доспех"]], ["Кожаный доспех", ["Кожаный доспех"]]),
@@ -774,6 +774,71 @@ export const ARMOR: GearData[] = [
   { name: "Латы", cost: "1500 зм", weight: "65 фнт." },
   { name: "Щит", cost: "10 зм", weight: "6 фнт." },
 ];
+
+interface ArmorStats {
+  baseAc: number;
+  category: "light" | "medium" | "heavy";
+}
+
+/** КД по номиналу доспеха (SRD 5.1, таблица «Доспехи») — ключи совпадают с `ARMOR`/`CLASS_EQUIPMENT`. */
+export const ARMOR_STATS: Record<string, ArmorStats> = {
+  "Стёганый доспех": { baseAc: 11, category: "light" },
+  "Кожаный доспех": { baseAc: 11, category: "light" },
+  "Проклёпанная кожа": { baseAc: 12, category: "light" },
+  "Доспех из шкур": { baseAc: 12, category: "medium" },
+  "Кольчужная рубаха": { baseAc: 13, category: "medium" },
+  "Чешуйчатый доспех": { baseAc: 14, category: "medium" },
+  "Кираса": { baseAc: 14, category: "medium" },
+  "Полулаты": { baseAc: 15, category: "medium" },
+  "Колечный доспех": { baseAc: 14, category: "heavy" },
+  "Кольчуга": { baseAc: 16, category: "heavy" },
+  "Наборной доспех": { baseAc: 17, category: "heavy" },
+  "Латы": { baseAc: 18, category: "heavy" },
+};
+
+const SHIELD_ITEM_NAMES = new Set(["Щит", "Деревянный щит"]);
+
+/**
+ * КД персонажа 1 уровня по SRD 5.1: базовое значение доспеха (лёгкий — полный
+ * модификатор Ловкости, средний — не больше +2, тяжёлый — без Ловкости) плюс
+ * щит (+2), либо, если доспех не надет, безоспешная защита варвара/монаха или
+ * «Драконья устойчивость» чародея-дракона, плюс боевой стиль «Оборона» бойца
+ * (+1, только в доспехе). Расы в SRD 5.1 не дают бонусов к КД напрямую.
+ */
+export function computeArmorClass({
+  classId,
+  abilities,
+  inventoryItemNames,
+  fightingStyle,
+  hasDraconicResilience,
+}: {
+  classId: string;
+  abilities: AbilityScores;
+  inventoryItemNames: string[];
+  fightingStyle?: string;
+  hasDraconicResilience?: boolean;
+}): number {
+  const dexMod = abilityMod(abilities.dexterity);
+  const wornArmor = inventoryItemNames.map((n) => ARMOR_STATS[n]).find((a): a is ArmorStats => !!a);
+  const hasShield = inventoryItemNames.some((n) => SHIELD_ITEM_NAMES.has(n));
+
+  let base: number;
+  if (wornArmor) {
+    const dexBonus = wornArmor.category === "heavy" ? 0 : wornArmor.category === "medium" ? Math.min(dexMod, 2) : dexMod;
+    base = wornArmor.baseAc + dexBonus;
+    if (classId === "classes-fighter" && fightingStyle === "Оборона") base += 1;
+  } else if (classId === "classes-barbarian") {
+    base = 10 + dexMod + abilityMod(abilities.constitution);
+  } else if (classId === "classes-monk" && !hasShield) {
+    base = 10 + dexMod + abilityMod(abilities.wisdom);
+  } else if (classId === "classes-sorcerer" && hasDraconicResilience) {
+    base = 13 + dexMod;
+  } else {
+    base = 10 + dexMod;
+  }
+
+  return base + (hasShield ? 2 : 0);
+}
 
 /** Ограничение на число предметов своей предыстории — примерно как у Послушника (5). */
 export const CUSTOM_BACKGROUND_EQUIPMENT_LIMIT = 7;
@@ -2295,35 +2360,6 @@ export const CLASS_SPELLCASTING_ABILITY_KEY: Record<string, AbilityKey> = {
   "classes-sorcerer": "charisma",
   "classes-warlock": "charisma",
   "classes-wizard": "intelligence",
-};
-
-export interface ClassSpellProgression {
-  cantripsKnown: number;
-  spellSlotsLevel1: number;
-  /**
-   * Только у классов с фиксированным списком известных заклинаний (Бард,
-   * Чародей, Колдун) — число заклинаний 1 круга на 1 уровне персонажа.
-   * У Волшебника/Друида/Жреца оставлено undefined: они «подготавливают»
-   * заклинания каждый день, число равно мод. заклинательной характеристики +
-   * уровень (минимум 1) — считается в мастере персонажа по totalAbilities,
-   * не хранится тут числом.
-   */
-  spellsKnownFixed?: number;
-}
-
-/**
- * Числа для 1 уровня персонажа — строка «1» таблицы прогрессии каждого
- * класса в rules.json (столбцы «Известные заговоры» и ячейки 1 круга;
- * «Известные заклинания» — только у Барда/Чародея/Колдуна, у остальных
- * это подготовка, см. ClassSpellProgression.spellsKnownFixed).
- */
-export const CLASS_SPELL_PROGRESSION: Record<string, ClassSpellProgression> = {
-  "classes-bard": { cantripsKnown: 2, spellSlotsLevel1: 2, spellsKnownFixed: 4 },
-  "classes-cleric": { cantripsKnown: 3, spellSlotsLevel1: 2 },
-  "classes-druid": { cantripsKnown: 2, spellSlotsLevel1: 2 },
-  "classes-sorcerer": { cantripsKnown: 4, spellSlotsLevel1: 2, spellsKnownFixed: 2 },
-  "classes-warlock": { cantripsKnown: 2, spellSlotsLevel1: 1, spellsKnownFixed: 2 },
-  "classes-wizard": { cantripsKnown: 3, spellSlotsLevel1: 2 },
 };
 
 /**

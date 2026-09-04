@@ -204,6 +204,16 @@
   flex: 1;
 }
 
+.character-card__resource-list strong {
+  flex: 1;
+}
+
+.character-card__resource-count {
+  min-width: 8ch;
+  font-weight: 700;
+  color: var(--dm-accent);
+}
+
 .character-card__coin-row {
   width: max-content;
   gap: 0.3em;
@@ -241,6 +251,37 @@
 .character-card__conditions {
   margin-top: 0.4em;
   font-size: 0.9em;
+}
+
+.character-card__traits {
+  margin-top: 0.4em;
+  font-size: 0.9em;
+}
+
+.character-card__traits summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+}
+
+.character-card__traits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12em, 1fr));
+  gap: 0.6em;
+  margin-top: 0.4em;
+}
+
+.character-card__traits-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  color: var(--dm-text-muted);
+}
+
+.character-card__traits-grid textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  color: var(--dm-text);
 }
 
 .character-card__conditions summary {

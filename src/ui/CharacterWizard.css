@@ -83,8 +83,38 @@
   margin-top: 0.3em;
 }
 
-.wizard__coins input {
-  width: 6em;
+.wizard__traits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14em, 1fr));
+  gap: 0.8em;
+  margin: 0.6em 0;
+}
+
+.wizard__traits .wizard__hint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.wizard__traits textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-style: normal;
+  color: var(--dm-text);
+}
+
+.wizard__coin-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.wizard__coin-count {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+  color: var(--dm-accent);
 }
 
 .wizard input[type="number"] {

@@ -101,10 +101,12 @@ export function CombatPage() {
   const knownSpellList = spells.filter((s) => knownSpellIds.includes(s.id));
   const selectedSpell = knownSpellList.find((s) => s.id === castSpellId);
   const spellNeedsTarget = !!selectedSpell && (selectedSpell.attackRoll || !!selectedSpell.savingThrow);
-  const spellBlockedBySlot =
-    !!selectedSpell &&
-    selectedSpell.level > 0 &&
-    (currentCharacter?.spellSlotsLevel1Current ?? 0) <= 0;
+  /** SRD: заклинание творится ячейкой своего круга или любого старшего — у Колдуна доступен только высший. */
+  function hasFreeSlotFor(circle: number): boolean {
+    const slots = currentCharacter?.spellSlotsCurrent ?? [];
+    return slots.slice(circle - 1).some((free) => free > 0);
+  }
+  const spellBlockedBySlot = !!selectedSpell && selectedSpell.level > 0 && !hasFreeSlotFor(selectedSpell.level);
   const cells = Array.from({ length: combat.gridWidth * combat.gridHeight });
 
   function combatantAt(x: number, y: number) {
@@ -220,7 +222,7 @@ export function CombatPage() {
                   >
                     <option value="">—</option>
                     {knownSpellList.map((s) => {
-                      const noSlots = s.level > 0 && currentCharacter.spellSlotsLevel1Current <= 0;
+                      const noSlots = s.level > 0 && !hasFreeSlotFor(s.level);
                       return (
                         <option key={s.id} value={s.id} disabled={noSlots}>
                           {s.name}

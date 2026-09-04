@@ -333,8 +333,8 @@ fn cast_spell_action(
         if !character.known_spells.contains(&spell.id) {
             return Err(format!("заклинание «{}» не изучено персонажем", spell.name));
         }
-        if character.spell_slots_level1_current <= 0 {
-            return Err("нет свободных ячеек заклинаний 1 уровня".into());
+        if character.free_spell_slot_index(spell.level).is_none() {
+            return Err(format!("нет свободных ячеек {} круга или выше", spell.level));
         }
     }
 
@@ -347,7 +347,8 @@ fn cast_spell_action(
             .iter_mut()
             .find(|c| c.id == caster_id)
             .unwrap();
-        caster.spell_slots_level1_current -= 1;
+        let slot = caster.free_spell_slot_index(spell.level).unwrap();
+        caster.spell_slots_current[slot] -= 1;
     }
 
     Ok(())

@@ -23,6 +23,17 @@ export interface Coins {
   platinum: number;
 }
 
+/**
+ * Потраченные использования классового ресурса с ограниченным числом раз
+ * (Ярость, Ци, Проведение энергии, Наложение рук…). Максимум здесь НЕ хранится:
+ * его владелец — таблица прогрессии класса (`classProgression.ts`), иначе
+ * сохранённое число расходилось бы с таблицей у старых персонажей.
+ */
+export interface FeatureUses {
+  featureId: string;
+  usesCurrent: number;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -30,6 +41,10 @@ export interface Character {
   class: string;
   subclass: string;
   background: string;
+  personalityTraits: string;
+  ideals: string;
+  bonds: string;
+  flaws: string;
   alignment: string;
   gender: string;
   age: number;
@@ -50,8 +65,10 @@ export interface Character {
   skillProficiencies: string[];
   knownCantrips: string[];
   knownSpells: string[];
-  spellSlotsLevel1Max: number;
-  spellSlotsLevel1Current: number;
+  /** Ячейки заклинаний по кругам 1..5 — индекс 0 это 1 круг (см. SPELL_CIRCLES в classProgression.ts). */
+  spellSlotsMax: number[];
+  spellSlotsCurrent: number[];
+  featureUses: FeatureUses[];
 }
 
 export interface JournalEntry {
