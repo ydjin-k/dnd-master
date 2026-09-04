@@ -15,14 +15,14 @@
 .launcher__dial-plane { position: absolute; width: 88%; height: 76%; border: 1px solid rgba(191, 231, 231, 0.55); border-radius: 50%; background: radial-gradient(ellipse, rgba(10, 21, 44, 0.88) 0 27%, rgba(9, 19, 40, 0.62) 50%, rgba(4, 10, 24, 0.88) 73%); box-shadow: 0 0 70px rgba(114, 214, 208, 0.18), inset 0 0 50px rgba(174, 139, 225, 0.12); transform: perspective(50rem) rotateX(12deg); }
 .launcher__dial-plane::before, .launcher__dial-plane::after { content: ""; position: absolute; inset: 8%; border: 1px dashed rgba(211, 155, 238, 0.35); border-radius: 50%; }
 .launcher__dial-plane::after { inset: 22%; border-color: rgba(114, 214, 208, 0.2); }
-.launcher__hands { position: absolute; width: 88%; height: 76%; overflow: visible; filter: drop-shadow(0 0 4px rgba(114, 214, 208, 0.55)); }
+.launcher__hands { position: absolute; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 4px rgba(114, 214, 208, 0.55)); }
 .launcher__hands line { stroke: rgba(160, 210, 218, 0.42); stroke-width: 0.34; vector-effect: non-scaling-stroke; }
 .launcher__hands circle { fill: #9edadd; stroke: #eef9f4; stroke-width: 0.3; vector-effect: non-scaling-stroke; }
 .launcher__hands .is-selected line { stroke: #f0d494; stroke-width: 0.6; }
 .launcher__hands .is-selected circle { fill: #f0d494; }
-.launcher__campaign-marker { position: absolute; z-index: 2; display: grid; width: clamp(5.8rem, 14vw, 8rem); min-height: 44px; padding: 0.3rem 0.45rem; color: #d9e8e8; background: rgba(5, 13, 30, 0.82); border: 1px solid rgba(142, 203, 207, 0.48); border-radius: 999px; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); font-family: var(--dm-font-body); font-size: clamp(0.68rem, 1.5vw, 0.82rem); line-height: 1.15; transform: translate(-50%, -50%); }
+.launcher__campaign-marker { position: absolute; z-index: 2; display: grid; width: clamp(5.8rem, 14vw, 8rem); min-height: 44px; padding: 0.3rem 0.45rem; color: #d9e8e8; background: rgba(5, 13, 30, 1); border: 1px solid rgba(142, 203, 207, 0.48); border-radius: 999px; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); font-family: var(--dm-font-body); font-size: clamp(0.68rem, 1.5vw, 0.82rem); line-height: 1.15; transform: translate(-50%, -50%); }
 .launcher__campaign-marker span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible, .launcher__campaign-marker.is-selected { z-index: 4; color: #fff1bd; background: rgba(30, 35, 54, 0.96); border-color: #f0d494; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); transform: translate(-50%, -50%); }
+.launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible, .launcher__campaign-marker.is-selected { z-index: 4; color: #fff1bd; background: rgba(30, 35, 54, 1); border-color: #f0d494; box-shadow: 0 5px 18px rgba(0, 0, 0, 0.48); transform: translate(-50%, -50%); }
 .launcher__campaign-marker:active { transform: translate(-50%, -50%); }
 .launcher__dial-center { z-index: 3; display: grid; place-items: center; align-content: center; width: clamp(15rem, 30vw, 17rem); aspect-ratio: 1; padding: clamp(1.5rem, 3vw, 2rem); overflow: hidden; text-align: center; background: radial-gradient(circle at 50% 35%, rgba(42, 61, 91, 0.98), rgba(7, 15, 34, 0.99) 70%); border: 2px solid rgba(148, 207, 210, 0.78); border-radius: 50%; box-shadow: 0 0 35px rgba(114, 214, 208, 0.25), inset 0 0 22px rgba(211, 155, 238, 0.13); }
 .launcher__dial-center.is-open { border-color: #f0d494; }
@@ -46,4 +46,4 @@
 .launcher__new input { flex: 1; min-width: 0; }
 .launcher__new button { min-height: 44px; }
 .launcher__campaign-limit { margin: 0.65rem 0 0; color: #f0d494; font-size: 0.82rem; text-align: center; }
-@media (max-width: 620px) { .launcher { width: 100%; padding-inline: 0.5rem; } .launcher__dial { min-height: 31rem; } .launcher__dial-plane, .launcher__hands { width: 96%; height: 72%; } .launcher__campaign-marker { width: 5.6rem; } .launcher__dial-center { width: 14.5rem; padding: 1.4rem; } .launcher__new-controls { flex-direction: column; } }
+@media (max-width: 620px) { .launcher { width: 100%; padding-inline: 0.5rem; } .launcher__dial { min-height: 31rem; } .launcher__dial-plane { width: 96%; height: 72%; } .launcher__campaign-marker { width: 5.6rem; } .launcher__dial-center { width: 14.5rem; padding: 1.4rem; } .launcher__new-controls { flex-direction: column; } }
