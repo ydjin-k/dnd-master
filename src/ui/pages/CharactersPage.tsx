@@ -306,8 +306,11 @@ function CharacterCard({
       }),
       featureUses: newResources.map((resource) => {
         const max = resourceMax(resource, abilities);
+        // Прежний максимум — по прежним характеристикам: улучшение на 4 уровне
+        // поднимает Вдохновение барда/Божественное чувство, и эта прибавка
+        // должна дойти до текущего запаса, а не потеряться.
         const before = oldResources.find((r) => r.id === resource.id);
-        const previousMax = before ? resourceMax(before, abilities) : 0;
+        const previousMax = before ? resourceMax(before, c.abilities) : 0;
         const stored = ch.featureUses.find((u) => u.featureId === resource.id);
         const current = stored ? Math.min(previousMax, Math.max(0, stored.usesCurrent)) : previousMax;
         return { featureId: resource.id, usesCurrent: Math.min(max, current + (max - previousMax)) };

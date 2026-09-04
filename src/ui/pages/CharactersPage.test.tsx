@@ -62,6 +62,27 @@ const DRUID_TOPIC: RuleTopic = {
   ],
 };
 
+/** Кость хитов — тот же формат строк rules.json, что у FIGHTER_TOPIC выше; нужна левел-апу для пересчёта максимума хитов. */
+function classTopic(id: string, title: string, die: string, average: string): RuleTopic {
+  return {
+    id,
+    category: "classes",
+    title,
+    sourceUrl: "",
+    blocks: [
+      { type: "paragraph", text: `Кость хитов: 1к${die} за каждый уровень` },
+      {
+        type: "paragraph",
+        text: `Хиты на следующих уровнях: 1к${die} (или ${average}) + модификатор Телосложения за каждый уровень после первого`,
+      },
+    ],
+  };
+}
+
+const BARD_TOPIC = classTopic("classes-bard", "Бард", "8", "5");
+const BARBARIAN_TOPIC = classTopic("classes-barbarian", "Варвар", "12", "7");
+const WARLOCK_TOPIC = classTopic("classes-warlock", "Колдун", "8", "5");
+
 const addCharacter = vi.fn();
 const removeCharacter = vi.fn();
 const updateCharacter = vi.fn();
@@ -755,6 +776,120 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
     fireEvent.click(screen.getByText("Повысить уровень"));
     expect(updateCharacter).not.toHaveBeenCalled();
+  });
+
+  /**
+   * characters-class-feature-progression-1-5 — приёмка карточки: левел-ап
+   * обязан двигать не только хиты, но и таблицу прогрессии класса. По одному
+   * сценарию на каждый вид таблицы SRD: полный заклинатель (Бард),
+   * не-заклинатель (Варвар) и Магия договора (Колдун).
+   */
+  describe("прогрессия классов на левел-апе", () => {
+    function levelUpRunner(topic: RuleTopic, start: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [topic, CONDITIONS_TOPIC] : [],
+      );
+      let char = start;
+      mockState = baseState({ characters: [char] });
+      const { rerender } = render(<CharactersPage />);
+      return {
+        get char() {
+          return char;
+        },
+        async ready() {
+          await screen.findByText(/не может видеть/); // ждём ту же загрузку get_rules, что наполняет classHitDiceByTitle
+        },
+        levelUp() {
+          fireEvent.click(screen.getByText("Повысить уровень"));
+          const calls = updateCharacter.mock.calls;
+          const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+          char = updater(char);
+          mockState = baseState({ characters: [char] });
+          rerender(<CharactersPage />);
+        },
+      };
+    }
+
+    it("Бард 1→5 получает ячейки заклинаний по официальной таблице полного заклинателя", async () => {
+      const run = levelUpRunner(BARD_TOPIC, {
+        ...characterWithInventory(),
+        class: "Бард",
+        subclass: "Коллегия знаний", // архетип уже выбран — панель выбора не перехватывает левел-ап
+        level: 1,
+        conditions: ["Ослеплённое"],
+        abilities: { ...characterWithInventory().abilities, charisma: 16 },
+        knownCantrips: ["cantrip-1", "cantrip-2"],
+        knownSpells: ["spell-1", "spell-2", "spell-3", "spell-4"],
+        spellSlotsMax: [2, 0, 0, 0, 0],
+        spellSlotsCurrent: [2, 0, 0, 0, 0],
+      });
+      await run.ready();
+
+      run.levelUp();
+      expect(run.char.level).toBe(2);
+      expect(run.char.spellSlotsMax).toEqual([3, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsCurrent).toEqual([3, 0, 0, 0, 0]);
+
+      run.levelUp();
+      expect(run.char.spellSlotsMax).toEqual([4, 2, 0, 0, 0]);
+
+      run.levelUp(); // 3 -> 4: панель улучшения характеристик
+      fireEvent.click(screen.getByLabelText(/Харизма \(16\)/));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      const calls = updateCharacter.mock.calls;
+      const afterAsi = (calls[calls.length - 1][1] as (c: Character) => Character)(run.char);
+      expect(afterAsi.level).toBe(4);
+      expect(afterAsi.spellSlotsMax).toEqual([4, 3, 0, 0, 0]);
+      // Вдохновение барда считается от Харизмы: 16 → +3, после улучшения 18 → +4.
+      expect(afterAsi.featureUses).toContainEqual({ featureId: "bardic-inspiration", usesCurrent: 4 });
+    });
+
+    it("Варвар 1→3 получает третье использование Ярости по таблице, потратив одно по дороге", async () => {
+      const run = levelUpRunner(BARBARIAN_TOPIC, {
+        ...characterWithInventory(),
+        class: "Варвар",
+        subclass: "Путь берсерка",
+        level: 1,
+        conditions: ["Ослеплённое"],
+      });
+      await run.ready();
+
+      expect(screen.getByText(/2\/2 использование/)).toBeInTheDocument();
+      fireEvent.click(screen.getByTitle("Потратить: Ярость"));
+      const spent = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(run.char);
+      expect(spent.featureUses).toEqual([{ featureId: "rage", usesCurrent: 1 }]);
+
+      run.levelUp(); // 1 -> 2: по таблице всё ещё 2 использования
+      expect(run.char.featureUses).toEqual([{ featureId: "rage", usesCurrent: 2 }]);
+
+      run.levelUp(); // 2 -> 3: таблица даёт третье
+      expect(run.char.level).toBe(3);
+      expect(run.char.featureUses).toEqual([{ featureId: "rage", usesCurrent: 3 }]);
+      expect(run.char.spellSlotsMax).toEqual([0, 0, 0, 0, 0]);
+    });
+
+    it("Колдун идёт по Магии договора: на 3 уровне ячейки становятся 2 круга, а не добавляются к первому", async () => {
+      const run = levelUpRunner(WARLOCK_TOPIC, {
+        ...characterWithInventory(),
+        class: "Колдун",
+        subclass: "Архифея",
+        level: 1,
+        conditions: ["Ослеплённое"],
+        knownCantrips: ["cantrip-1", "cantrip-2"],
+        knownSpells: ["spell-1", "spell-2"],
+        spellSlotsMax: [1, 0, 0, 0, 0],
+        spellSlotsCurrent: [1, 0, 0, 0, 0],
+      });
+      await run.ready();
+
+      run.levelUp();
+      expect(run.char.spellSlotsMax).toEqual([2, 0, 0, 0, 0]);
+
+      run.levelUp();
+      expect(run.char.level).toBe(3);
+      expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0]);
+      expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0]);
+    });
   });
 });
 
