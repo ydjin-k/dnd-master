@@ -77,6 +77,13 @@ export interface Character {
   spellSlotsMax: number[];
   spellSlotsCurrent: number[];
   featureUses: FeatureUses[];
+  /**
+   * Выбор игрока внутри архетипа (`SubclassChoice.id` → id выбранных
+   * `options`), напр. «Добыча охотника» Следопыта. Отдельно от `featureUses`:
+   * это не расходуемый ресурс, а разовый выбор, который держит эффект
+   * навсегда — см. `effectiveSubclassGrants` в characterCreationData.ts.
+   */
+  subclassChoices: Record<string, string[]>;
 }
 
 export interface JournalEntry {

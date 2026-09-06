@@ -27,6 +27,7 @@ import {
   armorProficienciesFor,
   coinsTotalGold,
   computeArmorClass,
+  effectiveSubclassGrants,
   fmtMod,
   healingPoolSelfHeal,
   maxHpForLevel,
@@ -39,6 +40,7 @@ import {
   subclassResourceOptionsAt,
   subclassScalingAt,
   subclassSpellsUpToLevel,
+  toggleChoiceSelection,
   toolProficienciesFor,
   unproficientArmorIssue,
   weaponAttackFor,
@@ -48,6 +50,7 @@ import {
   type AbilityKey,
   type ArmorProficiency,
   type ClassLevelFeature,
+  type SubclassChoice,
   type SubclassResourceOption,
 } from "../characterCreationData";
 import {
@@ -167,6 +170,11 @@ function CharacterCard({
   const [collapsed, setCollapsed] = useState(false);
   const [subclassPanelOpen, setSubclassPanelOpen] = useState(false);
   const [subclassChoiceIndex, setSubclassChoiceIndex] = useState(0);
+  // Выбор внутри архетипа (Добыча охотника и т.п.) — третья ветка того же
+  // прерывания левел-апа, что и выбор архетипа/ASI выше (см. requestLevelUp).
+  const [pendingChoice, setPendingChoice] = useState<SubclassChoice | null>(null);
+  const [pendingChoiceSubclassName, setPendingChoiceSubclassName] = useState<string | undefined>(undefined);
+  const [choiceSelections, setChoiceSelections] = useState<string[]>([]);
   const [chosenCantrips, setChosenCantrips] = useState<string[]>([]);
   const [chosenSpells, setChosenSpells] = useState<string[]>([]);
 
@@ -179,11 +187,14 @@ function CharacterCard({
    * ещё нет — тогда берём его прямо из таблиц класса и архетипа, тем же
    * правилом, что и у счётчика ресурсов ниже.
    */
-  const armorProficiencies = c.armorProficiencies.length > 0 ? c.armorProficiencies : armorProficienciesFor(classId, c.subclass);
+  const armorProficiencies =
+    c.armorProficiencies.length > 0 ? c.armorProficiencies : armorProficienciesFor(classId, c.subclass, c.subclassChoices);
   const weaponProficiencies =
-    c.weaponProficiencies.length > 0 ? c.weaponProficiencies : weaponProficienciesFor(classId, c.subclass);
+    c.weaponProficiencies.length > 0
+      ? c.weaponProficiencies
+      : weaponProficienciesFor(classId, c.subclass, c.subclassChoices);
   const toolProficiencies =
-    c.toolProficiencies.length > 0 ? c.toolProficiencies : toolProficienciesFor(classId, c.subclass);
+    c.toolProficiencies.length > 0 ? c.toolProficiencies : toolProficienciesFor(classId, c.subclass, c.subclassChoices);
 
   /**
    * КД пересчитывается по инвентарю при каждом его изменении — единственный
@@ -364,13 +375,44 @@ function CharacterCard({
   }
 
   /**
+   * Имя архетипа, действующее ПОСЛЕ этого левел-апа — при единственном
+   * варианте (SRD) назначается автоматически, при нескольких приходит из
+   * confirmSubclass. Единственный владелец правила: и requestLevelUp (чтобы
+   * проверить, не появился ли ещё не сделанный `choice` архетипа), и
+   * applyLevelUp читают отсюда, а не считают то же самое дважды.
+   */
+  function subclassNameAfterLevelUp(newLevel: number, chosenSubclassName?: string): string {
+    const dice = classHitDiceByTitle[c.class];
+    const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
+    const grantedSubclass =
+      subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
+        ? (chosenSubclassName ?? subclassInfo.subclasses[0]?.name)
+        : undefined;
+    return grantedSubclass ?? c.subclass;
+  }
+
+  /** Ещё не сделанный выбор архетипа (SubclassChoice), открывающийся на этом уровне. */
+  function pendingChoiceFor(subclassName: string | undefined, newLevel: number): SubclassChoice | undefined {
+    return subclassGrants(classId, subclassName)?.choices?.find(
+      (choice) => choice.minLevel <= newLevel && !(c.subclassChoices[choice.id]?.length),
+    );
+  }
+
+  /**
    * Левел-ап: level+1, maxHp пересчитывается полностью по формуле (не
    * инкрементально) — см. maxHpForLevel и «Архитектурное решение» в карточке
    * characters-leveling-1-5. currentHp растёт на ту же прибавку (левел-ап
    * лечит, стандартное правило SRD). Принимает abilities явно — на 4 уровне
    * они уже включают выбор улучшения характеристик (ASI), см. confirmAsi.
+   * `newSubclassChoices` — выбор внутри архетипа, сделанный на этом же
+   * левел-апе (см. confirmChoice), подмешивается в снимок владений/заклинаний
+   * так же, как и сам архетип.
    */
-  function applyLevelUp(abilities: AbilityScores, chosenSubclassName?: string) {
+  function applyLevelUp(
+    abilities: AbilityScores,
+    chosenSubclassName?: string,
+    newSubclassChoices?: Record<string, string[]>,
+  ) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
     const conMod = abilityMod(abilities.constitution);
@@ -379,15 +421,6 @@ function CharacterCard({
       ? maxHpForLevel(dice.max, dice.average, conMod, raceBonus, newLevel)
       : c.maxHp;
     const hpGained = Math.max(0, newMaxHp - c.maxHp);
-    // Подкласс, выбираемый левел-апом (2 или 3 уровень — для Жреца/Колдуна/
-    // Чародея он уже назначен мастером на 1 уровне, см. CharacterWizard.tsx).
-    // При единственном варианте (SRD) назначается автоматически; при
-    // нескольких — выбранное имя приходит из confirmSubclass (см. requestLevelUp).
-    const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
-    const grantedSubclass =
-      subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel
-        ? (chosenSubclassName ?? subclassInfo.subclasses[0]?.name)
-        : undefined;
     // Прогрессия по таблице класса: ячейки заклинаний по кругам и классовые
     // ресурсы с ограниченным числом использований (classProgression.ts).
     // Прибавка идёт и в максимум, и в текущий запас — тем же правилом, что
@@ -395,52 +428,66 @@ function CharacterCard({
     const newSlotsMax = spellSlotsForLevel(dice?.id, newLevel);
     // Архетип, действующий после этого левел-апа: ресурсы, владения и
     // заклинания домена считаются уже по нему, а не по прежнему пустому.
-    const subclassName = grantedSubclass ?? c.subclass;
+    const subclassName = subclassNameAfterLevelUp(newLevel, chosenSubclassName);
     const newResources = characterResources(dice?.id, subclassName, newLevel);
     const oldResources = characterResources(dice?.id, c.subclass, c.level);
-    onUpdate((ch) => withRecomputedArmorClass({
-      ...ch,
-      level: newLevel,
-      abilities,
-      maxHp: newMaxHp,
-      currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
-      subclass: subclassName,
-      // Архетип может давать владения, навык и всегда подготовленные заклинания
-      // домена — на левел-апе они появляются вместе с ним.
-      armorProficiencies: armorProficienciesFor(dice?.id, subclassName),
-      weaponProficiencies: weaponProficienciesFor(dice?.id, subclassName),
-      toolProficiencies: toolProficienciesFor(dice?.id, subclassName),
-      skillProficiencies: [
-        ...new Set([...ch.skillProficiencies, ...(subclassGrants(dice?.id, subclassName)?.skills ?? [])]),
-      ],
-      knownSpells: [
-        ...new Set([...ch.knownSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel)]),
-      ],
-      spellSlotsMax: newSlotsMax,
-      spellSlotsCurrent: newSlotsMax.map((max, i) => {
-        const gained = Math.max(0, max - (ch.spellSlotsMax[i] ?? 0));
-        return Math.min(max, (ch.spellSlotsCurrent[i] ?? 0) + gained);
-      }),
-      featureUses: newResources.map((resource) => {
-        const max = resourceMax(resource, abilities);
-        // Прежний максимум — по прежним характеристикам: улучшение на 4 уровне
-        // поднимает Вдохновение барда/Божественное чувство, и эта прибавка
-        // должна дойти до текущего запаса, а не потеряться.
-        const before = oldResources.find((r) => r.id === resource.id);
-        const previousMax = before ? resourceMax(before, c.abilities) : 0;
-        const stored = ch.featureUses.find((u) => u.featureId === resource.id);
-        const current = stored ? Math.min(previousMax, Math.max(0, stored.usesCurrent)) : previousMax;
-        return { featureId: resource.id, usesCurrent: Math.min(max, current + (max - previousMax)) };
-      }),
-    }));
+    onUpdate((ch) => {
+      // Полный набор выбора внутри архетипа: то, что уже было сохранено,
+      // плюс выбор, сделанный этим же левел-апом (если был).
+      const allSubclassChoices = newSubclassChoices
+        ? { ...ch.subclassChoices, ...newSubclassChoices }
+        : ch.subclassChoices;
+      const effectiveGrants = effectiveSubclassGrants(dice?.id, subclassName, allSubclassChoices);
+      return withRecomputedArmorClass({
+        ...ch,
+        level: newLevel,
+        abilities,
+        maxHp: newMaxHp,
+        currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
+        subclass: subclassName,
+        subclassChoices: allSubclassChoices,
+        // Архетип может давать владения, навык и всегда подготовленные заклинания
+        // домена — на левел-апе они появляются вместе с ним (и с выбранным
+        // вариантом, если он есть).
+        armorProficiencies: armorProficienciesFor(dice?.id, subclassName, allSubclassChoices),
+        weaponProficiencies: weaponProficienciesFor(dice?.id, subclassName, allSubclassChoices),
+        toolProficiencies: toolProficienciesFor(dice?.id, subclassName, allSubclassChoices),
+        skillProficiencies: [...new Set([...ch.skillProficiencies, ...(effectiveGrants?.skills ?? [])])],
+        knownSpells: [
+          ...new Set([...ch.knownSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel, allSubclassChoices)]),
+        ],
+        spellSlotsMax: newSlotsMax,
+        spellSlotsCurrent: newSlotsMax.map((max, i) => {
+          const gained = Math.max(0, max - (ch.spellSlotsMax[i] ?? 0));
+          return Math.min(max, (ch.spellSlotsCurrent[i] ?? 0) + gained);
+        }),
+        featureUses: newResources.map((resource) => {
+          const max = resourceMax(resource, abilities);
+          // Прежний максимум — по прежним характеристикам: улучшение на 4 уровне
+          // поднимает Вдохновение барда/Божественное чувство, и эта прибавка
+          // должна дойти до текущего запаса, а не потеряться.
+          const before = oldResources.find((r) => r.id === resource.id);
+          const previousMax = before ? resourceMax(before, c.abilities) : 0;
+          const stored = ch.featureUses.find((u) => u.featureId === resource.id);
+          const current = stored ? Math.min(previousMax, Math.max(0, stored.usesCurrent)) : previousMax;
+          return { featureId: resource.id, usesCurrent: Math.min(max, current + (max - previousMax)) };
+        }),
+      });
+    });
     playLevelUpSound();
   }
 
   /**
    * На 4 уровне левел-ап не мгновенный — сперва открывает выбор ASI (см.
    * confirmAsi). На уровне выбора архетипа (chosenAtLevel), если вариантов
-   * больше одного, сперва открывает выбор архетипа (см. confirmSubclass) —
-   * оба уровня не совпадают ни у одного класса, ветки взаимоисключающие.
+   * больше одного, сперва открывает выбор архетипа (см. confirmSubclass).
+   * Третья ветка того же прерывания: если у архетипа (уже известного или
+   * только что назначенного этим же левел-апом) на новом уровне есть ещё не
+   * сделанный `choice` (Добыча охотника и т.п.), сперва открывает его панель
+   * (см. confirmChoice). Ни одна пара веток не совпадает уровнем ни у одного
+   * ПОДКЛЮЧЁННОГО случая, но само прерывание рассчитано на совпадение: если
+   * бы совпало, выбор архетипа заканчивается раньше и обнаруживает choice
+   * следующим шагом, а не одновременно с ним.
    */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
@@ -454,6 +501,12 @@ function CharacterCard({
     if (subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel && subclassInfo.subclasses.length > 1) {
       setSubclassChoiceIndex(0);
       setSubclassPanelOpen(true);
+      return;
+    }
+    const grantedSubclassName = subclassNameAfterLevelUp(newLevel);
+    const choice = pendingChoiceFor(grantedSubclassName, newLevel);
+    if (choice) {
+      openChoicePanel(choice, grantedSubclassName);
       return;
     }
     if (newLevel === 4) {
@@ -471,8 +524,38 @@ function CharacterCard({
   function confirmSubclass() {
     const chosen = levelUpSubclassInfo?.subclasses[subclassChoiceIndex]?.name;
     if (!chosen) return;
-    applyLevelUp(c.abilities, chosen);
     setSubclassPanelOpen(false);
+    const choice = pendingChoiceFor(chosen, c.level + 1);
+    if (choice) {
+      openChoicePanel(choice, chosen);
+      return;
+    }
+    applyLevelUp(c.abilities, chosen);
+  }
+
+  function openChoicePanel(choice: SubclassChoice, subclassName?: string) {
+    setPendingChoice(choice);
+    setPendingChoiceSubclassName(subclassName);
+    setChoiceSelections([]);
+  }
+
+  function toggleChoiceOption(optionId: string) {
+    if (!pendingChoice) return;
+    setChoiceSelections((prev) => toggleChoiceSelection(prev, optionId, pendingChoice.pick));
+  }
+
+  function confirmChoice() {
+    if (!pendingChoice || choiceSelections.length !== pendingChoice.pick) return;
+    applyLevelUp(c.abilities, pendingChoiceSubclassName, { [pendingChoice.id]: choiceSelections });
+    setPendingChoice(null);
+    setPendingChoiceSubclassName(undefined);
+    setChoiceSelections([]);
+  }
+
+  function cancelChoice() {
+    setPendingChoice(null);
+    setPendingChoiceSubclassName(undefined);
+    setChoiceSelections([]);
   }
 
   function setAsiModeAndReset(mode: "plus2" | "plus1plus1") {
@@ -530,7 +613,7 @@ function CharacterCard({
    * появления прогрессии.
    */
   const progression = progressionAt(classId, c.level);
-  const grants = subclassGrants(classId, c.subclass);
+  const grants = effectiveSubclassGrants(classId, c.subclass, c.subclassChoices);
   const spellsKnownKind = classId ? CLASS_PROGRESSION[classId]?.spellsKnownKind : undefined;
   const highestCircle = highestSpellCircle(classId, c.level);
   // Архетип может добавить заговоры сверх нормы класса (Круг земли, Круг звёзд,
@@ -542,11 +625,11 @@ function CharacterCard({
   // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
   const classResources = characterResources(classId, c.subclass, c.level);
   const classScaling = progression?.scaling ?? [];
-  const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level).filter((option) =>
+  const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level, c.subclassChoices).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
   );
-  const subclassScaling = subclassScalingAt(classId, c.subclass, c.level);
-  const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level);
+  const subclassScaling = subclassScalingAt(classId, c.subclass, c.level, c.subclassChoices);
+  const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level, c.subclassChoices);
   const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
   const weaponAttacks = weaponsInInventory(c.inventory.map((item) => item.name)).map((weapon) =>
     weaponAttackFor(weapon, c.abilities, c.level, weaponProficiencies),
@@ -659,7 +742,7 @@ function CharacterCard({
         <button
           type="button"
           onClick={requestLevelUp}
-          disabled={c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen}
+          disabled={c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen || !!pendingChoice}
           aria-disabled={!levelUpReady}
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
           data-own-sound
@@ -710,6 +793,45 @@ function CharacterCard({
               Подтвердить и повысить уровень
             </button>
             <button type="button" onClick={() => setSubclassPanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+      {pendingChoice && (
+        <div className="character-card__asi">
+          <p>
+            Выберите «{pendingChoice.name}» ({c.level + 1} уровень) —{" "}
+            {pendingChoice.pick > 1 ? `${pendingChoice.pick} варианта(ов)` : "один вариант"}:
+          </p>
+          <div className="character-card__asi-mode">
+            {pendingChoice.options.map((option) => (
+              <label key={option.id}>
+                <input
+                  type={pendingChoice.pick === 1 ? "radio" : "checkbox"}
+                  name="subclass-choice-option"
+                  checked={choiceSelections.includes(option.id)}
+                  disabled={
+                    pendingChoice.pick > 1 &&
+                    !choiceSelections.includes(option.id) &&
+                    choiceSelections.length >= pendingChoice.pick
+                  }
+                  onChange={() => toggleChoiceOption(option.id)}
+                />{" "}
+                {option.label}
+              </label>
+            ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button
+              type="button"
+              onClick={confirmChoice}
+              disabled={choiceSelections.length !== pendingChoice.pick}
+              data-own-sound
+            >
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={cancelChoice}>
               Отмена
             </button>
           </div>

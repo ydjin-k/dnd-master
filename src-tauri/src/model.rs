@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -126,6 +127,13 @@ pub struct Character {
     pub spell_slots_max: Vec<i32>,
     pub spell_slots_current: Vec<i32>,
     pub feature_uses: Vec<FeatureUses>,
+    /// Выбор игрока внутри архетипа (id выбора → id выбранных вариантов),
+    /// напр. «Добыча охотника» Следопыта — снимок держится здесь, а не
+    /// пересчитывается: сам выбор существует только на стороне UI
+    /// (`SubclassGrants.choices` в characterCreationData.ts). Старые
+    /// сохранения получают пустую карту через структурный `#[serde(default)]`,
+    /// как и `tool_proficiencies` (см. карточку #73).
+    pub subclass_choices: HashMap<String, Vec<String>>,
 }
 
 impl Character {

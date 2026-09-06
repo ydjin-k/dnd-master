@@ -1591,6 +1591,39 @@ export interface SubclassScalingValue {
 }
 
 /**
+ * Один вариант выбора внутри архетипа (`SubclassChoice.options`) — фрагмент
+ * `SubclassGrants`, который подмешивается к грантам архетипа, если игрок его
+ * выбрал (см. `effectiveSubclassGrants`). Не заводит отдельной системы: Круг
+ * земли, например, просто кладёт местную таблицу заклинаний в `grants.
+ * spellsByLevel` этого варианта — она пойдёт через уже существующий
+ * `subclassSpellsUpToLevel`.
+ */
+export interface SubclassChoiceOption {
+  id: string;
+  label: string;
+  grants: SubclassGrants;
+}
+
+/**
+ * Выбор игрока внутри архетипа — «одно/N из списка», а не то, что даётся
+ * безусловно (Добыча охотника Следопыта, Дополнительные навыки барда, Круг
+ * земли друида). Персонаж хранит сделанный выбор в `Character.
+ * subclassChoices` по `id`; левел-ап открывает панель выбора, если на новом
+ * уровне появляется ещё не сделанный `choice` (см. `requestLevelUp` в
+ * CharactersPage.tsx).
+ */
+export interface SubclassChoice {
+  /** Стабильный id выбора, напр. "hunter-prey" — ключ в `Character.subclassChoices`. */
+  id: string;
+  /** Название особенности для панели/карточки. */
+  name: string;
+  minLevel: number;
+  /** Сколько вариантов выбрать (1 — радиокнопки, больше одного — чекбоксы с потолком). */
+  pick: number;
+  options: SubclassChoiceOption[];
+}
+
+/**
  * Механическая часть архетипа — то, что читает движок. Текст особенностей
  * остаётся в `featuresByLevel` и здесь не повторяется: у каждого факта один
  * владелец, здесь живут только числа и владения.
@@ -1620,6 +1653,8 @@ export interface SubclassGrants {
   spellsByLevel?: Record<number, string[]>;
   /** Прибавка к лечению заклинанием: `flat` + круг заклинания (Защитник жизни — 2 + круг). */
   healingBonus?: { flat: number };
+  /** Выбор игрока, открывающий этот фрагмент грантов при отметке варианта — см. `SubclassChoice`. */
+  choices?: SubclassChoice[];
 }
 
 export interface ClassSubclass {
@@ -2115,6 +2150,65 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               effect: { kind: "half-level" },
             },
           ],
+          // Местность выбирается при посвящении в круг (тот же уровень, что и
+          // сам архетип, minLevel: 2) — SRD: «Выберите эту землю... где он был
+          // посвящён». Заклинания местности приходят на 3 и 5 уровнях (2-3
+          // круг); 7 и 9 уровней не смоделированы — как и у всех остальных
+          // архетипов в этом файле (см. `spellsByLevel` доменов жреца выше),
+          // таблица обрезана по потолку `MAX_LEVEL = 5` (characters-leveling-
+          // 1-5), а часть заклинаний этих уровней (Наблюдение/Провидение) к
+          // тому же отсутствует в spells.json — заводить их ради недостижимого
+          // уровня не имеет смысла. rules.json называет заклинания местным
+          // переводом, отличным от spells.json (например «Рост шипов» —
+          // «Шипастые заросли» в spells.json, тот же spike-growth) — id ниже
+          // сверены по значению, а не по строке.
+          choices: [
+            {
+              id: "circle-of-the-land-terrain",
+              name: "Заклинания круга",
+              minLevel: 2,
+              pick: 1,
+              options: [
+                {
+                  id: "arctic",
+                  label: "Арктика",
+                  grants: { spellsByLevel: { 3: ["hold-person", "spike-growth"], 5: ["slow", "sleet-storm"] } },
+                },
+                {
+                  id: "coast",
+                  label: "Побережье",
+                  grants: { spellsByLevel: { 3: ["mirror-image", "misty-step"], 5: ["water-breathing", "water-walk"] } },
+                },
+                {
+                  id: "desert",
+                  label: "Пустыня",
+                  grants: {
+                    spellsByLevel: { 3: ["blur", "silence"], 5: ["protection-from-energy", "create-food-and-water"] },
+                  },
+                },
+                {
+                  id: "forest",
+                  label: "Лес",
+                  grants: { spellsByLevel: { 3: ["barkskin", "spider-climb"], 5: ["call-lightning", "plant-growth"] } },
+                },
+                {
+                  id: "grassland",
+                  label: "Пастбища",
+                  grants: { spellsByLevel: { 3: ["pass-without-trace", "invisibility"], 5: ["daylight", "haste"] } },
+                },
+                {
+                  id: "mountain",
+                  label: "Горы",
+                  grants: { spellsByLevel: { 3: ["spider-climb", "spike-growth"], 5: ["lightning-bolt", "meld-into-stone"] } },
+                },
+                {
+                  id: "swamp",
+                  label: "Болото",
+                  grants: { spellsByLevel: { 3: ["acid-arrow", "darkness"], 5: ["stinking-cloud", "water-walk"] } },
+                },
+              ],
+            },
+          ],
         },
         featuresByLevel: {
           2: [
@@ -2128,17 +2222,11 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
                 "Начиная со 2 уровня, во время короткого отдыха вы можете восстановить потраченные ячейки заклинаний суммарным уровнем не выше половины уровня друида (округляя вверх), ни одна не выше 5 круга — раз за длинный отдых.",
             },
           ],
-          // «Заклинания круга» зависят от выбранной при посвящении местности, а
-          // выбора местности в приложении пока нет: `spellsByLevel` — один
-          // список на архетип, ветвиться по местности он не умеет. Заклинания
-          // нужных кругов в spells.json уже есть, упирается только выбор — до
-          // появления UI честно показываем текстом, а не наугад выбранной
-          // местностью.
           3: [
             {
               name: "Заклинания круга",
               description:
-                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний. Выбор местности в приложении пока не сделан, поэтому конкретный список здесь не показан.",
+                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности (Арктика, Побережье, Пустыня, Лес, Пастбища, Горы или Болото) — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний.",
             },
           ],
         },
@@ -2226,8 +2314,6 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Коллегия знаний",
         grants: {
-          // «Дополнительные навыки» — выбор трёх навыков игроком, а `skills` —
-          // фиксированный список; выбор требует своего UI и остаётся текстом.
           // Кость Острых слов не дублируется: её владелец — `scaling` класса
           // («Кость Вдохновения барда» в classProgression.ts).
           resourceOptions: [
@@ -2237,6 +2323,19 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               name: "Острые слова",
               minLevel: 3,
               effect: { kind: "descriptive" },
+            },
+          ],
+          // «Дополнительные навыки» — выбор трёх навыков из полного списка
+          // навыков SRD (не маленький фиксированный список). id варианта — само
+          // название навыка: в приложении навыки везде идентифицируются им же
+          // (см. SKILL_ABILITY), заводить отдельные слаги незачем.
+          choices: [
+            {
+              id: "college-of-lore-skills",
+              name: "Дополнительные навыки",
+              minLevel: 3,
+              pick: 3,
+              options: ALL_SKILLS.map((skill) => ({ id: skill, label: skill, grants: { skills: [skill] } })),
             },
           ],
         },
@@ -2744,6 +2843,37 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         // Текст называет два классических архетипа («Охотник» и «Хозяин Зверей»), но детально расписан только «Охотник» — единственный вариант в этом файле.
         name: "Охотник",
+        grants: {
+          choices: [
+            {
+              id: "hunter-prey",
+              name: "Добыча охотника",
+              minLevel: 3,
+              pick: 1,
+              options: [
+                {
+                  id: "colossus-slayer",
+                  label: "Убийца Колоссов",
+                  grants: {
+                    scaling: [
+                      { name: "Убийца Колоссов", minLevel: 3, effect: { kind: "bonus-damage-dice", count: 1, die: 8 } },
+                    ],
+                  },
+                },
+                {
+                  id: "giant-killer",
+                  label: "Убийца великанов",
+                  grants: { scaling: [{ name: "Убийца великанов", minLevel: 3, effect: { kind: "descriptive" } }] },
+                },
+                {
+                  id: "horde-breaker",
+                  label: "Сокрушитель орд",
+                  grants: { scaling: [{ name: "Сокрушитель орд", minLevel: 3, effect: { kind: "descriptive" } }] },
+                },
+              ],
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
@@ -2809,26 +2939,114 @@ export function subclassGrants(classId: string | null | undefined, subclassName:
   return CLASS_SUBCLASSES[classId]?.subclasses.find((s) => s.name === subclassName)?.grants;
 }
 
+function mergeStringArrays<T extends string>(a: T[] | undefined, b: T[] | undefined): T[] | undefined {
+  if (!a && !b) return undefined;
+  return [...new Set([...(a ?? []), ...(b ?? [])])];
+}
+
+/** Заклинания варианта по уровню подмешиваются в таблицу архетипа, круг за кругом. */
+function mergeSpellsByLevel(
+  a: Record<number, string[]> | undefined,
+  b: Record<number, string[]> | undefined,
+): Record<number, string[]> | undefined {
+  if (!a && !b) return undefined;
+  const merged: Record<number, string[]> = { ...a };
+  for (const [at, spellIds] of Object.entries(b ?? {})) {
+    const level = Number(at);
+    merged[level] = [...new Set([...(merged[level] ?? []), ...spellIds])];
+  }
+  return merged;
+}
+
 /**
- * Владения доспехами класса плюс данные архетипом. Единственный владелец
- * правила — таблицы `CLASS_PROFICIENCIES`/`CLASS_SUBCLASSES`; персонаж хранит
- * снимок этого списка (как и владения спасбросками), а не считает его заново.
+ * Гранты архетипа с грантами выбранного варианта `SubclassChoice`, подмешанными
+ * поверх. Списки (владения, навыки, сопротивления, `scaling`/`resources`/
+ * `resourceOptions`, `spellsByLevel`) объединяются; одиночные значения
+ * (`unarmoredAc`, `critRange`, `bonusCantrips`, `healingBonus`) вариант
+ * перекрывает, если задаёт своё. `choices` не трогается — это список
+ * определений выбора, а не то, что выбор меняет.
+ */
+function mergeSubclassGrants(base: SubclassGrants, extra: SubclassGrants): SubclassGrants {
+  return {
+    ...base,
+    ...extra,
+    armor: mergeStringArrays(base.armor, extra.armor),
+    weaponCategories: mergeStringArrays(base.weaponCategories, extra.weaponCategories),
+    weapons: mergeStringArrays(base.weapons, extra.weapons),
+    skills: mergeStringArrays(base.skills, extra.skills),
+    toolProficiencies: mergeStringArrays(base.toolProficiencies, extra.toolProficiencies),
+    damageResistances: mergeStringArrays(base.damageResistances, extra.damageResistances),
+    scaling: base.scaling || extra.scaling ? [...(base.scaling ?? []), ...(extra.scaling ?? [])] : undefined,
+    resources: base.resources || extra.resources ? [...(base.resources ?? []), ...(extra.resources ?? [])] : undefined,
+    resourceOptions:
+      base.resourceOptions || extra.resourceOptions
+        ? [...(base.resourceOptions ?? []), ...(extra.resourceOptions ?? [])]
+        : undefined,
+    spellsByLevel: mergeSpellsByLevel(base.spellsByLevel, extra.spellsByLevel),
+    choices: base.choices,
+  };
+}
+
+/**
+ * Гранты архетипа, домешивающие эффект уже сделанных `subclassChoices`
+ * персонажа (id выбора → id выбранных вариантов). Без сделанного выбора равна
+ * `subclassGrants` — существующие вызовы без третьего аргумента не меняют
+ * поведения. Параллельная функция, а не замена `subclassGrants`: часть
+ * вызовов (например, список самих `choices` для панели левел-апа) не должна
+ * видеть уже подмешанный результат.
+ */
+export function effectiveSubclassGrants(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  subclassChoices?: Record<string, string[]>,
+): SubclassGrants | undefined {
+  const base = subclassGrants(classId, subclassName);
+  if (!base?.choices?.length || !subclassChoices) return base;
+  let merged = base;
+  for (const choice of base.choices) {
+    for (const optionId of subclassChoices[choice.id] ?? []) {
+      const option = choice.options.find((o) => o.id === optionId);
+      if (option) merged = mergeSubclassGrants(merged, option.grants);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Переключение id в списке выбранных вариантов с потолком `pick` — общий
+ * приём выбора N вариантов (мастер персонажа — фон и его N навыков, левел-ап —
+ * выбор внутри архетипа). `pick === 1` заменяет выбор целиком, как радиокнопка.
+ */
+export function toggleChoiceSelection(selected: string[], id: string, pick: number): string[] {
+  if (selected.includes(id)) return selected.filter((s) => s !== id);
+  if (pick === 1) return [id];
+  if (selected.length >= pick) return selected;
+  return [...selected, id];
+}
+
+/**
+ * Владения доспехами класса плюс данные архетипом (и выбранным вариантом, если
+ * передан `subclassChoices`). Единственный владелец правила — таблицы
+ * `CLASS_PROFICIENCIES`/`CLASS_SUBCLASSES`; персонаж хранит снимок этого
+ * списка (как и владения спасбросками), а не считает его заново.
  */
 export function armorProficienciesFor(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
+  subclassChoices?: Record<string, string[]>,
 ): ArmorProficiency[] {
   const base = (classId ? CLASS_PROFICIENCIES[classId]?.armor : undefined) ?? [];
-  return [...new Set([...base, ...(subclassGrants(classId, subclassName)?.armor ?? [])])];
+  return [...new Set([...base, ...(effectiveSubclassGrants(classId, subclassName, subclassChoices)?.armor ?? [])])];
 }
 
 /** Владения оружием класса плюс данные архетипом: категории и отдельные виды в одном списке. */
 export function weaponProficienciesFor(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
+  subclassChoices?: Record<string, string[]>,
 ): string[] {
   const prof = classId ? CLASS_PROFICIENCIES[classId] : undefined;
-  const grants = subclassGrants(classId, subclassName);
+  const grants = effectiveSubclassGrants(classId, subclassName, subclassChoices);
   return [
     ...new Set([
       ...(prof?.weaponCategories ?? []),
@@ -2847,8 +3065,9 @@ export function weaponProficienciesFor(
 export function toolProficienciesFor(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
+  subclassChoices?: Record<string, string[]>,
 ): string[] {
-  return [...new Set(subclassGrants(classId, subclassName)?.toolProficiencies ?? [])];
+  return [...new Set(effectiveSubclassGrants(classId, subclassName, subclassChoices)?.toolProficiencies ?? [])];
 }
 
 /** Заклинания домена/архетипа, открытые к этому уровню персонажа (всегда подготовлены). */
@@ -2856,8 +3075,9 @@ export function subclassSpellsUpToLevel(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
   level: number,
+  subclassChoices?: Record<string, string[]>,
 ): string[] {
-  const byLevel = subclassGrants(classId, subclassName)?.spellsByLevel;
+  const byLevel = effectiveSubclassGrants(classId, subclassName, subclassChoices)?.spellsByLevel;
   if (!byLevel) return [];
   const ids: string[] = [];
   for (const [at, spellIds] of Object.entries(byLevel)) {
@@ -2871,8 +3091,11 @@ export function subclassResourceOptionsAt(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
   level: number,
+  subclassChoices?: Record<string, string[]>,
 ): SubclassResourceOption[] {
-  return (subclassGrants(classId, subclassName)?.resourceOptions ?? []).filter((o) => o.minLevel <= level);
+  return (effectiveSubclassGrants(classId, subclassName, subclassChoices)?.resourceOptions ?? []).filter(
+    (o) => o.minLevel <= level,
+  );
 }
 
 /** Постоянные числа архетипа, открытые к этому уровню персонажа. */
@@ -2880,8 +3103,11 @@ export function subclassScalingAt(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
   level: number,
+  subclassChoices?: Record<string, string[]>,
 ): SubclassScalingValue[] {
-  return (subclassGrants(classId, subclassName)?.scaling ?? []).filter((s) => s.minLevel <= level);
+  return (effectiveSubclassGrants(classId, subclassName, subclassChoices)?.scaling ?? []).filter(
+    (s) => s.minLevel <= level,
+  );
 }
 
 /**

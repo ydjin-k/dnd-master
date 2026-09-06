@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import bundledSpells from "../../src-tauri/rules/spells.json";
 import {
   armorProficienciesFor,
   carryingCapacityLb,
@@ -7,6 +8,7 @@ import {
   CLASS_SUBCLASSES,
   coinsWeightLb,
   computeArmorClass,
+  effectiveSubclassGrants,
   healingPoolSelfHeal,
   inventoryWeightLb,
   parseItemWeightLb,
@@ -16,6 +18,7 @@ import {
   subclassResourceOptionsAt,
   subclassScalingAt,
   subclassSpellsUpToLevel,
+  toggleChoiceSelection,
   toolProficienciesFor,
   unproficientArmorIssue,
   weaponAttackFor,
@@ -198,6 +201,11 @@ const GRANTED_ARCHETYPES: [classId: string, subclass: string, key: keyof NonNull
   ["classes-rogue", "Мистический ловкач", "bonusCantrips"],
   ["classes-ranger", "Укротитель зверей", "scaling"],
   ["classes-ranger", "Странник", "resources"],
+  // characters-subclass-choice-ui: выбор внутри архетипа — не безусловный
+  // грант, подключён через choices, см. describe ниже.
+  ["classes-ranger", "Охотник", "choices"],
+  ["classes-bard", "Коллегия знаний", "choices"],
+  ["classes-druid", "Круг земли", "choices"],
 ];
 
 describe("механика архетипов", () => {
@@ -205,15 +213,139 @@ describe("механика архетипов", () => {
     expect(subclassGrants(classId, subclass)?.[key]).toBeDefined();
   });
 
-  it("архетип, до которого карточка не дошла, механики не получил", () => {
-    // Добыча охотника — выбор одного из трёх умений, для него нужен свой UI;
-    // проба краснеет, когда выбор появится, и тогда строка отсюда уходит.
-    expect(subclassGrants("classes-ranger", "Охотник")).toBeUndefined();
-  });
-
   it("без архетипа грантов нет вовсе", () => {
     expect(subclassGrants("classes-fighter", null)).toBeUndefined();
     expect(subclassGrants(null, "Воитель")).toBeUndefined();
+  });
+});
+
+/**
+ * Общий механизм выбора внутри архетипа (SubclassChoice/effectiveSubclassGrants)
+ * — покрыт независимо от конкретных архетипов, «Добыча охотника» здесь только
+ * поставщик реальных данных (простейший подключённый случай, pick === 1).
+ */
+describe("выбор варианта архетипа (SubclassChoice)", () => {
+  const hunterPreyChoice = subclassGrants("classes-ranger", "Охотник")!.choices![0];
+
+  it("выбор недоступен до уровня — Добыча охотника открывается только на 3 уровне", () => {
+    expect(hunterPreyChoice.minLevel).toBe(3);
+    expect(hunterPreyChoice.pick).toBe(1);
+    expect(hunterPreyChoice.options.map((o) => o.id)).toEqual(["colossus-slayer", "giant-killer", "horde-breaker"]);
+  });
+
+  it("без сделанного выбора эффективные гранты равны базовым", () => {
+    expect(effectiveSubclassGrants("classes-ranger", "Охотник", {})).toEqual(subclassGrants("classes-ranger", "Охотник"));
+    expect(effectiveSubclassGrants("classes-ranger", "Охотник")).toEqual(subclassGrants("classes-ranger", "Охотник"));
+  });
+
+  it("выбор доступен и применяется — выбранный вариант подмешивается в гранты", () => {
+    const grants = effectiveSubclassGrants("classes-ranger", "Охотник", { [hunterPreyChoice.id]: ["colossus-slayer"] });
+    expect(grants?.scaling).toContainEqual({
+      name: "Убийца Колоссов",
+      minLevel: 3,
+      effect: { kind: "bonus-damage-dice", count: 1, die: 8 },
+    });
+  });
+
+  it("невыбранный вариант эффекта не даёт", () => {
+    const grants = effectiveSubclassGrants("classes-ranger", "Охотник", { [hunterPreyChoice.id]: ["giant-killer"] });
+    expect(grants?.scaling?.some((s) => s.name === "Убийца Колоссов")).toBe(false);
+    expect(grants?.scaling).toContainEqual({ name: "Убийца великанов", minLevel: 3, effect: { kind: "descriptive" } });
+  });
+
+  /** Коллегия знаний — второй подключённый случай, pick > 1 на настоящих данных (18 навыков SRD). */
+  describe("Коллегия знаний барда — pick > 1", () => {
+    const loreSkillsChoice = subclassGrants("classes-bard", "Коллегия знаний")!.choices![0];
+
+    it("выбор — 3 варианта из полного списка навыков SRD, а не маленький фиксированный список", () => {
+      expect(loreSkillsChoice.pick).toBe(3);
+      expect(loreSkillsChoice.options).toHaveLength(18);
+      expect(loreSkillsChoice.options.map((o) => o.id)).toContain("Магия");
+    });
+
+    it("три выбранных навыка подмешиваются в skills архетипа", () => {
+      const grants = effectiveSubclassGrants("classes-bard", "Коллегия знаний", {
+        [loreSkillsChoice.id]: ["Магия", "Религия", "История"],
+      });
+      expect(grants?.skills).toEqual(["Магия", "Религия", "История"]);
+    });
+
+    it("невыбранный навык в skills не попадает", () => {
+      const grants = effectiveSubclassGrants("classes-bard", "Коллегия знаний", {
+        [loreSkillsChoice.id]: ["Магия", "Религия", "История"],
+      });
+      expect(grants?.skills).not.toContain("Природа");
+    });
+  });
+
+  /**
+   * Круг земли — третий подключённый случай: вариант несёт не безусловный
+   * список, а собственный мини-spellsByLevel (заклинания местности), который
+   * должен пройти через тот же subclassSpellsUpToLevel, что и обычные домены.
+   */
+  describe("Круг земли друида — вариант несёт свой spellsByLevel", () => {
+    const terrainChoice = subclassGrants("classes-druid", "Круг земли")!.choices![0];
+
+    it("местность выбирается на том же уровне, что и сам архетип, вариантов 7", () => {
+      expect(terrainChoice.minLevel).toBe(2);
+      expect(terrainChoice.pick).toBe(1);
+      expect(terrainChoice.options).toHaveLength(7);
+      expect(terrainChoice.options.map((o) => o.id)).toEqual([
+        "arctic",
+        "coast",
+        "desert",
+        "forest",
+        "grassland",
+        "mountain",
+        "swamp",
+      ]);
+    });
+
+    it("заклинания выбранной местности доступны через subclassSpellsUpToLevel по уровню", () => {
+      const choices = { [terrainChoice.id]: ["arctic"] };
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 2, choices)).toEqual([]);
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 3, choices)).toEqual(
+        expect.arrayContaining(["hold-person", "spike-growth"]),
+      );
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).toEqual(
+        expect.arrayContaining(["hold-person", "spike-growth", "slow", "sleet-storm"]),
+      );
+    });
+
+    it("невыбранная местность своих заклинаний не даёт", () => {
+      const choices = { [terrainChoice.id]: ["swamp"] };
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).not.toContain("hold-person");
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).toEqual(
+        expect.arrayContaining(["acid-arrow", "darkness", "stinking-cloud", "water-walk"]),
+      );
+    });
+
+    it("все id заклинаний местностей существуют в бандле spells.json (bundledSpells)", () => {
+      const ids = new Set(bundledSpells.map((s) => s.id));
+      for (const option of terrainChoice.options) {
+        for (const spellIds of Object.values(option.grants.spellsByLevel ?? {})) {
+          for (const id of spellIds) {
+            expect(ids.has(id), `${option.label}: заклинание "${id}" отсутствует в spells.json`).toBe(true);
+          }
+        }
+      }
+    });
+  });
+});
+
+describe("toggleChoiceSelection — общий приём выбора N вариантов с потолком", () => {
+  it("pick === 1 заменяет выбор целиком, как радиокнопка", () => {
+    expect(toggleChoiceSelection([], "a", 1)).toEqual(["a"]);
+    expect(toggleChoiceSelection(["a"], "b", 1)).toEqual(["b"]);
+  });
+
+  it("pick > 1 не даёт выбрать больше N", () => {
+    expect(toggleChoiceSelection(["a", "b"], "c", 2)).toEqual(["a", "b"]);
+    expect(toggleChoiceSelection(["a"], "b", 2)).toEqual(["a", "b"]);
+  });
+
+  it("уже выбранный вариант снимается повторным нажатием", () => {
+    expect(toggleChoiceSelection(["a", "b"], "a", 2)).toEqual(["b"]);
   });
 });
 

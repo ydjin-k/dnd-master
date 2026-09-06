@@ -176,6 +176,7 @@ describe("CharactersPage", () => {
       spellSlotsMax: [0, 0, 0, 0, 0],
       spellSlotsCurrent: [0, 0, 0, 0, 0],
       featureUses: [],
+      subclassChoices: {},
     };
   }
 
@@ -220,6 +221,7 @@ describe("CharactersPage", () => {
           spellSlotsMax: [0, 0, 0, 0, 0],
           spellSlotsCurrent: [0, 0, 0, 0, 0],
           featureUses: [],
+          subclassChoices: {},
         },
       ],
     });
@@ -819,8 +821,11 @@ describe("CharactersPage", () => {
         async ready() {
           await screen.findByText(/не может видеть/); // ждём ту же загрузку get_rules, что наполняет classHitDiceByTitle
         },
-        levelUp() {
+        // `interact` — доп. клики между «Повысить уровень» и применением, для
+        // левел-апов, прерывающихся панелью выбора (архетип/choice/ASI).
+        levelUp(interact?: () => void) {
           fireEvent.click(screen.getByText("Повысить уровень"));
+          interact?.();
           const calls = updateCharacter.mock.calls;
           const updater = calls[calls.length - 1][1] as (c: Character) => Character;
           char = updater(char);
@@ -850,8 +855,18 @@ describe("CharactersPage", () => {
       expect(run.char.spellSlotsMax).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0]);
       expect(run.char.spellSlotsCurrent).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-      run.levelUp();
+      // 2 -> 3: архетип уже выбран, но на этом же уровне открывается «Дополнительные
+      // навыки» Коллегии знаний (characters-subclass-choice-ui) — левел-ап
+      // применяется только после выбора 3 навыков.
+      run.levelUp(() => {
+        fireEvent.click(screen.getByLabelText("Магия"));
+        fireEvent.click(screen.getByLabelText("Религия"));
+        fireEvent.click(screen.getByLabelText("История"));
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+      expect(run.char.level).toBe(3);
       expect(run.char.spellSlotsMax).toEqual([4, 2, 0, 0, 0, 0, 0, 0, 0]);
+      expect(run.char.subclassChoices).toEqual({ "college-of-lore-skills": ["Магия", "Религия", "История"] });
 
       run.levelUp(); // 3 -> 4: панель улучшения характеристик
       fireEvent.click(screen.getByLabelText(/Харизма \(16\)/));
@@ -1217,6 +1232,180 @@ describe("CharactersPage", () => {
       char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
       expect(char.subclass).toBe("Убийца");
       expect(char.toolProficiencies).toEqual(["Набор для отравления", "Маскировочный набор"]);
+    });
+
+    it("на 2 уровне Следопыта выбор архетипа/Добычи охотника ещё не предлагается", async () => {
+      const char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 1,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      expect(screen.queryByText(/Выберите архетип/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Добыча охотника/)).not.toBeInTheDocument();
+      expect(updateCharacter).toHaveBeenCalled();
+    });
+
+    it("левел-ап Следопыта до 3 уровня останавливается на «Добыча охотника»; выбранный вариант виден на карточке", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Охотник"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      // Архетип выбран, но левел-ап ещё не применён — впереди «Добыча охотника».
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(await screen.findByText(/Добыча охотника/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Убийца Колоссов"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(3);
+      expect(char.subclass).toBe("Охотник");
+      expect(char.subclassChoices).toEqual({ "hunter-prey": ["colossus-slayer"] });
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      // ": 1к8 ..." — строка числа эффекта (subclassEffectValue), а не текст
+      // особенности из featuresByLevel — та тоже упоминает «Убийца Колоссов».
+      expect(screen.getByText(/Убийца Колоссов: 1к8/)).toBeInTheDocument();
+    });
+
+    it("невыбранный вариант Добычи охотника эффекта не даёт", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Охотник"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      await screen.findByText(/Добыча охотника/);
+      fireEvent.click(screen.getByText("Убийца великанов"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.subclassChoices).toEqual({ "hunter-prey": ["giant-killer"] });
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      expect(screen.queryByText(/Убийца Колоссов: 1к8/)).not.toBeInTheDocument();
+    });
+
+    it("Добыча охотника не переспрашивается на следующем левел-апе", async () => {
+      const char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "Охотник",
+        level: 3,
+        conditions: ["Ослеплённое"],
+        subclassChoices: { "hunter-prey": ["colossus-slayer"] },
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      // 4 уровень — уже ASI, а не повторная панель «Добыча охотника» (статичный
+      // текст особенности из featuresByLevel остаётся на карточке в любом случае).
+      expect(screen.queryByText(/Выберите «Добыча охотника»/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Улучшение характеристик/)).toBeInTheDocument();
+    });
+
+    it("левел-ап барда до Коллегии знаний — pick=3 из 18, четвёртый чекбокс недоступен, дубль навыка не задваивается", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Бард",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+        skillProficiencies: ["Магия"],
+      };
+      await renderWith("classes-bard", "Бард", "8", "5", char);
+
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Коллегия знаний"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      await screen.findByText(/Дополнительные навыки/);
+
+      fireEvent.click(screen.getByLabelText("Религия"));
+      fireEvent.click(screen.getByLabelText("История"));
+      fireEvent.click(screen.getByLabelText("Природа"));
+      expect(screen.getByLabelText("Расследование")).toBeDisabled();
+
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.subclass).toBe("Коллегия знаний");
+      expect(char.subclassChoices).toEqual({ "college-of-lore-skills": ["Религия", "История", "Природа"] });
+      expect(char.skillProficiencies).toEqual(expect.arrayContaining(["Магия", "Религия", "История", "Природа"]));
+      expect(char.skillProficiencies.filter((s) => s === "Магия")).toHaveLength(1);
+    });
+
+    it("левел-ап друида до Круга земли выбирает архетип, потом местность (на том же уровне); заклинания местности видны с 3 уровня", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Друид",
+        subclass: "",
+        level: 1,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+
+      // 1 -> 2: сначала архетип (Круг земли — один из трёх), потом местность
+      // (Арктика — на том же уровне, minLevel местности совпадает с chosenAtLevel).
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Круг земли"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      await screen.findByText(/Заклинания круга/);
+      fireEvent.click(screen.getByText("Арктика"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      let calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(2);
+      expect(char.subclass).toBe("Круг земли");
+      expect(char.subclassChoices).toEqual({ "circle-of-the-land-terrain": ["arctic"] });
+      // На 2 уровне заклинаний местности ещё нет (они с 3 уровня).
+      expect(char.knownSpells).not.toContain("hold-person");
+
+      // 2 -> 3: местность уже выбрана — второй панели быть не должно, левел-ап
+      // применяется сразу, и заклинания Арктики 3 круга появляются.
+      updateCharacter.mockClear();
+      mockState = baseState({ characters: [char] });
+      cleanup();
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      expect(screen.queryByText(/Заклинания круга/)).not.toBeInTheDocument();
+      calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(3);
+      expect(char.knownSpells).toEqual(expect.arrayContaining(["hold-person", "spike-growth"]));
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+      // Заклинания местности — отдельная строка "заклинаний архетипа", не
+      // спутать со строкой известных заклинаний персонажа (там те же имена).
+      expect(
+        await screen.findByText(/Заклинания архетипа \(всегда подготовлены\): Удержание личности, Шипастые заросли/),
+      ).toBeInTheDocument();
     });
   });
 
