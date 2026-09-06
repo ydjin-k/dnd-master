@@ -7,6 +7,7 @@ import {
   CLASS_SUBCLASSES,
   coinsWeightLb,
   computeArmorClass,
+  effectiveSubclassGrants,
   healingPoolSelfHeal,
   inventoryWeightLb,
   parseItemWeightLb,
@@ -16,6 +17,7 @@ import {
   subclassResourceOptionsAt,
   subclassScalingAt,
   subclassSpellsUpToLevel,
+  toggleChoiceSelection,
   toolProficienciesFor,
   unproficientArmorIssue,
   weaponAttackFor,
@@ -198,6 +200,9 @@ const GRANTED_ARCHETYPES: [classId: string, subclass: string, key: keyof NonNull
   ["classes-rogue", "Мистический ловкач", "bonusCantrips"],
   ["classes-ranger", "Укротитель зверей", "scaling"],
   ["classes-ranger", "Странник", "resources"],
+  // characters-subclass-choice-ui: Добыча охотника — выбор 1 из 3 умений,
+  // подключён через choices, а не безусловный грант — см. describe ниже.
+  ["classes-ranger", "Охотник", "choices"],
 ];
 
 describe("механика архетипов", () => {
@@ -205,15 +210,60 @@ describe("механика архетипов", () => {
     expect(subclassGrants(classId, subclass)?.[key]).toBeDefined();
   });
 
-  it("архетип, до которого карточка не дошла, механики не получил", () => {
-    // Добыча охотника — выбор одного из трёх умений, для него нужен свой UI;
-    // проба краснеет, когда выбор появится, и тогда строка отсюда уходит.
-    expect(subclassGrants("classes-ranger", "Охотник")).toBeUndefined();
-  });
-
   it("без архетипа грантов нет вовсе", () => {
     expect(subclassGrants("classes-fighter", null)).toBeUndefined();
     expect(subclassGrants(null, "Воитель")).toBeUndefined();
+  });
+});
+
+/**
+ * Общий механизм выбора внутри архетипа (SubclassChoice/effectiveSubclassGrants)
+ * — покрыт независимо от конкретных архетипов, «Добыча охотника» здесь только
+ * поставщик реальных данных (простейший подключённый случай, pick === 1).
+ */
+describe("выбор варианта архетипа (SubclassChoice)", () => {
+  const hunterPreyChoice = subclassGrants("classes-ranger", "Охотник")!.choices![0];
+
+  it("выбор недоступен до уровня — Добыча охотника открывается только на 3 уровне", () => {
+    expect(hunterPreyChoice.minLevel).toBe(3);
+    expect(hunterPreyChoice.pick).toBe(1);
+    expect(hunterPreyChoice.options.map((o) => o.id)).toEqual(["colossus-slayer", "giant-killer", "horde-breaker"]);
+  });
+
+  it("без сделанного выбора эффективные гранты равны базовым", () => {
+    expect(effectiveSubclassGrants("classes-ranger", "Охотник", {})).toEqual(subclassGrants("classes-ranger", "Охотник"));
+    expect(effectiveSubclassGrants("classes-ranger", "Охотник")).toEqual(subclassGrants("classes-ranger", "Охотник"));
+  });
+
+  it("выбор доступен и применяется — выбранный вариант подмешивается в гранты", () => {
+    const grants = effectiveSubclassGrants("classes-ranger", "Охотник", { [hunterPreyChoice.id]: ["colossus-slayer"] });
+    expect(grants?.scaling).toContainEqual({
+      name: "Убийца Колоссов",
+      minLevel: 3,
+      effect: { kind: "bonus-damage-dice", count: 1, die: 8 },
+    });
+  });
+
+  it("невыбранный вариант эффекта не даёт", () => {
+    const grants = effectiveSubclassGrants("classes-ranger", "Охотник", { [hunterPreyChoice.id]: ["giant-killer"] });
+    expect(grants?.scaling?.some((s) => s.name === "Убийца Колоссов")).toBe(false);
+    expect(grants?.scaling).toContainEqual({ name: "Убийца великанов", minLevel: 3, effect: { kind: "descriptive" } });
+  });
+});
+
+describe("toggleChoiceSelection — общий приём выбора N вариантов с потолком", () => {
+  it("pick === 1 заменяет выбор целиком, как радиокнопка", () => {
+    expect(toggleChoiceSelection([], "a", 1)).toEqual(["a"]);
+    expect(toggleChoiceSelection(["a"], "b", 1)).toEqual(["b"]);
+  });
+
+  it("pick > 1 не даёт выбрать больше N", () => {
+    expect(toggleChoiceSelection(["a", "b"], "c", 2)).toEqual(["a", "b"]);
+    expect(toggleChoiceSelection(["a"], "b", 2)).toEqual(["a", "b"]);
+  });
+
+  it("уже выбранный вариант снимается повторным нажатием", () => {
+    expect(toggleChoiceSelection(["a", "b"], "a", 2)).toEqual(["b"]);
   });
 });
 

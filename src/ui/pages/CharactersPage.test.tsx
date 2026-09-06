@@ -1220,6 +1220,98 @@ describe("CharactersPage", () => {
       expect(char.subclass).toBe("Убийца");
       expect(char.toolProficiencies).toEqual(["Набор для отравления", "Маскировочный набор"]);
     });
+
+    it("на 2 уровне Следопыта выбор архетипа/Добычи охотника ещё не предлагается", async () => {
+      const char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 1,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      expect(screen.queryByText(/Выберите архетип/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Добыча охотника/)).not.toBeInTheDocument();
+      expect(updateCharacter).toHaveBeenCalled();
+    });
+
+    it("левел-ап Следопыта до 3 уровня останавливается на «Добыча охотника»; выбранный вариант виден на карточке", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Охотник"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      // Архетип выбран, но левел-ап ещё не применён — впереди «Добыча охотника».
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(await screen.findByText(/Добыча охотника/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Убийца Колоссов"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(3);
+      expect(char.subclass).toBe("Охотник");
+      expect(char.subclassChoices).toEqual({ "hunter-prey": ["colossus-slayer"] });
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      // ": 1к8 ..." — строка числа эффекта (subclassEffectValue), а не текст
+      // особенности из featuresByLevel — та тоже упоминает «Убийца Колоссов».
+      expect(screen.getByText(/Убийца Колоссов: 1к8/)).toBeInTheDocument();
+    });
+
+    it("невыбранный вариант Добычи охотника эффекта не даёт", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "",
+        level: 2,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Охотник"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      await screen.findByText(/Добыча охотника/);
+      fireEvent.click(screen.getByText("Убийца великанов"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      const calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.subclassChoices).toEqual({ "hunter-prey": ["giant-killer"] });
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      expect(screen.queryByText(/Убийца Колоссов: 1к8/)).not.toBeInTheDocument();
+    });
+
+    it("Добыча охотника не переспрашивается на следующем левел-апе", async () => {
+      const char: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        subclass: "Охотник",
+        level: 3,
+        conditions: ["Ослеплённое"],
+        subclassChoices: { "hunter-prey": ["colossus-slayer"] },
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      // 4 уровень — уже ASI, а не повторная панель «Добыча охотника» (статичный
+      // текст особенности из featuresByLevel остаётся на карточке в любом случае).
+      expect(screen.queryByText(/Выберите «Добыча охотника»/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Улучшение характеристик/)).toBeInTheDocument();
+    });
   });
 
   // Настоящий поставляемый spells.json, а не фикстура: заглушка «списка нет» держалась

@@ -2779,6 +2779,37 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         // Текст называет два классических архетипа («Охотник» и «Хозяин Зверей»), но детально расписан только «Охотник» — единственный вариант в этом файле.
         name: "Охотник",
+        grants: {
+          choices: [
+            {
+              id: "hunter-prey",
+              name: "Добыча охотника",
+              minLevel: 3,
+              pick: 1,
+              options: [
+                {
+                  id: "colossus-slayer",
+                  label: "Убийца Колоссов",
+                  grants: {
+                    scaling: [
+                      { name: "Убийца Колоссов", minLevel: 3, effect: { kind: "bonus-damage-dice", count: 1, die: 8 } },
+                    ],
+                  },
+                },
+                {
+                  id: "giant-killer",
+                  label: "Убийца великанов",
+                  grants: { scaling: [{ name: "Убийца великанов", minLevel: 3, effect: { kind: "descriptive" } }] },
+                },
+                {
+                  id: "horde-breaker",
+                  label: "Сокрушитель орд",
+                  grants: { scaling: [{ name: "Сокрушитель орд", minLevel: 3, effect: { kind: "descriptive" } }] },
+                },
+              ],
+            },
+          ],
+        },
         featuresByLevel: {
           3: [
             {
