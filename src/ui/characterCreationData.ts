@@ -2261,8 +2261,6 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Коллегия знаний",
         grants: {
-          // «Дополнительные навыки» — выбор трёх навыков игроком, а `skills` —
-          // фиксированный список; выбор требует своего UI и остаётся текстом.
           // Кость Острых слов не дублируется: её владелец — `scaling` класса
           // («Кость Вдохновения барда» в classProgression.ts).
           resourceOptions: [
@@ -2272,6 +2270,19 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               name: "Острые слова",
               minLevel: 3,
               effect: { kind: "descriptive" },
+            },
+          ],
+          // «Дополнительные навыки» — выбор трёх навыков из полного списка
+          // навыков SRD (не маленький фиксированный список). id варианта — само
+          // название навыка: в приложении навыки везде идентифицируются им же
+          // (см. SKILL_ABILITY), заводить отдельные слаги незачем.
+          choices: [
+            {
+              id: "college-of-lore-skills",
+              name: "Дополнительные навыки",
+              minLevel: 3,
+              pick: 3,
+              options: ALL_SKILLS.map((skill) => ({ id: skill, label: skill, grants: { skills: [skill] } })),
             },
           ],
         },

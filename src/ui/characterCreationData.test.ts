@@ -249,6 +249,31 @@ describe("выбор варианта архетипа (SubclassChoice)", () => 
     expect(grants?.scaling?.some((s) => s.name === "Убийца Колоссов")).toBe(false);
     expect(grants?.scaling).toContainEqual({ name: "Убийца великанов", minLevel: 3, effect: { kind: "descriptive" } });
   });
+
+  /** Коллегия знаний — второй подключённый случай, pick > 1 на настоящих данных (18 навыков SRD). */
+  describe("Коллегия знаний барда — pick > 1", () => {
+    const loreSkillsChoice = subclassGrants("classes-bard", "Коллегия знаний")!.choices![0];
+
+    it("выбор — 3 варианта из полного списка навыков SRD, а не маленький фиксированный список", () => {
+      expect(loreSkillsChoice.pick).toBe(3);
+      expect(loreSkillsChoice.options).toHaveLength(18);
+      expect(loreSkillsChoice.options.map((o) => o.id)).toContain("Магия");
+    });
+
+    it("три выбранных навыка подмешиваются в skills архетипа", () => {
+      const grants = effectiveSubclassGrants("classes-bard", "Коллегия знаний", {
+        [loreSkillsChoice.id]: ["Магия", "Религия", "История"],
+      });
+      expect(grants?.skills).toEqual(["Магия", "Религия", "История"]);
+    });
+
+    it("невыбранный навык в skills не попадает", () => {
+      const grants = effectiveSubclassGrants("classes-bard", "Коллегия знаний", {
+        [loreSkillsChoice.id]: ["Магия", "Религия", "История"],
+      });
+      expect(grants?.skills).not.toContain("Природа");
+    });
+  });
 });
 
 describe("toggleChoiceSelection — общий приём выбора N вариантов с потолком", () => {
