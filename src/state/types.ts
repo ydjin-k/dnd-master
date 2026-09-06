@@ -73,7 +73,7 @@ export interface Character {
   fightingStyle: string;
   knownCantrips: string[];
   knownSpells: string[];
-  /** Ячейки заклинаний по кругам 1..5 — индекс 0 это 1 круг (см. SPELL_CIRCLES в classProgression.ts). */
+  /** Ячейки заклинаний по кругам 1..9 — индекс 0 это 1 круг (см. SPELL_CIRCLES в classProgression.ts). */
   spellSlotsMax: number[];
   spellSlotsCurrent: number[];
   featureUses: FeatureUses[];

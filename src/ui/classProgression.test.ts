@@ -50,11 +50,11 @@ describe("CLASS_PROGRESSION", () => {
   it("даёт Барду официальную таблицу ячеек, заговоров и известных заклинаний", () => {
     const slots = [1, 2, 3, 4, 5].map((l) => progressionAt("classes-bard", l)!.spellSlots);
     expect(slots).toEqual([
-      [2, 0, 0, 0, 0],
-      [3, 0, 0, 0, 0],
-      [4, 2, 0, 0, 0],
-      [4, 3, 0, 0, 0],
-      [4, 3, 2, 0, 0],
+      [2, 0, 0, 0, 0, 0, 0, 0, 0],
+      [3, 0, 0, 0, 0, 0, 0, 0, 0],
+      [4, 2, 0, 0, 0, 0, 0, 0, 0],
+      [4, 3, 0, 0, 0, 0, 0, 0, 0],
+      [4, 3, 2, 0, 0, 0, 0, 0, 0],
     ]);
     expect([1, 2, 3, 4, 5].map((l) => progressionAt("classes-bard", l)!.cantripsKnown)).toEqual([2, 2, 2, 3, 3]);
     expect([1, 2, 3, 4, 5].map((l) => progressionAt("classes-bard", l)!.spellsKnown)).toEqual([4, 5, 6, 7, 8]);
@@ -63,11 +63,11 @@ describe("CLASS_PROGRESSION", () => {
   it("Колдун идёт по отдельной таблице Магии договора: мало ячеек, но круг выше", () => {
     const slots = [1, 2, 3, 4, 5].map((l) => progressionAt("classes-warlock", l)!.spellSlots);
     expect(slots).toEqual([
-      [1, 0, 0, 0, 0],
-      [2, 0, 0, 0, 0],
-      [0, 2, 0, 0, 0],
-      [0, 2, 0, 0, 0],
-      [0, 0, 2, 0, 0],
+      [1, 0, 0, 0, 0, 0, 0, 0, 0],
+      [2, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 2, 0, 0, 0, 0, 0, 0, 0],
+      [0, 2, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 2, 0, 0, 0, 0, 0, 0],
     ]);
     expect(highestSpellCircle("classes-warlock", 5)).toBe(3);
     expect(highestSpellCircle("classes-bard", 5)).toBe(3);
@@ -76,8 +76,8 @@ describe("CLASS_PROGRESSION", () => {
   it("Паладин и Следопыт получают ячейки только со 2 уровня", () => {
     for (const classId of ["classes-paladin", "classes-ranger"]) {
       expect(highestSpellCircle(classId, 1), classId).toBe(0);
-      expect(progressionAt(classId, 2)!.spellSlots, classId).toEqual([2, 0, 0, 0, 0]);
-      expect(progressionAt(classId, 5)!.spellSlots, classId).toEqual([4, 2, 0, 0, 0]);
+      expect(progressionAt(classId, 2)!.spellSlots, classId).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(progressionAt(classId, 5)!.spellSlots, classId).toEqual([4, 2, 0, 0, 0, 0, 0, 0, 0]);
     }
   });
 

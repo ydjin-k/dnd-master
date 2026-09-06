@@ -840,18 +840,18 @@ describe("CharactersPage", () => {
         abilities: { ...characterWithInventory().abilities, charisma: 16 },
         knownCantrips: ["cantrip-1", "cantrip-2"],
         knownSpells: ["spell-1", "spell-2", "spell-3", "spell-4"],
-        spellSlotsMax: [2, 0, 0, 0, 0],
-        spellSlotsCurrent: [2, 0, 0, 0, 0],
+        spellSlotsMax: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [2, 0, 0, 0, 0, 0, 0, 0, 0],
       });
       await run.ready();
 
       run.levelUp();
       expect(run.char.level).toBe(2);
-      expect(run.char.spellSlotsMax).toEqual([3, 0, 0, 0, 0]);
-      expect(run.char.spellSlotsCurrent).toEqual([3, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsMax).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsCurrent).toEqual([3, 0, 0, 0, 0, 0, 0, 0, 0]);
 
       run.levelUp();
-      expect(run.char.spellSlotsMax).toEqual([4, 2, 0, 0, 0]);
+      expect(run.char.spellSlotsMax).toEqual([4, 2, 0, 0, 0, 0, 0, 0, 0]);
 
       run.levelUp(); // 3 -> 4: панель улучшения характеристик
       fireEvent.click(screen.getByLabelText(/Харизма \(16\)/));
@@ -859,7 +859,7 @@ describe("CharactersPage", () => {
       const calls = updateCharacter.mock.calls;
       const afterAsi = (calls[calls.length - 1][1] as (c: Character) => Character)(run.char);
       expect(afterAsi.level).toBe(4);
-      expect(afterAsi.spellSlotsMax).toEqual([4, 3, 0, 0, 0]);
+      expect(afterAsi.spellSlotsMax).toEqual([4, 3, 0, 0, 0, 0, 0, 0, 0]);
       // Вдохновение барда считается от Харизмы: 16 → +3, после улучшения 18 → +4.
       expect(afterAsi.featureUses).toContainEqual({ featureId: "bardic-inspiration", usesCurrent: 4 });
     });
@@ -885,7 +885,7 @@ describe("CharactersPage", () => {
       run.levelUp(); // 2 -> 3: таблица даёт третье
       expect(run.char.level).toBe(3);
       expect(run.char.featureUses).toEqual([{ featureId: "rage", usesCurrent: 3 }]);
-      expect(run.char.spellSlotsMax).toEqual([0, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsMax).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
     });
 
     it("Колдун идёт по Магии договора: на 3 уровне ячейки становятся 2 круга, а не добавляются к первому", async () => {
@@ -897,18 +897,18 @@ describe("CharactersPage", () => {
         conditions: ["Ослеплённое"],
         knownCantrips: ["cantrip-1", "cantrip-2"],
         knownSpells: ["spell-1", "spell-2"],
-        spellSlotsMax: [1, 0, 0, 0, 0],
-        spellSlotsCurrent: [1, 0, 0, 0, 0],
+        spellSlotsMax: [1, 0, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [1, 0, 0, 0, 0, 0, 0, 0, 0],
       });
       await run.ready();
 
       run.levelUp();
-      expect(run.char.spellSlotsMax).toEqual([2, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsMax).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
 
       run.levelUp();
       expect(run.char.level).toBe(3);
-      expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0]);
-      expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0]);
+      expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
+      expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
     });
   });
 
