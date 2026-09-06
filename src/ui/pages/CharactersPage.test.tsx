@@ -176,6 +176,7 @@ describe("CharactersPage", () => {
       spellSlotsMax: [0, 0, 0, 0, 0],
       spellSlotsCurrent: [0, 0, 0, 0, 0],
       featureUses: [],
+      subclassChoices: {},
     };
   }
 
@@ -220,6 +221,7 @@ describe("CharactersPage", () => {
           spellSlotsMax: [0, 0, 0, 0, 0],
           spellSlotsCurrent: [0, 0, 0, 0, 0],
           featureUses: [],
+          subclassChoices: {},
         },
       ],
     });

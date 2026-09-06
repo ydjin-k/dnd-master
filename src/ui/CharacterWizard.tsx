@@ -57,6 +57,7 @@ import {
   fmtMod,
   subclassGrants,
   subclassSpellsUpToLevel,
+  toggleChoiceSelection,
   toolProficienciesFor,
   weaponProficienciesFor,
   type AbilityKey,
@@ -287,13 +288,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   };
 
   function toggleCustomBackgroundSkill(skill: string) {
-    setCustomBackground((prev) => {
-      if (prev.skillProficiencies.includes(skill)) {
-        return { ...prev, skillProficiencies: prev.skillProficiencies.filter((s) => s !== skill) };
-      }
-      if (prev.skillProficiencies.length >= 2) return prev;
-      return { ...prev, skillProficiencies: [...prev.skillProficiencies, skill] };
-    });
+    setCustomBackground((prev) => ({
+      ...prev,
+      skillProficiencies: toggleChoiceSelection(prev.skillProficiencies, skill, 2),
+    }));
   }
 
   function addCustomBackgroundEquipment(item: string) {
@@ -611,6 +609,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
         featureId: resource.id,
         usesCurrent: resourceMax(resource, totalAbilities),
       })),
+      // Выбор внутри архетипа появляется только левел-апом (chosenAtLevel всех
+      // трёх подключённых случаев — 2 или 3 уровень, персонаж создаётся 1-м).
+      subclassChoices: {},
     };
     await addCharacter(character);
     onDone();
