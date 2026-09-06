@@ -1356,6 +1356,57 @@ describe("CharactersPage", () => {
       expect(char.skillProficiencies).toEqual(expect.arrayContaining(["Магия", "Религия", "История", "Природа"]));
       expect(char.skillProficiencies.filter((s) => s === "Магия")).toHaveLength(1);
     });
+
+    it("левел-ап друида до Круга земли выбирает архетип, потом местность (на том же уровне); заклинания местности видны с 3 уровня", async () => {
+      let char: Character = {
+        ...characterWithInventory(),
+        class: "Друид",
+        subclass: "",
+        level: 1,
+        conditions: ["Ослеплённое"],
+      };
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+
+      // 1 -> 2: сначала архетип (Круг земли — один из трёх), потом местность
+      // (Арктика — на том же уровне, minLevel местности совпадает с chosenAtLevel).
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      fireEvent.click(screen.getByText("Круг земли"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      await screen.findByText(/Заклинания круга/);
+      fireEvent.click(screen.getByText("Арктика"));
+      fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+      let calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(2);
+      expect(char.subclass).toBe("Круг земли");
+      expect(char.subclassChoices).toEqual({ "circle-of-the-land-terrain": ["arctic"] });
+      // На 2 уровне заклинаний местности ещё нет (они с 3 уровня).
+      expect(char.knownSpells).not.toContain("hold-person");
+
+      // 2 -> 3: местность уже выбрана — второй панели быть не должно, левел-ап
+      // применяется сразу, и заклинания Арктики 3 круга появляются.
+      updateCharacter.mockClear();
+      mockState = baseState({ characters: [char] });
+      cleanup();
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+      fireEvent.click(screen.getByText("Повысить уровень"));
+      expect(screen.queryByText(/Заклинания круга/)).not.toBeInTheDocument();
+      calls = updateCharacter.mock.calls;
+      char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+      expect(char.level).toBe(3);
+      expect(char.knownSpells).toEqual(expect.arrayContaining(["hold-person", "spike-growth"]));
+
+      cleanup();
+      updateCharacter.mockClear();
+      await renderWith("classes-druid", "Друид", "8", "5", char);
+      // Заклинания местности — отдельная строка "заклинаний архетипа", не
+      // спутать со строкой известных заклинаний персонажа (там те же имена).
+      expect(
+        await screen.findByText(/Заклинания архетипа \(всегда подготовлены\): Удержание личности, Шипастые заросли/),
+      ).toBeInTheDocument();
+    });
   });
 
   // Настоящий поставляемый spells.json, а не фикстура: заглушка «списка нет» держалась

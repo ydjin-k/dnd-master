@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import bundledSpells from "../../src-tauri/rules/spells.json";
 import {
   armorProficienciesFor,
   carryingCapacityLb,
@@ -200,9 +201,11 @@ const GRANTED_ARCHETYPES: [classId: string, subclass: string, key: keyof NonNull
   ["classes-rogue", "Мистический ловкач", "bonusCantrips"],
   ["classes-ranger", "Укротитель зверей", "scaling"],
   ["classes-ranger", "Странник", "resources"],
-  // characters-subclass-choice-ui: Добыча охотника — выбор 1 из 3 умений,
-  // подключён через choices, а не безусловный грант — см. describe ниже.
+  // characters-subclass-choice-ui: выбор внутри архетипа — не безусловный
+  // грант, подключён через choices, см. describe ниже.
   ["classes-ranger", "Охотник", "choices"],
+  ["classes-bard", "Коллегия знаний", "choices"],
+  ["classes-druid", "Круг земли", "choices"],
 ];
 
 describe("механика архетипов", () => {
@@ -272,6 +275,60 @@ describe("выбор варианта архетипа (SubclassChoice)", () => 
         [loreSkillsChoice.id]: ["Магия", "Религия", "История"],
       });
       expect(grants?.skills).not.toContain("Природа");
+    });
+  });
+
+  /**
+   * Круг земли — третий подключённый случай: вариант несёт не безусловный
+   * список, а собственный мини-spellsByLevel (заклинания местности), который
+   * должен пройти через тот же subclassSpellsUpToLevel, что и обычные домены.
+   */
+  describe("Круг земли друида — вариант несёт свой spellsByLevel", () => {
+    const terrainChoice = subclassGrants("classes-druid", "Круг земли")!.choices![0];
+
+    it("местность выбирается на том же уровне, что и сам архетип, вариантов 7", () => {
+      expect(terrainChoice.minLevel).toBe(2);
+      expect(terrainChoice.pick).toBe(1);
+      expect(terrainChoice.options).toHaveLength(7);
+      expect(terrainChoice.options.map((o) => o.id)).toEqual([
+        "arctic",
+        "coast",
+        "desert",
+        "forest",
+        "grassland",
+        "mountain",
+        "swamp",
+      ]);
+    });
+
+    it("заклинания выбранной местности доступны через subclassSpellsUpToLevel по уровню", () => {
+      const choices = { [terrainChoice.id]: ["arctic"] };
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 2, choices)).toEqual([]);
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 3, choices)).toEqual(
+        expect.arrayContaining(["hold-person", "spike-growth"]),
+      );
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).toEqual(
+        expect.arrayContaining(["hold-person", "spike-growth", "slow", "sleet-storm"]),
+      );
+    });
+
+    it("невыбранная местность своих заклинаний не даёт", () => {
+      const choices = { [terrainChoice.id]: ["swamp"] };
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).not.toContain("hold-person");
+      expect(subclassSpellsUpToLevel("classes-druid", "Круг земли", 5, choices)).toEqual(
+        expect.arrayContaining(["acid-arrow", "darkness", "stinking-cloud", "water-walk"]),
+      );
+    });
+
+    it("все id заклинаний местностей существуют в бандле spells.json (bundledSpells)", () => {
+      const ids = new Set(bundledSpells.map((s) => s.id));
+      for (const option of terrainChoice.options) {
+        for (const spellIds of Object.values(option.grants.spellsByLevel ?? {})) {
+          for (const id of spellIds) {
+            expect(ids.has(id), `${option.label}: заклинание "${id}" отсутствует в spells.json`).toBe(true);
+          }
+        }
+      }
     });
   });
 });

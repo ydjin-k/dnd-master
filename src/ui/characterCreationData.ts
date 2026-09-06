@@ -2150,6 +2150,65 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               effect: { kind: "half-level" },
             },
           ],
+          // Местность выбирается при посвящении в круг (тот же уровень, что и
+          // сам архетип, minLevel: 2) — SRD: «Выберите эту землю... где он был
+          // посвящён». Заклинания местности приходят на 3 и 5 уровнях (2-3
+          // круг); 7 и 9 уровней не смоделированы — как и у всех остальных
+          // архетипов в этом файле (см. `spellsByLevel` доменов жреца выше),
+          // таблица обрезана по потолку `MAX_LEVEL = 5` (characters-leveling-
+          // 1-5), а часть заклинаний этих уровней (Наблюдение/Провидение) к
+          // тому же отсутствует в spells.json — заводить их ради недостижимого
+          // уровня не имеет смысла. rules.json называет заклинания местным
+          // переводом, отличным от spells.json (например «Рост шипов» —
+          // «Шипастые заросли» в spells.json, тот же spike-growth) — id ниже
+          // сверены по значению, а не по строке.
+          choices: [
+            {
+              id: "circle-of-the-land-terrain",
+              name: "Заклинания круга",
+              minLevel: 2,
+              pick: 1,
+              options: [
+                {
+                  id: "arctic",
+                  label: "Арктика",
+                  grants: { spellsByLevel: { 3: ["hold-person", "spike-growth"], 5: ["slow", "sleet-storm"] } },
+                },
+                {
+                  id: "coast",
+                  label: "Побережье",
+                  grants: { spellsByLevel: { 3: ["mirror-image", "misty-step"], 5: ["water-breathing", "water-walk"] } },
+                },
+                {
+                  id: "desert",
+                  label: "Пустыня",
+                  grants: {
+                    spellsByLevel: { 3: ["blur", "silence"], 5: ["protection-from-energy", "create-food-and-water"] },
+                  },
+                },
+                {
+                  id: "forest",
+                  label: "Лес",
+                  grants: { spellsByLevel: { 3: ["barkskin", "spider-climb"], 5: ["call-lightning", "plant-growth"] } },
+                },
+                {
+                  id: "grassland",
+                  label: "Пастбища",
+                  grants: { spellsByLevel: { 3: ["pass-without-trace", "invisibility"], 5: ["daylight", "haste"] } },
+                },
+                {
+                  id: "mountain",
+                  label: "Горы",
+                  grants: { spellsByLevel: { 3: ["spider-climb", "spike-growth"], 5: ["lightning-bolt", "meld-into-stone"] } },
+                },
+                {
+                  id: "swamp",
+                  label: "Болото",
+                  grants: { spellsByLevel: { 3: ["acid-arrow", "darkness"], 5: ["stinking-cloud", "water-walk"] } },
+                },
+              ],
+            },
+          ],
         },
         featuresByLevel: {
           2: [
@@ -2163,17 +2222,11 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
                 "Начиная со 2 уровня, во время короткого отдыха вы можете восстановить потраченные ячейки заклинаний суммарным уровнем не выше половины уровня друида (округляя вверх), ни одна не выше 5 круга — раз за длинный отдых.",
             },
           ],
-          // «Заклинания круга» зависят от выбранной при посвящении местности, а
-          // выбора местности в приложении пока нет: `spellsByLevel` — один
-          // список на архетип, ветвиться по местности он не умеет. Заклинания
-          // нужных кругов в spells.json уже есть, упирается только выбор — до
-          // появления UI честно показываем текстом, а не наугад выбранной
-          // местностью.
           3: [
             {
               name: "Заклинания круга",
               description:
-                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний. Выбор местности в приложении пока не сделан, поэтому конкретный список здесь не показан.",
+                "На 3, 5, 7 и 9 уровнях друид получает доступ к заклинаниям по выбранной при посвящении местности (Арктика, Побережье, Пустыня, Лес, Пастбища, Горы или Болото) — эти заклинания всегда подготовлены и не учитываются в лимите подготовленных заклинаний.",
             },
           ],
         },
