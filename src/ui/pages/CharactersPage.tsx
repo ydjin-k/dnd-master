@@ -696,17 +696,19 @@ function CharacterCard({
           <button className="character-card__delete" title="Удалить персонажа" onClick={onRemove}>✕</button>
         </span>
       </div>
-      {collapsed && <div className="character-card__compact-meta">{c.class || "класс не указан"} · ур. {c.level} · HP {c.currentHp}/{c.maxHp}</div>}
-      {!collapsed && <div className="character-card__body">
-      <div className="character-card__meta">
-        {c.race || "раса не указана"} · {c.class || "класс не указан"}
-        {c.subclass && <> ({c.subclass})</>}
-        {c.background && <> · {c.background}</>} · ур. {c.level}
-        {c.alignment && <> · {c.alignment}</>}
-        {c.gender && <> · {c.gender}</>}
-        {c.age > 0 && <> · {c.age} л.</>}
-      </div>
-      <dl className="character-card__hp" aria-label="Характеристики персонажа">
+      <div className="character-card__summary">
+        <div className="character-card__meta">
+          {c.race || "раса не указана"} · {c.class || "класс не указан"}
+          {c.subclass && <> ({c.subclass})</>}
+          {c.background && <> · {c.background}</>} · ур. {c.level}
+          {c.alignment && <> · {c.alignment}</>}
+          {c.gender && <> · {c.gender}</>}
+          {c.age > 0 && <> · {c.age} л.</>}
+        </div>
+        {c.languages.length > 0 && (
+          <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
+        )}
+        <dl className="character-card__hp" aria-label="Характеристики персонажа">
         <div className="character-card__stat">
           <dt>HP</dt>
           <dd>{c.currentHp}/{c.maxHp}</dd>
@@ -731,7 +733,9 @@ function CharacterCard({
           <dt>Вес</dt>
           <dd>{Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.</dd>
         </div>
-      </dl>
+        </dl>
+      </div>
+      {!collapsed && <div className="character-card__body">
       {encLevel !== "normal" && (
         <div className="character-card__danger character-card__danger--heavy">
           ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effectiveSpeedFeet} фт (было {c.speedFeet} фт)
@@ -1076,10 +1080,6 @@ function CharacterCard({
           </ul>
         </details>
       )}
-      {c.languages.length > 0 && (
-        <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
-      )}
-
       <details className="character-card__inventory" open={c.inventory.length > 0}>
         <summary>Инвентарь ({c.inventory.length})</summary>
         <ul>
