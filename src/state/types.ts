@@ -155,7 +155,6 @@ export interface MonsterTemplate {
   traits: string[];
   actions: string[];
   imageAsset: string | null;
-  imageAttribution: string | null;
 }
 
 export interface CampaignState {

@@ -22,7 +22,6 @@ const monsters: MonsterTemplate[] = [
     traits: ["Острый нюх."],
     actions: ["Укус. Попадание: 7 (2к4+2) колющего урона."],
     imageAsset: "images/wolf.jpg",
-    imageAttribution: "Тестовый автор, CC BY-SA 4.0",
   },
   {
     id: "bandit",
@@ -39,7 +38,6 @@ const monsters: MonsterTemplate[] = [
     traits: [],
     actions: ["Скимитар. Попадание: 4 (1к6+1) рубящего урона."],
     imageAsset: null,
-    imageAttribution: null,
   },
 ];
 

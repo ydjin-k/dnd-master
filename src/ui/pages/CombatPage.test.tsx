@@ -19,7 +19,6 @@ const bestiary: MonsterTemplate[] = [
     traits: [],
     actions: [],
     imageAsset: null,
-    imageAttribution: null,
   },
 ];
 
