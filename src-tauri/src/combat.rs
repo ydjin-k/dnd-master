@@ -86,7 +86,7 @@ fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Str
 /// одновременных IPC-вызовах. `max_size` — желаемая длинная сторона превью в
 /// пикселях; вызывающая сторона просит маленький размер для списка и больший
 /// для выбранной твари.
-pub fn resize_image_to_data_url(path: &std::path::Path, max_size: u32) -> Result<String, String> {
+pub fn resize_image_to_jpeg_bytes(path: &std::path::Path, max_size: u32) -> Result<Vec<u8>, String> {
     let img = image::open(path).map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
     // JPEG вместо PNG — это картины (плотный градиентный арт), на них PNG после
     // уменьшения всё ещё десятки КБ (не два порядка меньше оригинала), а JPEG
@@ -98,23 +98,143 @@ pub fn resize_image_to_data_url(path: &std::path::Path, max_size: u32) -> Result
     encoder
         .encode_image(&resized)
         .map_err(|e| format!("не удалось закодировать превью {path:?}: {e}"))?;
+    Ok(jpeg_bytes.into_inner())
+}
 
+fn jpeg_bytes_to_data_url(bytes: &[u8]) -> String {
     use base64::Engine;
-    let encoded = base64::engine::general_purpose::STANDARD.encode(jpeg_bytes.get_ref());
-    Ok(format!("data:image/jpeg;base64,{encoded}"))
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    format!("data:image/jpeg;base64,{encoded}")
+}
+
+/// Оставлена для существующих тестов уменьшения (`resized_list_thumbnail_...`,
+/// `resize_preserves_aspect_ratio_...`) — считает превью напрямую, в обход
+/// дискового кэша и семафора ниже (те покрыты своими тестами отдельно).
+/// `#[cfg(test)]` — с переходом `load_bestiary_image` на кэш+семафор
+/// production-код её больше не вызывает.
+#[cfg(test)]
+pub fn resize_image_to_data_url(path: &std::path::Path, max_size: u32) -> Result<String, String> {
+    resize_image_to_jpeg_bytes(path, max_size).map(|bytes| jpeg_bytes_to_data_url(&bytes))
+}
+
+/// Ограничивает число одновременных CPU-тяжёлых ресайзов картинок бестиария,
+/// общий на все вызовы `get_bestiary_image` через `tauri::State`. Без этого
+/// 50 (а в перспективе 200-300, см. карточку `bestiary-thumbnail-loading-at-scale`)
+/// одновременных IPC-вызовов от фронтенда синхронно ресайзят все картинки
+/// разом и на десятки секунд забирают все ядра под фоновый пул — владелец
+/// продукта воспроизвёл это живьём (`Get-Process` ловил `Responding=False`).
+/// Простой блокирующий счётчик на `Mutex`+`Condvar` — без добавления tokio как
+/// прямой зависимости: команды здесь синхронные, а ждать в них можно и без
+/// async-рантайма.
+pub struct ResizeSemaphore {
+    state: std::sync::Mutex<usize>,
+    cvar: std::sync::Condvar,
+    max: usize,
+}
+
+pub struct ResizePermit<'a> {
+    sem: &'a ResizeSemaphore,
+}
+
+impl<'a> Drop for ResizePermit<'a> {
+    fn drop(&mut self) {
+        let mut count = self.sem.state.lock().unwrap();
+        *count -= 1;
+        self.sem.cvar.notify_one();
+    }
+}
+
+impl ResizeSemaphore {
+    pub fn new(max: usize) -> Self {
+        Self {
+            state: std::sync::Mutex::new(0),
+            cvar: std::sync::Condvar::new(),
+            max: max.max(1),
+        }
+    }
+
+    pub fn acquire(&self) -> ResizePermit<'_> {
+        let mut count = self.state.lock().unwrap();
+        while *count >= self.max {
+            count = self.cvar.wait(count).unwrap();
+        }
+        *count += 1;
+        ResizePermit { sem: self }
+    }
+}
+
+/// Несколько единиц, не все ядра целиком (см. находку карточки
+/// `bestiary-thumbnail-loading-at-scale`) — оставляет основной поток и
+/// остальные Tauri-команды отзывчивыми, даже когда фронтенд просит разом
+/// сотни превью.
+pub fn default_resize_concurrency() -> usize {
+    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    (cores / 3).clamp(2, 4)
+}
+
+/// Каталог кэша сгенерированных превью — в `app_data_dir` (пишем всегда, в
+/// отличие от `resource_dir` бандла, который в собранном приложении может
+/// быть недоступен на запись), не рядом с оригиналами. Инвалидация не
+/// нужна — картинки бестиария статичны и бандлятся с приложением.
+fn thumbnail_cache_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = crate::storage::app_data_dir(app)?.join("bestiary-thumbnails");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("не удалось создать {dir:?}: {e}"))?;
+    Ok(dir)
+}
+
+/// Ключ кэша — имя файла картинки (уже уникально на тварь, это же имя
+/// используется, чтобы найти оригинал) + желаемый размер, так что список
+/// (160px) и деталь (480px) кэшируются отдельными файлами на тварь.
+fn cache_file_name(source_file_name: &std::ffi::OsStr, max_size: u32) -> String {
+    let stem = std::path::Path::new(source_file_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("thumb");
+    format!("{stem}-{max_size}.jpg")
+}
+
+/// Ядро кэш+семафор без Tauri/файловой системы оригиналов — так его можно
+/// проверить юнит-тестом с поддельным `compute` (счётчик вызовов) и временным
+/// каталогом кэша, без реального декодирования картинок.
+fn load_cached_or_compute(
+    cache_path: &std::path::Path,
+    semaphore: &ResizeSemaphore,
+    compute: impl FnOnce() -> Result<Vec<u8>, String>,
+) -> Result<String, String> {
+    if let Ok(cached) = std::fs::read(cache_path) {
+        return Ok(jpeg_bytes_to_data_url(&cached));
+    }
+
+    let _permit = semaphore.acquire();
+    // Перепроверяем после ожидания семафора — пока эта задача ждала, кэш мог
+    // уже дописать другой одновременный запрос той же картинки/размера.
+    if let Ok(cached) = std::fs::read(cache_path) {
+        return Ok(jpeg_bytes_to_data_url(&cached));
+    }
+
+    let bytes = compute()?;
+    // Запись кэша — best effort: сбой диска не должен ронять уже посчитанное превью.
+    let _ = std::fs::write(cache_path, &bytes);
+    Ok(jpeg_bytes_to_data_url(&bytes))
 }
 
 pub fn load_bestiary_image(
     app: &tauri::AppHandle,
     image_asset: &str,
     max_size: u32,
+    semaphore: &ResizeSemaphore,
 ) -> Result<String, String> {
     let images_dir = bestiary_images_dir(app)?;
     let file_name = std::path::Path::new(image_asset)
         .file_name()
         .ok_or("некорректный путь к картинке")?;
-    let path = images_dir.join(file_name);
-    resize_image_to_data_url(&path, max_size)
+    let source_path = images_dir.join(file_name);
+
+    let cache_path = thumbnail_cache_dir(app)?.join(cache_file_name(file_name, max_size));
+
+    load_cached_or_compute(&cache_path, semaphore, || {
+        resize_image_to_jpeg_bytes(&source_path, max_size)
+    })
 }
 
 fn chebyshev_feet(a: (i32, i32), b: (i32, i32)) -> i32 {
@@ -724,6 +844,189 @@ mod bestiary_data_tests {
         let decoded = image::load_from_memory(&bytes).expect("валидный JPEG");
         assert!(decoded.width() <= 160 && decoded.height() <= 160);
         assert!(decoded.width() == 160 || decoded.height() == 160);
+    }
+}
+
+/// Тесты кэша на диске и семафора параллелизма — карточка
+/// `bestiary-thumbnail-loading-at-scale`. Работают через `load_cached_or_compute`
+/// напрямую (без `AppHandle`/запущенного Tauri), с поддельным `compute`, чтобы
+/// считать вызовы вместо настоящего декодирования картинки — тот же приём, что
+/// «mock/spy» в критериях тестирования карточки.
+#[cfg(test)]
+mod bestiary_cache_tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use super::{cache_file_name, load_cached_or_compute, resize_image_to_jpeg_bytes, ResizeSemaphore};
+
+    fn unique_temp_dir(tag: &str) -> PathBuf {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "dnd-master-bestiary-test-{tag}-{}-{n}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn repeated_request_for_the_same_cached_thumbnail_does_not_recompute() {
+        let dir = unique_temp_dir("cache-hit");
+        let cache_path = dir.join("wolf-160.jpg");
+        let semaphore = ResizeSemaphore::new(4);
+        let calls = Arc::new(AtomicUsize::new(0));
+
+        for _ in 0..5 {
+            let calls = Arc::clone(&calls);
+            load_cached_or_compute(&cache_path, &semaphore, || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                Ok(vec![0xFF, 0xD8, 0xFF]) // заглушка вместо настоящих JPEG-байт
+            })
+            .expect("не должно падать");
+        }
+
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "после первой записи в кэш `compute` не должен вызываться повторно"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cache_file_name_keys_list_and_detail_sizes_separately() {
+        let file_name = std::ffi::OsStr::new("giant-octopus.png");
+        assert_eq!(cache_file_name(file_name, 160), "giant-octopus-160.jpg");
+        assert_eq!(cache_file_name(file_name, 480), "giant-octopus-480.jpg");
+    }
+
+    /// Раньше запрос не ограничивал параллелизм вовсе — эта проба красная без
+    /// семафора (можно проверить, вызвав `compute` напрямую из N потоков без
+    /// прохода через `load_cached_or_compute`/семафор: наблюдаемый максимум
+    /// одновременных обгонит `LIMIT`).
+    #[test]
+    fn concurrent_requests_never_exceed_the_configured_resize_limit() {
+        const LIMIT: usize = 3;
+        const REQUESTS: usize = 20;
+
+        let semaphore = Arc::new(ResizeSemaphore::new(LIMIT));
+        let current = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+
+        let handles: Vec<_> = (0..REQUESTS)
+            .map(|i| {
+                let semaphore = Arc::clone(&semaphore);
+                let current = Arc::clone(&current);
+                let peak = Arc::clone(&peak);
+                let dir = unique_temp_dir(&format!("concurrency-{i}"));
+                std::thread::spawn(move || {
+                    let cache_path = dir.join("thumb.jpg");
+                    load_cached_or_compute(&cache_path, &semaphore, || {
+                        let now = current.fetch_add(1, Ordering::SeqCst) + 1;
+                        peak.fetch_max(now, Ordering::SeqCst);
+                        std::thread::sleep(std::time::Duration::from_millis(15));
+                        current.fetch_sub(1, Ordering::SeqCst);
+                        Ok(vec![0xFF, 0xD8, 0xFF])
+                    })
+                    .unwrap();
+                    let _ = std::fs::remove_dir_all(&dir);
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let observed_peak = peak.load(Ordering::SeqCst);
+        assert!(
+            observed_peak <= LIMIT,
+            "одновременно ресайзилось {observed_peak} картинок, лимит {LIMIT}"
+        );
+        assert!(
+            observed_peak >= 1,
+            "проба должна была реально пронаблюдать хотя бы одно одновременное выполнение"
+        );
+    }
+
+    /// Стресс-проверка на масштаб из карточки: дублирует существующие 50
+    /// оригиналов бестиария под ~300 синтетическими именами во временный
+    /// каталог (не коммитится, удаляется в конце теста) и прогоняет тот же
+    /// путь, что и `get_bestiary_image` (кэш + семафор + реальный ресайз), с
+    /// 300 одновременных запросов, как при открытии вкладки с полным
+    /// бестиарием будущего. Не гейт (время зависит от машины) — по образцу
+    /// `bestiary_resize_all_50_originals_timing`. Запуск: `cargo test --lib --
+    /// --ignored --nocapture bestiary_300_synthetic_thumbnails_stress`.
+    #[test]
+    #[ignore]
+    fn bestiary_300_synthetic_thumbnails_stress() {
+        const TARGET_COUNT: usize = 300;
+
+        let originals_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images");
+        let originals: Vec<PathBuf> = std::fs::read_dir(&originals_dir)
+            .expect("прочитать bestiary/images")
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                p.is_file()
+                    && matches!(
+                        p.extension().and_then(|e| e.to_str()).map(|e| e.to_lowercase()).as_deref(),
+                        Some("png" | "jpg" | "jpeg" | "webp")
+                    )
+            })
+            .collect();
+        assert!(!originals.is_empty(), "нет исходных картинок для дублирования");
+
+        let synthetic_originals_dir = unique_temp_dir("stress-originals");
+        let cache_dir = unique_temp_dir("stress-cache");
+        let mut synthetic_paths = Vec::with_capacity(TARGET_COUNT);
+        for i in 0..TARGET_COUNT {
+            let source = &originals[i % originals.len()];
+            let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("png");
+            let dest = synthetic_originals_dir.join(format!("synthetic-{i}.{ext}"));
+            std::fs::copy(source, &dest).expect("скопировать во временный синтетический каталог");
+            synthetic_paths.push(dest);
+        }
+
+        let semaphore = Arc::new(ResizeSemaphore::new(super::default_resize_concurrency()));
+        let start = std::time::Instant::now();
+        let handles: Vec<_> = synthetic_paths
+            .into_iter()
+            .enumerate()
+            .map(|(i, source_path)| {
+                let semaphore = Arc::clone(&semaphore);
+                let cache_path = cache_dir.join(format!("synthetic-{i}-160.jpg"));
+                std::thread::spawn(move || {
+                    load_cached_or_compute(&cache_path, &semaphore, || {
+                        resize_image_to_jpeg_bytes(&source_path, 160)
+                    })
+                    .expect("ресайз синтетической копии не должен падать")
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+        let elapsed = start.elapsed();
+
+        println!(
+            "стресс {TARGET_COUNT} превью (лимит параллелизма {}): {:?} суммарно",
+            super::default_resize_concurrency(),
+            elapsed
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(60),
+            "300 превью через кэш+семафор заняли {elapsed:?} — это уже похоже на зависание вкладки"
+        );
+
+        let _ = std::fs::remove_dir_all(&synthetic_originals_dir);
+        let _ = std::fs::remove_dir_all(&cache_dir);
     }
 }
 

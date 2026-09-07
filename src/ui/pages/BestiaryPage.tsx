@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MonsterTemplate } from "../../state/types";
 import { EmphasizedText } from "../EmphasizedText";
@@ -25,6 +25,12 @@ function MonsterThumb({
 const LIST_THUMB_SIZE = 160;
 const DETAIL_THUMB_SIZE = 480;
 
+// Отступ вокруг видимой области списка, на который IntersectionObserver
+// считает строку «достаточно близкой» и начинает грузить превью заранее —
+// заметно меньше рывка при прокрутке, не наказывает при этом масштаб (300
+// тварей всё равно не загружаются все разом, только видимые + запас).
+const LIST_PREFETCH_MARGIN = "300px 0px";
+
 export function BestiaryPage() {
   const [monsters, setMonsters] = useState<MonsterTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +38,13 @@ export function BestiaryPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listImages, setListImages] = useState<Record<string, string>>({});
   const [detailImages, setDetailImages] = useState<Record<string, string>>({});
+
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+  // Кто уже запрошен — на ref, не на state: список из 200-300 тварей не должен
+  // пересобирать IntersectionObserver и заново обходить все строки на каждую
+  // догрузившуюся картинку.
+  const requestedListImagesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     invoke<MonsterTemplate[]>("get_bestiary")
@@ -42,33 +55,60 @@ export function BestiaryPage() {
       .catch((e) => setError(String(e)));
   }, []);
 
-  // Мелкие превью для списка — нужны для всех тварей сразу, но каждая на
-  // порядки легче оригинала, так что параллельная загрузка всех больше не
-  // подвешивает вкладку.
-  useEffect(() => {
-    let cancelled = false;
+  const query = search.trim().toLowerCase();
+  // useMemo — не только для скорости сортировки: держит стабильную ссылку
+  // между рендерами, вызванными приходом очередной картинки, чтобы эффект
+  // IntersectionObserver ниже не пересоздавал наблюдатель на каждое такое
+  // обновление state (при 200-300 тварях это давало бы квадратичную работу).
+  const visible = useMemo(
+    () =>
+      (query ? monsters.filter((m) => m.name.toLowerCase().includes(query)) : monsters)
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, "ru")),
+    [monsters, query],
+  );
 
-    for (const monster of monsters) {
-      if (!monster.imageAsset || listImages[monster.imageAsset]) continue;
-      invoke<string>("get_bestiary_image", {
-        imageAsset: monster.imageAsset,
-        maxSize: LIST_THUMB_SIZE,
-      })
-        .then((data) => {
-          if (!cancelled) {
-            setListImages((current) => ({ ...current, [monster.imageAsset!]: data }));
-          }
-        })
+  // Мелкие превью для списка — только для строк, реально видимых (+ запас
+  // LIST_PREFETCH_MARGIN), не для всех тварей сразу по монтированию. При 50
+  // тварях разница не критична, но при 200-300 (см. карточку
+  // bestiary-thumbnail-loading-at-scale) запрос всех сразу пере-нагружал бы
+  // бэкенд даже с дисковым кэшем и семафором — часть работы вообще не нужно
+  // делать, если строка не на экране.
+  useEffect(() => {
+    const root = listRef.current;
+    if (!root) return;
+
+    const requestListImage = (monster: MonsterTemplate) => {
+      const asset = monster.imageAsset;
+      if (!asset || requestedListImagesRef.current.has(asset)) return;
+      requestedListImagesRef.current.add(asset);
+      invoke<string>("get_bestiary_image", { imageAsset: asset, maxSize: LIST_THUMB_SIZE })
+        .then((data) => setListImages((current) => ({ ...current, [asset]: data })))
         .catch(() => undefined);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer.unobserve(entry.target);
+          const id = (entry.target as HTMLElement).dataset.monsterId;
+          const monster = visible.find((m) => m.id === id);
+          if (monster) requestListImage(monster);
+        }
+      },
+      { root, rootMargin: LIST_PREFETCH_MARGIN },
+    );
+
+    for (const [id, el] of rowRefs.current) {
+      if (visible.some((m) => m.id === id)) observer.observe(el);
     }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [monsters]);
+    return () => observer.disconnect();
+  }, [visible]);
 
   // Крупная картинка — только для выбранной твари, по требованию, не для
-  // всех 50 сразу.
+  // всех тварей сразу.
   useEffect(() => {
     let cancelled = false;
     const monster = monsters.find((m) => m.id === selectedId);
@@ -95,11 +135,6 @@ export function BestiaryPage() {
   const detailImageFor = (monster: MonsterTemplate) =>
     monster.imageAsset ? detailImages[monster.imageAsset] ?? null : null;
 
-  const query = search.trim().toLowerCase();
-  const visible = (query ? monsters.filter((m) => m.name.toLowerCase().includes(query)) : monsters)
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
-
   const selected = monsters.find((m) => m.id === selectedId);
 
   return (
@@ -116,9 +151,16 @@ export function BestiaryPage() {
 
         {error && <p className="bestiary-page__error">Не удалось загрузить бестиарий: {error}</p>}
 
-        <ul className="bestiary-page__list">
+        <ul className="bestiary-page__list" ref={listRef}>
           {visible.map((m) => (
-            <li key={m.id}>
+            <li
+              key={m.id}
+              data-monster-id={m.id}
+              ref={(el) => {
+                if (el) rowRefs.current.set(m.id, el);
+                else rowRefs.current.delete(m.id);
+              }}
+            >
               <button
                 className={
                   "bestiary-page__list-item" +

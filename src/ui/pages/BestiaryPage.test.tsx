@@ -65,8 +65,51 @@ vi.mock("@tauri-apps/api/core", () => ({
   }),
 }));
 
+// jsdom не реализует IntersectionObserver — список бестиария теперь грузит
+// мелкие превью по видимости строки (карточка bestiary-thumbnail-loading-at-scale,
+// см. BestiaryPage.tsx), так что тестам нужен способ явно сказать «эта строка
+// сейчас видна», а не полагаться на реальную геометрию прокрутки.
+class MockIntersectionObserver implements IntersectionObserver {
+  static instances: MockIntersectionObserver[] = [];
+  readonly root = null;
+  readonly rootMargin = "";
+  readonly thresholds: ReadonlyArray<number> = [];
+  observed: Element[] = [];
+  callback: IntersectionObserverCallback;
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    MockIntersectionObserver.instances.push(this);
+  }
+
+  observe(el: Element) {
+    this.observed.push(el);
+  }
+  unobserve(el: Element) {
+    this.observed = this.observed.filter((o) => o !== el);
+  }
+  disconnect() {
+    this.observed = [];
+  }
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+
+  /** Тестовый помощник: помечает все сейчас наблюдаемые строки видимыми. */
+  intersectAll() {
+    const entries = this.observed.map(
+      (target) => ({ target, isIntersecting: true }) as IntersectionObserverEntry,
+    );
+    this.callback(entries, this);
+  }
+}
+
 describe("BestiaryPage", () => {
-  beforeEach(() => invokeMock.mockClear());
+  beforeEach(() => {
+    invokeMock.mockClear();
+    MockIntersectionObserver.instances = [];
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  });
 
   it("loads monsters, shows the first one's stat block by default, and switches on click", async () => {
     render(<BestiaryPage />);
@@ -91,16 +134,36 @@ describe("BestiaryPage", () => {
     expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument();
   });
 
-  it("requests a small list thumbnail and a separate, larger detail image for the initially selected monster", async () => {
+  it("does not request list thumbnails before their row is visible, only the selected monster's detail image", async () => {
     render(<BestiaryPage />);
 
-    const portraits = await screen.findAllByRole("img", { name: "Волк" });
-    expect(portraits).toHaveLength(2);
+    // Деталь загружается сразу (одна картинка), список — по видимости строки:
+    // до пересечения ушёл только 1 вызов (детальная картинка волка).
+    const detailPortrait = await screen.findByRole("img", { name: "Волк" });
+    expect(detailPortrait.getAttribute("src")).toMatch(/^data:image\//);
+    expect(invokeMock.mock.calls.filter(([command]) => command === "get_bestiary_image")).toHaveLength(1);
+  });
+
+  it("requests a small list thumbnail and a separate, larger detail image once rows become visible", async () => {
+    render(<BestiaryPage />);
+    await screen.findByRole("img", { name: "Волк" }); // дождаться начальной загрузки детали
+
+    // Эффект пересоздаёт наблюдатель, когда список тварей меняется (пустой ->
+    // загруженный), так что нужен последний инстанс — тот, что реально
+    // наблюдает строки с уже отрисованными тварями.
+    expect(MockIntersectionObserver.instances.length).toBeGreaterThan(0);
+    MockIntersectionObserver.instances[MockIntersectionObserver.instances.length - 1].intersectAll();
+
+    // Не findAllByRole — она резолвится, как только находит хоть одно
+    // совпадение (уже загруженная деталь), не дожидаясь второго (список).
+    // waitFor опрашивает, пока не появятся оба.
+    await waitFor(() => expect(screen.getAllByRole("img", { name: "Волк" })).toHaveLength(2));
+    const portraits = screen.getAllByRole("img", { name: "Волк" });
     expect(portraits.every((portrait) => portrait.getAttribute("src")?.startsWith("data:image/"))).toBe(true);
 
-    // Только у волка и летучей мыши есть картинка (у разбойника imageAsset: null) — по
-    // монтированию должно уйти 2 вызова на волка (мелкое превью для списка + крупное для
-    // выбранной твари) и 1 на летучую мышь (только список, она не выбрана), не 5+ разом.
+    // Только у волка и летучей мыши есть картинка (у разбойника imageAsset: null) — после
+    // того как все строки стали видимыми, должно уйти 2 вызова на волка (мелкое превью для
+    // списка + крупное для выбранной твари) и 1 на летучую мышь (только список), не 5+ разом.
     await waitFor(() =>
       expect(invokeMock.mock.calls.filter(([command]) => command === "get_bestiary_image")).toHaveLength(3),
     );
