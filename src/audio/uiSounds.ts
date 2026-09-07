@@ -66,24 +66,7 @@ export function playDiceRollSound() {
 }
 
 export function playSpellCastSound() {
-  const audio = getAudioContext();
-  if (!audio) return;
-
-  const now = audio.currentTime;
-  const gain = audio.createGain();
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
-  gain.connect(audio.destination);
-  [392, 523.25, 783.99].forEach((frequency, index) => {
-    const tone = audio.createOscillator();
-    tone.type = index === 2 ? "sine" : "triangle";
-    tone.frequency.setValueAtTime(frequency, now + index * 0.055);
-    tone.frequency.exponentialRampToValueAtTime(frequency * 1.5, now + 0.42);
-    tone.connect(gain);
-    tone.start(now + index * 0.055);
-    tone.stop(now + 0.54);
-  });
+  playAudioFile("/audio/spell-cast.mp3", 0.6);
 }
 
 export function playLimitSound() {
