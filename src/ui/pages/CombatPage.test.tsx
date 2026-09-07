@@ -71,6 +71,8 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         gender: "",
         age: 0,
         languages: [],
+        favoredEnemy: "",
+        knownTerrain: "",
         level: 1,
         experiencePoints: 0,
         abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },

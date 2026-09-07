@@ -769,6 +769,7 @@ describe("CharacterWizard", () => {
   });
 
   it("lets a Dwarf choose which craft tool they're proficient with, reflected in the review text", async () => {
+    addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Дварф"));
@@ -791,6 +792,15 @@ describe("CharacterWizard", () => {
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/выбрано: Инструменты пивовара/)).toBeInTheDocument();
+
+    // Regression: the chosen tool used to vanish here — shown only on this
+    // review step (inside the race-trait description text), never written
+    // into the saved Character's toolProficiencies.
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Дварф Тест" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.toolProficiencies).toContain("Инструменты пивовара");
   });
 
   it("lets a Fighter choose a fighting style, shown by name and description on review", async () => {
@@ -820,6 +830,7 @@ describe("CharacterWizard", () => {
   });
 
   it("lets a Ranger pick a favored enemy and known terrain (previously not offered at all)", async () => {
+    addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
@@ -845,6 +856,16 @@ describe("CharacterWizard", () => {
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Избранный враг: Драконы/)).toBeInTheDocument();
     expect(screen.getByText(/Известная местность: Горы/)).toBeInTheDocument();
+
+    // Regression: the choice used to vanish here — shown only on this review
+    // step, never written into the saved Character (CharactersPage.tsx had
+    // nowhere to read it from even if it wanted to render it).
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Следопыт Тест" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.favoredEnemy).toBe("Драконы");
+    expect(character.knownTerrain).toBe("Горы");
   });
 
   it("shows the chosen background's feature (bold name + description) on the review step", async () => {
@@ -1127,6 +1148,7 @@ describe("CharacterWizard", () => {
   });
 
   it("lets a Monk choose one artisan's or musical instrument tool, reflected in the review text", async () => {
+    addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
@@ -1158,9 +1180,18 @@ describe("CharacterWizard", () => {
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Владение инструментами: Лютня/)).toBeInTheDocument();
+
+    // Regression: the chosen tool used to vanish here — shown only on this
+    // review step, never written into the saved Character's toolProficiencies.
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Монах Тест" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.toolProficiencies).toContain("Лютня");
   });
 
   it("lets a Bard choose 3 distinct musical instrument proficiencies, shown on review", async () => {
+    addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
     fireEvent.click(await screen.findByText("Человек"));
@@ -1199,6 +1230,19 @@ describe("CharacterWizard", () => {
 
     await screen.findByPlaceholderText("Имя персонажа");
     expect(screen.getByText(/Владение музыкальными инструментами: Лютня, Лира, Рожок/)).toBeInTheDocument();
+
+    // Regression: the 3 chosen instruments used to vanish here — shown only
+    // on this review step, never written into the saved Character.
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Бард Тест" } });
+    // Бард на 1 уровне обязан выбрать 2 заговора и 4 заклинания 1 круга,
+    // иначе «Создать персонажа» остаётся заблокированной (см. другой тест).
+    await screen.findByText("Заговор Барда 1");
+    const spellCheckboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    spellCheckboxes.forEach((box) => fireEvent.click(box));
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.toolProficiencies).toEqual(expect.arrayContaining(["Лютня", "Лира", "Рожок"]));
   });
 
   it("lets a Sage pick 2 bonus languages, distinct from the race's, ending up in the finished character", async () => {

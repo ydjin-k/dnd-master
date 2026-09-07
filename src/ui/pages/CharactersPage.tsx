@@ -144,6 +144,39 @@ export function truncateDescription(text: string, max = 90): string {
   return `${cut.trimEnd()}…`;
 }
 
+/**
+ * Блок «Особенности класса» обязан открыться, если ЛЮБОЙ из этих грантов есть
+ * что показать — не только текстовые `classFeatures`/`classResources`/
+ * `classScaling`. Раньше условие проверяло только эти три, и архетип, дающий
+ * только `domainSpells`/`subclassScaling`/`resourceOptions`/`bonusCantrips`/
+ * `damageResistances`/`healingBonus` без единой текстовой особенности на этом
+ * уровне, оставался невидимым целиком (characters-card-missing-subclass-and-
+ * class-choice-info, находка 2).
+ */
+export function classFeaturesBlockHasContent(args: {
+  classFeatures: unknown[];
+  classResources: unknown[];
+  classScaling: unknown[];
+  subclassOptions: unknown[];
+  subclassScaling: unknown[];
+  domainSpells: unknown[];
+  bonusCantrips: unknown;
+  damageResistances?: unknown[];
+  healingBonus: unknown;
+}): boolean {
+  return (
+    args.classFeatures.length > 0 ||
+    args.classResources.length > 0 ||
+    args.classScaling.length > 0 ||
+    args.subclassOptions.length > 0 ||
+    args.subclassScaling.length > 0 ||
+    args.domainSpells.length > 0 ||
+    !!args.bonusCantrips ||
+    !!args.damageResistances?.length ||
+    !!args.healingBonus
+  );
+}
+
 function CharacterCard({
   character: c,
   spells,
@@ -708,6 +741,13 @@ function CharacterCard({
         {c.languages.length > 0 && (
           <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
         )}
+        {(c.favoredEnemy || c.knownTerrain) && (
+          <div className="character-card__prof">
+            {c.favoredEnemy && <>Избранный враг: {c.favoredEnemy}</>}
+            {c.favoredEnemy && c.knownTerrain && " · "}
+            {c.knownTerrain && <>Известная местность: {c.knownTerrain}</>}
+          </div>
+        )}
         <dl className="character-card__hp" aria-label="Характеристики персонажа">
         <div className="character-card__stat">
           <dt>HP</dt>
@@ -952,7 +992,17 @@ function CharacterCard({
           <p className="character-card__prof">Инструменты: {toolProficiencies.join(", ")}</p>
         )}
       </details>
-      {(classFeatures.length > 0 || classResources.length > 0 || classScaling.length > 0) && (
+      {classFeaturesBlockHasContent({
+        classFeatures,
+        classResources,
+        classScaling,
+        subclassOptions,
+        subclassScaling,
+        domainSpells,
+        bonusCantrips: grants?.bonusCantrips,
+        damageResistances: grants?.damageResistances,
+        healingBonus,
+      }) && (
         <details className="character-card__class-features" open>
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
           {classResources.length > 0 && (
