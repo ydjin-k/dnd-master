@@ -31,7 +31,6 @@ pub struct MonsterTemplate {
     pub traits: Vec<String>,
     pub actions: Vec<String>,
     pub image_asset: Option<String>,
-    pub image_attribution: Option<String>,
 }
 
 /// Бестиарий — из bundle.resources в сборке, из src-tauri/bestiary в dev
@@ -643,7 +642,6 @@ mod tests {
             traits: vec![],
             actions: vec![],
             image_asset: None,
-            image_attribution: None,
         }
     }
 

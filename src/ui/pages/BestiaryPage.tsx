@@ -144,12 +144,6 @@ export function BestiaryPage() {
                 ))}
               </section>
             )}
-
-            {selected.imageAttribution && (
-              <footer className="bestiary-statblock__attribution">
-                Изображение: {selected.imageAttribution}
-              </footer>
-            )}
           </article>
         )}
 
