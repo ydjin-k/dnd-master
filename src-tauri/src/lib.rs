@@ -204,8 +204,8 @@ fn get_bestiary(app: AppHandle) -> Result<Vec<MonsterTemplate>, String> {
 }
 
 #[tauri::command]
-fn get_bestiary_image(app: AppHandle, image_asset: String) -> Result<String, String> {
-    combat::load_bestiary_image(&app, &image_asset)
+fn get_bestiary_image(app: AppHandle, image_asset: String, max_size: u32) -> Result<String, String> {
+    combat::load_bestiary_image(&app, &image_asset, max_size)
 }
 
 #[tauri::command]

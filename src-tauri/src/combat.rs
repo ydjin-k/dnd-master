@@ -77,23 +77,44 @@ fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Str
     Ok(resource_dir.join("bestiary").join("images"))
 }
 
-pub fn load_bestiary_image(app: &tauri::AppHandle, image_asset: &str) -> Result<String, String> {
+/// Ядро без Tauri — так уменьшение можно проверить юнит-тестом на реальном
+/// файле без запуска приложения (тот же приём, что и `extract_text_from_image_with_models`
+/// в `import.rs`). Оригиналы картинок бестиария — ~1122×1402px, 1.5-3.3 МБ
+/// каждый (см. отчёт карточки `bestiary-image-loading-hang`), а показываются
+/// мелкой иконкой в списке и один раз крупно в деталях — отдавать оригинал на
+/// оба случая было избыточно на два порядка и вешало вкладку на 50
+/// одновременных IPC-вызовах. `max_size` — желаемая длинная сторона превью в
+/// пикселях; вызывающая сторона просит маленький размер для списка и больший
+/// для выбранной твари.
+pub fn resize_image_to_data_url(path: &std::path::Path, max_size: u32) -> Result<String, String> {
+    let img = image::open(path).map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
+    // JPEG вместо PNG — это картины (плотный градиентный арт), на них PNG после
+    // уменьшения всё ещё десятки КБ (не два порядка меньше оригинала), а JPEG
+    // с качеством 85 — единицы КБ; прозрачность существам бестиария не нужна.
+    let resized = img.thumbnail(max_size, max_size).to_rgb8();
+
+    let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 85);
+    encoder
+        .encode_image(&resized)
+        .map_err(|e| format!("не удалось закодировать превью {path:?}: {e}"))?;
+
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(jpeg_bytes.get_ref());
+    Ok(format!("data:image/jpeg;base64,{encoded}"))
+}
+
+pub fn load_bestiary_image(
+    app: &tauri::AppHandle,
+    image_asset: &str,
+    max_size: u32,
+) -> Result<String, String> {
     let images_dir = bestiary_images_dir(app)?;
     let file_name = std::path::Path::new(image_asset)
         .file_name()
         .ok_or("некорректный путь к картинке")?;
     let path = images_dir.join(file_name);
-    let bytes = std::fs::read(&path).map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
-    let mime = match path.extension().and_then(|e| e.to_str()).unwrap_or("") {
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "webp" => "image/webp",
-        "gif" => "image/gif",
-        other => return Err(format!("неизвестный формат картинки: {other}")),
-    };
-    use base64::Engine;
-    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    Ok(format!("data:{mime};base64,{encoded}"))
+    resize_image_to_data_url(&path, max_size)
 }
 
 fn chebyshev_feet(a: (i32, i32), b: (i32, i32)) -> i32 {
@@ -607,6 +628,102 @@ mod bestiary_data_tests {
         let mut deduped = ids.clone();
         deduped.dedup();
         assert_eq!(ids.len(), deduped.len(), "в bestiary.json есть повторяющиеся id");
+    }
+
+    /// Не гейт (время зависит от машины) — разовый замер для отчёта карточки
+    /// `bestiary-image-loading-hang`, сколько реально стоит пересчёт превью
+    /// "на лету" вместо кэширования. Запуск: `cargo test --lib -- --ignored
+    /// --nocapture bestiary_resize_all_50_originals_timing`.
+    #[test]
+    #[ignore]
+    fn bestiary_resize_all_50_originals_timing() {
+        let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images");
+        let bestiary = load_bundled();
+        let mut total_original_bytes: u64 = 0;
+        let mut total_list_bytes: u64 = 0;
+
+        let start = std::time::Instant::now();
+        for m in &bestiary {
+            let Some(asset) = &m.image_asset else { continue };
+            let file_name = std::path::Path::new(asset).file_name().unwrap();
+            let path = images_dir.join(file_name);
+            total_original_bytes += std::fs::metadata(&path).unwrap().len();
+            let data_url = super::resize_image_to_data_url(&path, 160).unwrap();
+            total_list_bytes += data_url.len() as u64;
+        }
+        let list_elapsed = start.elapsed();
+
+        let mut total_detail_bytes: u64 = 0;
+        let mut single_detail_bytes: u64 = 0;
+        let start = std::time::Instant::now();
+        for m in &bestiary {
+            let Some(asset) = &m.image_asset else { continue };
+            let file_name = std::path::Path::new(asset).file_name().unwrap();
+            let path = images_dir.join(file_name);
+            let data_url = super::resize_image_to_data_url(&path, 480).unwrap();
+            total_detail_bytes += data_url.len() as u64;
+            if single_detail_bytes == 0 {
+                single_detail_bytes = data_url.len() as u64;
+            }
+        }
+        let detail_elapsed = start.elapsed();
+
+        println!(
+            "50 картинок: оригиналы {:.1} МБ -> превью-160 {:.1} МБ (данные для списка, все 50) за {:?}; \
+             превью-480 (все 50, для сравнения) {:.1} МБ за {:?}; одна детальная картинка ~{:.1} КБ",
+            total_original_bytes as f64 / 1_000_000.0,
+            total_list_bytes as f64 / 1_000_000.0,
+            list_elapsed,
+            total_detail_bytes as f64 / 1_000_000.0,
+            detail_elapsed,
+            single_detail_bytes as f64 / 1_000.0,
+        );
+    }
+
+    /// Регресс на карточку `bestiary-image-loading-hang`: раньше команда отдавала
+    /// оригинал целиком (~1.5-3.3 МБ на файл) на любой запрос — вкладка гоняла все
+    /// 50 таких через IPC разом. Уменьшенное превью должно быть меньше на порядки,
+    /// не «визуально компактнее».
+    #[test]
+    fn resized_list_thumbnail_is_orders_of_magnitude_smaller_than_the_original() {
+        let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images");
+        let path = images_dir.join("giant-octopus.png");
+        let original_len = std::fs::metadata(&path)
+            .expect("giant-octopus.png должен быть на диске")
+            .len();
+
+        let data_url = super::resize_image_to_data_url(&path, 160).expect("уменьшить картинку");
+        let base64_part = data_url
+            .strip_prefix("data:image/jpeg;base64,")
+            .expect("data URL с ожидаемым префиксом");
+        let resized_len = base64_part.len() as u64 * 3 / 4; // грубая оценка байт до base64
+
+        assert!(
+            resized_len * 100 < original_len,
+            "превью ({resized_len} байт) должно быть минимум на два порядка меньше оригинала ({original_len} байт)"
+        );
+    }
+
+    #[test]
+    fn resize_preserves_aspect_ratio_and_caps_the_long_side() {
+        let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("images");
+        let path = images_dir.join("giant-octopus.png");
+
+        let data_url = super::resize_image_to_data_url(&path, 160).expect("уменьшить картинку");
+        let base64_part = data_url.strip_prefix("data:image/jpeg;base64,").unwrap();
+        use base64::Engine;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(base64_part)
+            .expect("валидный base64");
+        let decoded = image::load_from_memory(&bytes).expect("валидный JPEG");
+        assert!(decoded.width() <= 160 && decoded.height() <= 160);
+        assert!(decoded.width() == 160 || decoded.height() == 160);
     }
 }
 
