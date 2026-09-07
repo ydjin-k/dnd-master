@@ -263,7 +263,7 @@ describe("CharactersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Свернуть карточку Герой" }));
     expect(screen.getAllByText(/Опыт: 999999/)).toHaveLength(1);
-    expect(screen.getByText("Воин · ур. 1 · HP 10/10")).toBeInTheDocument();
+    expect(screen.getAllByText("Человек · Воин · ур. 1")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "Развернуть карточку Герой" }));
     expect(screen.getAllByText(/Опыт: 999999/)).toHaveLength(2);
@@ -275,7 +275,35 @@ describe("CharactersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Свернуть карточку Герой" }));
     expect(screen.queryByText(/Опыт: 999999/)).not.toBeInTheDocument();
-    expect(screen.getByText("Воин · ур. 1 · HP 10/10")).toBeInTheDocument();
+    expect(screen.getByText("Человек · Воин · ур. 1")).toBeInTheDocument();
+  });
+
+  it("keeps the full summary before stats while hiding the collapsed card body", () => {
+    mockState = baseState({
+      characters: [{
+        ...characterWithInventory(),
+        subclass: "Мастер боя",
+        background: "Солдат",
+        alignment: "Нейтральный",
+        gender: "Мужской",
+        age: 30,
+        languages: ["Общий", "Дварфийский"],
+      }],
+    });
+    render(<CharactersPage />);
+
+    const card = screen.getByText("Герой").closest(".character-card") as HTMLElement;
+    const languages = within(card).getByText("Языки: Общий, Дварфийский");
+    const stats = card.querySelector(".character-card__hp") as HTMLElement;
+    expect(languages.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(within(card).getByRole("button", { name: "Свернуть карточку Герой" }));
+    expect(within(card).getByText("Человек · Воин (Мастер боя) · Солдат · ур. 1 · Нейтральный · Мужской · 30 л.")).toBeInTheDocument();
+    expect(within(card).getByText("Языки: Общий, Дварфийский")).toBeInTheDocument();
+    expect(within(stats).getAllByRole("term")).toHaveLength(6);
+    expect(within(stats).getAllByRole("definition")).toHaveLength(6);
+    expect(within(card).queryByText(/Инвентарь/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Классовые особенности/)).not.toBeInTheDocument();
   });
 
   it("spending 3 of 5 torches updates the tracked quantity, not just removes one", async () => {

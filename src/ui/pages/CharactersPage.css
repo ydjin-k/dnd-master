@@ -58,12 +58,7 @@
   padding: 0.25em 0.65em;
 }
 
-.character-card__compact-meta {
-  color: var(--dm-text-muted);
-  font-size: 0.9em;
-  margin-top: 0.25em;
-}
-
+.character-card__summary,
 .character-card__body {
   display: grid;
   gap: 0.5em;
