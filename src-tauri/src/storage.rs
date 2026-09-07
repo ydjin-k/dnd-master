@@ -37,7 +37,10 @@ pub struct CampaignSummary {
     pub character_count: usize,
 }
 
-fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+/// `pub(crate)` (было приватным) — `combat::thumbnail_cache_dir` переиспользует
+/// этот же каталог данных приложения для кэша превью бестиария, см. карточку
+/// `bestiary-thumbnail-loading-at-scale`. Логика самой функции не менялась.
+pub(crate) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_data_dir()
