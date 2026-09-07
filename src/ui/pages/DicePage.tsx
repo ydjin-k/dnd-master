@@ -132,7 +132,7 @@ export function DicePage() {
       const showDetail = showRollBreakdown || Boolean(item.result?.dropped);
       return <li key={item.id} className="dice-log-entry">
         {entrySides && (item.result && item.result.rolls.length > 1
-          ? <span className="dice-log-entry__icons">{item.result.rolls.map((roll, index) => <DiceIcon key={index} sides={entrySides} value={roll} compact />)}</span>
+          ? <span className="dice-log-entry__icons">{item.result.rolls.map((roll, index) => <DiceIcon key={index} sides={entrySides} value={roll} log />)}</span>
           : <DiceIcon sides={entrySides} value={item.result?.total} />)}
         <span className="dice-log-entry__expr">{item.label}</span>
         {item.result && <><span className="dice-log-entry__total">{item.result.total}</span>{showDetail && <span className="dice-log-entry__detail">
