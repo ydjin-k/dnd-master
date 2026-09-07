@@ -19,12 +19,19 @@ function MonsterThumb({
   return <img className={className} src={src} alt={monster.name} />;
 }
 
+// Длинная сторона превью в пикселях, отдаваемых Rust-стороной (`get_bestiary_image`,
+// см. combat::load_bestiary_image) — сильно меньше оригиналов (~1122×1402px),
+// байты по IPC вместо ~183 МБ на все 50 тварей одновременно.
+const LIST_THUMB_SIZE = 160;
+const DETAIL_THUMB_SIZE = 480;
+
 export function BestiaryPage() {
   const [monsters, setMonsters] = useState<MonsterTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [images, setImages] = useState<Record<string, string>>({});
+  const [listImages, setListImages] = useState<Record<string, string>>({});
+  const [detailImages, setDetailImages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     invoke<MonsterTemplate[]>("get_bestiary")
@@ -35,15 +42,21 @@ export function BestiaryPage() {
       .catch((e) => setError(String(e)));
   }, []);
 
+  // Мелкие превью для списка — нужны для всех тварей сразу, но каждая на
+  // порядки легче оригинала, так что параллельная загрузка всех больше не
+  // подвешивает вкладку.
   useEffect(() => {
     let cancelled = false;
 
     for (const monster of monsters) {
-      if (!monster.imageAsset || images[monster.imageAsset]) continue;
-      invoke<string>("get_bestiary_image", { imageAsset: monster.imageAsset })
+      if (!monster.imageAsset || listImages[monster.imageAsset]) continue;
+      invoke<string>("get_bestiary_image", {
+        imageAsset: monster.imageAsset,
+        maxSize: LIST_THUMB_SIZE,
+      })
         .then((data) => {
           if (!cancelled) {
-            setImages((current) => ({ ...current, [monster.imageAsset!]: data }));
+            setListImages((current) => ({ ...current, [monster.imageAsset!]: data }));
           }
         })
         .catch(() => undefined);
@@ -54,8 +67,33 @@ export function BestiaryPage() {
     };
   }, [monsters]);
 
-  const imageFor = (monster: MonsterTemplate) =>
-    monster.imageAsset ? images[monster.imageAsset] ?? null : null;
+  // Крупная картинка — только для выбранной твари, по требованию, не для
+  // всех 50 сразу.
+  useEffect(() => {
+    let cancelled = false;
+    const monster = monsters.find((m) => m.id === selectedId);
+    if (!monster?.imageAsset || detailImages[monster.imageAsset]) return;
+
+    invoke<string>("get_bestiary_image", {
+      imageAsset: monster.imageAsset,
+      maxSize: DETAIL_THUMB_SIZE,
+    })
+      .then((data) => {
+        if (!cancelled) {
+          setDetailImages((current) => ({ ...current, [monster.imageAsset!]: data }));
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, monsters]);
+
+  const listImageFor = (monster: MonsterTemplate) =>
+    monster.imageAsset ? listImages[monster.imageAsset] ?? null : null;
+  const detailImageFor = (monster: MonsterTemplate) =>
+    monster.imageAsset ? detailImages[monster.imageAsset] ?? null : null;
 
   const query = search.trim().toLowerCase();
   const visible = (query ? monsters.filter((m) => m.name.toLowerCase().includes(query)) : monsters)
@@ -91,7 +129,7 @@ export function BestiaryPage() {
                 <MonsterThumb
                   monster={m}
                   className="bestiary-thumb bestiary-thumb--list"
-                  src={imageFor(m)}
+                  src={listImageFor(m)}
                 />
                 <span className="bestiary-page__list-name">{m.name}</span>
                 <span className="bestiary-page__list-cr">СЛ {m.challengeRating}</span>
@@ -108,7 +146,7 @@ export function BestiaryPage() {
             <MonsterThumb
               monster={selected}
               className="bestiary-thumb bestiary-thumb--detail"
-              src={imageFor(selected)}
+              src={detailImageFor(selected)}
             />
             <h2 className="bestiary-statblock__name">{selected.name}</h2>
             <p className="bestiary-statblock__subtitle">
