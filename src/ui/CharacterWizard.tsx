@@ -579,6 +579,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       gender,
       age,
       languages: finalLanguages,
+      favoredEnemy: isRanger ? favoredEnemy || RANGER_FAVORED_ENEMIES[0] : "",
+      knownTerrain: isRanger ? rangerTerrain || RANGER_TERRAIN_TYPES[0] : "",
       level: 1,
       experiencePoints: 0,
       abilities: totalAbilities,
@@ -595,7 +597,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       skillProficiencies: allSkillProficiencies,
       armorProficiencies: armorProficienciesFor(classId, level1Subclass?.name),
       weaponProficiencies: weaponProficienciesFor(classId, level1Subclass?.name),
-      toolProficiencies: toolProficienciesFor(classId, level1Subclass?.name),
+      // Инструменты архетипа плюс личный выбор игрока при создании — Владение
+      // музыкальными инструментами барда, владение инструментами монаха и
+      // владение инструментами дварфа выбираются здесь же (шаг «Итог»), но
+      // раньше нигде не сохранялись.
+      toolProficiencies: [
+        ...new Set([
+          ...toolProficienciesFor(classId, level1Subclass?.name),
+          ...(isBard ? bardInstruments : []),
+          ...(isMonk && finalMonkTool ? [finalMonkTool] : []),
+          ...(finalDwarfTool ? [finalDwarfTool] : []),
+        ]),
+      ],
       fightingStyle: finalFightingStyle,
       knownCantrips: spellAbility ? knownCantrips : [],
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму

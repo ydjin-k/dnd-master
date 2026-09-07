@@ -77,6 +77,11 @@ pub struct Character {
     pub gender: String,
     pub age: u32,
     pub languages: Vec<String>,
+    /// Избранный враг Следопыта (SRD 5.1, «Любимый враг») — пусто у не-Следопытов.
+    /// Отсутствует в старых сохранениях — структурный `#[serde(default)]` даёт "".
+    pub favored_enemy: String,
+    /// Известная местность Следопыта (SRD 5.1, «Исследователь природы») — пусто у не-Следопытов.
+    pub known_terrain: String,
     pub level: u32,
     /// Кумулятивный опыт (SRD 5.1: таблица «Развитие персонажа», см.
     /// `characterCreationData.ts → XP_THRESHOLDS`) — вводится вручную мастером,

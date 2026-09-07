@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import bundledSpells from "../../../src-tauri/rules/spells.json";
 import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { CharactersPage, truncateDescription } from "./CharactersPage";
+import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
 import { armorProficienciesFor, weaponProficienciesFor } from "../characterCreationData";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
@@ -150,6 +150,8 @@ describe("CharactersPage", () => {
       gender: "",
       age: 0,
       languages: [],
+      favoredEnemy: "",
+      knownTerrain: "",
       level: 1,
       // Высокий запас опыта по умолчанию — level-up тесты в этом файле не про XP-гейтинг
       // (characters-experience-and-levelup-gating) и не должны на него наткнуться;
@@ -198,6 +200,8 @@ describe("CharactersPage", () => {
           gender: "",
           age: 0,
           languages: [],
+          favoredEnemy: "",
+          knownTerrain: "",
           level: 1,
           experiencePoints: 0,
           abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
@@ -1061,6 +1065,11 @@ describe("CharactersPage", () => {
       render(<CharactersPage />);
       expect(await screen.findByTitle("Применить: Священное оружие (тратит Проведение энергии)")).toBeInTheDocument();
     });
+
+    it("Домен жизни показывает усиленное лечение заклинанием (healingBonus) на карточке", async () => {
+      await renderCleric(cleric("Домен жизни"));
+      expect(screen.getByText(/Лечение заклинанием усилено: \+2/)).toBeInTheDocument();
+    });
   });
 
   /**
@@ -1407,6 +1416,58 @@ describe("CharactersPage", () => {
         await screen.findByText(/Заклинания архетипа \(всегда подготовлены\): Удержание личности, Шипастые заросли/),
       ).toBeInTheDocument();
     });
+
+    /**
+     * characters-card-missing-subclass-and-class-choice-info, находка 1:
+     * favoredEnemy/knownTerrain захватывались в CharacterWizard.tsx (шаг
+     * «Итог»), но никогда не попадали в сам объект Character — терялись
+     * насовсем при создании, а не просто не рисовались на карточке.
+     */
+    it("Избранный враг и Известная местность Следопыта видны на карточке персонажа (не только в мастере при создании)", async () => {
+      const ranger: Character = {
+        ...characterWithInventory(),
+        class: "Следопыт",
+        conditions: ["Ослеплённое"],
+        favoredEnemy: "Драконы",
+        knownTerrain: "Горы",
+      };
+      await renderWith("classes-ranger", "Следопыт", "10", "6", ranger);
+      expect(screen.getByText(/Избранный враг: Драконы · Известная местность: Горы/)).toBeInTheDocument();
+    });
+
+    it("персонаж без favoredEnemy/knownTerrain (не Следопыт) не показывает эту строку вовсе", async () => {
+      const fighter: Character = { ...characterWithInventory(), class: "Воин", conditions: ["Ослеплённое"] };
+      await renderWith("classes-fighter", "Воин", "10", "6", fighter);
+      expect(screen.queryByText(/Избранный враг/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Известная местность/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Прямое воспроизведение жалобы владельца (Колдун/Архифея): в коде блок
+     * «Особенности класса» у уровня 1 Архифеи уже открывался и без правки
+     * находки 2 (у неё есть текстовые featuresByLevel[1]) — но факт, что
+     * заклинания покровителя действительно попадают на карточку, ни разу не
+     * был проверен пробой. Настоящий spells.json, не фикстура.
+     */
+    it("Колдун с покровителем-Архифеей показывает заклинания архетипа на карточке персонажа", async () => {
+      const warlock: Character = {
+        ...characterWithInventory(),
+        class: "Колдун",
+        subclass: "Покровитель-Архифея",
+        conditions: ["Ослеплённое"],
+      };
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [classTopic("classes-warlock", "Колдун", "8", "5"), CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [warlock] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+      expect(
+        await screen.findByText(/Заклинания архетипа \(всегда подготовлены\): Очарование личности, Огонь фей/),
+      ).toBeInTheDocument();
+    });
   });
 
   // Настоящий поставляемый spells.json, а не фикстура: заглушка «списка нет» держалась
@@ -1448,5 +1509,61 @@ describe("truncateDescription", () => {
   it("falls back to a word boundary with an ellipsis when the first sentence is longer than the limit", () => {
     const text = `${"A".repeat(50)} ${"B".repeat(50)}`;
     expect(truncateDescription(text)).toBe(`${"A".repeat(50)}…`);
+  });
+});
+
+/**
+ * characters-card-missing-subclass-and-class-choice-info, находка 2: раньше
+ * блок «Особенности класса» открывался только по classFeatures/classResources/
+ * classScaling — архетип, дающий исключительно один из остальных видов
+ * гранта (заклинания домена, скейлинг архетипа, вариант ресурса, заговоры
+ * сверх нормы, сопротивления, усиленное лечение) без единой текстовой
+ * особенности на этом уровне, оставался невидим целиком. Каждая проба ниже —
+ * ровно один вид гранта и ничего больше, чтобы показать, что именно ОН один
+ * теперь достаточен для открытия блока.
+ */
+describe("classFeaturesBlockHasContent", () => {
+  const empty = {
+    classFeatures: [],
+    classResources: [],
+    classScaling: [],
+    subclassOptions: [],
+    subclassScaling: [],
+    domainSpells: [],
+    bonusCantrips: undefined,
+    damageResistances: undefined,
+    healingBonus: undefined,
+  };
+
+  it("false when nothing at all is granted (empty card doesn't open the block)", () => {
+    expect(classFeaturesBlockHasContent(empty)).toBe(false);
+  });
+
+  it("true with only domainSpells (spellsByLevel-only archetype)", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, domainSpells: ["bless"] })).toBe(true);
+  });
+
+  it("true with only subclassScaling", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, subclassScaling: [{ name: "x" }] })).toBe(true);
+  });
+
+  it("true with only subclassOptions (resourceOptions-only archetype)", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, subclassOptions: [{ id: "x" }] })).toBe(true);
+  });
+
+  it("true with only bonusCantrips", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, bonusCantrips: { count: 1 } })).toBe(true);
+  });
+
+  it("true with only damageResistances", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, damageResistances: ["Электричество"] })).toBe(true);
+  });
+
+  it("true with only healingBonus", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, healingBonus: { flat: 2 } })).toBe(true);
+  });
+
+  it("an empty damageResistances array still counts as nothing granted", () => {
+    expect(classFeaturesBlockHasContent({ ...empty, damageResistances: [] })).toBe(false);
   });
 });

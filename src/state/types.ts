@@ -49,6 +49,10 @@ export interface Character {
   gender: string;
   age: number;
   languages: string[];
+  /** Избранный враг Следопыта (SRD 5.1, «Любимый враг») — пусто у не-Следопытов. */
+  favoredEnemy: string;
+  /** Известная местность Следопыта (SRD 5.1, «Исследователь природы») — пусто у не-Следопытов. */
+  knownTerrain: string;
   level: number;
   experiencePoints: number;
   abilities: AbilityScores;
