@@ -149,6 +149,8 @@ describe("DicePage", () => {
     expect(screen.getByLabelText("Кость d6, результат 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Кость d6, результат 5")).toBeInTheDocument();
     expect(screen.getByLabelText("Кость d6, результат 6")).toBeInTheDocument();
+    expect(screen.getByLabelText("Кость d6, результат 2")).toHaveClass("dice-icon--log");
+    expect(screen.getByLabelText("Кость d6, результат 2")).not.toHaveClass("dice-icon--compact");
     expect(screen.queryByLabelText("Кость d6, результат 13")).not.toBeInTheDocument();
     expect(screen.getByText("13", { selector: ".dice-log-entry__total" })).toBeInTheDocument();
   });

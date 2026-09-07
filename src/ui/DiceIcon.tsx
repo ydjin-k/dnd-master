@@ -15,9 +15,9 @@ export function dieSidesFromExpression(expression: string): DieSides | null {
   return match ? Number(match[1]) as DieSides : null;
 }
 
-export function DiceIcon({ sides, value, compact = false }: { sides: DieSides; value?: number; compact?: boolean }) {
+export function DiceIcon({ sides, value, compact = false, log = false }: { sides: DieSides; value?: number; compact?: boolean; log?: boolean }) {
   return (
-    <span className={`dice-icon dice-icon--d${sides}${compact ? " dice-icon--compact" : ""}`} data-die={`d${sides}`} role="img" aria-label={`Кость d${sides}${value === undefined ? "" : `, результат ${value}`}`}>
+    <span className={`dice-icon dice-icon--d${sides}${compact ? " dice-icon--compact" : ""}${log ? " dice-icon--log" : ""}`} data-die={`d${sides}`} role="img" aria-label={`Кость d${sides}${value === undefined ? "" : `, результат ${value}`}`}>
       <svg viewBox="0 0 64 64" aria-hidden="true">
         <g className="dice-icon__shape">{outlines[sides]}</g>
         {value !== undefined && <text x="32" y="37" textAnchor="middle" className="dice-icon__value">{value}</text>}

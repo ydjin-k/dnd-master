@@ -43,3 +43,6 @@
 .dice-icon__multiplier { fill: var(--dm-secondary); font: 700 7px var(--dm-font-display); }
 .dice-icon--compact { width: 27px; height: 27px; flex-basis: 27px; }
 .dice-icon--compact .dice-icon__multiplier { display: none; }
+.dice-icon--log { width: 36px; height: 36px; flex-basis: 36px; }
+.dice-icon--log .dice-icon__value { font-size: 22px; }
+.dice-icon--log .dice-icon__multiplier { display: none; }
