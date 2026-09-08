@@ -215,6 +215,39 @@ describe("Пауза из хедера, без похода на «Саундб�
     expect(header().getByRole("button", { name: "Продолжить: Костёр" })).toBeInTheDocument();
   });
 
+  it("сбрасывает всё второй общей кнопкой — это не пауза, а снятие треков", () => {
+    renderApp();
+    openTab("Саундборд");
+    play("Играть: Танец таверны");
+    play("Играть: Костёр");
+    openTab("Бой");
+
+    const music = instanceOf("tavern/taverns-dance.mp3");
+    const campfire = instanceOf("campfire/campfire.mp3");
+    music.currentTime = 30;
+    campfire.currentTime = 12;
+
+    // Обе общие кнопки живут рядом и делают разное.
+    expect(header().getByRole("button", { name: "Пауза: всё" })).toBeInTheDocument();
+    headerClick("Сбросить всё");
+
+    expect(music.pause).toHaveBeenCalledTimes(1);
+    expect(campfire.pause).toHaveBeenCalledTimes(1);
+    // В отличие от паузы — позиция в ноль, панель уходит совсем.
+    expect(music.currentTime).toBe(0);
+    expect(campfire.currentTime).toBe(0);
+    expect(screen.queryByRole("group", { name: "Сейчас звучит" })).not.toBeInTheDocument();
+
+    // Следующий запуск — с начала, новым элементом, а не продолжением старого.
+    openTab("Саундборд");
+    play("Играть: Танец таверны");
+    expect(audioInstances).toHaveLength(3);
+    const restarted = audioInstances[2];
+    expect(restarted.src).toContain("tavern/taverns-dance.mp3");
+    expect(restarted.currentTime).toBe(0);
+    expect(restarted.play).toHaveBeenCalledTimes(1);
+  });
+
   it("возобновляет эмбиент с паузы кнопкой на самой странице, не сбрасывая позицию", () => {
     renderApp();
     openTab("Саундборд");
