@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
+import { SoundtrackProvider } from "./state/SoundtrackContext";
 import type { CampaignState } from "./state/types";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
@@ -11,6 +12,7 @@ import { CharactersPage } from "./ui/pages/CharactersPage";
 import { JournalPage } from "./ui/pages/JournalPage";
 import { RulesPage } from "./ui/pages/RulesPage";
 import { BestiaryPage } from "./ui/pages/BestiaryPage";
+import { SoundboardPage } from "./ui/pages/SoundboardPage";
 import "./ui/theme.css";
 
 function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
@@ -40,6 +42,8 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
               return <RulesPage />;
             case "bestiary":
               return <BestiaryPage />;
+            case "soundboard":
+              return <SoundboardPage />;
           }
         }}
       </AppShell>
@@ -74,10 +78,15 @@ function App() {
     return <Launcher onEnter={enterCampaign} />;
   }
 
+  // SoundtrackProvider — снаружи AppShell (и снаружи пере-ключаемого
+  // CampaignProvider): <audio> живут выше свитча вкладок, поэтому уход со
+  // «Саундборда» на «Бой» не обрывает музыку.
   return (
-    <CampaignProvider key={campaignKey}>
-      <AppContent onSwitchCampaign={() => setPhase("launcher")} />
-    </CampaignProvider>
+    <SoundtrackProvider>
+      <CampaignProvider key={campaignKey}>
+        <AppContent onSwitchCampaign={() => setPhase("launcher")} />
+      </CampaignProvider>
+    </SoundtrackProvider>
   );
 }
 

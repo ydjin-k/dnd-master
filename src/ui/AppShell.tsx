@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
+import { NowPlaying } from "./NowPlaying";
 import { UIIcon } from "./UIIcon";
 import "./AppShell.css";
 
-export type Tab = "adventure" | "combat" | "dice" | "characters" | "journal" | "rules" | "bestiary";
+export type Tab =
+  | "adventure" | "combat" | "dice" | "characters"
+  | "journal" | "rules" | "bestiary" | "soundboard";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "adventure", label: "Приключение" },
@@ -13,6 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "journal", label: "Дневник" },
   { id: "rules", label: "Правила" },
   { id: "bestiary", label: "Бестиарий" },
+  { id: "soundboard", label: "Саундборд" },
 ];
 
 export function AppShell({
@@ -35,6 +39,7 @@ export function AppShell({
           placeholder="Название кампании"
           onChange={(e) => setCampaignName(e.currentTarget.value)}
         />
+        <NowPlaying />
         <button className="app-shell__switch-campaign" onClick={onSwitchCampaign}>
           <UIIcon name="campaign" />Кампании
         </button>
