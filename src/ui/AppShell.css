@@ -51,10 +51,10 @@
 .now-playing {
   display: inline-flex;
   align-items: center;
-  gap: 0.5em;
+  gap: 0.4em;
   min-width: 0;
-  max-width: 24em;
-  padding: 0.2em 0.35em 0.2em 0.6em;
+  max-width: 42em;
+  padding: 0.2em 0.4em;
   border: 1px solid rgba(239, 138, 196, 0.45);
   border-radius: 999px;
   background: rgba(239, 138, 196, 0.09);
@@ -63,23 +63,55 @@
 
 .now-playing .ui-icon { color: #ef8ac4; }
 
-.now-playing__titles {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.88em;
+.now-playing__all {
+  min-height: 30px;
+  padding: 0 0.5em;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-size: 0.8em;
+  border-radius: 999px;
 }
 
-.now-playing__stop {
-  min-height: 30px;
-  width: 30px;
+.now-playing__tracks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  overflow: hidden;
+}
+
+.now-playing__track {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  min-width: 0;
+  padding-inline: 0.15em;
+}
+
+.now-playing__track.is-paused { opacity: 0.62; }
+
+.now-playing__track-toggle {
+  min-height: 26px;
+  width: 26px;
   padding: 0;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7em;
+  font-size: 0.62em;
   border-radius: 999px;
+}
+
+.now-playing__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85em;
 }
 
 .app-shell__nav {

@@ -1,5 +1,5 @@
 import { AMBIENT_CATEGORIES, MUSIC_CATEGORIES, type SoundtrackCategory } from "../../audio/soundtrack";
-import { useSoundtrack } from "../../state/SoundtrackContext";
+import { MIN_VOLUME, useSoundtrack } from "../../state/SoundtrackContext";
 import "./SoundboardPage.css";
 
 function TrackList({
@@ -35,7 +35,7 @@ function TrackList({
           <input
             className="soundboard__volume"
             type="range"
-            min={0}
+            min={MIN_VOLUME}
             max={1}
             step={0.05}
             value={volumeOf(track.id)}
@@ -49,12 +49,12 @@ function TrackList({
 }
 
 export function SoundboardPage() {
-  const { music, ambient, playing, toggleMusic, toggleAmbient, stopAll } = useSoundtrack();
+  const { music, ambient, active, toggleMusic, toggleAmbient, stopAll } = useSoundtrack();
 
   return <div className="soundboard">
     <div className="soundboard__head">
       <h2>Саундборд</h2>
-      <button type="button" onClick={stopAll} disabled={playing.length === 0}>Остановить всё</button>
+      <button type="button" onClick={stopAll} disabled={active.length === 0}>Остановить всё</button>
     </div>
 
     <h2 className="soundboard__section">Музыка</h2>
@@ -70,7 +70,7 @@ export function SoundboardPage() {
     <p className="soundboard__hint">Зациклены и накладываются друг на друга и на музыку.</p>
     <TrackList
       categories={AMBIENT_CATEGORIES}
-      isActive={(trackId) => ambient.includes(trackId)}
+      isActive={(trackId) => ambient.some((c) => c.trackId === trackId && !c.paused)}
       actionLabel={(active) => (active ? "Остановить" : "Играть")}
       onToggle={toggleAmbient}
     />
