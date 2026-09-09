@@ -76,6 +76,21 @@ pub struct Character {
     pub alignment: String,
     pub gender: String,
     pub age: u32,
+    /// Описательные поля листа персонажа — рост/вес/глаза/кожа/волосы,
+    /// внешность, предыстория, союзники, сокровища. Модель их только хранит:
+    /// ни один расчёт их не читает, показывает и правит карточка персонажа.
+    /// `height`/`weight` — строки, потому что на листах единицы пишутся
+    /// свободным текстом («168 СМ (5.5 фут)», «3,5 фута», «145»).
+    /// Старые сохранения получают "" через структурный `#[serde(default)]`.
+    pub height: String,
+    pub weight: String,
+    pub eyes: String,
+    pub skin: String,
+    pub hair: String,
+    pub appearance: String,
+    pub backstory: String,
+    pub allies: String,
+    pub treasures: String,
     pub languages: Vec<String>,
     /// Избранный враг Следопыта (SRD 5.1, «Любимый враг») — пусто у не-Следопытов.
     /// Отсутствует в старых сохранениях — структурный `#[serde(default)]` даёт "".

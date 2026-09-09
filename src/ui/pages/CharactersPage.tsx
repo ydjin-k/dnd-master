@@ -1242,6 +1242,67 @@ function CharacterCard({
         </div>
       </details>
 
+      <details
+        className="character-card__traits"
+        open={!!(c.height || c.weight || c.eyes || c.skin || c.hair || c.appearance || c.backstory || c.allies || c.treasures)}
+      >
+        <summary>Внешность, предыстория, союзники, сокровища</summary>
+        <div className="character-card__traits-grid">
+          <label>
+            Рост
+            <input value={c.height} onChange={(e) => onUpdate((ch) => ({ ...ch, height: e.currentTarget.value }))} />
+          </label>
+          <label>
+            Вес
+            <input value={c.weight} onChange={(e) => onUpdate((ch) => ({ ...ch, weight: e.currentTarget.value }))} />
+          </label>
+          <label>
+            Глаза
+            <input value={c.eyes} onChange={(e) => onUpdate((ch) => ({ ...ch, eyes: e.currentTarget.value }))} />
+          </label>
+          <label>
+            Кожа
+            <input value={c.skin} onChange={(e) => onUpdate((ch) => ({ ...ch, skin: e.currentTarget.value }))} />
+          </label>
+          <label>
+            Волосы
+            <input value={c.hair} onChange={(e) => onUpdate((ch) => ({ ...ch, hair: e.currentTarget.value }))} />
+          </label>
+          <label>
+            Внешний вид
+            <textarea
+              rows={4}
+              value={c.appearance}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, appearance: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Предыстория персонажа
+            <textarea
+              rows={6}
+              value={c.backstory}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, backstory: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Союзники и организации
+            <textarea
+              rows={4}
+              value={c.allies}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, allies: e.currentTarget.value }))}
+            />
+          </label>
+          <label>
+            Сокровища
+            <textarea
+              rows={3}
+              value={c.treasures}
+              onChange={(e) => onUpdate((ch) => ({ ...ch, treasures: e.currentTarget.value }))}
+            />
+          </label>
+        </div>
+      </details>
+
       <details className="character-card__conditions" open={c.conditions.length > 0}>
         <summary>Состояния ({c.conditions.length})</summary>
         <div className="character-card__conditions-hint">{CONDITIONS_GENERAL_HINT}</div>
