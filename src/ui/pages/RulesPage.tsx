@@ -60,24 +60,27 @@ export function RulesPage() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        {categories.map((cat) => (
-          <div key={cat}>
-            <div className="rules-page__nav-category">{CATEGORY_LABEL[cat] ?? cat}</div>
-            {visibleTopics
-              .filter((t) => t.category === cat)
-              .map((t) => (
-                <button
-                  key={t.id}
-                  className={
-                    "rules-page__nav-item" + (activeId === t.id ? " rules-page__nav-item--active" : "")
-                  }
-                  onClick={() => setActiveId(t.id)}
-                >
-                  {t.title}
-                </button>
-              ))}
-          </div>
-        ))}
+        <div className="rules-page__list" role="region" aria-label="Список тем правил" tabIndex={0}>
+          {categories.map((cat) => (
+            <div key={cat}>
+              <div className="rules-page__nav-category">{CATEGORY_LABEL[cat] ?? cat}</div>
+              {visibleTopics
+                .filter((t) => t.category === cat)
+                .map((t) => (
+                  <button
+                    key={t.id}
+                    className={
+                      "rules-page__nav-item" +
+                      (activeId === t.id ? " rules-page__nav-item--active" : "")
+                    }
+                    onClick={() => setActiveId(t.id)}
+                  >
+                    {t.title}
+                  </button>
+                ))}
+            </div>
+          ))}
+        </div>
       </nav>
 
       <div className="rules-page__content">

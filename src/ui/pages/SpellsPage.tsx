@@ -105,41 +105,52 @@ export function SpellsPage() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        {visibleRulesTopics.length > 0 && (
-          <div>
-            <div className="rules-page__nav-category">Правила сотворения</div>
-            {visibleRulesTopics.map((t) => (
-              <button
-                key={t.id}
-                className={
-                  "rules-page__nav-item" +
-                  (active?.kind === "topic" && active.id === t.id ? " rules-page__nav-item--active" : "")
-                }
-                onClick={() => setActive({ kind: "topic", id: t.id })}
-              >
-                {t.title}
-              </button>
-            ))}
-          </div>
-        )}
+        <div
+          className="rules-page__list"
+          role="region"
+          aria-label="Список заклинаний и правил сотворения"
+          tabIndex={0}
+        >
+          {visibleRulesTopics.length > 0 && (
+            <div>
+              <div className="rules-page__nav-category">Правила сотворения</div>
+              {visibleRulesTopics.map((t) => (
+                <button
+                  key={t.id}
+                  className={
+                    "rules-page__nav-item" +
+                    (active?.kind === "topic" && active.id === t.id
+                      ? " rules-page__nav-item--active"
+                      : "")
+                  }
+                  onClick={() => setActive({ kind: "topic", id: t.id })}
+                >
+                  {t.title}
+                </button>
+              ))}
+            </div>
+          )}
 
-        {visibleByLevel.map(([level, group]) => (
-          <div key={level}>
-            <div className="rules-page__nav-category">{levelLabel(level)}</div>
-            {group.map((sp) => (
-              <button
-                key={sp.id}
-                className={
-                  "rules-page__nav-item" +
-                  (active?.kind === "spell" && active.id === sp.id ? " rules-page__nav-item--active" : "")
-                }
-                onClick={() => setActive({ kind: "spell", id: sp.id })}
-              >
-                {sp.name}
-              </button>
-            ))}
-          </div>
-        ))}
+          {visibleByLevel.map(([level, group]) => (
+            <div key={level}>
+              <div className="rules-page__nav-category">{levelLabel(level)}</div>
+              {group.map((sp) => (
+                <button
+                  key={sp.id}
+                  className={
+                    "rules-page__nav-item" +
+                    (active?.kind === "spell" && active.id === sp.id
+                      ? " rules-page__nav-item--active"
+                      : "")
+                  }
+                  onClick={() => setActive({ kind: "spell", id: sp.id })}
+                >
+                  {sp.name}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
       </nav>
 
       <div className="rules-page__content">

@@ -10,7 +10,7 @@
 
 .spell-view__stats {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 0.75em;
   row-gap: 0.25em;
   margin: 1em 0;
@@ -21,10 +21,13 @@
 }
 
 .spell-view__stats dt {
+  min-width: 0;
   font-weight: 600;
   color: var(--dm-text-muted);
 }
 
 .spell-view__stats dd {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
 }
