@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import bundledPresets from "../../src-tauri/characters/presets.json";
+import bundledRules from "../../src-tauri/rules/rules.json";
 import { CharactersPage } from "./pages/CharactersPage";
 import { CharacterWizard } from "./CharacterWizard";
 import { characterFromPreset, type CharacterPreset } from "./characterPresets";
@@ -360,9 +361,15 @@ describe("пресеты готовых персонажей", () => {
     expect(updated.knownSpells).toEqual(expect.arrayContaining(["barkskin", "spider-climb"]));
   });
 
+  /**
+   * Сверяется с НАСТОЯЩИМ rules.json, а не с заглушкой `TOPICS` этого файла:
+   * заглушка знает две расы из девяти, и проба на ней прошла бы у любого
+   * пресета, чью расу в неё просто не положили.
+   */
   it("каждый пресет назван словарём проекта: раса и класс — заголовки тем rules.json", () => {
-    const raceTitles = TOPICS.filter((t) => t.category === "races").map((t) => t.title);
-    const classTitles = TOPICS.filter((t) => t.category === "classes").map((t) => t.title);
+    const topics = bundledRules as unknown as RuleTopic[];
+    const raceTitles = topics.filter((t) => t.category === "races").map((t) => t.title);
+    const classTitles = topics.filter((t) => t.category === "classes").map((t) => t.title);
 
     for (const preset of PRESETS) {
       expect(raceTitles, `раса пресета ${preset.id}`).toContain(preset.race);
