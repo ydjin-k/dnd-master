@@ -31,6 +31,9 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByText("Бой"));
     expect(screen.getByTestId("tab-content")).toHaveTextContent("combat");
 
+    fireEvent.click(screen.getByText("Заклинания"));
+    expect(screen.getByTestId("tab-content")).toHaveTextContent("spells");
+
     const nameInput = screen.getByPlaceholderText("Название кампании");
     fireEvent.change(nameInput, { target: { value: "Новое имя" } });
     expect(setCampaignName).toHaveBeenCalledWith("Новое имя");

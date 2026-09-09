@@ -6,7 +6,7 @@ import "./AppShell.css";
 
 export type Tab =
   | "adventure" | "combat" | "dice" | "characters"
-  | "journal" | "rules" | "bestiary" | "soundboard";
+  | "journal" | "rules" | "spells" | "bestiary" | "soundboard";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "adventure", label: "Приключение" },
@@ -15,6 +15,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "characters", label: "Персонажи" },
   { id: "journal", label: "Дневник" },
   { id: "rules", label: "Правила" },
+  { id: "spells", label: "Заклинания" },
   { id: "bestiary", label: "Бестиарий" },
   { id: "soundboard", label: "Саундборд" },
 ];

@@ -11,6 +11,7 @@ import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
 import { JournalPage } from "./ui/pages/JournalPage";
 import { RulesPage } from "./ui/pages/RulesPage";
+import { SpellsPage } from "./ui/pages/SpellsPage";
 import { BestiaryPage } from "./ui/pages/BestiaryPage";
 import { SoundboardPage } from "./ui/pages/SoundboardPage";
 import "./ui/theme.css";
@@ -40,6 +41,8 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
               return <JournalPage />;
             case "rules":
               return <RulesPage />;
+            case "spells":
+              return <SpellsPage />;
             case "bestiary":
               return <BestiaryPage />;
             case "soundboard":
