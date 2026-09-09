@@ -278,7 +278,10 @@ describe("пресеты готовых персонажей", () => {
       "Обращение с животными",
     ]);
     expect(bard.knownCantrips).toEqual(["vicious-mockery", "message"]);
-    expect(bard.knownSpells).toEqual(["longstrider", "healing-word", "heroism"]);
+    // Четвёртое известное заклинание барда — «Надтреснутая нота» (cracked-note):
+    // на листе там стоит «Диссонирующий шёпот» (PHB, вне SRD), и его место заняло
+    // наше оригинальное заклинание близкой темы (docs/design/character-presets.md).
+    expect(bard.knownSpells).toEqual(["longstrider", "healing-word", "heroism", "cracked-note"]);
     expect(bard.spellSlotsMax).toEqual(spellSlotsForLevel("classes-bard", 1));
     expect(bard.featureUses).toEqual([{ featureId: "bardic-inspiration", usesCurrent: 3 }]);
   });

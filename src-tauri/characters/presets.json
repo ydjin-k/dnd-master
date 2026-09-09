@@ -67,7 +67,7 @@
     "toolProficiencies": ["Игровой набор (кости)", "Барабан", "Рожок", "Лютня"],
     "fightingStyle": "",
     "knownCantrips": ["vicious-mockery", "message"],
-    "knownSpells": ["longstrider", "healing-word", "heroism"],
+    "knownSpells": ["longstrider", "healing-word", "heroism", "cracked-note"],
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [
