@@ -36,6 +36,7 @@
       "pdfium/*": "pdfium/",
       "rules/*": "rules/",
       "bestiary/*.json": "bestiary/",
+      "characters/*.json": "characters/",
       "bestiary/images/*": "bestiary/images/"
     }
   }

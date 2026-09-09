@@ -1,4 +1,5 @@
 mod adventure;
+mod characters;
 mod combat;
 mod dice;
 mod import;
@@ -10,7 +11,7 @@ mod storage;
 
 use adventure::{demo_adventure, roll_table, Adventure};
 use combat::MonsterTemplate;
-use model::{AdventureLogEntry, CampaignState};
+use model::{AdventureLogEntry, CampaignState, Character};
 use oracle::{LikelihoodOption, Likelihood, OracleResult};
 use rules::RuleTopic;
 use spells::Spell;
@@ -223,6 +224,14 @@ fn get_spells(app: AppHandle) -> Result<Vec<Spell>, String> {
     spells::load_spells(&app)
 }
 
+/// Пресеты готовых персонажей: обычные `Character`, которые UI копирует в
+/// ростер с новым `id`. Никакого признака «откуда взялся персонаж» в ростере
+/// не появляется — прогрессия дальше не различает пресет и мастера.
+#[tauri::command]
+fn get_character_presets(app: AppHandle) -> Result<Vec<Character>, String> {
+    characters::load_character_presets(&app)
+}
+
 #[tauri::command]
 fn start_combat(
     app: AppHandle,
@@ -404,6 +413,7 @@ pub fn run() {
             get_bestiary_image,
             get_rules,
             get_spells,
+            get_character_presets,
             start_combat,
             move_combatant,
             combat_attack,
