@@ -60,6 +60,27 @@ mod tests {
             assert!(topics.iter().any(|t| t.id == id), "не нашёл тему {id}");
         }
 
+        // Правила сотворения заклинаний — перевод раздела «Spellcasting» SRD 5.1;
+        // категория `spellcasting` делит справочник между вкладками «Правила» и
+        // «Заклинания», поэтому опечатка в ней сделала бы темы невидимыми на обеих.
+        let spellcasting: Vec<&RuleTopic> =
+            topics.iter().filter(|t| t.category == "spellcasting").collect();
+        assert_eq!(
+            spellcasting.len(),
+            3,
+            "ожидал три темы правил сотворения заклинаний, получил {}",
+            spellcasting.len()
+        );
+        let casting = spellcasting
+            .iter()
+            .find(|t| t.id == "spellcasting-casting")
+            .expect("не нашёл тему spellcasting-casting");
+        let has_concentration_heading = casting
+            .blocks
+            .iter()
+            .any(|b| matches!(b, RuleBlock::Heading { text, .. } if text == "Концентрация"));
+        assert!(has_concentration_heading, "не нашёл раздел «Концентрация» в правилах сотворения");
+
         let conditions = topics.iter().find(|t| t.id == "appendices-conditions").unwrap();
         let has_deafened_heading = conditions.blocks.iter().any(|b| {
             matches!(b, RuleBlock::Heading { text, .. } if text == "Оглохшее")
