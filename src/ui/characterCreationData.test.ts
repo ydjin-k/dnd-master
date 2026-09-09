@@ -49,15 +49,24 @@ describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
     expect(new Set(Object.keys(CLASS_SUBCLASSES))).toEqual(new Set(ALL_12_CLASSES));
   });
 
-  it.each(ALL_12_CLASSES)("%s has exactly 3 subclasses (1 SRD + 2 original), all with distinct non-empty names", (classId) => {
+  /**
+   * У одиннадцати классов ровно 3 архетипа (1 из SRD + 2 оригинальных,
+   * characters-original-subclasses). У Жреца их 4: карточка
+   * characters-preset-pool-remaining-11 добавила четвёртый оригинальный домен
+   * вместо домена Знаний с листа «Жрец полуэльф» (PHB, вне SRD).
+   */
+  const SUBCLASS_COUNT: Record<string, number> = { "classes-cleric": 4 };
+
+  it.each(ALL_12_CLASSES)("%s has 1 SRD subclass plus original ones, all with distinct non-empty names", (classId) => {
     const info = CLASS_SUBCLASSES[classId];
-    expect(info.subclasses).toHaveLength(3);
+    const expected = SUBCLASS_COUNT[classId] ?? 3;
+    expect(info.subclasses).toHaveLength(expected);
     const names = info.subclasses.map((s) => s.name);
-    expect(new Set(names).size).toBe(3);
+    expect(new Set(names).size).toBe(expected);
     for (const name of names) expect(name.trim().length).toBeGreaterThan(0);
   });
 
-  it("the 2 original subclasses of every class carry a description and at least one feature at chosenAtLevel", () => {
+  it("every original subclass carries a description and at least one feature at chosenAtLevel", () => {
     for (const classId of ALL_12_CLASSES) {
       const info = CLASS_SUBCLASSES[classId];
       for (const original of info.subclasses.slice(1)) {
