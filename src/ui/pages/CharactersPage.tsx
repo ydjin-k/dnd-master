@@ -64,11 +64,12 @@ import {
 } from "../classProgression";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
+import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
 import { CoinIcon } from "../CoinIcon";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
-type Panel = "none" | "wizard";
+type Panel = "none" | "wizard" | "presets";
 
 /** Левелинг в приложении пока ограничен уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md). */
 const MAX_LEVEL = 5;
@@ -1465,15 +1466,17 @@ function extractRaceHpBonus(topics: RuleTopic[]): Record<string, number> {
 }
 
 export function CharactersPage() {
-  const { state, removeCharacter, updateCharacter } = useCampaign();
+  const { state, addCharacter, removeCharacter, updateCharacter } = useCampaign();
   const [panel, setPanel] = useState<Panel>("none");
   const [spells, setSpells] = useState<Spell[]>([]);
+  const [presets, setPresets] = useState<CharacterPreset[]>([]);
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
   const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
 
   useEffect(() => {
     invoke<Spell[]>("get_spells").then(setSpells);
+    invoke<CharacterPreset[]>("get_character_presets").then(setPresets);
     invoke<RuleTopic[]>("get_rules").then((topics) => {
       setConditionEffects(extractConditionEffects(topics));
       setClassHitDiceByTitle(extractClassHitDice(topics));
@@ -1514,9 +1517,36 @@ export function CharactersPage() {
         >
           Создать персонажа по правилам
         </button>
+        <button
+          className={"characters-page__action" + (panel === "presets" ? " characters-page__action--active" : "")}
+          onClick={() => setPanel(panel === "presets" ? "none" : "presets")}
+        >
+          Взять готового персонажа
+        </button>
       </div>
 
       {panel === "wizard" && <CharacterWizard onDone={() => setPanel("none")} />}
+
+      {panel === "presets" && (
+        <ul className="characters-page__list">
+          {presets.map((preset) => (
+            <li key={preset.id}>
+              <button
+                className="characters-page__action"
+                onClick={async () => {
+                  await addCharacter(characterFromPreset(preset));
+                  setPanel("none");
+                }}
+              >
+                {preset.name} — {presetSubtitle(preset)}
+              </button>
+            </li>
+          ))}
+          {presets.length === 0 && (
+            <li className="characters-page__empty">Готовых персонажей пока нет.</li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }
