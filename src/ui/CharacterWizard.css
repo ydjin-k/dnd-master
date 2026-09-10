@@ -37,6 +37,7 @@
   flex-wrap: wrap;
   gap: 1em;
   max-height: 420px;
+  overflow-y: auto;
 }
 
 .wizard__pick-list {
