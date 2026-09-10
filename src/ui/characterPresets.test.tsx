@@ -3,10 +3,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import bundledPresets from "../../src-tauri/characters/presets.json";
 import bundledRules from "../../src-tauri/rules/rules.json";
+import bundledSpells from "../../src-tauri/rules/spells.json";
 import { CharactersPage } from "./pages/CharactersPage";
 import { CharacterWizard } from "./CharacterWizard";
 import { characterFromPreset, type CharacterPreset } from "./characterPresets";
-import { abilityMod, catalogWeightLb, maxHpForLevel } from "./characterCreationData";
+import { ALL_SKILLS, ARMOR_STATS, CLASS_SUBCLASSES, abilityMod, catalogWeightLb, maxHpForLevel } from "./characterCreationData";
 import { characterResources, resourceMax, spellSlotsForLevel } from "./classProgression";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic } from "../state/types";
 
@@ -48,13 +49,34 @@ function classTopic(id: string, title: string, die: string, average: string): Ru
 
 const HALFLING_TOPIC: RuleTopic = { id: "races-halfling", category: "races", title: "Полурослик", sourceUrl: "", blocks: [] };
 const HUMAN_TOPIC: RuleTopic = { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] };
+const HALF_ELF_TOPIC: RuleTopic = { id: "races-half-elf", category: "races", title: "Полуэльф", sourceUrl: "", blocks: [] };
 const BARD_TOPIC = classTopic("classes-bard", "Бард", "8", "5");
 const CLERIC_TOPIC = classTopic("classes-cleric", "Жрец", "8", "5");
 const DRUID_TOPIC = classTopic("classes-druid", "Друид", "8", "5");
-const TOPICS = [HALFLING_TOPIC, HUMAN_TOPIC, BARD_TOPIC, CLERIC_TOPIC, DRUID_TOPIC];
+const TOPICS = [HALFLING_TOPIC, HUMAN_TOPIC, HALF_ELF_TOPIC, BARD_TOPIC, CLERIC_TOPIC, DRUID_TOPIC];
 
 const PRESETS = bundledPresets as unknown as CharacterPreset[];
 const BARD_PRESET = PRESETS.find((p) => p.id === "preset-bard-halfling")!;
+
+/**
+ * Каталог целиком — двенадцать листов из `Готовые персонажи/`. Список здесь
+ * записан руками нарочно: это сторожевая строчка на состав каталога, и она
+ * обязана ломаться, когда пресет пропал, задвоился или уехал не в свой класс.
+ */
+const CATALOG: [string, string, string, string][] = [
+  ["preset-bard-halfling", "Бард полурослик", "Полурослик", "Бард"],
+  ["preset-bard-tiefling", "Бард тифлинг", "Тифлинг", "Бард"],
+  ["preset-barbarian-half-elf", "Варвар полуэльф", "Полуэльф", "Варвар"],
+  ["preset-barbarian-human", "Варвар человек", "Человек", "Варвар"],
+  ["preset-fighter-half-elf", "Воин полуэльф", "Полуэльф", "Воин"],
+  ["preset-fighter-human", "Балдвин Кварел", "Человек", "Воин"],
+  ["preset-wizard-high-elf", "Волшебник высший эльф", "Эльф", "Волшебник"],
+  ["preset-wizard-gnome", "Волшебник гном", "Гном", "Волшебник"],
+  ["preset-druid-hill-dwarf", "Вэйт Данкил", "Дварф", "Друид"],
+  ["preset-druid-dwarf", "Друид дварф", "Дварф", "Друид"],
+  ["preset-cleric-dwarf", "Жрец дварф", "Дварф", "Жрец"],
+  ["preset-cleric-half-elf", "Жрец полуэльф", "Полуэльф", "Жрец"],
+];
 
 /** Заклинания барда, которыми мастер персонажа наполняет шаг выбора заговоров/заклинаний. */
 const BARD_SPELLS = ["c1", "c2", "s1", "s2", "s3", "s4"].map((id, i) => ({
@@ -210,16 +232,18 @@ async function bardFromTheWizard(): Promise<Character> {
 }
 
 /** Пресет, взятый настоящей кнопкой на вкладке «Персонажи» — не собранный тестом. */
-async function bardFromThePresetPanel(): Promise<Character> {
+async function presetFromThePanel(label: RegExp): Promise<Character> {
   addCharacter.mockClear();
   mockState = baseState();
   const view = render(<CharactersPage />);
   fireEvent.click(screen.getByText("Взять готового персонажа"));
-  fireEvent.click(await screen.findByText(/Бард полурослик/));
+  fireEvent.click(await screen.findByText(label));
   await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
   view.unmount();
   return addCharacter.mock.calls[0][0] as Character;
 }
+
+const bardFromThePresetPanel = () => presetFromThePanel(/Бард полурослик/);
 
 describe("пресеты готовых персонажей", () => {
   beforeEach(() => {
@@ -359,6 +383,74 @@ describe("пресеты готовых персонажей", () => {
     expect(updated.level).toBe(3);
     expect(updated.subclassChoices).toEqual({ "circle-of-the-land-terrain": ["forest"] });
     expect(updated.knownSpells).toEqual(expect.arrayContaining(["barkskin", "spider-climb"]));
+  });
+
+  it("каталог отдаёт все двенадцать листов, каждый под своим именем, расой и классом", async () => {
+    const presets = (await invoke("get_character_presets")) as CharacterPreset[];
+
+    expect(presets.map((p) => [p.id, p.name, p.race, p.class])).toEqual(CATALOG);
+  });
+
+  it("во вкладке «Персонажи» предлагаются все двенадцать готовых персонажей", async () => {
+    mockState = baseState();
+    render(<CharactersPage />);
+    fireEvent.click(screen.getByText("Взять готового персонажа"));
+
+    await screen.findByText(/Бард полурослик/);
+    for (const [, name, race, className] of CATALOG) {
+      expect(screen.getByText(`${name} — ${race}, ${className}`)).toBeInTheDocument();
+    }
+  });
+
+  /**
+   * Одна сторожевая проба на весь каталог, а не по одной на каждого из
+   * двенадцати: словарь у названий один, и разойтись с ним может любая строчка
+   * любого листа. Заклинания — id из spells.json, навыки — из ALL_SKILLS,
+   * надетый доспех — из ARMOR_STATS (иначе КД пересчитается неверно при первой
+   * же правке инвентаря).
+   */
+  it("каждый пресет назван словарём проекта: заклинания, навыки и доспех", () => {
+    const spellIds = new Set((bundledSpells as unknown as { id: string }[]).map((s) => s.id));
+    const skills = new Set(ALL_SKILLS);
+    const armorNames = Object.keys(ARMOR_STATS);
+
+    for (const preset of PRESETS) {
+      for (const id of [...preset.knownCantrips, ...preset.knownSpells]) {
+        expect(spellIds, `заклинание ${id} пресета ${preset.id}`).toContain(id);
+      }
+      for (const skill of preset.skillProficiencies) {
+        expect(skills, `навык ${skill} пресета ${preset.id}`).toContain(skill);
+      }
+      // Доспех у пресета либо назван каталогом, либо его нет вовсе; «похожее»
+      // название молча даёт КД без доспеха.
+      const worn = preset.inventory.filter((i) => /доспех|кольчуга|латы|кираса|полулаты/i.test(i.name));
+      for (const item of worn) {
+        expect(armorNames, `доспех ${item.name} пресета ${preset.id}`).toContain(item.name);
+      }
+    }
+  });
+
+  /**
+   * Домен Знаний с листа «Жреца полуэльфа» — PHB, вне SRD. Его место занял наш
+   * «Домен прозрения» (решение владельца от 9 сентября 2026). Проверяется не
+   * то, что строчка лежит в файле, а что архетип у факта один: тот же домен
+   * стоит в CLASS_SUBCLASSES (откуда его берёт мастер создания) и доходит из
+   * пресета до общих таблиц прогрессии.
+   */
+  it("оригинальный домен Жреца доходит из пресета до таблиц архетипа", async () => {
+    expect(CLASS_SUBCLASSES["classes-cleric"].subclasses.map((s) => s.name)).toContain("Домен прозрения");
+
+    const cleric = await presetFromThePanel(/Жрец полуэльф/);
+    expect(cleric.subclass).toBe("Домен прозрения");
+    // Заклинания домена 1 уровня — те же, что игрок выписал на лист.
+    expect(cleric.knownSpells).toEqual(expect.arrayContaining(["identify", "detect-magic"]));
+
+    const level2 = await levelUpThroughTheRoster({ ...cleric, experiencePoints: 999999 });
+    expect(level2.featureUses.map((f) => f.featureId)).toContain("channel-divinity");
+
+    const level3 = await levelUpThroughTheRoster({ ...level2, experiencePoints: 999999 });
+    expect(level3.subclass).toBe("Домен прозрения");
+    expect(level3.knownSpells).toEqual(expect.arrayContaining(["augury", "locate-object"]));
   });
 
   /**
