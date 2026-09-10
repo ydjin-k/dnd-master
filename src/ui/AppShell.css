@@ -18,6 +18,7 @@
 .app-shell__header {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75em;
   padding: 0.75em 1.25em;
@@ -34,10 +35,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55em;
+  flex: 0 0 auto;
 }
 
 .app-shell__campaign-name {
-  flex: 1;
+  flex: 1 1 12em;
+  min-width: 0;
   max-width: 320px;
 }
 
@@ -46,6 +49,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
+  flex: 0 0 auto;
 }
 
 .now-playing {
@@ -177,9 +181,17 @@
   --dm-accent-hover: color-mix(in srgb, var(--section-accent) 65%, white);
   --dm-border-bright: var(--section-accent);
   padding: 1.5em;
+  min-width: 0;
   overflow-y: auto;
+  container-type: inline-size;
   background-image: linear-gradient(rgba(var(--section-accent-rgb), 0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--section-accent-rgb), 0.028) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+@media (max-width: 50rem) {
+  .app-shell__header {
+    padding-inline: 1em;
+  }
 }
 
 .app-shell[data-active-tab="combat"] .app-shell__content { background-image: repeating-linear-gradient(135deg, rgba(239, 111, 104, 0.035) 0 1px, transparent 1px 32px); }

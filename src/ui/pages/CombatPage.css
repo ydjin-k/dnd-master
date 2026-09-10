@@ -11,7 +11,7 @@
 
 .combat-start__option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5em;
 }
 
@@ -22,6 +22,7 @@
 
 .combat-page__layout {
   display: flex;
+  flex-wrap: wrap;
   gap: 1em;
   align-items: flex-start;
 }
@@ -33,6 +34,8 @@
   border: 1px solid var(--dm-border);
   width: 100%;
   max-width: 640px;
+  flex: 1 1 32rem;
+  min-width: min(100%, 20rem);
   aspect-ratio: 12 / 10;
 }
 
@@ -83,7 +86,9 @@
 }
 
 .combat-sidebar {
-  flex: 0 0 220px;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.5em;
@@ -119,10 +124,12 @@
 
 .combat-sidebar__actions select {
   margin-left: 0.4em;
+  max-width: 100%;
 }
 
 .combat-sidebar__hp-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4em;
 }
 

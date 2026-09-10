@@ -819,7 +819,7 @@ function CharacterCard({
       {subclassPanelOpen && levelUpSubclassInfo && (
         <div className="character-card__asi">
           <p>Выберите архетип ({c.level + 1} уровень):</p>
-          <div className="character-card__asi-mode">
+          <div className="character-card__asi-mode character-card__asi-mode--choices">
             {levelUpSubclassInfo.subclasses.map((s, i) => (
               <label key={s.name}>
                 <input
@@ -849,7 +849,7 @@ function CharacterCard({
             Выберите «{pendingChoice.name}» ({c.level + 1} уровень) —{" "}
             {pendingChoice.pick > 1 ? `${pendingChoice.pick} варианта(ов)` : "один вариант"}:
           </p>
-          <div className="character-card__asi-mode">
+          <div className="character-card__asi-mode character-card__asi-mode--choices">
             {pendingChoice.options.map((option) => (
               <label key={option.id}>
                 <input
@@ -889,7 +889,7 @@ function CharacterCard({
             характеристик: либо увеличить значение двух характеристик на 1, либо одной — на 2. При этом значение
             не может стать выше 20.»
           </p>
-          <div className="character-card__asi-mode">
+          <div className="character-card__asi-mode character-card__asi-mode--compact">
             <label>
               <input
                 type="radio"
@@ -1486,7 +1486,15 @@ export function CharactersPage() {
 
   return (
     <div className="characters-page">
-      <h2>Персонажи</h2>
+      <div className="characters-page__heading">
+        <h2>Персонажи</h2>
+        <button
+          className={"characters-page__action characters-page__action--compact" + (panel === "wizard" ? " characters-page__action--active" : "")}
+          onClick={() => setPanel(panel === "wizard" ? "none" : "wizard")}
+        >
+          Создать персонажа по правилам
+        </button>
+      </div>
 
       <ul className="characters-page__list">
         {state.characters.map((c) => (
@@ -1511,12 +1519,6 @@ export function CharactersPage() {
       </ul>
 
       <div className="characters-page__actions">
-        <button
-          className={"characters-page__action" + (panel === "wizard" ? " characters-page__action--active" : "")}
-          onClick={() => setPanel(panel === "wizard" ? "none" : "wizard")}
-        >
-          Создать персонажа по правилам
-        </button>
         <button
           className={"characters-page__action" + (panel === "presets" ? " characters-page__action--active" : "")}
           onClick={() => setPanel(panel === "presets" ? "none" : "presets")}

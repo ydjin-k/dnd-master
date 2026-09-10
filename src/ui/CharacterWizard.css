@@ -4,10 +4,13 @@
   border-radius: 6px;
   padding: 1em;
   margin-bottom: 1.5em;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .wizard__steps {
   display: flex;
+  flex-wrap: wrap;
   gap: 1em;
   align-items: center;
   margin-bottom: 1em;
@@ -31,12 +34,13 @@
 
 .wizard__pick {
   display: flex;
+  flex-wrap: wrap;
   gap: 1em;
   max-height: 420px;
 }
 
 .wizard__pick-list {
-  flex: 0 0 200px;
+  flex: 1 1 12.5em;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -59,7 +63,7 @@
 }
 
 .wizard__pick-detail {
-  flex: 1;
+  flex: 3 1 22em;
   min-width: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -132,14 +136,27 @@
   margin-bottom: 1em;
 }
 
+.wizard__method label,
+.wizard__skill-grid label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45em;
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .wizard__ability-table {
   border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .wizard__ability-table th,
 .wizard__ability-table td {
   padding: 0.3em 0.75em 0.3em 0;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .wizard__ability-table th {
@@ -162,7 +179,7 @@
 
 .wizard__choice-bonus {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25em;
   margin-right: 0.75em;
   font-style: normal;
@@ -178,7 +195,7 @@
 
 .wizard__skill-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10em), 1fr));
   gap: 0.25em 0.5em;
 }
 
@@ -192,7 +209,7 @@
 
 .wizard__equipment-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.4em;
 }
 
@@ -207,6 +224,7 @@
 
 .wizard__custom-equipment-add {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5em;
 }
 
@@ -232,6 +250,7 @@
 
 .wizard__weapon-choice {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5em;
   padding-left: 1.6em;
 }
@@ -247,6 +266,7 @@
 
 .wizard__pointbuy-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5em;
 }
@@ -260,6 +280,7 @@
 
 .wizard__name-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5em;
   width: 100%;
@@ -284,6 +305,21 @@
   margin: 0.3em 0 0;
   padding-left: 1.2em;
   columns: 2;
+}
+
+@container (max-width: 42rem) {
+  .wizard__ability-table {
+    table-layout: auto;
+  }
+
+  .wizard__ability-table th,
+  .wizard__ability-table td {
+    padding-right: 0.4em;
+  }
+
+  .wizard__skill-list {
+    columns: 1;
+  }
 }
 
 .wizard__spell-picker {

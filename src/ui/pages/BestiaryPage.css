@@ -1,11 +1,14 @@
 .bestiary-page {
   display: flex;
+  flex-wrap: wrap;
   gap: 1.5em;
   align-items: flex-start;
 }
 
 .bestiary-page__nav {
-  flex: 0 0 260px;
+  flex: 1 1 16.25rem;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.75em;
@@ -47,9 +50,7 @@
 .bestiary-page__list-name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .bestiary-page__list-cr {
@@ -67,8 +68,26 @@
 }
 
 .bestiary-page__content {
-  flex: 1;
+  flex: 3 1 24rem;
   min-width: 0;
+}
+
+@container (max-width: 42rem) {
+  .bestiary-page__nav,
+  .bestiary-page__content {
+    flex-basis: 100%;
+  }
+
+  .bestiary-page__list {
+    max-height: 18rem;
+  }
+
+  .bestiary-thumb--detail {
+    float: none;
+    display: block;
+    max-width: 100%;
+    margin: 0 0 1em;
+  }
 }
 
 .bestiary-thumb {

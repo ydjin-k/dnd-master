@@ -200,10 +200,12 @@
 .journal-page__form-hint { color: var(--journal-muted); font-size: 0.9rem; }
 .journal-page__form button { align-self: flex-end; }
 
-@media (max-width: 560px) {
+@container (max-width: 35rem) {
   .journal-page {
-    height: 520px;
+    height: auto;
+    min-height: 520px;
     padding: 2rem 2rem 4.3rem 2.7rem;
+    overflow: visible;
     background: radial-gradient(ellipse at 18% 18%, rgba(104, 65, 29, 0.18), transparent 22%), radial-gradient(ellipse at 76% 72%, rgba(91, 54, 24, 0.13), transparent 25%), repeating-linear-gradient(96deg, rgba(72, 45, 23, 0.035) 0 1px, transparent 1px 7px), radial-gradient(ellipse at 50% 43%, var(--journal-paper-light), var(--journal-paper) 68%, var(--journal-paper-edge) 115%);
     border-radius: 8px 14px 10px 7px;
     box-shadow: 0 18px 35px rgba(1, 6, 18, 0.52), inset 20px 0 30px rgba(75, 43, 19, 0.24), inset -10px 0 24px rgba(75, 43, 19, 0.12);
@@ -212,7 +214,7 @@
   .journal-page::before { inset: 0 auto 0 0; width: 22px; translate: 0; border-radius: 5px 0 0 5px; box-shadow: 5px 0 13px rgba(1, 5, 14, 0.48), inset -1px 0 rgba(246, 220, 153, 0.22); }
   .journal-page::after { inset: 7px; }
   .journal-page-layout > h2 { font-size: 1.2rem; }
-  .journal-page__list { gap: 1.5rem; }
+  .journal-page__list { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; height: auto; }
   .journal-page__empty { grid-column: auto; }
   .journal-page-layout > .journal-page__form { width: 100%; padding: 0.75rem; }
   .journal-entry__text { font-size: 1.13rem; }
