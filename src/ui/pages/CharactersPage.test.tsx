@@ -191,6 +191,39 @@ describe("CharactersPage", () => {
     };
   }
 
+  /**
+   * Прогон левел-апа: рендерит карточку, жмёт «Повысить уровень» и применяет
+   * полученный updater к персонажу, оставаясь на одном и том же состоянии —
+   * так проверяются цепочки из нескольких уровней подряд.
+   */
+  function levelUpRunner(topic: RuleTopic, start: Character) {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [topic, CONDITIONS_TOPIC] : [],
+    );
+    let char = start;
+    mockState = baseState({ characters: [char] });
+    const { rerender } = render(<CharactersPage />);
+    return {
+      get char() {
+        return char;
+      },
+      async ready() {
+        await screen.findByText(/не может видеть/); // ждём ту же загрузку get_rules, что наполняет classHitDiceByTitle
+      },
+      // `interact` — доп. клики между «Повысить уровень» и применением, для
+      // левел-апов, прерывающихся панелью выбора (архетип/choice/ASI).
+      levelUp(interact?: () => void) {
+        fireEvent.click(screen.getByText("Повысить уровень"));
+        interact?.();
+        const calls = updateCharacter.mock.calls;
+        const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+        char = updater(char);
+        mockState = baseState({ characters: [char] });
+        rerender(<CharactersPage />);
+      },
+    };
+  }
+
   it("deletes a character after confirmation without crashing", async () => {
     mockState = baseState({
       characters: [
@@ -866,34 +899,6 @@ describe("CharactersPage", () => {
    * не-заклинатель (Варвар) и Магия договора (Колдун).
    */
   describe("прогрессия классов на левел-апе", () => {
-    function levelUpRunner(topic: RuleTopic, start: Character) {
-      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
-        cmd === "get_rules" ? [topic, CONDITIONS_TOPIC] : [],
-      );
-      let char = start;
-      mockState = baseState({ characters: [char] });
-      const { rerender } = render(<CharactersPage />);
-      return {
-        get char() {
-          return char;
-        },
-        async ready() {
-          await screen.findByText(/не может видеть/); // ждём ту же загрузку get_rules, что наполняет classHitDiceByTitle
-        },
-        // `interact` — доп. клики между «Повысить уровень» и применением, для
-        // левел-апов, прерывающихся панелью выбора (архетип/choice/ASI).
-        levelUp(interact?: () => void) {
-          fireEvent.click(screen.getByText("Повысить уровень"));
-          interact?.();
-          const calls = updateCharacter.mock.calls;
-          const updater = calls[calls.length - 1][1] as (c: Character) => Character;
-          char = updater(char);
-          mockState = baseState({ characters: [char] });
-          rerender(<CharactersPage />);
-        },
-      };
-    }
-
     it("Бард 1→5 получает ячейки заклинаний по официальной таблице полного заклинателя", async () => {
       const run = levelUpRunner(BARD_TOPIC, {
         ...characterWithInventory(),
@@ -983,6 +988,75 @@ describe("CharactersPage", () => {
       expect(run.char.level).toBe(3);
       expect(run.char.spellSlotsMax).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
       expect(run.char.spellSlotsCurrent).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
+    });
+  });
+
+  /**
+   * characters-levelup-drops-non-class-proficiencies — приёмка карточки:
+   * левел-ап складывает владения с уже имеющимися, а не подменяет список
+   * снимком таблиц класса и архетипа. Проб две: сохранение владений не из
+   * таблиц и добавление владений архетипа — починка первого обязана
+   * оставить второе целым.
+   */
+  describe("владения на левел-апе", () => {
+    const CLERIC_LEVELUP_TOPIC = classTopic("classes-cleric", "Жрец", "8", "5");
+
+    /**
+     * Жрец-дварф, у которого на листе есть владения не из таблиц: боевой
+     * топор и инструменты каменщика (так устроены дварфы в presets.json,
+     * инструмент дварфа кладёт и мастер создания). Снимок намеренно без
+     * тяжёлых доспехов и воинского оружия Домена войны: их обязан добавить
+     * сам левел-ап.
+     */
+    function warCleric(level: number): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Жрец",
+        subclass: "Домен войны",
+        race: "Дварф",
+        level,
+        conditions: ["Ослеплённое"],
+        armorProficiencies: ["light", "medium", "shields"],
+        weaponProficiencies: ["simple", "Боевой топор"],
+        toolProficiencies: ["Инструменты каменщика"],
+      };
+    }
+
+    it("владения не из таблиц класса и архетипа переживают левел-ап", async () => {
+      const run = levelUpRunner(CLERIC_LEVELUP_TOPIC, warCleric(1));
+      await run.ready();
+
+      run.levelUp();
+
+      expect(run.char.level).toBe(2);
+      expect(run.char.weaponProficiencies).toContain("Боевой топор");
+      expect(run.char.toolProficiencies).toEqual(["Инструменты каменщика"]);
+      expect(run.char.armorProficiencies).toContain("shields");
+
+      // Порядок устойчив: второй левел-ап подряд список не переставляет,
+      // иначе диф сохранённой кампании шумит на ровном месте.
+      const afterFirst = {
+        armor: run.char.armorProficiencies,
+        weapon: run.char.weaponProficiencies,
+        tool: run.char.toolProficiencies,
+      };
+      run.levelUp();
+      expect(run.char.level).toBe(3);
+      expect(run.char.armorProficiencies).toEqual(afterFirst.armor);
+      expect(run.char.weaponProficiencies).toEqual(afterFirst.weapon);
+      expect(run.char.toolProficiencies).toEqual(afterFirst.tool);
+    });
+
+    it("владения архетипа тот же левел-ап по-прежнему добавляет", async () => {
+      const run = levelUpRunner(CLERIC_LEVELUP_TOPIC, warCleric(1));
+      await run.ready();
+
+      run.levelUp();
+
+      // Домен войны: тяжёлые доспехи и воинское оружие приходят из таблицы
+      // архетипа, слияние их не потеряло.
+      expect(run.char.armorProficiencies).toContain("heavy");
+      expect(run.char.weaponProficiencies).toContain("martial");
     });
   });
 

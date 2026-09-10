@@ -482,10 +482,21 @@ function CharacterCard({
         subclassChoices: allSubclassChoices,
         // Архетип может давать владения, навык и всегда подготовленные заклинания
         // домена — на левел-апе они появляются вместе с ним (и с выбранным
-        // вариантом, если он есть).
-        armorProficiencies: armorProficienciesFor(dice?.id, subclassName, allSubclassChoices),
-        weaponProficiencies: weaponProficienciesFor(dice?.id, subclassName, allSubclassChoices),
-        toolProficiencies: toolProficienciesFor(dice?.id, subclassName, allSubclassChoices),
+        // вариантом, если он есть). Слияние, а не замена: таблицы класса и
+        // архетипа — не единственный источник владений (мастер кладёт сюда
+        // инструменты дварфа, барда и монаха, лист пресета — свои топоры и
+        // ремесленные наборы), а левел-ап владений не отнимает, поэтому
+        // прежний список сохраняется целиком — тем же приёмом, что у навыков
+        // и заклинаний ниже.
+        armorProficiencies: [
+          ...new Set([...ch.armorProficiencies, ...armorProficienciesFor(dice?.id, subclassName, allSubclassChoices)]),
+        ],
+        weaponProficiencies: [
+          ...new Set([...ch.weaponProficiencies, ...weaponProficienciesFor(dice?.id, subclassName, allSubclassChoices)]),
+        ],
+        toolProficiencies: [
+          ...new Set([...ch.toolProficiencies, ...toolProficienciesFor(dice?.id, subclassName, allSubclassChoices)]),
+        ],
         skillProficiencies: [...new Set([...ch.skillProficiencies, ...(effectiveGrants?.skills ?? [])])],
         knownSpells: [
           ...new Set([...ch.knownSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel, allSubclassChoices)]),
