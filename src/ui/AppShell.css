@@ -136,6 +136,8 @@
   background: linear-gradient(180deg, rgba(16, 29, 56, 0.98), rgba(9, 19, 40, 0.98));
   border-right: 1px solid var(--dm-border);
   padding: 1em 0.5em;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.25em;

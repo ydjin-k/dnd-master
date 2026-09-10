@@ -1568,6 +1568,8 @@ export function CharactersPage() {
         </button>
       </div>
 
+      {panel === "wizard" && <CharacterWizard onDone={() => setPanel("none")} />}
+
       <ul className="characters-page__list">
         {state.characters.map((c) => (
           <CharacterCard
@@ -1598,8 +1600,6 @@ export function CharactersPage() {
           Взять готового персонажа
         </button>
       </div>
-
-      {panel === "wizard" && <CharacterWizard onDone={() => setPanel("none")} />}
 
       {panel === "presets" && (
         <ul className="characters-page__list">

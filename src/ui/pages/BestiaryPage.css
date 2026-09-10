@@ -72,24 +72,6 @@
   min-width: 0;
 }
 
-@container (max-width: 42rem) {
-  .bestiary-page__nav,
-  .bestiary-page__content {
-    flex-basis: 100%;
-  }
-
-  .bestiary-page__list {
-    max-height: 18rem;
-  }
-
-  .bestiary-thumb--detail {
-    float: none;
-    display: block;
-    max-width: 100%;
-    margin: 0 0 1em;
-  }
-}
-
 .bestiary-thumb {
   object-fit: cover;
   border-radius: 4px;
@@ -176,4 +158,22 @@
   border-top: 1px solid var(--dm-border);
   font-size: 0.8em;
   color: var(--dm-text-muted);
+}
+
+@container (max-width: 46rem) {
+  .bestiary-page__nav,
+  .bestiary-page__content {
+    flex-basis: 100%;
+  }
+
+  .bestiary-page__list {
+    max-height: 18rem;
+  }
+
+  .bestiary-thumb--detail {
+    float: none;
+    display: block;
+    max-width: 100%;
+    margin: 0 0 1em;
+  }
 }
