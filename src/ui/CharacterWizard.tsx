@@ -578,6 +578,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       alignment,
       gender,
       age,
+      // Описательные поля листа (рост/вес/внешность/предыстория…) мастер не
+      // спрашивает — они заполняются потом в карточке персонажа или приезжают
+      // готовыми из пресета.
+      height: "",
+      weight: "",
+      eyes: "",
+      skin: "",
+      hair: "",
+      appearance: "",
+      backstory: "",
+      allies: "",
+      treasures: "",
       languages: finalLanguages,
       favoredEnemy: isRanger ? favoredEnemy || RANGER_FAVORED_ENEMIES[0] : "",
       knownTerrain: isRanger ? rangerTerrain || RANGER_TERRAIN_TYPES[0] : "",

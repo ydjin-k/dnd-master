@@ -48,6 +48,25 @@ export interface Character {
   alignment: string;
   gender: string;
   age: number;
+  /**
+   * Описательные поля листа персонажа (рост/вес/глаза/кожа/волосы, внешность,
+   * предыстория, союзники, сокровища). Ни один расчёт их не читает — это текст
+   * для игрока, и владелец у него один: сам лист (или поле карточки, если
+   * игрок правит его руками).
+   *
+   * `height`/`weight` — строки, а не числа: на листах игроки пишут единицы как
+   * хотят («168 СМ (5.5 фут)», «3,5 фута», «145»), и превращать это в число
+   * значило бы выдумать за них систему единиц.
+   */
+  height: string;
+  weight: string;
+  eyes: string;
+  skin: string;
+  hair: string;
+  appearance: string;
+  backstory: string;
+  allies: string;
+  treasures: string;
   languages: string[];
   /** Избранный враг Следопыта (SRD 5.1, «Любимый враг») — пусто у не-Следопытов. */
   favoredEnemy: string;

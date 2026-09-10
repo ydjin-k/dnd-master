@@ -1465,7 +1465,7 @@ describe("CharacterWizard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders all 3 Cleric domains on the review step and saves the chosen one, not always the first (characters-original-subclasses acceptance scenario)", async () => {
+  it("renders all 4 Cleric domains on the review step and saves the chosen one, not always the first (characters-original-subclasses acceptance scenario)", async () => {
     addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
@@ -1490,7 +1490,7 @@ describe("CharacterWizard", () => {
 
     const subclassSelect = await screen.findByLabelText("Архетип");
     const optionLabels = Array.from(subclassSelect.querySelectorAll("option")).map((o) => o.textContent);
-    expect(optionLabels).toEqual(["Домен жизни", "Домен войны", "Домен обмана"]);
+    expect(optionLabels).toEqual(["Домен жизни", "Домен войны", "Домен обмана", "Домен прозрения"]);
     fireEvent.change(subclassSelect, { target: { value: "2" } }); // "Домен обмана" — not the first/default option
     expect(screen.getByText("Домен обмана")).toBeInTheDocument();
     expect(screen.getByText(/Благословенная маска/)).toBeInTheDocument(); // level-1 feature of the chosen domain
