@@ -64,18 +64,18 @@ const BARD_PRESET = PRESETS.find((p) => p.id === "preset-bard-halfling")!;
  * обязана ломаться, когда пресет пропал, задвоился или уехал не в свой класс.
  */
 const CATALOG: [string, string, string, string][] = [
-  ["preset-bard-halfling", "Бард полурослик", "Полурослик", "Бард"],
-  ["preset-bard-tiefling", "Бард тифлинг", "Тифлинг", "Бард"],
-  ["preset-barbarian-half-elf", "Варвар полуэльф", "Полуэльф", "Варвар"],
-  ["preset-barbarian-human", "Варвар человек", "Человек", "Варвар"],
-  ["preset-fighter-half-elf", "Воин полуэльф", "Полуэльф", "Воин"],
+  ["preset-bard-halfling", "Кимри Тростинка", "Полурослик", "Бард"],
+  ["preset-bard-tiefling", "Азара Виоль", "Тифлинг", "Бард"],
+  ["preset-barbarian-half-elf", "Таэрин Волчий Шаг", "Полуэльф", "Варвар"],
+  ["preset-barbarian-human", "Хродгар Ковач", "Человек", "Варвар"],
+  ["preset-fighter-half-elf", "Аэлин Полутень", "Полуэльф", "Воин"],
   ["preset-fighter-human", "Балдвин Кварел", "Человек", "Воин"],
-  ["preset-wizard-high-elf", "Волшебник высший эльф", "Эльф", "Волшебник"],
-  ["preset-wizard-gnome", "Волшебник гном", "Гном", "Волшебник"],
+  ["preset-wizard-high-elf", "Илларион Сильвэ", "Эльф", "Волшебник"],
+  ["preset-wizard-gnome", "Финдл Шестерёнка", "Гном", "Волшебник"],
   ["preset-druid-hill-dwarf", "Вэйт Данкил", "Дварф", "Друид"],
-  ["preset-druid-dwarf", "Друид дварф", "Дварф", "Друид"],
-  ["preset-cleric-dwarf", "Жрец дварф", "Дварф", "Жрец"],
-  ["preset-cleric-half-elf", "Жрец полуэльф", "Полуэльф", "Жрец"],
+  ["preset-druid-dwarf", "Торунн Камнецвет", "Дварф", "Друид"],
+  ["preset-cleric-dwarf", "Дарин Светоч", "Дварф", "Жрец"],
+  ["preset-cleric-half-elf", "Селиэн Ардвен", "Полуэльф", "Жрец"],
 ];
 
 /** Заклинания барда, которыми мастер персонажа наполняет шаг выбора заговоров/заклинаний. */
@@ -243,7 +243,7 @@ async function presetFromThePanel(label: RegExp): Promise<Character> {
   return addCharacter.mock.calls[0][0] as Character;
 }
 
-const bardFromThePresetPanel = () => presetFromThePanel(/Бард полурослик/);
+const bardFromThePresetPanel = () => presetFromThePanel(/Кимри Тростинка/);
 
 describe("пресеты готовых персонажей", () => {
   beforeEach(() => {
@@ -276,7 +276,7 @@ describe("пресеты готовых персонажей", () => {
   it("вкладка «Персонажи» отдаёт готового персонажа в ростер со всеми числами с листа", async () => {
     const bard = await bardFromThePresetPanel();
 
-    expect(bard.name).toBe("Бард полурослик");
+    expect(bard.name).toBe("Кимри Тростинка");
     expect(bard.race).toBe("Полурослик");
     expect(bard.class).toBe("Бард");
     expect(bard.level).toBe(1);
@@ -396,7 +396,7 @@ describe("пресеты готовых персонажей", () => {
     render(<CharactersPage />);
     fireEvent.click(screen.getByText("Взять готового персонажа"));
 
-    await screen.findByText(/Бард полурослик/);
+    await screen.findByText(/Кимри Тростинка/);
     for (const [, name, race, className] of CATALOG) {
       expect(screen.getByText(`${name} — ${race}, ${className}`)).toBeInTheDocument();
     }
@@ -440,7 +440,7 @@ describe("пресеты готовых персонажей", () => {
   it("оригинальный домен Жреца доходит из пресета до таблиц архетипа", async () => {
     expect(CLASS_SUBCLASSES["classes-cleric"].subclasses.map((s) => s.name)).toContain("Домен прозрения");
 
-    const cleric = await presetFromThePanel(/Жрец полуэльф/);
+    const cleric = await presetFromThePanel(/Селиэн Ардвен/);
     expect(cleric.subclass).toBe("Домен прозрения");
     // Заклинания домена 1 уровня — те же, что игрок выписал на лист.
     expect(cleric.knownSpells).toEqual(expect.arrayContaining(["identify", "detect-magic"]));

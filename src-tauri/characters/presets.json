@@ -1,7 +1,7 @@
 [
   {
     "id": "preset-bard-halfling",
-    "name": "Бард полурослик",
+    "name": "Кимри Тростинка",
     "race": "Полурослик",
     "class": "Бард",
     "subclass": "",
@@ -77,7 +77,7 @@
   },
   {
     "id": "preset-bard-tiefling",
-    "name": "Бард тифлинг",
+    "name": "Азара Виоль",
     "race": "Тифлинг",
     "class": "Бард",
     "subclass": "",
@@ -147,7 +147,7 @@
   },
   {
     "id": "preset-barbarian-half-elf",
-    "name": "Варвар полуэльф",
+    "name": "Таэрин Волчий Шаг",
     "race": "Полуэльф",
     "class": "Варвар",
     "subclass": "",
@@ -224,7 +224,7 @@
   },
   {
     "id": "preset-barbarian-human",
-    "name": "Варвар человек",
+    "name": "Хродгар Ковач",
     "race": "Человек",
     "class": "Варвар",
     "subclass": "",
@@ -292,7 +292,7 @@
   },
   {
     "id": "preset-fighter-half-elf",
-    "name": "Воин полуэльф",
+    "name": "Аэлин Полутень",
     "race": "Полуэльф",
     "class": "Воин",
     "subclass": "",
@@ -432,7 +432,7 @@
   },
   {
     "id": "preset-wizard-high-elf",
-    "name": "Волшебник высший эльф",
+    "name": "Илларион Сильвэ",
     "race": "Эльф",
     "class": "Волшебник",
     "subclass": "",
@@ -495,7 +495,7 @@
   },
   {
     "id": "preset-wizard-gnome",
-    "name": "Волшебник гном",
+    "name": "Финдл Шестерёнка",
     "race": "Гном",
     "class": "Волшебник",
     "subclass": "",
@@ -634,7 +634,7 @@
   },
   {
     "id": "preset-druid-dwarf",
-    "name": "Друид дварф",
+    "name": "Торунн Камнецвет",
     "race": "Дварф",
     "class": "Друид",
     "subclass": "",
@@ -703,7 +703,7 @@
   },
   {
     "id": "preset-cleric-dwarf",
-    "name": "Жрец дварф",
+    "name": "Дарин Светоч",
     "race": "Дварф",
     "class": "Жрец",
     "subclass": "Домен жизни",
@@ -764,7 +764,7 @@
   },
   {
     "id": "preset-cleric-half-elf",
-    "name": "Жрец полуэльф",
+    "name": "Селиэн Ардвен",
     "race": "Полуэльф",
     "class": "Жрец",
     "subclass": "Домен прозрения",
