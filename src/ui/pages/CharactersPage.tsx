@@ -19,6 +19,7 @@ import {
   HEALING_POTIONS,
   HEAVILY_ENCUMBERED_DISADVANTAGE_HINT,
   inventoryWeightLb,
+  OVERLOAD_WARNING,
   RACE_HP_BONUS,
   SKILL_ABILITY,
   ARMOR_PROFICIENCY_LABELS,
@@ -722,11 +723,15 @@ function CharacterCard({
   const speedPenaltyFeet = encumbranceSpeedPenaltyFeet(encLevel);
   const effectiveSpeedFeet = Math.max(0, c.speedFeet - speedPenaltyFeet);
   const speedLabel = speedPenaltyFeet > 0 ? `${effectiveSpeedFeet} фт` : `${c.speedFeet} фт`;
-  /** Жёсткий потолок (Сила × 15): нельзя добавить предмет, если это довело бы вес выше грузоподъёмности. */
+  /**
+   * Грузоподъёмность — мягкий потолок: перевес разрешён, он даёт «Сильно нагружен»
+   * со штрафом (encumbranceLevel), а не запрет на добавление. Предикат остался
+   * только ради предупреждения заранее, чтобы перевес не случился незаметно.
+   */
   function wouldExceedCapacity(additionalWeightLb: number): boolean {
     return totalWeightLb + additionalWeightLb > carryingCapacity;
   }
-  const addItemBlocked = wouldExceedCapacity(catalogWeightLb(newItemName.trim()));
+  const addItemOverloads = wouldExceedCapacity(catalogWeightLb(newItemName.trim()));
   const nextLevelXp = xpNeededForNextLevel(c.level);
   const levelUpReady = canLevelUp(c.level, c.experiencePoints);
 
@@ -1154,10 +1159,9 @@ function CharacterCard({
               <span>{item.quantity}</span>
               <button
                 type="button"
-                aria-disabled={wouldExceedCapacity(item.weightLb)}
                 className={wouldExceedCapacity(item.weightLb) ? "character-card__danger" : undefined}
-                title={wouldExceedCapacity(item.weightLb) ? "Достигнута максимальная грузоподъёмность" : undefined}
-                onClick={() => wouldExceedCapacity(item.weightLb) ? playLimitSound() : adjustItemQuantity(item.id, 1)}
+                title={wouldExceedCapacity(item.weightLb) ? OVERLOAD_WARNING : undefined}
+                onClick={() => adjustItemQuantity(item.id, 1)}
               >
                 +
               </button>
@@ -1185,11 +1189,11 @@ function CharacterCard({
               );
             })}
           </datalist>
-          <button type="button" aria-disabled={addItemBlocked} className={addItemBlocked ? "character-card__danger" : undefined} onClick={() => addItemBlocked ? playLimitSound() : addItem()}>
+          <button type="button" className={addItemOverloads ? "character-card__danger" : undefined} onClick={addItem}>
             Добавить
           </button>
-          {addItemBlocked && (
-            <span className="character-card__hint">Достигнута максимальная грузоподъёмность</span>
+          {addItemOverloads && (
+            <span className="character-card__hint">{OVERLOAD_WARNING}</span>
           )}
         </div>
       </details>

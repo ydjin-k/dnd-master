@@ -410,7 +410,8 @@ describe("CharactersPage", () => {
     expect(current.inventory).toHaveLength(0);
   });
 
-  // Сила 10 -> грузоподъёмность 150 фнт, пороги нагрузки 50/100 фнт (characters-encumbrance-tiers).
+  // Сила 10 -> грузоподъёмность 150 фнт; пороги свои, не книжные: «Нагружен» с 135 фнт
+  // (90 % грузоподъёмности), «Сильно нагружен» — свыше 150 (characters-encumbrance-own-thresholds).
   function withWeight(weightLb: number) {
     return {
       ...characterWithInventory(),
@@ -418,16 +419,16 @@ describe("CharactersPage", () => {
     };
   }
 
-  it("shows no encumbrance tier and full speed under 50 фнт", () => {
-    mockState = baseState({ characters: [withWeight(40)] });
+  it("shows no encumbrance tier and full speed under 135 фнт (90 % грузоподъёмности)", () => {
+    mockState = baseState({ characters: [withWeight(134)] });
     render(<CharactersPage />);
     expect(screen.queryByText("Нагружен")).not.toBeInTheDocument();
     expect(screen.queryByText("Сильно нагружен")).not.toBeInTheDocument();
     expectStat("Скорость", "30 фт");
   });
 
-  it("60 фнт (> Сила×5): Нагружен, скорость реально падает на 10 (30 → 20)", () => {
-    mockState = baseState({ characters: [withWeight(60)] });
+  it("135 фнт (ровно 90 %): Нагружен, скорость реально падает на 10 (30 → 20)", () => {
+    mockState = baseState({ characters: [withWeight(135)] });
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
     expectStat("Скорость", "20 фт");
@@ -435,8 +436,15 @@ describe("CharactersPage", () => {
     expect(screen.queryByText(/Помеха на проверки/)).not.toBeInTheDocument();
   });
 
-  it("110 фнт (> Сила×10): Сильно нагружен, скорость −20 (30 → 10), помеха-напоминание видна", () => {
-    mockState = baseState({ characters: [withWeight(110)] });
+  it("ровно на потолке (150 фнт) — ещё Нагружен, но не Сильно: потолок сам по себе не перевес", () => {
+    mockState = baseState({ characters: [withWeight(150)] });
+    render(<CharactersPage />);
+    expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Сильно нагружен/)).not.toBeInTheDocument();
+  });
+
+  it("151 фнт (фунт сверх потолка): Сильно нагружен, скорость −20 (30 → 10), помеха-напоминание видна", () => {
+    mockState = baseState({ characters: [withWeight(151)] });
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Сильно нагружен — скорость 10 фт \(было 30 фт\)/)).toBeInTheDocument();
     expectStat("Скорость", "10 фт");
@@ -445,25 +453,33 @@ describe("CharactersPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("at exactly max carrying capacity (150 фнт), add-item and quantity-increase are disabled; decrease/remove stay enabled", () => {
+  it("на потолке (150 фнт) добавление не запрещено: кнопки живые, стоит предупреждение о перевесе", () => {
     mockState = baseState({ characters: [withWeight(150)] });
     render(<CharactersPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // in catalog, weight > 0
-    expect(screen.getAllByText("Добавить")[0]).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText("Достигнута максимальная грузоподъёмность")).toBeInTheDocument();
+    expect(screen.getAllByText("Добавить")[0]).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByText("Перевес: станет «Сильно нагружен»")).toBeInTheDocument();
 
     const item = screen.getByText("Груз").closest("li") as HTMLElement;
-    expect(within(item).getByText("+")).toHaveAttribute("aria-disabled", "true");
+    expect(within(item).getByText("+")).not.toHaveAttribute("aria-disabled");
     expect(within(item).getByText("−")).toBeEnabled();
     expect(within(item).getByTitle("Убрать предмет")).toBeEnabled();
   });
 
-  it("below max capacity, adding an item that would push weight over it is still disabled", () => {
+  it("предмет, уводящий в перевес, реально добавляется — иначе третья ступень недостижима", () => {
     mockState = baseState({ characters: [withWeight(145)] });
     render(<CharactersPage />);
     fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Верёвка, пеньковая (50 футов)" } }); // ~10 фнт in catalog
-    expect(screen.getAllByText("Добавить")[0]).toHaveAttribute("aria-disabled", "true");
+    const addButton = screen.getAllByText("Добавить")[0];
+    expect(addButton).not.toHaveAttribute("aria-disabled");
+
+    fireEvent.click(addButton);
+    const applied = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(withWeight(145));
+    expect(applied.inventory.map((i) => i.name)).toContain("Верёвка, пеньковая (50 футов)");
+    expect(applied.inventory.reduce((sum, i) => sum + i.weightLb * i.quantity, 0)).toBeGreaterThan(150);
+    // Перевес перестал быть запретом — звука предела здесь быть не должно.
+    expect(sounds.playLimitSound).not.toHaveBeenCalled();
   });
 
   it("adding a new item and a condition (typed, SRD or custom) calls updateCharacter correctly", async () => {
@@ -631,7 +647,7 @@ describe("CharactersPage", () => {
     expect(sounds.playSpellCastSound).toHaveBeenCalledOnce();
   });
 
-  it("plays coin feedback on a real coin change and limit feedback on blocked capacity", () => {
+  it("plays coin feedback on a real coin change; going over capacity is no longer a limit", () => {
     mockState = baseState({ characters: [withWeight(150)] });
     render(<CharactersPage />);
 
@@ -641,7 +657,11 @@ describe("CharactersPage", () => {
 
     const item = screen.getByText("Груз").closest("li") as HTMLElement;
     fireEvent.click(within(item).getByText("+"));
-    expect(sounds.playLimitSound).toHaveBeenCalledOnce();
+    expect(sounds.playLimitSound).not.toHaveBeenCalled();
+    const updater = updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (
+      c: Character,
+    ) => Character;
+    expect(updater(withWeight(150)).inventory[0].quantity).toBe(2);
   });
 
   it("the level-1 'Использовать' button is disabled at 0 slots, and the updater itself floors at 0 too", async () => {

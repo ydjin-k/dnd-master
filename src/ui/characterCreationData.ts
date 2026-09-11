@@ -1147,15 +1147,37 @@ export function carryingCapacityLb(strength: number): number {
 
 export type EncumbranceLevel = "normal" | "encumbered" | "heavily-encumbered";
 
+/** Доля грузоподъёмности, с которой начинается «Нагружен» — правило приложения, см. encumbranceLevel. */
+const ENCUMBERED_CAPACITY_SHARE = 0.9;
+
 /**
- * Вариативное правило «Нагрузка» (rules.json → gameplay-abilities, дословно —
- * см. карточку characters-encumbrance-tiers), поверх базовой грузоподъёмности
- * (Сила × 15, carryingCapacityLb, остаётся жёстким потолком): вес > Сила×5 —
- * нагружен, вес > Сила×10 (вплоть до потолка) — сильно нагружен.
+ * Пороги нагрузки — ПРАВИЛО ПРИЛОЖЕНИЯ, а не книжное, и со справочником
+ * оно расходится намеренно.
+ *
+ * Считается от грузоподъёмности (carryingCapacityLb, Сила × 15 — у множителя
+ * один владелец): вес ≥ 90 % грузоподъёмности — «Нагружен», вес строго больше
+ * грузоподъёмности — «Сильно нагружен». Ровно на потолке персонаж ещё
+ * нагружен, но не сильно; грузоподъёмность при этом мягкая — перевес разрешён
+ * и даёт статус, а не запрет (см. CharactersPage, wouldExceedCapacity).
+ *
+ * Почему не как в книге. В rules.json → gameplay-abilities лежит вариативное
+ * правило «Нагрузка» с порогами Сила×5 и Сила×10; текст справочника дословный
+ * и не правится (SRD-граница), поэтому расхождение видно глазами — это
+ * ожидаемо, а не рассинхрон. Книжные пороги штрафовали персонажа за
+ * нормальное снаряжение с его же листа: при Силе 15 грузоподъёмность 225 фнт,
+ * а «Нагружен» наступал уже с 75 фнт — готовый жрец дварф получал плашку и
+ * −10 футов на 42 % занятой грузоподъёмности, ещё ничего не сделав. Решение
+ * владельца от 10 сентября 2026, карточка
+ * characters-encumbrance-own-thresholds.
+ *
+ * Не «чинить» обратно по справочнику. Сами штрафы (−10 / −20 и помеха) не
+ * менялись — они лишь переехали на эти пороги, чтобы плашка и штраф всегда
+ * наступали вместе (encumbranceSpeedPenaltyFeet).
  */
 export function encumbranceLevel(totalWeightLb: number, strength: number): EncumbranceLevel {
-  if (totalWeightLb > strength * 10) return "heavily-encumbered";
-  if (totalWeightLb > strength * 5) return "encumbered";
+  const capacity = carryingCapacityLb(strength);
+  if (totalWeightLb > capacity) return "heavily-encumbered";
+  if (totalWeightLb >= capacity * ENCUMBERED_CAPACITY_SHARE) return "encumbered";
   return "normal";
 }
 
@@ -1171,6 +1193,12 @@ export const ENCUMBRANCE_LABELS: Record<EncumbranceLevel, string> = {
   encumbered: "Нагружен",
   "heavily-encumbered": "Сильно нагружен",
 };
+
+/**
+ * Предупреждение о перевесе рядом с добавлением предмета. Не запрет: потолок
+ * мягкий, перевес разрешён и превращается в «Сильно нагружен» (encumbranceLevel).
+ */
+export const OVERLOAD_WARNING = "Перевес: станет «Сильно нагружен»";
 
 /** Дословно из rules.json → gameplay-abilities, часть про «сильно нагружен». */
 export const HEAVILY_ENCUMBERED_DISADVANTAGE_HINT =

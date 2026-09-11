@@ -4,6 +4,8 @@ import {
   armorProficienciesFor,
   carryingCapacityLb,
   catalogWeightLb,
+  encumbranceLevel,
+  encumbranceSpeedPenaltyFeet,
   CLASS_PROFICIENCIES,
   CLASS_SUBCLASSES,
   coinsWeightLb,
@@ -477,6 +479,48 @@ describe("catalogWeightLb", () => {
 describe("carryingCapacityLb", () => {
   it("is Сила × 15 (SRD 5.1 base rule, rules.json → gameplay-abilities)", () => {
     expect(carryingCapacityLb(10)).toBe(150);
+  });
+});
+
+describe("encumbranceLevel (свои пороги, не книжные — characters-encumbrance-own-thresholds)", () => {
+  // Сила 10 -> грузоподъёмность 150 фнт, «Нагружен» с 135 фнт, «Сильно нагружен» — свыше 150.
+  it("до 90 % грузоподъёмности нагрузки нет", () => {
+    expect(encumbranceLevel(134, 10)).toBe("normal");
+    expect(encumbranceLevel(134.9, 10)).toBe("normal");
+  });
+
+  it("ровно 90 % (135 фнт) — уже «Нагружен»", () => {
+    expect(encumbranceLevel(135, 10)).toBe("encumbered");
+  });
+
+  it("ровно на потолке (150 фнт) — ещё «Нагружен», не «Сильно нагружен»", () => {
+    expect(encumbranceLevel(150, 10)).toBe("encumbered");
+  });
+
+  it("фунт сверх потолка (151 фнт) — «Сильно нагружен»", () => {
+    expect(encumbranceLevel(151, 10)).toBe("heavily-encumbered");
+  });
+
+  it("штрафы наступают на тех же порогах, что и плашки (−10 / −20)", () => {
+    expect(encumbranceSpeedPenaltyFeet(encumbranceLevel(134, 10))).toBe(0);
+    expect(encumbranceSpeedPenaltyFeet(encumbranceLevel(135, 10))).toBe(10);
+    expect(encumbranceSpeedPenaltyFeet(encumbranceLevel(151, 10))).toBe(20);
+  });
+
+  // Случай владельца, ради которого пороги и переехали: готовый «Жрец дварф», Сила 15
+  // (грузоподъёмность 225 фнт), снаряжение с листа ~94 фнт — по книжным порогам это был
+  // «Нагружен» с 75 фнт, то есть плашка на свежесобранном персонаже.
+  it("жрец дварф (Сила 15) с 94 фнт снаряжения не нагружен, хотя по книжным порогам был бы", () => {
+    expect(carryingCapacityLb(15)).toBe(225);
+    expect(encumbranceLevel(94, 15)).toBe("normal");
+    expect(encumbranceSpeedPenaltyFeet(encumbranceLevel(94, 15))).toBe(0);
+  });
+
+  it("пороги считаются от грузоподъёмности: 90 % от 225 — это 202.5 фнт", () => {
+    expect(encumbranceLevel(202, 15)).toBe("normal");
+    expect(encumbranceLevel(202.5, 15)).toBe("encumbered");
+    expect(encumbranceLevel(225, 15)).toBe("encumbered");
+    expect(encumbranceLevel(225.5, 15)).toBe("heavily-encumbered");
   });
 });
 
