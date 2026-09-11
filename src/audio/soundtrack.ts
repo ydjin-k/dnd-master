@@ -83,6 +83,8 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["dripping-water.mp3", "Капающая вода"],
     ["cave-draft.mp3", "Сквозняк пещеры"],
     ["dungeon-draft.mp3", "Сквозняк подземелья"],
+    ["slamming-door.mp3", "Хлопнувшая дверь"],
+    ["chain.mp3", "Звук цепи"],
   ]],
   ["misc", "Разное", [
     ["sea.mp3", "Море"],
@@ -95,7 +97,7 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["ghost-scare.mp3", "Призрак пугает"],
     ["ghost-laugh-female.mp3", "Женский смех призрака"],
     ["ghost-laugh-male.mp3", "Мужской смех призрака"],
-    ["slamming-door.mp3", "Хлопнувшая дверь"],
+    ["beast-growl.mp3", "Рык зверя"],
     ["lone-wolf-howl.mp3", "Одинокий волк воет"],
     ["wolf-pack.mp3", "Стая волков"],
   ]],
