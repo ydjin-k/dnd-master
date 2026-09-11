@@ -3,8 +3,10 @@ import {
   CLASS_PROGRESSION,
   PROGRESSION_MAX_LEVEL,
   SPELL_CIRCLES,
+  asiLevels,
   characterResources,
   highestSpellCircle,
+  isAsiLevel,
   progressionAt,
   resourceMax,
 } from "./classProgression";
@@ -26,7 +28,7 @@ const ALL_CLASS_IDS = [
 ];
 
 describe("CLASS_PROGRESSION", () => {
-  it("покрывает все 12 базовых классов на уровнях 1-5", () => {
+  it("покрывает все 12 базовых классов на уровнях 1-12", () => {
     expect(Object.keys(CLASS_PROGRESSION).sort()).toEqual([...ALL_CLASS_IDS].sort());
     for (const classId of ALL_CLASS_IDS) {
       for (let level = 1; level <= PROGRESSION_MAX_LEVEL; level++) {
@@ -37,14 +39,134 @@ describe("CLASS_PROGRESSION", () => {
     }
   });
 
-  it("не выдаёт ячеек выше 3 круга — потолок уровня 5 (полный заклинатель добирается только до него)", () => {
+  it("не выдаёт ячеек выше 6 круга — круги 7-9 требуют 13/15/17 уровня, выше потолка 12", () => {
     for (const classId of ALL_CLASS_IDS) {
       for (let level = 1; level <= PROGRESSION_MAX_LEVEL; level++) {
         const slots = progressionAt(classId, level)!.spellSlots;
-        expect(slots[3], `${classId} ур. ${level}: 4 круг`).toBe(0);
-        expect(slots[4], `${classId} ур. ${level}: 5 круг`).toBe(0);
+        expect(slots[6], `${classId} ур. ${level}: 7 круг`).toBe(0);
+        expect(slots[7], `${classId} ур. ${level}: 8 круг`).toBe(0);
+        expect(slots[8], `${classId} ур. ${level}: 9 круг`).toBe(0);
       }
     }
+  });
+
+  it("открывает 6 круг полному заклинателю ровно на 11 уровне — исходная цель потолка 12", () => {
+    for (const classId of ["classes-bard", "classes-cleric", "classes-druid", "classes-sorcerer", "classes-wizard"]) {
+      expect(highestSpellCircle(classId, 10), `${classId} ур. 10`).toBe(5);
+      expect(highestSpellCircle(classId, 11), `${classId} ур. 11`).toBe(6);
+      expect(progressionAt(classId, 11)!.spellSlots[5], `${classId} ур. 11: ячеек 6 круга`).toBe(1);
+    }
+    // Полузаклинатель к 12 уровню поднимается только до 3 круга, Колдун — до 5.
+    expect(highestSpellCircle("classes-paladin", 12)).toBe(3);
+    expect(highestSpellCircle("classes-ranger", 12)).toBe(3);
+    expect(highestSpellCircle("classes-warlock", 12)).toBe(5);
+  });
+
+  it("даёт Колдуну официальную таблицу Магии договора на 6-12 уровнях — третья ячейка на 11", () => {
+    const rows = [6, 7, 8, 9, 10, 11, 12].map((l) => progressionAt("classes-warlock", l)!.spellSlots);
+    expect(rows).toEqual([
+      [0, 0, 2, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 2, 0, 0, 0, 0, 0],
+      [0, 0, 0, 2, 0, 0, 0, 0, 0],
+      [0, 0, 0, 0, 2, 0, 0, 0, 0],
+      [0, 0, 0, 0, 2, 0, 0, 0, 0],
+      [0, 0, 0, 0, 3, 0, 0, 0, 0],
+      [0, 0, 0, 0, 3, 0, 0, 0, 0],
+    ]);
+  });
+
+  it("даёт полузаклинателю официальную таблицу ячеек на 6-12 уровнях", () => {
+    const rows = [6, 7, 8, 9, 10, 11, 12].map((l) => progressionAt("classes-paladin", l)!.spellSlots);
+    expect(rows).toEqual([
+      [4, 2, 0, 0, 0, 0, 0, 0, 0],
+      [4, 3, 0, 0, 0, 0, 0, 0, 0],
+      [4, 3, 0, 0, 0, 0, 0, 0, 0],
+      [4, 3, 2, 0, 0, 0, 0, 0, 0],
+      [4, 3, 2, 0, 0, 0, 0, 0, 0],
+      [4, 3, 3, 0, 0, 0, 0, 0, 0],
+      [4, 3, 3, 0, 0, 0, 0, 0, 0],
+    ]);
+  });
+
+  it("даёт полному заклинателю официальную таблицу ячеек на 6-12 уровнях", () => {
+    const rows = [6, 7, 8, 9, 10, 11, 12].map((l) => progressionAt("classes-wizard", l)!.spellSlots);
+    expect(rows).toEqual([
+      [4, 3, 3, 0, 0, 0, 0, 0, 0],
+      [4, 3, 3, 1, 0, 0, 0, 0, 0],
+      [4, 3, 3, 2, 0, 0, 0, 0, 0],
+      [4, 3, 3, 3, 1, 0, 0, 0, 0],
+      [4, 3, 3, 3, 2, 0, 0, 0, 0],
+      [4, 3, 3, 3, 2, 1, 0, 0, 0],
+      [4, 3, 3, 3, 2, 1, 0, 0, 0],
+    ]);
+  });
+
+  it("ведёт столбцы заговоров и известных заклинаний по таблице, а не по формуле, на 6-12 уровнях", () => {
+    const at = (id: string, l: number) => progressionAt(id, l)!;
+    // Заговоры прибавляются на 10 уровне у всех полных заклинателей.
+    expect([9, 10].map((l) => at("classes-bard", l).cantripsKnown)).toEqual([3, 4]);
+    expect([9, 10].map((l) => at("classes-wizard", l).cantripsKnown)).toEqual([4, 5]);
+    expect([9, 10].map((l) => at("classes-sorcerer", l).cantripsKnown)).toEqual([5, 6]);
+    expect([9, 10].map((l) => at("classes-warlock", l).cantripsKnown)).toEqual([3, 4]);
+    // Известные заклинания: у Барда на 10 сразу +2 (Магические тайны), на 12 таблица стоит.
+    expect([6, 7, 8, 9, 10, 11, 12].map((l) => at("classes-bard", l).spellsKnown)).toEqual([9, 10, 11, 12, 14, 15, 15]);
+    expect([6, 7, 8, 9, 10, 11, 12].map((l) => at("classes-sorcerer", l).spellsKnown)).toEqual([7, 8, 9, 10, 11, 12, 12]);
+    expect([6, 7, 8, 9, 10, 11, 12].map((l) => at("classes-warlock", l).spellsKnown)).toEqual([7, 8, 9, 10, 10, 11, 11]);
+    expect([6, 7, 8, 9, 10, 11, 12].map((l) => at("classes-ranger", l).spellsKnown)).toEqual([4, 5, 5, 6, 6, 7, 7]);
+  });
+
+  it("ведёт классовые ресурсы и растущие значения по таблице на 6-12 уровнях", () => {
+    const at = (id: string, l: number) => progressionAt(id, l)!;
+    const maxOf = (id: string, l: number, resourceId: string) =>
+      at(id, l).resources.find((r) => r.id === resourceId)?.max;
+    const scalingOf = (id: string, l: number, name: string) =>
+      at(id, l).scaling.find((v) => v.name === name)?.value;
+
+    expect([5, 6, 11, 12].map((l) => maxOf("classes-barbarian", l, "rage"))).toEqual([3, 4, 4, 5]);
+    expect([8, 9].map((l) => scalingOf("classes-barbarian", l, "Урон ярости"))).toEqual(["+2", "+3"]);
+    expect([5, 6].map((l) => maxOf("classes-cleric", l, "channel-divinity"))).toEqual([1, 2]);
+    expect([7, 8, 11].map((l) => scalingOf("classes-cleric", l, "Уничтожение нежити"))).toEqual([
+      "УО 1/2 или ниже",
+      "УО 1 или ниже",
+      "УО 2 или ниже",
+    ]);
+    expect([10, 11].map((l) => scalingOf("classes-monk", l, "Боевые искусства"))).toEqual(["1к6", "1к8"]);
+    expect([5, 6, 9, 10].map((l) => scalingOf("classes-monk", l, "Перемещение без доспеха"))).toEqual([
+      "+10 футов",
+      "+15 футов",
+      "+15 футов",
+      "+20 футов",
+    ]);
+    expect([10, 11, 12].map((l) => scalingOf("classes-rogue", l, "Скрытая атака"))).toEqual(["5к6", "6к6", "6к6"]);
+    expect([7, 8].map((l) => scalingOf("classes-druid", l, "Макс. УО зверя Дикого облика"))).toEqual(["1/2", "1"]);
+    expect([9, 10].map((l) => scalingOf("classes-bard", l, "Кость Вдохновения барда"))).toEqual(["к8", "к10"]);
+    expect([6, 7, 8, 9, 10, 11, 12].map((l) => scalingOf("classes-warlock", l, "Известные воззвания"))).toEqual([
+      "4",
+      "4",
+      "4",
+      "5",
+      "5",
+      "5",
+      "6",
+    ]);
+    // Несгибаемый у Воина и Мистический арканум у Колдуна приходят внутри диапазона.
+    expect(maxOf("classes-fighter", 8, "indomitable")).toBeUndefined();
+    expect(maxOf("classes-fighter", 9, "indomitable")).toBe(1);
+    expect(maxOf("classes-warlock", 10, "mystic-arcanum-6")).toBeUndefined();
+    expect(maxOf("classes-warlock", 11, "mystic-arcanum-6")).toBe(1);
+  });
+
+  it("раздаёт улучшения характеристик по столбцу «Умения» таблиц классов", () => {
+    expect(asiLevels("classes-wizard")).toEqual([4, 8, 12]);
+    expect(asiLevels("classes-fighter")).toEqual([4, 6, 8, 12]);
+    expect(asiLevels("classes-rogue")).toEqual([4, 8, 10, 12]);
+    // Вторые дополнительные точки Воина (14) и Плута (16) — выше потолка, их нет.
+    expect(asiLevels("classes-fighter")).not.toContain(14);
+    expect(asiLevels("classes-rogue")).not.toContain(16);
+    expect(isAsiLevel("classes-fighter", 6)).toBe(true);
+    expect(isAsiLevel("classes-wizard", 6)).toBe(false);
+    expect(isAsiLevel("classes-rogue", 10)).toBe(true);
+    expect(isAsiLevel("classes-barbarian", 10)).toBe(false);
   });
 
   it("даёт Барду официальную таблицу ячеек, заговоров и известных заклинаний", () => {
