@@ -1026,11 +1026,15 @@ export const PROFICIENCY_BONUS_HINT = `Владение навыком или с
 /**
  * Бонус мастерства по уровню персонажа — сверено по rules.json →
  * character-beyond-1-level («Развитие персонажа», таблица): уровни 1-4 → +2,
- * уровень 5 → +3. Диапазон 1-20 из SRD не нужен целиком — приложение пока
- * ограничивает левелинг уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md).
+ * 5-8 → +3, 9-12 → +4. Диапазон 1-20 из SRD не нужен целиком — приложение
+ * ограничивает левелинг уровнями 1-12 (см. MAX_LEVEL в CharactersPage.tsx и
+ * tasks/open/characters-leveling-6-12.md); выше 12 таблица продолжается +5 и
+ * +6, но эти строки здесь намеренно не заведены.
  */
 export function proficiencyBonusForLevel(level: number): number {
-  return level >= 5 ? 3 : 2;
+  if (level >= 9) return 4;
+  if (level >= 5) return 3;
+  return 2;
 }
 
 /** Та же подсказка, что PROFICIENCY_BONUS_HINT, но с бонусом текущего уровня персонажа. */
@@ -1041,8 +1045,10 @@ export function proficiencyBonusHint(level: number): string {
 /**
  * Опыт, необходимый для достижения уровня (индекс = уровень) — сверено по
  * rules.json → character-beyond-1-level, таблица «Развитие персонажа».
- * Табличные значения SRD, не формула — левелинг ограничен уровнями 1-5,
- * см. characters-leveling-1-5.
+ * Табличные значения SRD, не формула — левелинг ограничен уровнями 1-12,
+ * см. characters-leveling-6-12. Порог следующего уровня гейтит кнопку
+ * «Повысить уровень» (canLevelUp), поэтому таблица обязана доходить ровно до
+ * MAX_LEVEL: оборвись она раньше — кнопка замолчала бы до потолка.
  */
 export const XP_THRESHOLDS: Record<number, number> = {
   1: 0,
@@ -1050,6 +1056,13 @@ export const XP_THRESHOLDS: Record<number, number> = {
   3: 900,
   4: 2700,
   5: 6500,
+  6: 14000,
+  7: 23000,
+  8: 34000,
+  9: 48000,
+  10: 64000,
+  11: 85000,
+  12: 100000,
 };
 
 /** Опыт, нужный для следующего уровня — null на максимальном/неизвестном уровне (нет порога дальше). */
