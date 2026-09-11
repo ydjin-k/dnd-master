@@ -69,7 +69,6 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["heavy-rain.mp3", "Ливень"],
   ]],
   ["campfire", "Костёр", [
-    ["village.mp3", "Деревня"],
     ["campfire.mp3", "Костёр"],
     ["night-campfire.mp3", "Ночной костёр"],
   ]],
@@ -79,14 +78,26 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["stream.wav", "Ручей"],
     ["morning-forest.wav", "Утренний лес"],
   ]],
-  ["sea", "Море", [
-    ["sea.mp3", "Море"],
-  ]],
   ["cave", "Пещера", [
     ["moving-slab.mp3", "Ползущая плита"],
     ["dripping-water.mp3", "Капающая вода"],
     ["cave-draft.mp3", "Сквозняк пещеры"],
     ["dungeon-draft.mp3", "Сквозняк подземелья"],
+  ]],
+  ["misc", "Разное", [
+    ["sea.mp3", "Море"],
+    ["waterfall.mp3", "Водопад"],
+    ["village.mp3", "Деревня"],
+    ["city.mp3", "Звуки города"],
+    ["thunderclap.mp3", "Раскат грома"],
+  ]],
+  ["horrors", "Ужасы", [
+    ["ghost-scare.mp3", "Призрак пугает"],
+    ["ghost-laugh-female.mp3", "Женский смех призрака"],
+    ["ghost-laugh-male.mp3", "Мужской смех призрака"],
+    ["slamming-door.mp3", "Хлопнувшая дверь"],
+    ["lone-wolf-howl.mp3", "Одинокий волк воет"],
+    ["wolf-pack.mp3", "Стая волков"],
   ]],
 ]);
 
