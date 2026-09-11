@@ -177,14 +177,34 @@ describe("BestiaryPage", () => {
   it("requests only the newly selected monster's detail image on selection change, not every monster again", async () => {
     render(<BestiaryPage />);
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
+    // Ждём не заголовок, а саму картинку волка: заголовок оказывается в DOM раньше,
+    // чем React успевает выполнить эффект, запрашивающий его детальную картинку. Если
+    // чистить счётчик по заголовку, запрос волка иногда уезжает уже ПОСЛЕ mockClear() и
+    // попадает в замер как чужой (карточка bug-bestiary-detail-image-test-flaky).
+    await screen.findByRole("img", { name: "Волк" });
+
+    // Размер детали берём не числом из BestiaryPage.tsx (это завёл бы второго владельца
+    // факта), а из самих запросов: деталь — самая крупная из картинок, превью списка
+    // всегда мельче (тот же признак, что у соседней пробы).
+    const detailSize = Math.max(
+      ...invokeMock.mock.calls
+        .filter(([command]) => command === "get_bestiary_image")
+        .map(([, args]) => (args as { maxSize: number }).maxSize),
+    );
+
     invokeMock.mockClear();
 
     fireEvent.click(screen.getByText("Летучая мышь"));
     await waitFor(() => expect(screen.getByRole("heading", { name: "Летучая мышь" })).toBeInTheDocument());
 
-    const imageCalls = invokeMock.mock.calls.filter(([command]) => command === "get_bestiary_image");
-    expect(imageCalls).toHaveLength(1);
-    expect((imageCalls[0][1] as { imageAsset: string }).imageAsset).toBe("images/bat.png");
+    // Считаем только ДЕТАЛЬНЫЕ запросы: мелкие превью списка идут той же командой
+    // и приезжают лениво, когда строка попала в видимость, — проба стережёт не их.
+    const detailAssets = invokeMock.mock.calls
+      .filter(
+        ([command, args]) =>
+          command === "get_bestiary_image" && (args as { maxSize: number }).maxSize === detailSize,
+      )
+      .map(([, args]) => (args as { imageAsset: string }).imageAsset);
+    expect(detailAssets).toEqual(["images/bat.png"]);
   });
 });
