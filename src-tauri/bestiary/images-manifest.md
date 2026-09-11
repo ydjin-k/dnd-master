@@ -20,11 +20,13 @@ Id — латинский, от **английского** имени SRD, не 
 
 | | |
 |---|---|
-| Переименовано | 163 |
-| Дубликаты (имя `id` уже занято) | 48 |
-| Не опознано / нет в SRD 5.1 | 26 |
-| Осталось разобрать (`ChatGPT Image…`) | 171 |
-| Файлов в каталоге сейчас | 460 |
+| Переименовано, первая партия | 163 |
+| Переименовано, вторая партия | 165 |
+| — из них в SRD 5.1 | 94 |
+| — из них вне SRD 5.1 | 71 |
+| Дубликаты (имя `id` уже занято) | 50 |
+| Не опознано / нет в SRD 5.1, оставлены с русскими именами | 23 |
+| Файлов в каталоге сейчас | 456 |
 
 ## Переименованные
 
@@ -196,6 +198,191 @@ Id — латинский, от **английского** имени SRD, не 
 | `Молодой красный дракон.png` | Молодой красный дракон | Young Red Dragon | `young-red-dragon.png` |
 | `Молодой белый дракон.png` | Молодой белый дракон | Young White Dragon | `young-white-dragon.png` |
 
+## Вторая партия — бывшие `ChatGPT Image…`
+
+Владелец 11.09.2026 сам переименовал кучу `ChatGPT Image <дата> (n).png` в русские названия и
+попросил довести их до `id`. Колонка «В SRD 5.1» проставлена сверкой с настоящим списком монстров
+SRD 5.1 (открытый SRD-API `dnd5eapi.co/api/2014/monsters`), а не по памяти — граница тут тонкая:
+Pixie, Kenku, Troglodyte, Revenant, Yeti, Cambion выглядят «базовыми», но в SRD их нет.
+
+**Существа вне SRD переименованы тоже — решение владельца от 11.09.2026**, в отличие от первой
+партии, где такой файл оставался с русским именем. Имя файла само по себе ничего не вводит в игру:
+граница SRD срабатывает в `bestiary.json`, и существо с пометкой «**нет**» заводить там нельзя,
+сколько бы арта под него ни лежало — см. [[srd-only-content-boundary]].
+
+Пять опознаний сделаны по самому арту, а не по имени файла, и два из них имя файла опровергло:
+«Модрон» на карточке подписан МОНОДРОН, «Отродье Юань-ти» — это Abomination (змеиная голова и хвост
+вместо ног). Остальные три: «Исчадие преисподней» — Pit Fiend, «Кровопийца» — Stirge,
+«Золотистый студень» — Ochre Jelly (это написано на самой карточке).
+
+| Было | SRD (англ.) | Стало | В SRD 5.1 |
+|---|---|---|---|
+| `Элементаль воздуха.png` | Air Elemental | `air-elemental.png` | да |
+| `Оживлённый доспех.png` | Animated Armor | `animated-armor.png` | да |
+| `Эйзер.png` | Azer | `azer.png` | да |
+| `Игольчатый дьявол.png` | Barbed Devil | `barbed-devil.png` | да |
+| `Бородатый дьявол.png` | Bearded Devil | `bearded-devil.png` | да |
+| `Злобоглаз.png` | Beholder | `beholder.png` | **нет** |
+| `Злобоглаз зомби.png` | Beholder Zombie | `beholder-zombie.png` | **нет** |
+| `Черная слизь.png` | Black Pudding | `black-pudding.png` | да |
+| `Синий слаад.png` | Blue Slaad | `blue-slaad.png` | **нет** |
+| `Костяной дьявол.png` | Bone Devil | `bone-devil.png` | да |
+| `Костянная нага.png` | Bone Naga | `bone-naga.png` | **нет** |
+| `Медвежатник.png` | Bugbear | `bugbear.png` | да |
+| `Вождь медвежтаников.png` | Bugbear Chief | `bugbear-chief.png` | **нет** |
+| `Жаболюд.png` | Bullywug | `bullywug.png` | **нет** |
+| `Камбион.png` | Cambion | `cambion.png` | **нет** |
+| `Кентавр.png` | Centaur | `centaur.png` | да |
+| `Дьявол цепей.png` | Chain Devil | `chain-devil.png` | да |
+| `Химера.png` | Chimera | `chimera.png` | да |
+| `Чууль.png` | Chuul | `chuul.png` | да |
+| `Куролиск.png` | Cockatrice | `cockatrice.png` | да |
+| `Коатль.png` | Couatl | `couatl.png` | да |
+| `Ползающая рука.png` | Crawling Claw | `crawling-claw.png` | **нет** |
+| `Циклоп.png` | Cyclops | `cyclops.png` | **нет** |
+| `Темная мантия.png` | Darkmantle | `darkmantle.png` | да |
+| `Рыцарь смерти.png` | Death Knight | `death-knight.png` | **нет** |
+| `Смертельный слаад.png` | Death Slaad | `death-slaad.png` | **нет** |
+| `Тиран смерти.png` | Death Tyrant | `death-tyrant.png` | **нет** |
+| `Ускользающий зверь.png` | Displacer Beast | `displacer-beast.png` | **нет** |
+| `Дроу.png` | Drow | `drow.png` | да |
+| `Элитный дроу.png` | Drow Elite Warrior | `drow-elite-warrior.png` | **нет** |
+| `Маг дроу.png` | Drow Mage | `drow-mage.png` | **нет** |
+| `Дроу жрица Ллос.png` | Drow Priestess of Lolth | `drow-priestess-of-lolth.png` | **нет** |
+| `Дуодрон.png` | Duodrone | `duodrone.png` | **нет** |
+| `Пылевой мефит.png` | Dust Mephit | `dust-mephit.png` | да |
+| `Элементаль земли.png` | Earth Elemental | `earth-elemental.png` | да |
+| `Эмпирей.png` | Empyrean | `empyrean.png` | **нет** |
+| `Эриния.png` | Erinyes | `erinyes.png` | да |
+| `Эттеркап.png` | Ettercap | `ettercap.png` | да |
+| `Эттин.png` | Ettin | `ettin.png` | да |
+| `Элементаль огня.png` | Fire Elemental | `fire-elemental.png` | да |
+| `Огненная змея.png` | Fire Snake | `fire-snake.png` | **нет** |
+| `Пылающий череп.png` | Flameskull | `flameskull.png` | **нет** |
+| `Фламф.png` | Flumph | `flumph.png` | **нет** |
+| `Летающий меч.png` | Flying Sword | `flying-sword.png` | да |
+| `Фомор.png` | Fomorian | `fomorian.png` | **нет** |
+| `Студенистый куб.png` | Gelatinous Cube | `gelatinous-cube.png` | да |
+| `Вурдалак.png` | Ghast | `ghast.png` | да |
+| `Привидение.png` | Ghost | `ghost.png` | да |
+| `Упырь.png` | Ghoul | `ghoul.png` | да |
+| `Серая слизь.png` | Gray Ooze | `gray-ooze.png` | да |
+| `Серый слаад.png` | Gray Slaad | `gray-slaad.png` | **нет** |
+| `Зелёная карга.png` | Green Hag | `green-hag.png` | да |
+| `Зелёный слаад.png` | Green Slaad | `green-slaad.png` | **нет** |
+| `Охранная нага.png` | Guardian Naga | `guardian-naga.png` | да |
+| `Гиносфинкс.png` | Gynosphinx | `gynosphinx.png` | да |
+| `Полуогр.png` | Half-Ogre | `half-ogre.png` | **нет** |
+| `Полудракон.png` | Half-Red Dragon Veteran | `half-red-dragon-veteran.png` | да |
+| `Шлемоносный ужас.png` | Helmed Horror | `helmed-horror.png` | **нет** |
+| `Хобгоблин.png` | Hobgoblin | `hobgoblin.png` | да |
+| `Капитан хобгоблинов.png` | Hobgoblin Captain | `hobgoblin-captain.png` | **нет** |
+| `Хобгоблин военачальник.png` | Hobgoblin Warlord | `hobgoblin-warlord.png` | **нет** |
+| `Крюкастый ужас.png` | Hook Horror | `hook-horror.png` | **нет** |
+| `Рогатый дьявол.png` | Horned Devil | `horned-devil.png` | да |
+| `Ледяной дьявол.png` | Ice Devil | `ice-devil.png` | да |
+| `Ледяной мефит.png` | Ice Mephit | `ice-mephit.png` | да |
+| `пожиратель интеллекта.png` | Intellect Devourer | `intellect-devourer.png` | **нет** |
+| `Невидимый охотник.png` | Invisible Stalker | `invisible-stalker.png` | да |
+| `Шакальник.png` | Jackalwere | `jackalwere.png` | **нет** |
+| `Кенку.png` | Kenku | `kenku.png` | **нет** |
+| `Кобольд.png` | Kobold | `kobold.png` | да |
+| `Кракен.png` | Kraken | `kraken.png` | да |
+| `Куо-тоа.png` | Kuo-toa | `kuo-toa.png` | **нет** |
+| `Верховныцй жрец куо-тоа.png` | Kuo-toa Archpriest | `kuo-toa-archpriest.png` | **нет** |
+| `Куо-тоа кнут.png` | Kuo-toa Whip | `kuo-toa-whip.png` | **нет** |
+| `Ламия.png` | Lamia | `lamia.png` | да |
+| `Лемур.png` | Lemure | `lemure.png` | да |
+| `Король ящеров.png` | Lizard King | `lizard-king.png` | **нет** |
+| `Людоящер.png` | Lizardfolk | `lizardfolk.png` | да |
+| `Людоящер шаман.png` | Lizardfolk Shaman | `lizardfolk-shaman.png` | **нет** |
+| `Магмовый мефит.png` | Magma Mephit | `magma-mephit.png` | да |
+| `Медуза.png` | Medusa | `medusa.png` | да |
+| `Мерфолк.png` | Merfolk | `merfolk.png` | да |
+| `Мезолот.png` | Mezzoloth | `mezzoloth.png` | **нет** |
+| `Мимик.png` | Mimic | `mimic.png` | да |
+| `Свежеватель разума.png` | Mind Flayer | `mind-flayer.png` | **нет** |
+| `Минотавр.png` | Minotaur | `minotaur.png` | да |
+| `Скелет минотавра.png` | Minotaur Skeleton | `minotaur-skeleton.png` | да |
+| `Модрон.png` | Monodrone | `monodrone.png` | **нет** |
+| `Грязевой мефит.png` | Mud Mephit | `mud-mephit.png` | **нет** |
+| `Мумия.png` | Mummy | `mummy.png` | да |
+| `Лорд-мумия.png` | Mummy Lord | `mummy-lord.png` | да |
+| `Игольчатая зараза.png` | Needle Blight | `needle-blight.png` | **нет** |
+| `Ночная карга.png` | Night Hag | `night-hag.png` | да |
+| `Кошмар.png` | Nightmare | `nightmare.png` | да |
+| `Нотик.png` | Nothic | `nothic.png` | **нет** |
+| `Никалот.png` | Nycaloth | `nycaloth.png` | **нет** |
+| `Золортистый студень.png` | Ochre Jelly | `ochre-jelly.png` | да |
+| `Огр.png` | Ogre | `ogre.png` | да |
+| `Огр зомби.png` | Ogre Zombie | `ogre-zombie.png` | да |
+| `Они.png` | Oni | `oni.png` | да |
+| `Орк.png` | Orc | `orc.png` | да |
+| `Орк окоГруумша.png` | Orc Eye of Gruumsh | `orc-eye-of-gruumsh.png` | **нет** |
+| `Боевой вождь орков.png` | Orc War Chief | `orc-war-chief.png` | **нет** |
+| `Орог.png` | Orog | `orog.png` | **нет** |
+| `Совомед.png` | Owlbear | `owlbear.png` | да |
+| `Пентадрон.png` | Pentadrone | `pentadrone.png` | **нет** |
+| `Пронзатель.png` | Piercer | `piercer.png` | **нет** |
+| `Исчадие преисподней.png` | Pit Fiend | `pit-fiend.png` | да |
+| `Пикси.png` | Pixie | `pixie.png` | **нет** |
+| `Псевдо дракон.png` | Pseudodragon | `pseudodragon.png` | да |
+| `Лиловый червь.png` | Purple Worm | `purple-worm.png` | да |
+| `Квадрон.png` | Quadrone | `quadrone.png` | **нет** |
+| `Кваггот.png` | Quaggoth | `quaggoth.png` | **нет** |
+| `Ракшас.png` | Rakshasa | `rakshasa.png` | да |
+| `Красный слаад.png` | Red Slaad | `red-slaad.png` | **нет** |
+| `Ремораз.png` | Remorhaz | `remorhaz.png` | да |
+| `Ревенант.png` | Revenant | `revenant.png` | **нет** |
+| `Рух.png` | Roc | `roc.png` | да |
+| `Ковер удушения.png` | Rug of Smothering | `rug-of-smothering.png` | да |
+| `Ржавник.png` | Rust Monster | `rust-monster.png` | да |
+| `Сахуагин.png` | Sahuagin | `sahuagin.png` | да |
+| `Жрица Сахуагинов.png` | Sahuagin Priestess | `sahuagin-priestess.png` | **нет** |
+| `Саламандра.png` | Salamander | `salamander.png` | да |
+| `Сатир.png` | Satyr | `satyr.png` | да |
+| `Пугало.png` | Scarecrow | `scarecrow.png` | **нет** |
+| `Морская карга.png` | Sea Hag | `sea-hag.png` | да |
+| `Тень.png` | Shadow | `shadow.png` | да |
+| `Щитостраж.png` | Shield Guardian | `shield-guardian.png` | да |
+| `Скелет.png` | Skeleton | `skeleton.png` | да |
+| `Слаад головастик.png` | Slaad Tadpole | `slaad-tadpole.png` | **нет** |
+| `Дымовой мефит.png` | Smoke Mephit | `smoke-mephit.png` | **нет** |
+| `Наблюдатель.png` | Spectator | `spectator.png` | **нет** |
+| `Спект.png` | Specter | `specter.png` | да |
+| `Шипастый дьявол.png` | Spined Devil | `spined-devil.png` | **нет** |
+| `Духовная нага.png` | Spirit Naga | `spirit-naga.png` | да |
+| `Спрайт.png` | Sprite | `sprite.png` | да |
+| `Паровой мефит.png` | Steam Mephit | `steam-mephit.png` | да |
+| `Кровопийца.png` | Stirge | `stirge.png` | да |
+| `Суккуб-Инкуб.png` | Succubus/Incubus | `succubus-incubus.png` | да |
+| `Тараск.png` | Tarrasque | `tarrasque.png` | да |
+| `Три-крин.png` | Thri-kreen | `thri-kreen.png` | **нет** |
+| `Трент.png` | Treant | `treant.png` | да |
+| `Тридрон.png` | Tridrone | `tridrone.png` | **нет** |
+| `Троглодит.png` | Troglodyte | `troglodyte.png` | **нет** |
+| `Тролль.png` | Troll | `troll.png` | да |
+| `Ветвистая зараза.png` | Twig Blight | `twig-blight.png` | **нет** |
+| `Ультролот.png` | Ultroloth | `ultroloth.png` | **нет** |
+| `Единорог.png` | Unicorn | `unicorn.png` | да |
+| `Вьющаяся зараза.png` | Vine Blight | `vine-blight.png` | **нет** |
+| `Скелет коня.png` | Warhorse Skeleton | `warhorse-skeleton.png` | да |
+| `Элементаль воды.png` | Water Elemental | `water-elemental.png` | да |
+| `Вермедведь.png` | Werebear | `werebear.png` | да |
+| `Вервепрь.png` | Wereboar | `wereboar.png` | да |
+| `Веркрыса.png` | Wererat | `wererat.png` | да |
+| `Вертигр.png` | Weretiger | `weretiger.png` | да |
+| `Вервольф.png` | Werewolf | `werewolf.png` | да |
+| `Умертвие.png` | Wight | `wight.png` | да |
+| `Крылатый кобольд.png` | Winged Kobold | `winged-kobold.png` | **нет** |
+| `Призрак.png` | Wraith | `wraith.png` | да |
+| `Зорн.png` | Xorn | `xorn.png` | да |
+| `Йети.png` | Yeti | `yeti.png` | **нет** |
+| `Отродье Юань-ти.png` | Yuan-ti Abomination | `yuan-ti-abomination.png` | **нет** |
+| `Юань-ти проклинатель.png` | Yuan-ti Malison | `yuan-ti-malison.png` | **нет** |
+| `Чистокровная юань-ти.png` | Yuan-ti Pureblood | `yuan-ti-pureblood.png` | **нет** |
+| `Зомби.png` | Zombie | `zombie.png` | да |
+
 ## Дубликаты — не трогать, решает владелец
 
 Два файла на одно существо: целевое имя `<id>` уже занято (как правило —
@@ -252,11 +439,14 @@ Id — латинский, от **английского** имени SRD, не 
 | `Гиена.png` | Гиена | Hyena | `hyena.png` |
 | `Шакал.png` | Шакал | Jackal | `jackal.png` |
 | `Косатка.png` | Косатка | Killer Whale | `killer-whale.png` |
+| `Андросфинкс.png` | Андросфинкс | Androsphinx | `androsphinx.png` |
+| `Бес.png` | Бес | Imp | `imp.png` |
 
 ## Не опознано или нет в SRD 5.1 — не переименовано
 
-Файлы оставлены с исходными именами. Проект возит только SRD 5.1, поэтому существа
-вне SRD в `bestiary.json` не заводятся — что делать с этим артом, решает владелец.
+Файлы первой партии, оставленные с исходными именами. Во второй партии правило другое — там переименовано всё, см. секцию выше; три файла отсюда (Pixie, Intellect Devourer, Crawling Claw) владелец переименовал сам, и они ушли во вторую партию.
+
+Проект возит только SRD 5.1, поэтому существа вне SRD в `bestiary.json` не заводятся — что делать с этим артом, решает владелец.
 
 | Файл | Похоже на | Причина |
 |---|---|---|
@@ -281,11 +471,23 @@ Id — латинский, от **английского** имени SRD, не 
 | `Молодой красный теневой дракон.png` | Young Red Shadow Dragon | Нет в SRD 5.1 — шаблон теневого дракона в SRD отсутствует |
 | `перитон_страница_древнего_бестиария.png` | Peryton | Нет в SRD 5.1 |
 | `Пещерный медведь.png` | Cave Bear | Нет в SRD 5.1 |
-| `пикси_с_сияющими_крыльями_на_пергаменте.png` | Pixie | Нет в SRD 5.1 — в SRD есть Sprite (спрайт), это другое существо |
-| `пожиратель_интеллекта.png` | Intellect Devourer | Нет в SRD 5.1 |
-| `ползающая_рука_на_древнем_пергаменте.png` | Crawling Claw | Нет в SRD 5.1 |
 | `Теневой демон.png` | Shadow Demon | Нет в SRD 5.1 |
 | `Чазм.png` | Chasme | Нет в SRD 5.1 |
+
+## Починено попутно — имена, не подходившие под правило
+
+Файлы уже лежали с латинскими именами, но правилу `id` не отвечали: `id` в `bestiary.json`
+целиком строчный и кебабом, а `Manticora` — ещё и не английское имя SRD (в SRD `Manticore`).
+Такое имя выглядит законным, но `imageAsset` по нему не сойдётся.
+
+| Было | Стало | Почему |
+|---|---|---|
+| `Lich.png` | `lich.png` | заглавная буква — `id` строчный |
+| `Magmin.png` | `magmin.png` | заглавная буква — `id` строчный |
+| `Manticora.png` | `manticore.png` | заглавная буква и не то английское имя: SRD — `Manticore` |
+
+`scout.png` лежал верно названным изначально, в манифест не попадал и записан здесь, чтобы
+не считался потерянным.
 
 ## Повторный запуск
 
