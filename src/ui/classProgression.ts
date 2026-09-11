@@ -228,7 +228,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
           ? [{ id: "action-surge", name: "Всплеск действий", max: 1, recharge: "short", unit: "использование" } as ClassResource]
           : []),
         ...(level >= 9
-          ? [{ id: "indomitable", name: "Несгибаемый", max: 1, recharge: "long", unit: "использование" } as ClassResource]
+          ? [{ id: "indomitable", name: "Неукротимый", max: 1, recharge: "long", unit: "использование" } as ClassResource]
           : []),
       ],
     })),
@@ -302,7 +302,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       // Столбец «Известные заклинания»: формула 1 + уровень ломается с 10
       // уровня — таблица там встаёт на месте через уровень.
       spellsKnown: byLevelRow(level, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11]),
-      // Мистический арканум 6 круга (11 уровень) — не ячейка Магии договора, а
+      // Таинственный арканум 6 круга (11 уровень) — не ячейка Магии договора, а
       // отдельное заклинание раз в длинный отдых, поэтому это ресурс, а не
       // строка в PACT_MAGIC_SLOTS. Арканумы 7-9 круга требуют 13/15/17 уровня.
       resources:
@@ -310,7 +310,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
           ? [
               {
                 id: "mystic-arcanum-6",
-                name: "Мистический арканум (6 круг)",
+                name: "Таинственный арканум (6 круг)",
                 max: 1,
                 recharge: "long",
                 unit: "использование",

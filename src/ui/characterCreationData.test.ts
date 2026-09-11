@@ -26,8 +26,9 @@ import {
   weaponAttackFor,
   weaponProficienciesFor,
   WEAPONS,
+  CLASS_LEVEL_FEATURES,
 } from "./characterCreationData";
-import { characterResources, PROGRESSION_MAX_LEVEL } from "./classProgression";
+import { CLASS_PROGRESSION, characterResources, PROGRESSION_MAX_LEVEL } from "./classProgression";
 import { emptyAbilityScores, emptyCoins } from "../state/types";
 
 /** Все 12 базовых классов SRD 5.1 (rules.json → category "classes") — см. таблицу в карточке characters-original-subclasses. */
@@ -541,5 +542,63 @@ describe("inventoryWeightLb + coinsWeightLb (characters-carrying-capacity accept
     const inventory = [{ weightLb: 55, quantity: 1 }];
     const coins = { ...emptyCoins(), copper: 100 };
     expect(inventoryWeightLb(inventory) + coinsWeightLb(coins)).toBe(57);
+  });
+});
+
+describe("CLASS_LEVEL_FEATURES на уровнях 6-12", () => {
+  const ALL_CLASS_IDS = Object.keys(CLASS_PROGRESSION);
+
+  it("заведена по каждому классу на каждый уровень до потолка — пустой список это «—», а не дыра", () => {
+    for (const classId of ALL_CLASS_IDS) {
+      const byLevel = CLASS_LEVEL_FEATURES[classId];
+      expect(byLevel, classId).toBeDefined();
+      for (let level = 2; level <= PROGRESSION_MAX_LEVEL; level++) {
+        expect(byLevel[level], `${classId} ур. ${level}`).toBeDefined();
+        expect(Array.isArray(byLevel[level]), `${classId} ур. ${level}`).toBe(true);
+      }
+    }
+  });
+
+  it("не заводит особенностей выше потолка уровня", () => {
+    for (const classId of ALL_CLASS_IDS) {
+      for (const key of Object.keys(CLASS_LEVEL_FEATURES[classId])) {
+        expect(Number(key), `${classId}: уровень ${key}`).toBeLessThanOrEqual(PROGRESSION_MAX_LEVEL);
+      }
+    }
+  });
+
+  it("называет особенности 6-12 уровня именами из rules.json", () => {
+    const nameAt = (classId: string, level: number) =>
+      CLASS_LEVEL_FEATURES[classId][level].map((f) => f.name);
+
+    expect(nameAt("classes-bard", 6)).toEqual(["Контрочарование"]);
+    expect(nameAt("classes-bard", 10)).toEqual(["Экспертиза", "Вдохновение барда (к10)", "Магические секреты"]);
+    expect(nameAt("classes-barbarian", 7)).toEqual(["Дикий инстинкт"]);
+    expect(nameAt("classes-barbarian", 11)).toEqual(["Неукротимая ярость"]);
+    expect(nameAt("classes-fighter", 9)).toEqual(["Неукротимый"]);
+    expect(nameAt("classes-fighter", 11)).toEqual(["Дополнительная атака (2)"]);
+    expect(nameAt("classes-cleric", 10)).toEqual(["Божественное вмешательство"]);
+    expect(nameAt("classes-warlock", 11)).toEqual(["Таинственный арканум (6 круг)"]);
+    expect(nameAt("classes-monk", 7)).toEqual(["Изворотливость", "Спокойствие разума"]);
+    expect(nameAt("classes-paladin", 6)).toEqual(["Аура защиты"]);
+    expect(nameAt("classes-rogue", 11)).toEqual(["Надёжный талант"]);
+    expect(nameAt("classes-ranger", 8)).toEqual(["Тропами земли"]);
+    expect(nameAt("classes-sorcerer", 10)).toEqual(["Метамагия"]);
+    // Волшебник и Друид в этом диапазоне почти ничего не получают по таблице —
+    // у Волшебника только архетип и ASI, у Друида ещё улучшение Дикого облика.
+    expect(nameAt("classes-wizard", 6)).toEqual([]);
+    expect(nameAt("classes-wizard", 11)).toEqual([]);
+    expect(nameAt("classes-druid", 8)).toEqual(["Улучшение дикой формы"]);
+  });
+
+  it("даёт каждой особенности непустое описание", () => {
+    for (const classId of ALL_CLASS_IDS) {
+      for (let level = 6; level <= PROGRESSION_MAX_LEVEL; level++) {
+        for (const feature of CLASS_LEVEL_FEATURES[classId][level]) {
+          expect(feature.name.trim().length, `${classId} ур. ${level}`).toBeGreaterThan(0);
+          expect(feature.description.trim().length, `${classId} ур. ${level}: ${feature.name}`).toBeGreaterThan(40);
+        }
+      }
+    }
   });
 });
