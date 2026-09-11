@@ -8,6 +8,7 @@ import {
   encumbranceSpeedPenaltyFeet,
   CLASS_PROFICIENCIES,
   CLASS_SUBCLASSES,
+  type SubclassGrants,
   coinsWeightLb,
   computeArmorClass,
   effectiveSubclassGrants,
@@ -599,6 +600,82 @@ describe("CLASS_LEVEL_FEATURES на уровнях 6-12", () => {
           expect(feature.description.trim().length, `${classId} ур. ${level}: ${feature.name}`).toBeGreaterThan(40);
         }
       }
+    }
+  });
+});
+
+describe("Особенности архетипов на уровнях 6-12", () => {
+  /**
+   * Уровни, на которых класс получает особенность архетипа, — столбец
+   * «Умения» таблиц классов SRD, срезанный нынешним потолком 12. Именно по
+   * ним и проверяется, что ни один архетип не остался пустым: у всех
+   * архетипов одного класса особенности приходят на одних уровнях, каким бы
+   * ни было их содержание.
+   */
+  const ARCHETYPE_LEVELS: Record<string, number[]> = {
+    "classes-bard": [6],
+    "classes-barbarian": [6, 10],
+    "classes-cleric": [6, 8],
+    "classes-druid": [6, 10],
+    "classes-fighter": [7, 10],
+    "classes-monk": [6, 11],
+    "classes-paladin": [7],
+    "classes-ranger": [7, 11],
+    "classes-rogue": [9],
+    "classes-sorcerer": [6],
+    "classes-warlock": [6, 10],
+    "classes-wizard": [6, 10],
+  };
+
+  it("покрывает каждый архетип каждого класса — и SRD-шный, и оба оригинальных", () => {
+    for (const [classId, info] of Object.entries(CLASS_SUBCLASSES)) {
+      const want = ARCHETYPE_LEVELS[classId];
+      expect(want, `нет списка уровней для ${classId}`).toBeDefined();
+      for (const subclass of info.subclasses) {
+        const have = Object.keys(subclass.featuresByLevel).map(Number);
+        for (const level of want) {
+          const feats = subclass.featuresByLevel[level];
+          expect(feats, `${classId} / ${subclass.name}: нет уровня ${level}`).toBeDefined();
+          expect(feats.length, `${classId} / ${subclass.name} ур. ${level}: пусто`).toBeGreaterThan(0);
+        }
+        // Особенности выше потолка — это данные, которые никто не покажет.
+        for (const level of have) {
+          expect(level, `${classId} / ${subclass.name}: уровень ${level} выше потолка`).toBeLessThanOrEqual(
+            PROGRESSION_MAX_LEVEL,
+          );
+        }
+      }
+    }
+  });
+
+  it("даёт каждой особенности архетипа 6-12 уровня непустое описание", () => {
+    for (const [classId, info] of Object.entries(CLASS_SUBCLASSES)) {
+      for (const subclass of info.subclasses) {
+        for (const [level, feats] of Object.entries(subclass.featuresByLevel)) {
+          if (Number(level) < 6) continue;
+          for (const feature of feats) {
+            const where = `${classId} / ${subclass.name} ур. ${level}: ${feature.name}`;
+            expect(feature.name.trim().length, where).toBeGreaterThan(0);
+            expect(feature.description.trim().length, where).toBeGreaterThan(40);
+          }
+        }
+      }
+    }
+  });
+
+  it("не ссылается на заклинания, которых нет в комплекте", () => {
+    const bundled = new Set((bundledSpells as { id: string }[]).map((s) => s.id));
+    function check(grants: SubclassGrants | undefined, where: string) {
+      if (!grants) return;
+      for (const [level, ids] of Object.entries(grants.spellsByLevel ?? {})) {
+        for (const id of ids) expect(bundled.has(id), `${where} ур. ${level}: нет заклинания ${id}`).toBe(true);
+      }
+      for (const choice of grants.choices ?? []) {
+        for (const option of choice.options) check(option.grants, `${where} / ${option.id}`);
+      }
+    }
+    for (const [classId, info] of Object.entries(CLASS_SUBCLASSES)) {
+      for (const subclass of info.subclasses) check(subclass.grants, `${classId} / ${subclass.name}`);
     }
   });
 });
