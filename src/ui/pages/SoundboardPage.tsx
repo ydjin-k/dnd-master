@@ -1,5 +1,6 @@
 import { AMBIENT_CATEGORIES, MUSIC_CATEGORIES, type SoundtrackCategory } from "../../audio/soundtrack";
 import { MIN_VOLUME, useSoundtrack } from "../../state/SoundtrackContext";
+import { UIIcon } from "../UIIcon";
 import "./SoundboardPage.css";
 
 function TrackList({
@@ -20,7 +21,7 @@ function TrackList({
       <h3>{category.title}</h3>
       <ul className="soundboard__tracks">{category.tracks.map((track) => {
         const active = isActive(track.id);
-        return <li key={track.id} className={"soundboard__track" + (active ? " is-active" : "")}>
+        return <li key={track.id} className={"soundboard__track dm-list-row" + (active ? " is-active" : "")}>
           <button
             type="button"
             className="soundboard__toggle"
@@ -52,13 +53,14 @@ export function SoundboardPage() {
   const { music, ambient, active, toggleMusic, toggleAmbient, stopAll } = useSoundtrack();
 
   return <div className="soundboard">
-    <div className="soundboard__head">
+    <div className="soundboard__head dm-card-head">
+      <UIIcon name="soundboard" />
       <h2>Саундборд</h2>
-      <button type="button" onClick={stopAll} disabled={active.length === 0}>Остановить всё</button>
+      <button className="dm-card-head__action" type="button" onClick={stopAll} disabled={active.length === 0}>Остановить всё</button>
     </div>
 
     <h2 className="soundboard__section">Музыка</h2>
-    <p className="soundboard__hint">Играет одна тема за раз — выбор другой останавливает предыдущую.</p>
+    <p className="soundboard__hint dm-hint">Играет одна тема за раз — выбор другой останавливает предыдущую.</p>
     <TrackList
       categories={MUSIC_CATEGORIES}
       isActive={(trackId) => music?.trackId === trackId && !music.paused}
@@ -67,7 +69,7 @@ export function SoundboardPage() {
     />
 
     <h2 className="soundboard__section">Эмбиент</h2>
-    <p className="soundboard__hint">Зациклены и накладываются друг на друга и на музыку.</p>
+    <p className="soundboard__hint dm-hint">Зациклены и накладываются друг на друга и на музыку.</p>
     <TrackList
       categories={AMBIENT_CATEGORIES}
       isActive={(trackId) => ambient.some((c) => c.trackId === trackId && !c.paused)}

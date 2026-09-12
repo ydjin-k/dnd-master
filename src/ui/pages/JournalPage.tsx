@@ -119,7 +119,7 @@ export function JournalPage() {
         <span className="journal-page__form-hint" id="journal-entry-limit">
           До {JOURNAL_ENTRY_MAX_LENGTH} символов.
         </span>
-        <button type="submit" data-own-sound>Записать</button>
+        <button type="submit" className="dm-button--primary" data-own-sound>Записать</button>
       </form>
     </section>
   );

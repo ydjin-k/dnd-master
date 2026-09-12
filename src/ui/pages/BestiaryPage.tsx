@@ -163,7 +163,7 @@ export function BestiaryPage() {
             >
               <button
                 className={
-                  "bestiary-page__list-item" +
+                  "bestiary-page__list-item dm-list-row" +
                   (m.id === selectedId ? " bestiary-page__list-item--active" : "")
                 }
                 onClick={() => setSelectedId(m.id)}
@@ -174,7 +174,7 @@ export function BestiaryPage() {
                   src={listImageFor(m)}
                 />
                 <span className="bestiary-page__list-name">{m.name}</span>
-                <span className="bestiary-page__list-cr">СЛ {m.challengeRating}</span>
+                <span className="bestiary-page__list-cr dm-chip">СЛ {m.challengeRating}</span>
               </button>
             </li>
           ))}

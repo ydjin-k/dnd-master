@@ -52,8 +52,8 @@ export function RulesPage() {
     <div className="rules-page">
       <nav className="rules-page__nav">
         <input
-          type="text"
-          className="rules-page__search"
+          type="search"
+          className="rules-page__search dm-field--search"
           placeholder="Поиск по темам..."
           aria-label="Поиск по темам"
           value={search}
@@ -63,15 +63,15 @@ export function RulesPage() {
         <div className="rules-page__list" role="region" aria-label="Список тем правил" tabIndex={0}>
           {categories.map((cat) => (
             <div key={cat}>
-              <div className="rules-page__nav-category">{CATEGORY_LABEL[cat] ?? cat}</div>
+              <div className="rules-page__nav-category dm-micro">{CATEGORY_LABEL[cat] ?? cat}</div>
               {visibleTopics
                 .filter((t) => t.category === cat)
                 .map((t) => (
                   <button
                     key={t.id}
                     className={
-                      "rules-page__nav-item" +
-                      (activeId === t.id ? " rules-page__nav-item--active" : "")
+                      "rules-page__nav-item dm-tab" +
+                      (activeId === t.id ? " rules-page__nav-item--active is-selected" : "")
                     }
                     onClick={() => setActiveId(t.id)}
                   >

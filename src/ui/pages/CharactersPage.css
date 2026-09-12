@@ -106,6 +106,12 @@
   font-size: 0.9em;
 }
 
+.character-card__meta {
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+}
+
 .character-card__hp {
   display: flex;
   flex-wrap: wrap;
@@ -503,6 +509,18 @@
 }
 
 .characters-page__action--active {
-  border-color: var(--dm-accent);
-  color: var(--dm-accent);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
+}
+
+.characters-page__action.dm-button--primary {
+  background: linear-gradient(180deg, var(--dm-gold), #e8bd72);
+  border-color: var(--dm-gold-line);
+  color: var(--dm-gold-ink);
+}
+
+.characters-page__action.dm-button--primary:hover {
+  background: linear-gradient(180deg, #ffe3a8, var(--dm-gold));
+  border-color: var(--dm-gold);
+  color: var(--dm-gold-ink);
 }

@@ -114,7 +114,7 @@ export function DicePage() {
           <option value="normal">Обычный</option><option value="adv">Преимущество</option><option value="dis">Помеха</option>
         </InlineSelect>
       </div>
-      <button className="dice-page__roll" type="button" aria-label="Бросить" onClick={roll} disabled={isRolling} data-own-sound>
+      <button className="dice-page__roll dm-button--primary" type="button" aria-label="Бросить" onClick={roll} disabled={isRolling} data-own-sound>
         <span className={`dice-page__rolling-icon${isRolling ? " is-rolling" : ""}`}><DiceIcon sides={sides} compact /></span>
         {isRolling ? "Катится…" : "Бросить"}
       </button>

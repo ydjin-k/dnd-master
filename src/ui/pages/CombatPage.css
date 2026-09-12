@@ -95,7 +95,7 @@
 }
 
 .combat-sidebar__round {
-  color: var(--dm-text-muted);
+  align-self: flex-start;
   margin: 0;
 }
 
@@ -107,13 +107,97 @@
   list-style: none;
   margin: 0 0 1em;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
   font-size: 0.9em;
   color: var(--dm-text-muted);
 }
 
+.combat-sidebar__heading {
+  margin: 0.25em 0 0;
+}
+
+.combat-sidebar__heading h3 {
+  font-size: 1.08em;
+}
+
+.combat-sidebar__order-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.35em 0.55em;
+  padding: 0.35em;
+  border: 1px solid transparent;
+  border-radius: var(--dm-radius-control);
+}
+
 .combat-sidebar__order-item--current {
-  color: var(--dm-accent);
+  border-color: var(--dm-periwinkle);
+  background: var(--dm-selected);
+  color: var(--dm-text);
   font-weight: bold;
+}
+
+.combat-sidebar__avatar {
+  display: grid;
+  place-content: center;
+  width: 1.9em;
+  height: 1.9em;
+  border: 1px solid var(--dm-border);
+  border-radius: 50%;
+  color: var(--dm-text);
+  background: var(--dm-panel-raised);
+  font-size: 0.72em;
+}
+
+.combat-sidebar__order-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dm-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combat-sidebar__initiative {
+  color: var(--dm-text);
+  font-weight: 750;
+}
+
+.combat-sidebar__order-meta {
+  grid-column: 3;
+  color: var(--dm-text-muted);
+  font-size: 0.82em;
+}
+
+.combat-sidebar__hp {
+  grid-column: 4;
+  align-self: center;
+  width: 3.25em;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dm-border) 45%, transparent);
+}
+
+.combat-sidebar__hp .dm-rank-row__bar {
+  display: block;
+  max-width: 100%;
+}
+
+.combat-sidebar__status {
+  grid-column: 5;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: var(--dm-status-active);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--dm-status-active) 65%, transparent);
+}
+
+.combat-sidebar__order-item:not(.combat-sidebar__order-item--current) .combat-sidebar__status {
+  background: var(--dm-status-progress);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--dm-status-progress) 65%, transparent);
 }
 
 .combat-sidebar__actions {

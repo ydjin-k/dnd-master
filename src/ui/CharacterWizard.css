@@ -11,7 +11,7 @@
 .wizard__steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 1em;
+  gap: 0.45em;
   align-items: center;
   margin-bottom: 1em;
   padding-bottom: 0.75em;
@@ -19,12 +19,15 @@
 }
 
 .wizard__step {
-  color: var(--dm-text-muted);
   font-size: 0.9em;
 }
 
+.wizard__steps .wizard__step--pending {
+  --dm-pill-color: var(--dm-text-muted);
+}
+
 .wizard__step--active {
-  color: var(--dm-accent);
+  color: var(--dm-text);
   font-weight: bold;
 }
 
@@ -58,9 +61,9 @@
 }
 
 .wizard__pick-item--active {
-  background: var(--dm-panel-raised);
-  border-color: var(--dm-border);
-  color: var(--dm-accent);
+  background: var(--dm-selected);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
 }
 
 .wizard__pick-detail {
