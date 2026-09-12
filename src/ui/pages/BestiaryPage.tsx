@@ -142,7 +142,7 @@ export function BestiaryPage() {
       <nav className="bestiary-page__nav">
         <input
           type="text"
-          className="bestiary-page__search"
+          className="bestiary-page__search dm-field--search"
           placeholder="Поиск по бестиарию..."
           aria-label="Поиск по бестиарию"
           value={search}
