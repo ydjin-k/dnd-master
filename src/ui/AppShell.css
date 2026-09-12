@@ -3,7 +3,7 @@
   --section-accent-rgb: 114, 214, 208;
   display: grid;
   /* Рельс макета узкий: иконка над подписью, а не иконка рядом с подписью. */
-  grid-template-columns: 108px 1fr;
+  grid-template-columns: 124px 1fr;
   grid-template-rows: auto 1fr;
   height: 100%;
 }
@@ -156,10 +156,10 @@
   gap: 0.3em;
   padding: 0.5em 0.25em;
   font-family: var(--dm-font-display);
-  font-size: 0.82em;
+  font-size: 0.78em;
   line-height: 1.15;
-  letter-spacing: 0.03em;
-  overflow-wrap: anywhere;
+  letter-spacing: 0.02em;
+  hyphens: auto;
 }
 
 .app-shell__nav-item .ui-icon { width: 1.6em; height: 1.6em; }
