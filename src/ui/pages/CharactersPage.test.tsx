@@ -3,7 +3,7 @@ import bundledSpells from "../../../src-tauri/rules/spells.json";
 import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
-import { armorProficienciesFor, weaponProficienciesFor } from "../characterCreationData";
+import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
@@ -830,7 +830,8 @@ describe("CharactersPage", () => {
     applyLatestUpdate();
     expect(char.level).toBe(5);
 
-    expect(screen.getByText("Максимальный уровень (5)")).toBeDisabled();
+    // 5 уровень перестал быть потолком (characters-leveling-6-12): кнопка живая.
+    expect(screen.getByText("Повысить уровень")).toBeEnabled();
     expect(screen.getByText(/даёт \+3 \(бонус мастерства\)/)).toBeInTheDocument();
     // Дважды: счётчик использований из таблицы прогрессии и описание особенности.
     expect(screen.getAllByText(/Всплеск действий/)).toHaveLength(2); // level 2 class feature
@@ -879,10 +880,122 @@ describe("CharactersPage", () => {
     expect(updater({ ...characterWithInventory(), experiencePoints: 150 }).experiencePoints).toBe(200);
   });
 
-  it("at max level (5), the XP row shows no threshold, just the total", () => {
-    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 5, experiencePoints: 7000 }] });
+  /**
+   * Проводит персонажа от 1 уровня до `target`, разбирая по дороге все три
+   * прерывания левел-апа (выбор архетипа, выбор внутри архетипа, улучшение
+   * характеристик) — тем же способом, каким их разбирает игрок: тыкает в
+   * свободные варианты, пока кнопка подтверждения не оживёт. Возвращает
+   * уровни, на которых открылась панель ASI: их и проверяют тесты ниже.
+   */
+  async function levelUpTo(target: number, topic: RuleTopic): Promise<{ char: Character; asiAt: number[] }> {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+      cmd === "get_rules" ? [topic, CONDITIONS_TOPIC] : [],
+    );
+    let char: Character = {
+      ...characterWithInventory(),
+      level: 1,
+      class: topic.title,
+      subclass: "",
+      // Состояние нужно только как признак того, что get_rules уже разрешился
+      // и classHitDiceByTitle наполнен, — тем же приёмом, что в тесте 1→5 выше.
+      conditions: ["Ослеплённое"],
+    };
+    mockState = baseState({ characters: [char] });
+    const { rerender } = render(<CharactersPage />);
+    await screen.findByText(/не может видеть/);
+
+    function applyLatestUpdate() {
+      const calls = updateCharacter.mock.calls;
+      const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+      char = updater(char);
+      mockState = baseState({ characters: [char] });
+      rerender(<CharactersPage />);
+    }
+
+    /** Кнопка подтверждения открытой панели прерывания, если панель открыта. */
+    function confirmButton(): HTMLElement | null {
+      return screen.queryByText("Подтвердить и повысить уровень");
+    }
+
+    const asiAt: number[] = [];
+    while (char.level < target) {
+      const before = char.level;
+      const callsBefore = updateCharacter.mock.calls.length;
+      fireEvent.click(screen.getByText("Повысить уровень"));
+
+      // Прерывания могут идти подряд (архетип, затем выбор внутри него, затем
+      // ASI), поэтому разбираем их, пока левел-ап действительно не произойдёт.
+      let guard = 0;
+      while (updateCharacter.mock.calls.length === callsBefore) {
+        expect(guard++, `ур. ${before}: панель не закрывается`).toBeLessThan(6);
+        const asiPanel = screen.queryByText(/Улучшение характеристик \(\d+ уровень\)/);
+        if (asiPanel) {
+          asiAt.push(before + 1);
+          // Подпись обязана называть уровень, на который персонаж поднимается
+          // сейчас, а не вечный 4-й.
+          expect(asiPanel.textContent).toContain(`(${before + 1} уровень)`);
+        }
+        // Тычем в свободные варианты, пока подтверждение не оживёт: у ASI это
+        // характеристики (переключатели «+2» / «+1+1» трогать нельзя — каждый
+        // из них сбрасывает уже выбранное), у выбора архетипа и выбора внутри
+        // архетипа — переключатели вариантов, сколько просит choice.pick.
+        let clicks = 0;
+        while (confirmButton() && (confirmButton() as HTMLButtonElement).disabled) {
+          expect(clicks++, `ур. ${before}: нечего выбрать в панели`).toBeLessThan(8);
+          const boxes = asiPanel
+            ? screen.getAllByRole("checkbox")
+            : [...screen.getAllByRole("radio"), ...screen.getAllByRole("checkbox")];
+          const free = boxes.find(
+            (box) => !(box as HTMLInputElement).disabled && !(box as HTMLInputElement).checked,
+          );
+          expect(free, `ур. ${before}: свободных вариантов нет`).toBeDefined();
+          fireEvent.click(free!);
+        }
+        const confirm = confirmButton();
+        expect(confirm, `ур. ${before}: панель без подтверждения`).not.toBeNull();
+        fireEvent.click(confirm!);
+      }
+      applyLatestUpdate();
+      expect(char.level, `переход ${before} → ${before + 1}`).toBe(before + 1);
+    }
+    return { char, asiAt };
+  }
+
+  it("проводит Воина 1 → 12: бонус мастерства по таблице SRD и четыре ASI (4/6/8/12)", async () => {
+    const { char, asiAt } = await levelUpTo(12, FIGHTER_TOPIC);
+    expect(char.level).toBe(12);
+    expect(asiAt).toEqual([4, 6, 8, 12]);
+    expect(screen.getByText("Максимальный уровень (12)")).toBeDisabled();
+    expect(screen.getByText(/даёт \+4 \(бонус мастерства\)/)).toBeInTheDocument();
+  }, 30000);
+
+  it("проводит Плута 1 → 12: четыре ASI (4/8/10/12) — дополнительная точка на 10", async () => {
+    const { char, asiAt } = await levelUpTo(12, classTopic("classes-rogue", "Плут", "8", "5"));
+    expect(char.level).toBe(12);
+    expect(asiAt).toEqual([4, 8, 10, 12]);
+  }, 30000);
+
+  it("проводит Волшебника 1 → 12: ячейки по таблице и настоящий 6 круг на 11 уровне", async () => {
+    const { char, asiAt } = await levelUpTo(12, classTopic("classes-wizard", "Волшебник", "6", "4"));
+    expect(char.level).toBe(12);
+    // Обычный класс получает ровно три улучшения характеристик в диапазоне 1-12.
+    expect(asiAt).toEqual([4, 8, 12]);
+    expect(char.spellSlotsMax).toEqual([4, 3, 3, 3, 2, 1, 0, 0, 0]);
+    expect(proficiencyBonusForLevel(char.level)).toBe(4);
+  }, 30000);
+
+  it("проводит Паладина 1 → 12: полузаклинатель доходит только до 3 круга", async () => {
+    const { char, asiAt } = await levelUpTo(12, classTopic("classes-paladin", "Паладин", "10", "6"));
+    expect(char.level).toBe(12);
+    expect(asiAt).toEqual([4, 8, 12]);
+    expect(char.spellSlotsMax).toEqual([4, 3, 3, 0, 0, 0, 0, 0, 0]);
+  }, 30000);
+
+  it("at max level (12), the XP row shows no threshold, just the total", () => {
+    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 12, experiencePoints: 120000 }] });
     render(<CharactersPage />);
-    expect(screen.getByText(/Опыт: 7000 \(максимум уровня достигнут\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Опыт: 120000 \(максимум уровня достигнут\)/)).toBeInTheDocument();
+    expect(screen.getByText("Максимальный уровень (12)")).toBeDisabled();
   });
 
   it("«Повысить уровень» is disabled below the XP threshold for each 1→2→3→4→5 transition, and enabled at/above it", async () => {

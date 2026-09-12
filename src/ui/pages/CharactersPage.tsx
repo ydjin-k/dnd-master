@@ -56,8 +56,10 @@ import {
 } from "../characterCreationData";
 import {
   CLASS_PROGRESSION,
+  PROGRESSION_MAX_LEVEL,
   characterResources,
   highestSpellCircle,
+  isAsiLevel,
   progressionAt,
   resourceMax,
   spellSlotsForLevel,
@@ -72,8 +74,13 @@ import "./CharactersPage.css";
 
 type Panel = "none" | "wizard" | "presets";
 
-/** Левелинг в приложении пока ограничен уровнями 1-5 (см. tasks/open/characters-leveling-1-5.md). */
-const MAX_LEVEL = 5;
+/**
+ * Левелинг в приложении ограничен уровнями 1-12 (см.
+ * tasks/open/characters-leveling-6-12.md). Потолок не заведён вторым числом:
+ * он и есть глубина таблиц прогрессии, и разойтись с ними не может — кнопка
+ * не пустит персонажа на уровень, строки которого в таблице нет.
+ */
+const MAX_LEVEL = PROGRESSION_MAX_LEVEL;
 
 /** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
 const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
@@ -555,7 +562,9 @@ function CharacterCard({
       openChoicePanel(choice, grantedSubclassName);
       return;
     }
-    if (newLevel === 4) {
+    // Уровни ASI берутся из таблицы класса (classProgression.ts): стандартные
+    // 4/8/12 плюс дополнительные точки Воина (6) и Плута (10).
+    if (isAsiLevel(dice?.id, newLevel)) {
       setAsiMode("plus2");
       setAsiKeys([]);
       setAsiPanelOpen(true);
@@ -622,8 +631,10 @@ function CharacterCard({
   const asiReady = asiMode === "plus2" ? asiKeys.length === 1 : asiKeys.length === 2;
 
   /**
-   * Улучшение характеристик на 4 уровне (rules.json → character-beyond-1-level):
-   * либо +2 одной характеристике, либо +1 двум разным, потолок 20.
+   * Улучшение характеристик (rules.json → character-beyond-1-level): либо +2
+   * одной характеристике, либо +1 двум разным, потолок 20. На каких уровнях
+   * оно вообще предлагается, решает таблица класса (isAsiLevel), а не эта
+   * функция — здесь только сама механика прибавки.
    */
   function confirmAsi() {
     if (!asiReady) return;
@@ -808,7 +819,7 @@ function CharacterCard({
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
           data-own-sound
         >
-          {c.level >= MAX_LEVEL ? "Максимальный уровень (5)" : "Повысить уровень"}
+          {c.level >= MAX_LEVEL ? `Максимальный уровень (${MAX_LEVEL})` : "Повысить уровень"}
         </button>
       </div>
       <div className="character-card__xp">
@@ -901,7 +912,7 @@ function CharacterCard({
       {asiPanelOpen && (
         <div className="character-card__asi">
           <p>
-            Улучшение характеристик (4 уровень): «Некоторые из этих умений позволяют повысить значение ваших
+            Улучшение характеристик ({c.level + 1} уровень): «Некоторые из этих умений позволяют повысить значение ваших
             характеристик: либо увеличить значение двух характеристик на 1, либо одной — на 2. При этом значение
             не может стать выше 20.»
           </p>

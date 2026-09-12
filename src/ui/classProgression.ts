@@ -2,13 +2,14 @@ import { abilityMod, subclassGrants, type AbilityKey } from "./characterCreation
 import type { AbilityScores } from "../state/types";
 
 /** Потолок уровня приложения — вся таблица ниже заполнена только до него (см. MAX_LEVEL в CharactersPage.tsx). */
-export const PROGRESSION_MAX_LEVEL = 5;
+export const PROGRESSION_MAX_LEVEL = 12;
 
 /**
  * Число кругов заклинаний, под которое заведены таблицы ячеек (1-9, вся
  * официальная шкала SRD) — не путать с тем, сколько из них реально доступно
- * при текущем потолке уровня: полный заклинатель на уровне 5 добирается
- * только до 3-го круга, круги 4-9 в таблицах ниже всегда нулевые, пока
+ * при текущем потолке уровня: полный заклинатель на уровне 12 добирается
+ * до 6-го круга (первая ячейка 6 круга — на 11 уровне), а круги 7-9 требуют
+ * 13/15/17 уровня и потому остаются нулевыми в таблицах ниже, пока
  * PROGRESSION_MAX_LEVEL не поднимут отдельной задачей.
  */
 export const SPELL_CIRCLES = 9;
@@ -59,15 +60,17 @@ export interface ClassProgression {
   byLevel: Record<number, ClassLevelProgression>;
 }
 
-/** Нули на все 9 кругов — круги 6-9 не заполнены официальной таблицей ни для одного класса на уровнях 1-5. */
+/** Нули на все 9 кругов — строка не-заклинателя и уровней, на которых класс ещё не колдует. */
 const NO_SLOTS = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 /**
- * Таблица ячеек полного заклинателя (Бард/Жрец/Друид/Чародей/Волшебник), уровни 1-5.
- * Столбцы кругов 6-9 всегда нулевые здесь — ни один класс их не достигает
- * раньше 11 уровня по официальной таблице SRD, а PROGRESSION_MAX_LEVEL = 5.
- * Данные заклинаний этих кругов уже есть в spells.json (spellsForLevel их не
- * прячет) — таблица просто ждёт будущего подъёма потолка уровня.
+ * Таблица ячеек полного заклинателя (Бард/Жрец/Друид/Чародей/Волшебник), уровни 1-12.
+ * Первая ячейка 6 круга приходит на 11 уровне — при потолке 12 это высший
+ * достижимый круг. Столбцы кругов 7-9 остаются нулевыми: по официальной
+ * таблице SRD они требуют 13/15/17 уровня, то есть недостижимы при нынешнем
+ * PROGRESSION_MAX_LEVEL = 12, а не потеряны. Данные заклинаний этих кругов
+ * уже есть в spells.json (spellsForLevel их не прячет) — таблица ждёт
+ * будущего подъёма потолка уровня.
  */
 const FULL_CASTER_SLOTS: Record<number, number[]> = {
   1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -75,21 +78,41 @@ const FULL_CASTER_SLOTS: Record<number, number[]> = {
   3: [4, 2, 0, 0, 0, 0, 0, 0, 0],
   4: [4, 3, 0, 0, 0, 0, 0, 0, 0],
   5: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+  6: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+  7: [4, 3, 3, 1, 0, 0, 0, 0, 0],
+  8: [4, 3, 3, 2, 0, 0, 0, 0, 0],
+  9: [4, 3, 3, 3, 1, 0, 0, 0, 0],
+  10: [4, 3, 3, 3, 2, 0, 0, 0, 0],
+  11: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+  12: [4, 3, 3, 3, 2, 1, 0, 0, 0],
 };
 
-/** Таблица ячеек полузаклинателя (Паладин/Следопыт) — заклинания только со 2 уровня. */
+/**
+ * Таблица ячеек полузаклинателя (Паладин/Следопыт) — заклинания только со 2
+ * уровня, и круг растёт вдвое медленнее: к 12 уровню доступен лишь 3 круг.
+ */
 const HALF_CASTER_SLOTS: Record<number, number[]> = {
   1: NO_SLOTS,
   2: [2, 0, 0, 0, 0, 0, 0, 0, 0],
   3: [3, 0, 0, 0, 0, 0, 0, 0, 0],
   4: [3, 0, 0, 0, 0, 0, 0, 0, 0],
   5: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+  6: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+  7: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+  8: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+  9: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+  10: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+  11: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+  12: [4, 3, 3, 0, 0, 0, 0, 0, 0],
 };
 
 /**
  * Магия договора Колдуна — отдельная таблица SRD: мало ячеек, но все они
  * сразу высшего доступного круга (столбцы «Ячейки заклинаний» и «Уровень
- * ячеек»), и восстанавливаются на коротком отдыхе.
+ * ячеек»), и восстанавливаются на коротком отдыхе. Круг ячеек растёт быстрее
+ * их числа: 5 круг уже на 9 уровне, тогда как третья ячейка — только на 11.
+ * Выше 5 круга Магия договора не поднимается вовсе — заклинания 6 круга
+ * Колдун получает не ячейкой, а Мистическим арканумом на 11 уровне.
  */
 const PACT_MAGIC_SLOTS: Record<number, number[]> = {
   1: [1, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -97,6 +120,13 @@ const PACT_MAGIC_SLOTS: Record<number, number[]> = {
   3: [0, 2, 0, 0, 0, 0, 0, 0, 0],
   4: [0, 2, 0, 0, 0, 0, 0, 0, 0],
   5: [0, 0, 2, 0, 0, 0, 0, 0, 0],
+  6: [0, 0, 2, 0, 0, 0, 0, 0, 0],
+  7: [0, 0, 0, 2, 0, 0, 0, 0, 0],
+  8: [0, 0, 0, 2, 0, 0, 0, 0, 0],
+  9: [0, 0, 0, 0, 2, 0, 0, 0, 0],
+  10: [0, 0, 0, 0, 2, 0, 0, 0, 0],
+  11: [0, 0, 0, 0, 3, 0, 0, 0, 0],
+  12: [0, 0, 0, 0, 3, 0, 0, 0, 0],
 };
 
 function levels(
@@ -111,6 +141,30 @@ function levels(
   return byLevel;
 }
 
+/**
+ * Значение из таблицы по уровню: `steps` — пары «с какого уровня → значение»,
+ * читается сверху вниз, берётся последняя подошедшая. Нужен там, где число
+ * растёт не формулой, а ступенями официальной таблицы (заговоры, кость
+ * Боевых искусств, число Ярости), — чтобы ступени стояли числами SRD, а не
+ * прятались в цепочке тернарных операторов.
+ */
+function byStep<T>(level: number, steps: [number, T][]): T {
+  let value = steps[0][1];
+  for (const [from, step] of steps) {
+    if (level >= from) value = step;
+  }
+  return value;
+}
+
+/**
+ * Столбец таблицы класса, где число задано построчно и формулой не ложится
+ * (известные заклинания Барда/Чародея/Колдуна/Следопыта, известные воззвания).
+ * Индекс — уровень персонажа, нулевой элемент не используется.
+ */
+function byLevelRow(level: number, row: number[]): number {
+  return row[level] ?? 0;
+}
+
 const BARDIC_INSPIRATION: ClassResource = {
   id: "bardic-inspiration",
   name: "Вдохновение барда",
@@ -120,7 +174,7 @@ const BARDIC_INSPIRATION: ClassResource = {
 };
 
 /**
- * Прогрессия всех 12 базовых классов на уровнях 1-5 — числа сняты построчно с
+ * Прогрессия всех 12 базовых классов на уровнях 1-12 — числа сняты построчно с
  * таблиц прогрессии классов в `src-tauri/rules/rules.json` (SRD 5.1, уже
  * переведённый), тексты самих особенностей живут отдельно и здесь не
  * дублируются (см. `CLASS_LEVEL_FEATURES` в characterCreationData.ts —
@@ -131,13 +185,17 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
     spellsKnownKind: "known",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
-      cantripsKnown: level >= 4 ? 3 : 2,
-      spellsKnown: 3 + level,
+      cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
+      // Столбец «Известные заклинания»: до 9 уровня это ровно 3 + уровень, но
+      // на 10 таблица даёт сразу +2 (Магические тайны), а на 12 не растёт вовсе.
+      spellsKnown: byLevelRow(level, [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15]),
       resources: [
         // «Источник вдохновения» с 5 уровня переводит восстановление на короткий отдых.
         { ...BARDIC_INSPIRATION, recharge: level >= 5 ? "short" : "long" },
       ],
-      scaling: [{ name: "Кость Вдохновения барда", value: level >= 5 ? "к8" : "к6" }],
+      scaling: [
+        { name: "Кость Вдохновения барда", value: byStep(level, [[1, "к6"], [5, "к8"], [10, "к10"]]) },
+      ],
     })),
   },
   "classes-barbarian": {
@@ -147,9 +205,15 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       cantripsKnown: 0,
       spellsKnown: 0,
       resources: [
-        { id: "rage", name: "Ярость", max: level >= 3 ? 3 : 2, recharge: "long", unit: "использование" },
+        {
+          id: "rage",
+          name: "Ярость",
+          max: byStep(level, [[1, 2], [3, 3], [6, 4], [12, 5]]),
+          recharge: "long",
+          unit: "использование",
+        },
       ],
-      scaling: [{ name: "Урон ярости", value: "+2" }],
+      scaling: [{ name: "Урон ярости", value: byStep(level, [[1, "+2"], [9, "+3"]]) }],
     })),
   },
   "classes-fighter": {
@@ -163,6 +227,9 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
         ...(level >= 2
           ? [{ id: "action-surge", name: "Всплеск действий", max: 1, recharge: "short", unit: "использование" } as ClassResource]
           : []),
+        ...(level >= 9
+          ? [{ id: "indomitable", name: "Неукротимый", max: 1, recharge: "long", unit: "использование" } as ClassResource]
+          : []),
       ],
     })),
   },
@@ -170,7 +237,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
     spellsKnownKind: "prepared",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
-      cantripsKnown: level >= 4 ? 4 : 3,
+      cantripsKnown: byStep(level, [[1, 3], [4, 4], [10, 5]]),
       spellsKnown: 0,
       resources: [
         { id: "arcane-recovery", name: "Магическое восстановление", max: 1, recharge: "long", unit: "использование" },
@@ -181,36 +248,84 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
     spellsKnownKind: "prepared",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
-      cantripsKnown: level >= 4 ? 3 : 2,
+      cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
       spellsKnown: 0,
       resources:
         level >= 2
           ? [{ id: "wild-shape", name: "Дикий облик", max: 2, recharge: "short", unit: "использование" }]
           : [],
-      scaling: level >= 2 ? [{ name: "Макс. УО зверя Дикого облика", value: level >= 4 ? "1/2" : "1/4" }] : [],
+      scaling:
+        level >= 2
+          ? [
+              {
+                name: "Макс. УО зверя Дикого облика",
+                value: byStep(level, [[2, "1/4"], [4, "1/2"], [8, "1"]]),
+              },
+            ]
+          : [],
     })),
   },
   "classes-cleric": {
     spellsKnownKind: "prepared",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
-      cantripsKnown: level >= 4 ? 4 : 3,
+      cantripsKnown: byStep(level, [[1, 3], [4, 4], [10, 5]]),
       spellsKnown: 0,
       resources:
         level >= 2
-          ? [{ id: "channel-divinity", name: "Проведение энергии", max: 1, recharge: "short", unit: "использование" }]
+          ? [
+              {
+                id: "channel-divinity",
+                name: "Проведение энергии",
+                max: byStep(level, [[2, 1], [6, 2]]),
+                recharge: "short",
+                unit: "использование",
+              },
+            ]
           : [],
-      scaling: level >= 5 ? [{ name: "Уничтожение нежити", value: "УО 1/2 или ниже" }] : [],
+      scaling:
+        level >= 5
+          ? [
+              {
+                name: "Уничтожение нежити",
+                value: byStep(level, [[5, "УО 1/2 или ниже"], [8, "УО 1 или ниже"], [11, "УО 2 или ниже"]]),
+              },
+            ]
+          : [],
     })),
   },
   "classes-warlock": {
     spellsKnownKind: "known",
     byLevel: levels((level) => ({
       spellSlots: PACT_MAGIC_SLOTS[level],
-      cantripsKnown: level >= 4 ? 3 : 2,
-      spellsKnown: 1 + level,
+      cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
+      // Столбец «Известные заклинания»: формула 1 + уровень ломается с 10
+      // уровня — таблица там встаёт на месте через уровень.
+      spellsKnown: byLevelRow(level, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11]),
+      // Таинственный арканум 6 круга (11 уровень) — не ячейка Магии договора, а
+      // отдельное заклинание раз в длинный отдых, поэтому это ресурс, а не
+      // строка в PACT_MAGIC_SLOTS. Арканумы 7-9 круга требуют 13/15/17 уровня.
+      resources:
+        level >= 11
+          ? [
+              {
+                id: "mystic-arcanum-6",
+                name: "Таинственный арканум (6 круг)",
+                max: 1,
+                recharge: "long",
+                unit: "использование",
+              },
+            ]
+          : [],
       scaling: [
-        ...(level >= 2 ? [{ name: "Известные воззвания", value: level >= 5 ? "3" : "2" }] : []),
+        ...(level >= 2
+          ? [
+              {
+                name: "Известные воззвания",
+                value: String(byLevelRow(level, [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6])),
+              },
+            ]
+          : []),
         { name: "Ячейки Магии договора", value: "восстанавливаются после короткого отдыха" },
       ],
     })),
@@ -223,8 +338,15 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       spellsKnown: 0,
       resources: level >= 2 ? [{ id: "ki", name: "Ци", max: level, recharge: "short", unit: "очко" }] : [],
       scaling: [
-        { name: "Боевые искусства", value: level >= 5 ? "1к6" : "1к4" },
-        ...(level >= 2 ? [{ name: "Перемещение без доспеха", value: "+10 футов" }] : []),
+        { name: "Боевые искусства", value: byStep(level, [[1, "1к4"], [5, "1к6"], [11, "1к8"]]) },
+        ...(level >= 2
+          ? [
+              {
+                name: "Перемещение без доспеха",
+                value: byStep(level, [[2, "+10 футов"], [6, "+15 футов"], [10, "+20 футов"]]),
+              },
+            ]
+          : []),
       ],
     })),
   },
@@ -244,6 +366,9 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
           unit: "использование",
         },
       ],
+      // Радиус аур — единственное число паладина, растущее по таблице в этом
+      // диапазоне (10 футов с 6 уровня, 30 футов только с 18-го, вне потолка).
+      scaling: level >= 6 ? [{ name: "Радиус аур", value: "10 футов" }] : [],
     })),
   },
   "classes-rogue": {
@@ -252,6 +377,8 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
       spellsKnown: 0,
+      // Скрытая атака растёт ровно на кость через уровень — формула совпадает
+      // со столбцом таблицы SRD на всём диапазоне 1-12 (6к6 на 11-12).
       scaling: [{ name: "Скрытая атака", value: `${Math.ceil(level / 2)}к6` }],
     })),
   },
@@ -260,15 +387,16 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
     byLevel: levels((level) => ({
       spellSlots: HALF_CASTER_SLOTS[level],
       cantripsKnown: 0,
-      spellsKnown: [0, 0, 2, 3, 3, 4][level],
+      spellsKnown: byLevelRow(level, [0, 0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7]),
     })),
   },
   "classes-sorcerer": {
     spellsKnownKind: "known",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
-      cantripsKnown: level >= 4 ? 5 : 4,
-      spellsKnown: 1 + level,
+      cantripsKnown: byStep(level, [[1, 4], [4, 5], [10, 6]]),
+      // Формула 1 + уровень держится до 11 уровня, на 12 таблица не растёт.
+      spellsKnown: byLevelRow(level, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12]),
       resources:
         level >= 2
           ? [{ id: "sorcery-points", name: "Очки чар", max: level, recharge: "long", unit: "очко" }]
@@ -277,7 +405,38 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
 };
 
-/** Строка таблицы прогрессии класса на уровне `level`; `undefined` для неизвестного класса или уровня вне 1-5. */
+/**
+ * Уровни, на которых класс получает Улучшение характеристик, — столбец
+ * «Умения» таблиц классов SRD. У десяти классов это 4/8/12; Воин получает
+ * дополнительную точку на 6 уровне, Плут — на 10. Вторые дополнительные
+ * точки (Воин 14, Плут 16) лежат выше PROGRESSION_MAX_LEVEL и потому
+ * отфильтрованы, а не забыты: поднимется потолок — они придут сами.
+ */
+const STANDARD_ASI_LEVELS = [4, 8, 12];
+
+const EXTRA_ASI_LEVELS: Record<string, number[]> = {
+  "classes-fighter": [6, 14],
+  "classes-rogue": [10, 16],
+};
+
+/** Все уровни ASI класса в пределах нынешнего потолка, по возрастанию. */
+export function asiLevels(classId: string | null | undefined): number[] {
+  const extra = (classId && EXTRA_ASI_LEVELS[classId]) || [];
+  return [...STANDARD_ASI_LEVELS, ...extra]
+    .filter((level) => level <= PROGRESSION_MAX_LEVEL)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Даёт ли этот класс Улучшение характеристик на этом уровне. Единственный
+ * владелец факта: карточка персонажа спрашивает отсюда, а не сверяет номера
+ * уровней у себя (см. requestLevelUp в CharactersPage.tsx).
+ */
+export function isAsiLevel(classId: string | null | undefined, level: number): boolean {
+  return asiLevels(classId).includes(level);
+}
+
+/** Строка таблицы прогрессии класса на уровне `level`; `undefined` для неизвестного класса или уровня вне 1-12. */
 export function progressionAt(classId: string | null | undefined, level: number): ClassLevelProgression | undefined {
   if (!classId) return undefined;
   return CLASS_PROGRESSION[classId]?.byLevel[level];
