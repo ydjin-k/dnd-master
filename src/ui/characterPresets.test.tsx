@@ -9,6 +9,7 @@ import { CharacterWizard } from "./CharacterWizard";
 import { characterFromPreset, type CharacterPreset } from "./characterPresets";
 import { ALL_SKILLS, ARMOR_STATS, CLASS_SUBCLASSES, abilityMod, catalogWeightLb, maxHpForLevel, subclassSpellsUpToLevel } from "./characterCreationData";
 import { preparedSpells } from "./preparedSpells";
+import { spellbookMax, spellbookOf } from "./spellbook";
 import { characterResources, resourceMax, spellSlotsForLevel } from "./classProgression";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic } from "../state/types";
 
@@ -54,7 +55,8 @@ const HALF_ELF_TOPIC: RuleTopic = { id: "races-half-elf", category: "races", tit
 const BARD_TOPIC = classTopic("classes-bard", "Бард", "8", "5");
 const CLERIC_TOPIC = classTopic("classes-cleric", "Жрец", "8", "5");
 const DRUID_TOPIC = classTopic("classes-druid", "Друид", "8", "5");
-const TOPICS = [HALFLING_TOPIC, HUMAN_TOPIC, HALF_ELF_TOPIC, BARD_TOPIC, CLERIC_TOPIC, DRUID_TOPIC];
+const WIZARD_TOPIC = classTopic("classes-wizard", "Волшебник", "6", "4");
+const TOPICS = [HALFLING_TOPIC, HUMAN_TOPIC, HALF_ELF_TOPIC, BARD_TOPIC, CLERIC_TOPIC, DRUID_TOPIC, WIZARD_TOPIC];
 
 const PRESETS = bundledPresets as unknown as CharacterPreset[];
 const BARD_PRESET = PRESETS.find((p) => p.id === "preset-bard-halfling")!;
@@ -170,6 +172,7 @@ function blankCharacter(): Character {
     fightingStyle: "",
     knownCantrips: [],
     knownSpells: [],
+    spellbook: [],
     spellSlotsMax: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     featureUses: [],
@@ -490,6 +493,63 @@ describe("пресеты готовых персонажей", () => {
     render(<CharactersPage />);
     expect(await screen.findByText("Подготовленные заклинания (4/4):")).toBeInTheDocument();
     expect(screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(2\)/)).toBeInTheDocument();
+  });
+
+  /**
+   * characters-wizard-spellbook: у волшебника заклинания листа — это КНИГА, а
+   * подготовленное из неё — срез (`knownSpells`). Лист готового персонажа
+   * обязан пережить переход целиком: все шесть заклинаний остаются в книге, а
+   * подготовленных не больше нормы. Шесть заклинаний Финдла перечислены здесь
+   * руками — это сторожевая строчка на потерю: положи книгу только в
+   * подготовленные, и их станет три.
+   */
+  it("готовые волшебники переходят на книгу без потерь и без перебора нормы", async () => {
+    const FINDL_SPELLBOOK = [
+      "shield",
+      "mage-armor",
+      "magic-missile",
+      "find-familiar",
+      "detect-magic",
+      "comprehend-languages",
+    ];
+    const wizards = PRESETS.filter((preset) => preset.class === "Волшебник");
+    expect(wizards).toHaveLength(2);
+
+    for (const preset of wizards) {
+      const copy = characterFromPreset(preset);
+      // Книга — шесть заклинаний, ровно столько, сколько положено на 1 уровне.
+      expect(spellbookOf(copy, "classes-wizard"), preset.id).toHaveLength(6);
+      expect(spellbookMax("classes-wizard", copy.level), preset.id).toBe(6);
+      // Подготовленное — подмножество книги: готовить не из книги нельзя.
+      expect(copy.knownSpells.every((id) => copy.spellbook.includes(id)), preset.id).toBe(true);
+
+      const status = preparedSpells({
+        classId: "classes-wizard",
+        abilities: copy.abilities,
+        level: copy.level,
+        knownSpells: copy.knownSpells,
+        alwaysPrepared: subclassSpellsUpToLevel("classes-wizard", copy.subclass, copy.level, copy.subclassChoices),
+      });
+      // Интеллект 16 (+3) на 1 уровне даёт норму в 4, и перебора нет ни у одного.
+      expect(status.max, preset.id).toBe(4);
+      expect(status.overflow, preset.id).toBe(0);
+      // Неподготовленный остаток — ритуалы: их волшебник творит прямо из книги
+      // (rules.json, «Ритуальное сотворение»), и место в норме им не нужно.
+      const unprepared = copy.spellbook.filter((id) => !copy.knownSpells.includes(id));
+      expect(
+        unprepared.every((id) => bundledSpells.find((sp) => sp.id === id)?.ritual),
+        `${preset.id}: ${unprepared.join(", ")}`,
+      ).toBe(true);
+    }
+
+    const findl = characterFromPreset(PRESETS.find((p) => p.id === "preset-wizard-gnome")!);
+    expect(findl.spellbook).toEqual(FINDL_SPELLBOOK);
+
+    // И то же самое видно на листе, а не только в расчёте.
+    mockState = baseState({ characters: [findl] });
+    render(<CharactersPage />);
+    expect(await screen.findByText("Книга заклинаний (6/6):")).toBeInTheDocument();
+    expect(screen.getByText("Подготовленные заклинания (3/4):")).toBeInTheDocument();
   });
 
   /**
