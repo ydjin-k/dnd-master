@@ -1485,6 +1485,35 @@ describe("CharactersPage", () => {
       expect(updateCharacter).not.toHaveBeenCalled();
     });
 
+    /**
+     * characters-archetypes-6-12-mechanics-fixes, позиция 16: владелец просил,
+     * чтобы оба числа «Слуха повсюду» были перед глазами — счётчик
+     * использования и сама СЛ заклинаний барда, чтобы её не считали в уме.
+     */
+    it("Слух повсюду показывает на листе и счётчик использования, и СЛ заклинаний барда", async () => {
+      const bard = (subclass: string): Character => ({
+        ...characterWithInventory(),
+        class: "Бард",
+        subclass,
+        level: 6,
+        conditions: ["Ослеплённое"],
+      });
+      await renderWith("classes-bard", "Бард", "8", "5", bard("Коллегия шёпота"));
+      // Харизма 10 (модификатор 0), бард 6 уровня — бонус мастерства +3: СЛ 11.
+      expect(screen.getByText(/Слух повсюду: 11 СЛ спасброска \(Харизма\)/)).toBeInTheDocument();
+      // Счётчик ищется своей строкой: «1/1 использование» есть и у Вдохновения
+      // барда, а «Слух повсюду» жирным — ещё и в списке текстов особенностей.
+      const counterRow = screen
+        .getAllByText("Слух повсюду", { selector: "strong" })
+        .map((el) => el.closest("li.dm-list-row"))
+        .find(Boolean);
+      expect(counterRow).toHaveTextContent("1/1 использование");
+
+      cleanup();
+      await renderWith("classes-bard", "Бард", "8", "5", bard("Коллегия доблести"));
+      expect(screen.queryByText(/Слух повсюду/)).not.toBeInTheDocument();
+    });
+
     it("левел-ап до архетипа с инструментами кладёт их в снимок владений персонажа", async () => {
       let char: Character = {
         ...characterWithInventory(),
