@@ -1,5 +1,6 @@
 import { Children, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useDiceLog } from "../../state/DiceLogContext";
 import type { RollResult } from "../../state/types";
 import { DiceIcon, dieSidesFromExpression, type DieSides } from "../DiceIcon";
 import { playCriticalFailSound, playCriticalSuccessSound, playDiceRollSound } from "../../audio/uiSounds";
@@ -11,8 +12,6 @@ const MODIFIERS = Array.from({ length: 21 }, (_, index) => index - 10);
 const ROLL_ANIMATION_MS = 550;
 type RollMode = "normal" | "adv" | "dis";
 type SelectorName = "count" | "modifier" | "mode";
-
-interface LogItem { id: string; label: string; result?: RollResult; error?: string; manual?: number; }
 
 interface InlineSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   children: ReactNode;
@@ -49,8 +48,6 @@ function buildDiceLabel(sides: DieSides, count: number) {
   return `${count === 1 ? "" : count}d${sides}`;
 }
 
-const LOG_LIMIT = 10;
-
 const waitForRollAnimation = () => new Promise<void>((resolve) => window.setTimeout(resolve, ROLL_ANIMATION_MS));
 
 export function DicePage() {
@@ -61,7 +58,7 @@ export function DicePage() {
   const [expandedSelector, setExpandedSelector] = useState<SelectorName | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [manualValue, setManualValue] = useState("");
-  const [log, setLog] = useState<LogItem[]>([]);
+  const { log, recordRoll, recordRollError, recordManual, clearLog } = useDiceLog();
 
   async function roll() {
     if (isRolling) return;
@@ -73,25 +70,20 @@ export function DicePage() {
       if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 20) playCriticalSuccessSound();
       else if (entrySides === 20 && result.rolls.length === 1 && result.rolls[0] === 1) playCriticalFailSound();
       else playDiceRollSound();
-      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, result }, ...prev].slice(0, LOG_LIMIT));
+      recordRoll(expression, result);
     } catch (e) {
-      setLog((prev) => [{ id: crypto.randomUUID(), label: expression, error: String(e) }, ...prev].slice(0, LOG_LIMIT));
+      recordRollError(expression, String(e));
     } finally {
       setIsRolling(false);
     }
   }
 
-  function recordManual(e: React.FormEvent) {
+  function submitManual(e: React.FormEvent) {
     e.preventDefault();
     const value = Number(manualValue);
     if (!Number.isFinite(value)) return;
-    const diceLabel = buildDiceLabel(sides, count);
-    setLog((prev) => [{ id: crypto.randomUUID(), label: `Вручную (${diceLabel})`, manual: value }, ...prev].slice(0, LOG_LIMIT));
+    recordManual(`Вручную (${buildDiceLabel(sides, count)})`, value);
     setManualValue("");
-  }
-
-  function clearLog() {
-    setLog([]);
   }
 
   return <div className="dice-page">
@@ -119,7 +111,7 @@ export function DicePage() {
         {isRolling ? "Катится…" : "Бросить"}
       </button>
     </div>
-    <form className="dice-page__manual" onSubmit={recordManual}>
+    <form className="dice-page__manual" onSubmit={submitManual}>
       <input aria-label="Результат ручного броска" type="number" value={manualValue} onChange={(event) => setManualValue(event.currentTarget.value)} placeholder="0" />
       <button type="submit">Записать вручную</button>
     </form>
