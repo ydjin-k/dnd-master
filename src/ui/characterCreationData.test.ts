@@ -478,16 +478,75 @@ describe("заклинания домена", () => {
   });
 
   /**
-   * Клятвы древних и мести — оригинальные архетипы студии, и списка заклинаний
-   * у них в данных нет: придумывать его воркеру карточки было нечем (в SRD
-   * этих клятв нет вовсе), решение за владельцем. Проба фиксирует не «так
-   * правильно», а «так сейчас»: когда списки заведут, она краснеет и о них
-   * вспомнят здесь же.
+   * characters-oath-spells-for-original-oaths. Раньше здесь стоял сторож
+   * «у древних и мести заклинаний нет вовсе»: он фиксировал не «так
+   * правильно», а «так сейчас», и обязан был покраснеть, когда списки заведут.
+   * Списки завели — владелец утвердил их 13.09.2026, — и сторож заменён на
+   * проверку состава.
+   *
+   * Отрицательная проба: убери `spellsByLevel` у любой из двух клятв — она
+   * краснеет на каждом из трёх уровней.
    */
-  it("у оригинальных клятв заклинаний пока нет — это решение владельца, а не поломка", () => {
-    for (const oath of ["Клятва древних", "Клятва мести"]) {
-      expect(subclassSpellsUpToLevel("classes-paladin", oath, 12), oath).toEqual([]);
+  it("у оригинальных клятв заклинания открываются по уровню тем же механизмом", () => {
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва древних", 2)).toEqual([]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва древних", 3)).toEqual([
+      "entangle",
+      "speak-with-animals",
+    ]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва древних", 5)).toEqual([
+      "entangle",
+      "speak-with-animals",
+      "moonbeam",
+      "barkskin",
+    ]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва древних", 9)).toEqual([
+      "entangle",
+      "speak-with-animals",
+      "moonbeam",
+      "barkskin",
+      "plant-growth",
+      "protection-from-energy",
+    ]);
+
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва мести", 2)).toEqual([]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва мести", 3)).toEqual(["bane", "hunters-mark"]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва мести", 5)).toEqual([
+      "bane",
+      "hunters-mark",
+      "hold-person",
+      "misty-step",
+    ]);
+    expect(subclassSpellsUpToLevel("classes-paladin", "Клятва мести", 9)).toEqual([
+      "bane",
+      "hunters-mark",
+      "hold-person",
+      "misty-step",
+      "haste",
+      "fear",
+    ]);
+  });
+
+  /**
+   * Равенство клятв между собой — то, ради чего владелец задал ровно по три
+   * пары. Проба сторожит не состав (он выше), а перекос: сними одну пару у
+   * древних или добавь четвёртую мести — и краснеет она, а не проба состава.
+   * Считается по каждому уровню отдельно, иначе перенос пары с 5 на 9 прошёл
+   * бы незамеченным.
+   */
+  it("три клятвы паладина равны по числу клятвенных заклинаний на каждом уровне", () => {
+    const oaths = ["Клятва преданности", "Клятва древних", "Клятва мести"];
+    for (const [level, expected] of [
+      [2, 0],
+      [3, 2],
+      [5, 4],
+      [9, 6],
+    ] as const) {
+      const counts = oaths.map((oath) => subclassSpellsUpToLevel("classes-paladin", oath, level).length);
+      expect(counts, `уровень ${level}`).toEqual([expected, expected, expected]);
     }
+    // Ни одно заклинание клятвы не повторяется у двух клятв сразу.
+    const all = oaths.flatMap((oath) => subclassSpellsUpToLevel("classes-paladin", oath, 9));
+    expect(new Set(all).size).toBe(18);
   });
 });
 
