@@ -70,7 +70,8 @@
   --dm-status-done: var(--dm-accent);
   --dm-status-blocked: var(--dm-danger);
 
-  --dm-star: rgba(214, 232, 255, 0.5);
+  --dm-star: rgba(214, 232, 255, 0.58);
+  --dm-star-bright: rgba(239, 247, 255, 0.88);
   --dm-radius-panel: 14px;
   --dm-radius-control: 10px;
 
@@ -90,15 +91,19 @@ body {
 }
 
 body {
-  /* Звёздное поле макета: два слоя редких точек разного размера поверх свечений.
+  /* Звёздное поле макета: точки разного размера и яркости поверх туманностей.
      Точки — фон, а не элементы: ни узла DOM, ни перерисовки при прокрутке. */
   background:
-    radial-gradient(circle at 21% 13%, var(--dm-star) 0.6px, transparent 1.1px),
-    radial-gradient(circle at 68% 37%, var(--dm-star) 0.5px, transparent 1px),
-    radial-gradient(circle at 82% 8%, rgba(105, 67, 158, 0.26), transparent 33%),
-    radial-gradient(circle at 17% 90%, rgba(55, 160, 164, 0.14), transparent 38%),
+    radial-gradient(circle at 17% 23%, var(--dm-star-bright) 0.8px, transparent 1.5px),
+    radial-gradient(circle at 73% 61%, rgba(195, 213, 255, 0.72) 0.65px, transparent 1.25px),
+    radial-gradient(circle at 41% 79%, var(--dm-star) 0.55px, transparent 1.1px),
+    radial-gradient(circle at 86% 17%, rgba(182, 151, 240, 0.66) 0.75px, transparent 1.4px),
+    radial-gradient(circle at 29% 47%, rgba(216, 235, 255, 0.42) 0.45px, transparent 1px),
+    radial-gradient(ellipse at 84% 3%, rgba(91, 58, 151, 0.3), transparent 34%),
+    radial-gradient(ellipse at 12% 86%, rgba(35, 135, 158, 0.18), transparent 38%),
+    radial-gradient(ellipse at 48% 56%, rgba(43, 66, 131, 0.13), transparent 46%),
     var(--dm-bg);
-  background-size: 220px 190px, 130px 160px, auto, auto, auto;
+  background-size: 211px 173px, 137px 119px, 91px 83px, 73px 101px, 54px 62px, auto, auto, auto, auto;
   color: var(--dm-text);
   font-family: var(--dm-font-body);
   font-size: 16px;
@@ -276,6 +281,10 @@ summary { font-family: var(--dm-font-display); letter-spacing: 0.025em; }
   border: 1px solid var(--dm-border);
   border-radius: var(--dm-radius-panel);
   box-shadow: 0 16px 36px var(--dm-shadow), inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.spell-view {
+  padding: 1em 1.15em;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -160,6 +160,7 @@ describe("DicePage", () => {
     render(<DicePage />);
     fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
     await waitFor(() => expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    expect(screen.getByLabelText("Кость d20, результат 20")).toHaveClass("dice-icon--log");
     expect(sounds.playDiceRollSound).not.toHaveBeenCalled();
     expect(sounds.playCriticalFailSound).not.toHaveBeenCalled();
   });

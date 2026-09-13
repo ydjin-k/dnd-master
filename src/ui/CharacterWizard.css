@@ -47,7 +47,7 @@
   flex: 1 1 12.5em;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px;
   overflow-y: auto;
 }
 
@@ -58,6 +58,11 @@
   background: transparent;
   border: 1px solid transparent;
   margin-bottom: 0.15em;
+}
+
+.wizard__pick-item:hover,
+.wizard__pick-item:active {
+  transform: none;
 }
 
 .wizard__pick-item--active {
@@ -308,7 +313,14 @@
 .wizard__skill-list {
   margin: 0.3em 0 0;
   padding-left: 1.2em;
-  columns: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25em 2em;
+}
+
+.wizard__skill-list > li {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @container (max-width: 42rem) {
@@ -322,7 +334,7 @@
   }
 
   .wizard__skill-list {
-    columns: 1;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
