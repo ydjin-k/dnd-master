@@ -75,17 +75,22 @@ describe("подготовка заклинаний", () => {
   });
 
   /**
-   * Калитка лесенки из четырёх карточек: сделаны Жрец, Друид и Паладин,
-   * Волшебник ждёт своего воркера. Проба сторожит именно это — чтобы чужой
-   * класс не включился молча вместе с общим кодом.
+   * Калитка лесенки из четырёх карточек: сошлись все четыре — Жрец, Друид,
+   * Паладин и Волшебник. Проба сторожит состав: класс попадает в калитку
+   * только своей карточкой, и другого способа его включить нет.
    */
-  it("на листе подготовку ведут Жрец, Друид и Паладин — Волшебник ждёт своей карточки", () => {
-    for (const classId of ["classes-cleric", "classes-druid", "classes-paladin"]) {
+  it("на листе подготовку ведут все четыре подготовленных заклинателя", () => {
+    for (const classId of ["classes-cleric", "classes-druid", "classes-paladin", "classes-wizard"]) {
       expect(preparesSpells(classId), classId).toBe(true);
     }
-    expect(preparesSpells("classes-wizard")).toBe(false);
-    expect([...PREPARED_ON_SHEET]).toEqual(["classes-cleric", "classes-druid", "classes-paladin"]);
-  });
+    // Класс с известным списком в калитку не попадает.
+    expect(preparesSpells("classes-bard")).toBe(false);
+    expect([...PREPARED_ON_SHEET]).toEqual([
+      "classes-cleric",
+      "classes-druid",
+      "classes-paladin",
+      "classes-wizard",
+    ]);  });
 
   it("заклинания архетипа не занимают места в норме и остаются сверх неё", () => {
     const status = preparedSpells({

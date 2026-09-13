@@ -184,6 +184,7 @@ describe("CharactersPage", () => {
       skillProficiencies: [],
       knownCantrips: [],
       knownSpells: [],
+      spellbook: [],
       spellSlotsMax: [0, 0, 0, 0, 0],
       spellSlotsCurrent: [0, 0, 0, 0, 0],
       featureUses: [],
@@ -273,6 +274,7 @@ describe("CharactersPage", () => {
           skillProficiencies: [],
           knownCantrips: [],
           knownSpells: [],
+          spellbook: [],
           spellSlotsMax: [0, 0, 0, 0, 0],
           spellSlotsCurrent: [0, 0, 0, 0, 0],
           featureUses: [],
@@ -1886,13 +1888,13 @@ describe("CharactersPage", () => {
     });
 
     /**
-     * Калитка лесенки: подготовка включена у Жреца и Друида. У класса с
-     * известным списком (Бард) и у двух оставшихся `prepared`-классов, чьи
-     * карточки ещё не сделаны, ни счётчика нормы, ни предупреждения о
-     * переборе быть не должно — иначе общий код открыл бы им механику
-     * наполовину и без их чисел.
+     * Калитка лесенки сошлась: все четыре `prepared`-класса сделаны, и вторая
+     * половина этой пробы (Друид без подготовки) снята — у него теперь своя,
+     * в `describe("подготовка заклинаний Друида")`. Осталось то, что не
+     * зависит от хода лесенки: класс с ИЗВЕСТНЫМ списком в подготовку не
+     * проваливается, иначе общий код открыл бы механику чужому классу.
      */
-    it("у класса с известным списком и у ждущих своих карточек подготовки нет", async () => {
+    it("у класса с известным списком подготовки нет", async () => {
       await renderWithRealSpells({
         ...preparedCleric(),
         class: "Бард",
@@ -1902,17 +1904,6 @@ describe("CharactersPage", () => {
       expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
       expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
       expect(screen.getByText("Известные заклинания:")).toBeInTheDocument();
-
-      cleanup();
-      await renderWithRealSpells({
-        ...preparedCleric(),
-        class: "Волшебник",
-        subclass: "",
-        knownSpells: ["bless", "cure-wounds"],
-      }, classTopic("classes-wizard", "Волшебник", "6", "4"));
-      expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
-      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
-      expect(screen.getByText("Подготовленные заклинания:")).toBeInTheDocument();
     });
 
     it("выбранное подготавливается и снимается через onUpdate", async () => {
@@ -2214,6 +2205,191 @@ describe("CharactersPage", () => {
       run.levelUp();
       expect(run.char.level).toBe(6);
       expect(screen.getByText(/Подготовлено 0 из 6/)).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * characters-wizard-spellbook — приёмка карточки. У волшебника два уровня:
+   * книга (что выучено вообще) и подготовленный из неё срез. До этой карточки
+   * ему, как и остальным `prepared`-классам, доставался жёсткий ноль: ячейки и
+   * заговоры росли, а вписать и подготовить было нечего. Проверяется на
+   * настоящем поставляемом spells.json, а не на фикстуре: «волшебнику есть что
+   * вписывать» держится ровно на данных.
+   */
+  describe("книга заклинаний Волшебника", () => {
+    const WIZARD_TOPIC = classTopic("classes-wizard", "Волшебник", "6", "4");
+
+    /** Интеллект 16 (+3) — как у обоих готовых волшебников в presets.json. */
+    function wizardChar(extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Волшебник",
+        conditions: ["Ослеплённое"],
+        abilities: { ...characterWithInventory().abilities, intelligence: 16 },
+        knownCantrips: ["fire-bolt"],
+        spellSlotsMax: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        ...extra,
+      };
+    }
+
+    /** Лист 12 уровня: ячейки до 6 круга — та самая строка таблицы, на которой заведена карточка. */
+    function wizardAt12(extra: Partial<Character> = {}): Character {
+      return wizardChar({
+        level: 12,
+        subclass: "Школа эвокации",
+        spellSlotsMax: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        spellSlotsCurrent: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        ...extra,
+      });
+    }
+
+    async function renderWizard(char: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [WIZARD_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    it("волшебник 12 уровня вписывает в книгу заклинания вплоть до 6 круга", async () => {
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield", "fireball"], knownSpells: [] }));
+
+      // Норма книги на 12 уровне: шесть на первом плюс по два за одиннадцать следующих.
+      expect(screen.getByText("Книга заклинаний (3/28):")).toBeInTheDocument();
+      expect(screen.getByText(/Вписано в книгу: 3 из 28, положенных на 12 уровень/)).toBeInTheDocument();
+      const write = screen.getByText(/Вписать в книгу до 6 круга \(0\/25\)/).nextElementSibling as HTMLElement;
+      // 6 круг доступен — «Распад» это шестой круг списка волшебника…
+      expect(within(write).getByLabelText(/Распад \(6 круг\)/)).toBeInTheDocument();
+      // …а 7 круг в spells.json есть, но ячеек под него на 12 уровне нет.
+      expect(within(write).queryByLabelText(/Отсроченный огненный шар/)).not.toBeInTheDocument();
+      // Уже вписанное второй раз не предлагается: в книге оно есть, вписывать нечего.
+      expect(within(write).queryByLabelText(/Волшебная стрела/)).not.toBeInTheDocument();
+      // Весь список волшебника до 6 круга — 148 заклинаний, минус три уже вписанных.
+      expect(within(write).getAllByRole("checkbox")).toHaveLength(145);
+    });
+
+    /**
+     * Отличие от сестёр, ради которого заведена книга: источник подготовки у
+     * волшебника — она, а не весь список класса. Проба отрицательная: подставь
+     * на лист полный список (как у Жреца) — и «Огненный шар», которого в книге
+     * нет, окажется в выборе подготовки.
+     */
+    it("готовит волшебник только из книги, а не из всего списка класса", async () => {
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield"], knownSpells: [] }));
+
+      // Норма подготовки: модификатор Интеллекта (+3) + уровень (12) = 15.
+      expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
+      const prepare = screen.getByText(/Подготовить до 6 круга \(0\/15\)/).nextElementSibling as HTMLElement;
+      expect(within(prepare).getByLabelText(/Волшебная стрела \(1 круг\)/)).toBeInTheDocument();
+      expect(within(prepare).getByLabelText(/Щит \(1 круг\)/)).toBeInTheDocument();
+      expect(within(prepare).queryByLabelText(/Огненный шар/)).not.toBeInTheDocument();
+      expect(within(prepare).getAllByRole("checkbox")).toHaveLength(2);
+    });
+
+    it("вписанное уходит в книгу, а подготовленное — в список подготовленных", async () => {
+      const char = wizardAt12({ spellbook: ["magic-missile"], knownSpells: [] });
+      await renderWizard(char);
+
+      fireEvent.click(screen.getByLabelText(/Огненный шар \(3 круг\)/));
+      fireEvent.click(screen.getByText("Вписать"));
+      const write = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(write(char).spellbook).toEqual(["magic-missile", "fireball"]);
+      // Вписанное не считается подготовленным: это разные списки.
+      expect(write(char).knownSpells).toEqual([]);
+
+      cleanup();
+      updateCharacter.mockClear();
+      const withBook = wizardAt12({ spellbook: ["magic-missile", "fireball"], knownSpells: [] });
+      await renderWizard(withBook);
+      fireEvent.click(screen.getByLabelText(/Огненный шар \(3 круг\)/));
+      fireEvent.click(screen.getByText("Подготовить"));
+      const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(prepare(withBook).knownSpells).toEqual(["fireball"]);
+      expect(prepare(withBook).spellbook).toEqual(["magic-missile", "fireball"]);
+    });
+
+    /**
+     * Отрицательная проба на пересчёт: сними в `preparedSpellsMax` слагаемое от
+     * характеристики — и оба числа станут одинаковыми, проба покраснеет. Объём
+     * книги при этом не меняется вовсе: он от уровня, а не от Интеллекта.
+     */
+    it("Интеллект двигает число подготовленных и не двигает объём книги", async () => {
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile"], knownSpells: [] }));
+      expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
+      expect(screen.getByText("Книга заклинаний (1/28):")).toBeInTheDocument();
+
+      cleanup();
+      await renderWizard(
+        wizardAt12({
+          spellbook: ["magic-missile"],
+          knownSpells: [],
+          abilities: { ...characterWithInventory().abilities, intelligence: 8 },
+        }),
+      );
+      expect(screen.getByText(/Подготовлено 0 из 11/)).toBeInTheDocument();
+      expect(screen.getByText("Книга заклинаний (1/28):")).toBeInTheDocument();
+    });
+
+    it("левел-ап открывает в книге два места и поднимает норму подготовки на одно", async () => {
+      const run = levelUpRunner(
+        WIZARD_TOPIC,
+        wizardChar({ level: 5, subclass: "Школа эвокации", spellbook: ["magic-missile", "shield", "fireball"] }),
+      );
+      await run.ready();
+      expect(screen.getByText("Книга заклинаний (3/14):")).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 0 из 8/)).toBeInTheDocument();
+
+      run.levelUp();
+      expect(run.char.level).toBe(6);
+      expect(screen.getByText("Книга заклинаний (3/16):")).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 0 из 9/)).toBeInTheDocument();
+    });
+
+    /**
+     * Переход старых сохранений: до карточки заклинания волшебника лежали в
+     * `knownSpells`. Отрицательная проба — убери запасной путь `spellbookOf`,
+     * и книга такого персонажа окажется пустой, а снятие подготовки вычеркнет
+     * заклинание не только из подготовленных, но и из книги.
+     */
+    it("у сохранения без книги её роль играет прежний список, и снятие подготовки его не съедает", async () => {
+      const legacy = wizardChar({
+        spellbook: [],
+        knownSpells: ["shield", "mage-armor", "magic-missile", "find-familiar"],
+      });
+      await renderWizard(legacy);
+
+      expect(screen.getByText("Книга заклинаний (4/6):")).toBeInTheDocument();
+      expect(screen.getByText("Подготовленные заклинания (4/4):")).toBeInTheDocument();
+
+      fireEvent.click(screen.getAllByText("Снять")[3]);
+      const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      const after = unprepare(legacy);
+      expect(after.knownSpells).toEqual(["shield", "mage-armor", "magic-missile"]);
+      expect(after.spellbook).toEqual(["shield", "mage-armor", "magic-missile", "find-familiar"]);
+    });
+
+    /** Книга — только у волшебника: у Жреца её нет ни в списках, ни в подсказке. */
+    it("у Жреца книги нет — источником подготовки остаётся весь список класса", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [classTopic("classes-cleric", "Жрец", "8", "5"), CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({
+        characters: [{ ...wizardChar(), class: "Жрец", subclass: "Домен жизни", knownSpells: ["bless"] }],
+      });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+
+      // Не просто /Книга заклинаний/: так называется и предмет снаряжения в каталоге.
+      expect(screen.queryByText(/Книга заклинаний \(/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Вписано в книгу/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Вписать в книгу/)).not.toBeInTheDocument();
+      expect(screen.getByText(/доступен весь список класса до 1 круга/)).toBeInTheDocument();
     });
   });
 });

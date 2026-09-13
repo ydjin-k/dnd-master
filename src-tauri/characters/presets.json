@@ -485,7 +485,8 @@
     "toolProficiencies": ["Игровой набор (драконьи шахматы)"],
     "fightingStyle": "",
     "knownCantrips": ["mage-hand", "ray-of-frost", "minor-illusion", "prestidigitation"],
-    "knownSpells": ["magic-missile", "hideous-laughter", "unseen-servant", "charm-person", "find-familiar", "thunderwave"],
+    "knownSpells": ["magic-missile", "hideous-laughter", "charm-person", "thunderwave"],
+    "spellbook": ["magic-missile", "hideous-laughter", "unseen-servant", "charm-person", "find-familiar", "thunderwave"],
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [
@@ -555,7 +556,8 @@
     "toolProficiencies": ["Инструменты ремонтника", "Инструменты пивовара"],
     "fightingStyle": "",
     "knownCantrips": ["chill-touch", "fire-bolt", "mage-hand"],
-    "knownSpells": ["shield", "mage-armor", "magic-missile", "find-familiar", "detect-magic", "comprehend-languages"],
+    "knownSpells": ["shield", "mage-armor", "magic-missile"],
+    "spellbook": ["shield", "mage-armor", "magic-missile", "find-familiar", "detect-magic", "comprehend-languages"],
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [

@@ -1361,6 +1361,49 @@ describe("CharacterWizard", () => {
     expect(character.spellSlotsCurrent).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
+  /**
+   * characters-wizard-spellbook: подготовленное у волшебника — срез из книги,
+   * поэтому выбранное в мастере обязано попасть и в неё. Проба отрицательная:
+   * убери `spellbook` из `finish()` — и созданный волшебник выйдет с
+   * подготовленным заклинанием, которого нет в его книге, то есть готовить его
+   * было бы не из чего. Остаток книги 1 уровня вписывается на листе персонажа,
+   * и шаг «Итог» об этом говорит.
+   */
+  it("Wizard spellbook: chosen spells land in the spellbook too, and the review step says where the rest is written", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Волшебник"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее")); // Интеллект 10 (мод 0) → одно подготовленное
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Книжник" },
+    });
+    await screen.findByText("Заговор Волшебника 1");
+    expect(screen.getByText(/Всего в книге на 1 уровне 6 заклинаний/)).toBeInTheDocument();
+
+    const boxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    [0, 1, 2, 3].forEach((i) => fireEvent.click(boxes[i]));
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.knownSpells).toEqual(["wizard-spell-1"]);
+    expect(character.spellbook).toEqual(["wizard-spell-1"]);
+  });
+
   it("a non-spellcaster (Воин) shows no spellcasting UI at all on the review step", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 

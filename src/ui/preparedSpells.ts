@@ -36,7 +36,12 @@ import type { AbilityScores, Spell } from "../state/types";
  * сойдутся все четыре, множество совпадёт со `spellsKnownKind` и её можно
  * снять, оставив проверку вида класса.
  */
-export const PREPARED_ON_SHEET: ReadonlySet<string> = new Set(["classes-cleric", "classes-druid", "classes-paladin"]);
+export const PREPARED_ON_SHEET: ReadonlySet<string> = new Set([
+  "classes-cleric",
+  "classes-druid",
+  "classes-paladin",
+  "classes-wizard",
+]);
 
 /** Готовит ли этот класс заклинания на листе персонажа (см. `PREPARED_ON_SHEET`). */
 export function preparesSpells(classId: string | null | undefined): boolean {

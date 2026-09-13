@@ -75,6 +75,40 @@ mod tests {
         assert_eq!(bard.spell_slots_max, vec![2, 0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
+    /// characters-wizard-spellbook: у волшебника лист пресета — это КНИГА
+    /// заклинаний, а `known_spells` — подготовленный из неё срез. Готовить не
+    /// из книги волшебник не может, поэтому подготовленное обязано лежать в
+    /// ней целиком. У классов без книги поле остаётся пустым — его добирает
+    /// структурный `#[serde(default)]`, как и у полей, добавленных раньше.
+    #[test]
+    fn wizard_presets_carry_a_spellbook_holding_everything_they_prepared() {
+        let presets = load_bundled();
+        let wizards: Vec<&Character> = presets.iter().filter(|p| p.class == "Волшебник").collect();
+        assert_eq!(wizards.len(), 2, "в каталоге должно быть два волшебника");
+
+        for wizard in wizards {
+            assert_eq!(
+                wizard.spellbook.len(),
+                6,
+                "у пресета {} в книге не шесть заклинаний 1 уровня",
+                wizard.id
+            );
+            for prepared in &wizard.known_spells {
+                assert!(
+                    wizard.spellbook.contains(prepared),
+                    "у пресета {} подготовлено «{prepared}», которого нет в его книге",
+                    wizard.id
+                );
+            }
+        }
+
+        let bard = presets
+            .iter()
+            .find(|p| p.id == "preset-bard-halfling")
+            .expect("пресет preset-bard-halfling");
+        assert!(bard.spellbook.is_empty(), "книга есть только у волшебника");
+    }
+
     /// Формат обязан нести архетип уровня 1 и сделанный внутри него выбор — у
     /// барда 1 уровня архетипа нет, но следующими идут жрецы (домен на 1
     /// уровне, `CLASS_SUBCLASSES["classes-cleric"].chosenAtLevel == 1`).

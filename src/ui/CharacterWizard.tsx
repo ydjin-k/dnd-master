@@ -64,6 +64,7 @@ import {
 } from "./characterCreationData";
 import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
 import { preparedSpellsMax } from "./preparedSpells";
+import { hasSpellbook, spellbookMax } from "./spellbook";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -624,6 +625,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму
       // класса — добавляются поверх выбранных игроком (SRD, «Заклинания домена»).
       knownSpells: spellAbility ? [...new Set([...knownSpells, ...level1SubclassSpells])] : [],
+      // Волшебник кладёт выбранное ещё и в книгу: подготовленное у него — срез
+      // из книги, и заклинание, которого в книге нет, готовить не из чего.
+      // Остаток книги 1 уровня (spellbook.ts: шесть) вписывается на листе
+      // персонажа — там же, где она растёт с уровнями. У классов без книги пусто.
+      spellbook: hasSpellbook(classId) ? [...knownSpells] : [],
       spellSlotsMax: level1SpellSlots,
       spellSlotsCurrent: [...level1SpellSlots],
       // Классовые ресурсы 1 уровня (Второе дыхание воина, Вдохновение барда,
@@ -1599,6 +1605,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     ))}
                     {classLevel1Spells.length === 0 && <li>Загрузка списка заклинаний…</li>}
                   </ul>
+                  {hasSpellbook(classId) && (
+                    <p className="wizard__hint">
+                      Выбранное попадёт в книгу заклинаний и будет подготовлено. Всего в книге на 1 уровне{" "}
+                      {spellbookMax(classId, 1)} заклинаний — остальные вписываются на листе персонажа.
+                    </p>
+                  )}
                   <p className="wizard__hint">Ячейки заклинаний 1 уровня: {level1SpellSlots[0]}</p>
                 </div>
               </li>

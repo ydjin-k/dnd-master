@@ -66,6 +66,7 @@ import {
   type ClassResource,
 } from "../classProgression";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
+import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
@@ -225,6 +226,10 @@ function CharacterCard({
   // подготовкой оба списка могут быть открыты одновременно (заговоры по-
   // прежнему учатся насовсем), и общий счётчик перемешал бы их.
   const [chosenPrepared, setChosenPrepared] = useState<string[]>([]);
+  // Выбор «вписать в книгу» — третий независимый список: книга наполняется
+  // насовсем и своей нормой (spellbook.ts), а подготовка меняется каждый день
+  // и своей, и общий счётчик у них был бы неверен обоим.
+  const [chosenForBook, setChosenForBook] = useState<string[]>([]);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -736,9 +741,19 @@ function CharacterCard({
     knownSpells: c.knownSpells,
     alwaysPrepared: domainSpells,
   });
+  /**
+   * Книга заклинаний (spellbook.ts) — у Волшебника, и только у него. Готовит
+   * он из книги, а не из всего списка класса: источник подготовки приходит
+   * параметром, и подмена его книгой второго отбора не заводит. Норма книги
+   * тоже не хранится снимком — она считается из `c.level`, поэтому левел-ап
+   * открывает место в книге сам.
+   */
+  const book = spellbookAt({ classId, level: c.level, character: c });
+  const preparedSource = hasSpellbook(classId) ? spellbookSource(spells, book.spells) : spells;
   const preparableNow = preparesOnSheet
-    ? preparableSpells(spells, { classId, level: c.level, alreadyPrepared: c.knownSpells })
+    ? preparableSpells(preparedSource, { classId, level: c.level, alreadyPrepared: c.knownSpells })
     : [];
+  const writableNow = book.free > 0 ? writableSpells(spells, { classId, level: c.level, book: book.spells }) : [];
   const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
   const weaponAttacks = weaponsInInventory(c.inventory.map((item) => item.name)).map((weapon) =>
     weaponAttackFor(weapon, c.abilities, c.level, weaponProficiencies),
@@ -780,9 +795,22 @@ function CharacterCard({
    * Снять подготовку. Заклинания архетипа сюда не приходят: по SRD они
    * подготовлены всегда, и кнопки у них нет — разделяет списки
    * `preparedSpells`, второй проверки здесь не заводится.
+   *
+   * `keepSpellbook` — про переход старых сохранений: у волшебника, чья книга
+   * ещё живёт в `knownSpells`, снятие подготовки без записи книги вычеркнуло
+   * бы заклинание и из неё. У остальных классов ничего не меняет.
    */
   function unprepareSpell(id: string) {
-    onUpdate((ch) => ({ ...ch, knownSpells: ch.knownSpells.filter((spellId) => spellId !== id) }));
+    onUpdate((ch) => {
+      const kept = keepSpellbook(ch, classId);
+      return { ...kept, knownSpells: kept.knownSpells.filter((spellId) => spellId !== id) };
+    });
+  }
+
+  /** Вписать выбранное в книгу — насовсем; подготовка из неё делается отдельно. */
+  function writeToSpellbook() {
+    onUpdate((ch) => ({ ...ch, spellbook: [...spellbookOf(ch, classId), ...chosenForBook] }));
+    setChosenForBook([]);
   }
 
   function learnChosen() {
@@ -1488,6 +1516,20 @@ function CharacterCard({
               </ul>
             </div>
           )}
+          {hasSpellbook(classId) && (
+            <div className="character-card__spell-group">
+              Книга заклинаний ({book.spells.length}/{book.max}):
+              <ul className="character-card__spell-list">
+                {book.spells.map((id) => (
+                  <li key={id}>
+                    {spellName(id)} ({findSpell(id)?.level ?? 1} круг)
+                    {c.knownSpells.includes(id) && <> — подготовлено</>}
+                  </li>
+                ))}
+                {book.spells.length === 0 && <li>Книга пуста — впиши в неё заклинания ниже.</li>}
+              </ul>
+            </div>
+          )}
           <div className="character-card__spell-group">
             <ul className="character-card__spell-list">
               {c.spellSlotsMax.map((max, i) =>
@@ -1581,6 +1623,40 @@ function CharacterCard({
               )}
             </div>
           )}
+          {hasSpellbook(classId) && (
+            <div className="character-card__asi">
+              <p>
+                Вписано в книгу: {book.spells.length} из {book.max}, положенных на {c.level} уровень (шесть на первом
+                и по два за каждый следующий).
+              </p>
+              {book.free > 0 && writableNow.length > 0 && (
+                <>
+                  <p>
+                    Вписать в книгу до {highestCircle} круга ({chosenForBook.length}/{book.free}):
+                  </p>
+                  <ul className="character-card__spell-list">
+                    {writableNow.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={chosenForBook.includes(sp.id)}
+                            onChange={() => toggleLearn(sp.id, book.free, chosenForBook, setChosenForBook)}
+                          />{" "}
+                          {sp.name} ({sp.level} круг)
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="character-card__asi-actions">
+                    <button type="button" disabled={chosenForBook.length === 0} onClick={writeToSpellbook}>
+                      Вписать
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {preparesOnSheet && (
             <div className="character-card__asi">
               <p>
@@ -1620,8 +1696,17 @@ function CharacterCard({
           )}
           {spellsKnownKind === "prepared" && (
             <p className="character-card__spell-info">
-              Класс готовит заклинания заново после длинного отдыха: доступен весь список класса до {highestCircle} круга,
-              список выше — то, что подготовлено сейчас.
+              {hasSpellbook(classId) ? (
+                <>
+                  Класс готовит заклинания заново после длинного отдыха — из своей книги, а не из всего списка класса:
+                  до {highestCircle} круга, список выше — то, что подготовлено сейчас.
+                </>
+              ) : (
+                <>
+                  Класс готовит заклинания заново после длинного отдыха: доступен весь список класса до {highestCircle}{" "}
+                  круга, список выше — то, что подготовлено сейчас.
+                </>
+              )}
             </p>
           )}
         </details>
