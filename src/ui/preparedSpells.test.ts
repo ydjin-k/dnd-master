@@ -35,16 +35,17 @@ describe("подготовка заклинаний", () => {
   });
 
   /**
-   * Калитка лесенки из четырёх карточек: сделан Жрец, остальные три ждут
-   * своих воркеров. Проба сторожит именно это — чтобы чужой класс не включился
-   * молча вместе с общим кодом.
+   * Калитка лесенки из четырёх карточек: сделаны Жрец и Друид, Волшебник с
+   * Паладином ждут своих воркеров. Проба сторожит именно это — чтобы чужой
+   * класс не включился молча вместе с общим кодом.
    */
-  it("на листе подготовку ведёт только Жрец — остальные три класса ждут своих карточек", () => {
+  it("на листе подготовку ведут Жрец и Друид — Волшебник с Паладином ждут своих карточек", () => {
     expect(preparesSpells("classes-cleric")).toBe(true);
-    for (const classId of ["classes-druid", "classes-wizard", "classes-paladin"]) {
+    expect(preparesSpells("classes-druid")).toBe(true);
+    for (const classId of ["classes-wizard", "classes-paladin"]) {
       expect(preparesSpells(classId), classId).toBe(false);
     }
-    expect([...PREPARED_ON_SHEET]).toEqual(["classes-cleric"]);
+    expect([...PREPARED_ON_SHEET]).toEqual(["classes-cleric", "classes-druid"]);
   });
 
   it("заклинания архетипа не занимают места в норме и остаются сверх неё", () => {
@@ -91,5 +92,61 @@ describe("подготовка заклинаний", () => {
     const level1 = preparableSpells(SPELLS, { classId: "classes-cleric", level: 1, alreadyPrepared: [] });
     expect(level1).toHaveLength(15);
     expect(level1.every((sp) => sp.level === 1)).toBe(true);
+  });
+
+  /**
+   * characters-druid-prepared-spells. Форма у Друида жрецовская, а числа свои:
+   * список класса в spells.json другой и короче, поэтому проба считает их, а
+   * не повторяет жрецовские.
+   */
+  describe("друид", () => {
+    it("норма друида — модификатор Мудрости плюс уровень друида, минимум одно", () => {
+      // Мудрость 16 (+3): на 12 уровне 15, на 1 — 4.
+      expect(preparedSpellsMax("classes-druid", abilities(16), 12)).toBe(15);
+      expect(preparedSpellsMax("classes-druid", abilities(16), 1)).toBe(4);
+      // Мудрость 18 (+4) — норма на том же уровне ровно на единицу больше.
+      expect(preparedSpellsMax("classes-druid", abilities(18), 12)).toBe(16);
+      // Мудрость 8 (−1) на 1 уровне дала бы ноль — SRD держит минимум в одно.
+      expect(preparedSpellsMax("classes-druid", abilities(8), 1)).toBe(1);
+    });
+
+    it("к выбору идёт весь список друида до доступного круга", () => {
+      // На 12 уровне друиду доступен 6 круг: 82 заклинания списка минус подготовленное.
+      const level12 = preparableSpells(SPELLS, {
+        classId: "classes-druid",
+        level: 12,
+        alreadyPrepared: ["goodberry"],
+      });
+      expect(level12).toHaveLength(81);
+      expect(level12.every((sp) => sp.level >= 1 && sp.level <= 6)).toBe(true);
+      expect(level12.some((sp) => sp.id === "goodberry")).toBe(false);
+      // Список именно друидский: жрецовское «Направляющий луч» в него не попадает.
+      expect(level12.some((sp) => sp.id === "guiding-bolt")).toBe(false);
+
+      // На 1 уровне — только 1 круг, и это 16 заклинаний друида из spells.json.
+      const level1 = preparableSpells(SPELLS, { classId: "classes-druid", level: 1, alreadyPrepared: [] });
+      expect(level1).toHaveLength(16);
+      expect(level1.every((sp) => sp.level === 1)).toBe(true);
+    });
+
+    /**
+     * Заклинания круга земли — не из списка друида (Отражения и Туманный шаг
+     * принадлежат волшебнику), и норму они всё равно не занимают: разбор
+     * ведётся по `alwaysPrepared`, а не по принадлежности к списку класса.
+     */
+    it("заклинания круга идут сверх нормы и снять их нельзя", () => {
+      const status = preparedSpells({
+        classId: "classes-druid",
+        abilities: abilities(16),
+        level: 3,
+        knownSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
+        alwaysPrepared: ["barkskin", "spider-climb"],
+      });
+      expect(status.max).toBe(6);
+      expect(status.prepared).toEqual(["entangle", "goodberry"]);
+      expect(status.alwaysPrepared).toEqual(["barkskin", "spider-climb"]);
+      expect(status.free).toBe(4);
+      expect(status.overflow).toBe(0);
+    });
   });
 });
