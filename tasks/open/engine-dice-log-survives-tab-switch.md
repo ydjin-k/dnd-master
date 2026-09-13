@@ -1,8 +1,8 @@
 # engine-dice-log-survives-tab-switch
 
 Размер: S. Роль: Developer. Зона: `engine` (кубики).
-Предусловие: **`ui-astral-atlas-live-review-fixes` слита в ствол** — та карточка правит
-`DicePage.tsx` (размер цифры у одиночного броска), параллельно по этому файлу не работать.
+Предусловие снято: карточка `ui-astral-atlas-live-review-fixes`, тоже правившая `DicePage.tsx`,
+слита в ствол мержем `ff32a69` 13.09.2026. Работать можно.
 
 ## Контекст
 

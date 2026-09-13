@@ -1,8 +1,8 @@
 # ui-soundboard-full-track-names
 
 Размер: S. Роль: UI Developer (`gamestudio/roles/ui-developer.md`). Зона: `ui-shell`.
-Предусловие: **`ui-astral-atlas-live-review-fixes` слита в ствол** — Астральный атлас правит
-`SoundboardPage.tsx` и `SoundboardPage.css`, параллельно по ним не работать.
+Предусловие снято: Астральный атлас, тоже правивший `SoundboardPage.tsx` и `SoundboardPage.css`,
+слит в ствол мержем `ff32a69` 13.09.2026. Работать можно.
 
 ## Контекст
 
@@ -65,8 +65,8 @@
 
 ## Живая проверка
 
-Порт 1420 занят dev-сервером продюсера — для своей проверки бери
-`.scratch/tauri.astral-atlas.conf.json` (порт 1422) или заведи такой же свой.
+Порт 1420 занят dev-сервером продюсера — заведи себе скретч-конфиг Tauri на другом порту
+(например 1422) и запускайся с ним, а не занимай 1420.
 **Не запускать `Add-Type` с `ShowWindowAsync`/`MoveWindow`/`SetForegroundWindow` по окну
 приложения** — это его уничтожает; работать через `orca computer`.
 
