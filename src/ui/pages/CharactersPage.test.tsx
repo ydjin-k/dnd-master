@@ -1886,8 +1886,8 @@ describe("CharactersPage", () => {
     });
 
     /**
-     * Калитка лесенки: подготовка включена только у Жреца. У класса с
-     * известным списком (Бард) и у трёх остальных `prepared`-классов, чьи
+     * Калитка лесенки: подготовка включена у Жреца и Друида. У класса с
+     * известным списком (Бард) и у двух оставшихся `prepared`-классов, чьи
      * карточки ещё не сделаны, ни счётчика нормы, ни предупреждения о
      * переборе быть не должно — иначе общий код открыл бы им механику
      * наполовину и без их чисел.
@@ -1906,10 +1906,10 @@ describe("CharactersPage", () => {
       cleanup();
       await renderWithRealSpells({
         ...preparedCleric(),
-        class: "Друид",
-        subclass: "Круг земли",
+        class: "Волшебник",
+        subclass: "",
         knownSpells: ["bless", "cure-wounds"],
-      }, classTopic("classes-druid", "Друид", "8", "5"));
+      }, classTopic("classes-wizard", "Волшебник", "6", "4"));
       expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
       expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
       expect(screen.getByText("Подготовленные заклинания:")).toBeInTheDocument();
@@ -1931,6 +1931,151 @@ describe("CharactersPage", () => {
       fireEvent.click(screen.getByText("Снять"));
       const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
       expect(unprepare(withOwn).knownSpells).toEqual(["bless", "cure-wounds"]);
+    });
+  });
+
+  /**
+   * characters-druid-prepared-spells — приёмка карточки. Друид помечен
+   * `spellsKnownKind: "prepared"` и до этой карточки получал тот же жёсткий
+   * ноль, что и Жрец: ячейки и заговоры росли, а заклинаний не было ни одного.
+   * Форма механики жрецовская, а числа свои — список друида в spells.json
+   * другой, поэтому здесь настоящий поставляемый spells.json, а не фикстура.
+   */
+  describe("подготовка заклинаний Друида", () => {
+    /** Мудрость 16 (+3) — как у обоих готовых друидов в presets.json. */
+    function preparedDruid(extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Друид",
+        subclass: "Круг земли",
+        subclassChoices: { "circle-of-the-land-terrain": ["forest"] },
+        conditions: ["Ослеплённое"],
+        abilities: { ...characterWithInventory().abilities, wisdom: 16 },
+        spellSlotsMax: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        ...extra,
+      };
+    }
+
+    async function renderDruid(char: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [classTopic("classes-druid", "Друид", "8", "5"), CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    it("друид 12 уровня готовит заклинания из всего списка класса вплоть до 6 круга", async () => {
+      await renderDruid(
+        preparedDruid({
+          level: 12,
+          // Только заклинания круга Леса — своих подготовленных ещё нет ни одного.
+          knownSpells: [
+            "barkskin", "spider-climb", "call-lightning", "plant-growth",
+            "divination", "freedom-of-movement", "tree-stride", "commune-with-nature",
+          ],
+          spellSlotsMax: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+          spellSlotsCurrent: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        }),
+      );
+
+      // Норма: модификатор Мудрости (+3) + уровень друида (12) = 15.
+      expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
+      expect(screen.getByText(/Подготовить до 6 круга \(0\/15\)/)).toBeInTheDocument();
+      // Из списка друида доступно всё до 6 круга — «Солнечный луч» это 6 круг.
+      expect(screen.getByLabelText(/Солнечный луч \(6 круг\)/)).toBeInTheDocument();
+      // …и ничего выше: «Обращение гравитации» друида — 7 круг, ячеек под него нет.
+      expect(screen.queryByLabelText(/Обращение гравитации/)).not.toBeInTheDocument();
+      // Список именно друидский: жрецовский «Направляющий луч» в него не попал.
+      expect(screen.queryByLabelText(/Направляющий луч/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Заклинания круга приходят от `subclassSpellsUpToLevel` и в норму не
+     * входят. Часть из них вообще не из списка друида («Паучье лазание» —
+     * заклинание волшебника), и разбор всё равно ведётся по `alwaysPrepared`,
+     * а не по принадлежности к списку класса.
+     */
+    it("заклинания круга показаны отдельно и в норму не засчитываются", async () => {
+      await renderDruid(
+        preparedDruid({
+          level: 3,
+          knownSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
+          spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+          spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        }),
+      );
+
+      // Норма: +3 и уровень 3 = 6; в счёт идут только два своих.
+      expect(screen.getByText("Подготовленные заклинания (2/6):")).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 2 из 6/)).toBeInTheDocument();
+      const circle = screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(2\)/);
+      const circleGroup = circle.closest(".character-card__spell-group") as HTMLElement;
+      expect(within(circleGroup).getByText(/Кора/)).toBeInTheDocument();
+      expect(within(circleGroup).getByText(/Паучье лазание/)).toBeInTheDocument();
+      // Снять их нельзя — кнопка есть только у подготовленного самим игроком.
+      expect(within(circleGroup).queryByText("Снять")).not.toBeInTheDocument();
+      expect(screen.getAllByText("Снять")).toHaveLength(2);
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Отрицательная проба карточки: снять пересчёт нормы от Мудрости
+     * (слагаемое `abilityMod` в `preparedSpellsMax`) — и краснеет именно эта
+     * проба, на ЧИСЛО: норма стала бы 3 вместо 2, а перебор пропал бы вовсе.
+     * Наличие самого списка она не сторожит — это делают пробы выше.
+     */
+    it("упавшая Мудрость пересчитывает норму и показывает перебор числом, а не молча срезает список", async () => {
+      await renderDruid(
+        preparedDruid({
+          level: 3,
+          abilities: { ...characterWithInventory().abilities, wisdom: 8 }, // −1 → норма 3 − 1 = 2
+          knownSpells: ["entangle", "goodberry", "thunderwave", "barkskin", "spider-climb"],
+          spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+          spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        }),
+      );
+
+      expect(screen.getByText(/Подготовлено 3 из 2/)).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 3 при норме 2 — сними 1/)).toBeInTheDocument();
+      // Ничего не исчезло: все три по-прежнему на листе и их можно снять вручную.
+      expect(screen.getAllByText("Снять")).toHaveLength(3);
+      // Заклинания круга перебора не создают и остаются сверх нормы.
+      expect(screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(2\)/)).toBeInTheDocument();
+    });
+
+    it("левел-ап поднимает норму подготовки вместе с уровнем друида", async () => {
+      const run = levelUpRunner(
+        classTopic("classes-druid", "Друид", "8", "5"),
+        preparedDruid({ level: 5, subclass: "Круг луны", subclassChoices: {}, knownSpells: [] }),
+      );
+      await run.ready();
+      expect(screen.getByText(/Подготовлено 0 из 8/)).toBeInTheDocument();
+
+      run.levelUp();
+      expect(run.char.level).toBe(6);
+      expect(screen.getByText(/Подготовлено 0 из 9/)).toBeInTheDocument();
+    });
+
+    it("выбранное подготавливается и снимается через onUpdate", async () => {
+      const char = preparedDruid({ level: 3, knownSpells: ["barkskin", "spider-climb"] });
+      await renderDruid(char);
+
+      fireEvent.click(screen.getByLabelText(/Чудесная ягода \(1 круг\)/));
+      fireEvent.click(screen.getByText("Подготовить"));
+      const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(prepare(char).knownSpells).toEqual(["barkskin", "spider-climb", "goodberry"]);
+
+      cleanup();
+      updateCharacter.mockClear();
+      const withOwn = preparedDruid({ level: 3, knownSpells: ["barkskin", "spider-climb", "goodberry"] });
+      await renderDruid(withOwn);
+      fireEvent.click(screen.getByText("Снять"));
+      const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(unprepare(withOwn).knownSpells).toEqual(["barkskin", "spider-climb"]);
     });
   });
 });

@@ -493,6 +493,43 @@ describe("пресеты готовых персонажей", () => {
   });
 
   /**
+   * characters-druid-prepared-spells: тот же переход у Друида. Архетип у обоих
+   * готовых друидов пуст (круг выбирается со 2 уровня), поэтому сверх нормы не
+   * приходит ничего — и все четыре выписанных заклинания обязаны уместиться в
+   * норму, а не оказаться перебором на первом же показе листа.
+   */
+  it("готовые друиды переходят на подготовку без потерь и без перебора нормы", async () => {
+    const druids = PRESETS.filter((preset) => preset.class === "Друид");
+    expect(druids).toHaveLength(2);
+
+    for (const preset of druids) {
+      const copy = characterFromPreset(preset);
+      const status = preparedSpells({
+        classId: "classes-druid",
+        abilities: copy.abilities,
+        level: copy.level,
+        knownSpells: copy.knownSpells,
+        alwaysPrepared: subclassSpellsUpToLevel("classes-druid", copy.subclass, copy.level, copy.subclassChoices),
+      });
+      // Ничего не потеряно: подготовленное плюс круговое — ровно лист пресета.
+      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.knownSpells].sort());
+      // Мудрость 16 (+3) на 1 уровне даёт норму в 4, и все четыре свои заняты.
+      expect(status.max, preset.id).toBe(4);
+      expect(status.prepared, preset.id).toHaveLength(4);
+      expect(status.alwaysPrepared, preset.id).toHaveLength(0);
+      expect(status.overflow, preset.id).toBe(0);
+    }
+
+    // И то же самое видно на листе взятого из панели друида, а не только в расчёте.
+    const druid = await presetFromThePanel(/Вэйт Данкил/);
+    mockState = baseState({ characters: [druid] });
+    render(<CharactersPage />);
+    expect(await screen.findByText("Подготовленные заклинания (4/4):")).toBeInTheDocument();
+    expect(screen.queryByText(/сверх нормы/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+  });
+
+  /**
    * Сверяется с НАСТОЯЩИМ rules.json, а не с заглушкой `TOPICS` этого файла:
    * заглушка знает две расы из девяти, и проба на ней прошла бы у любого
    * пресета, чью расу в неё просто не положили.
