@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Астральный атлас — сравнение гротесков</title>
+  <style>
+    @font-face { font-family: "Inter Candidate"; src: url("font-candidates/Inter-Variable.ttf") format("truetype-variations"); font-weight: 100 900; }
+    @font-face { font-family: "Manrope Candidate"; src: url("font-candidates/Manrope-Variable.ttf") format("truetype-variations"); font-weight: 200 800; }
+    @font-face { font-family: "Noto Sans Candidate"; src: url("font-candidates/NotoSans-Variable.ttf") format("truetype-variations"); font-weight: 100 900; }
+    :root { color-scheme: dark; --bg: #051225; --panel: #0b1830; --border: #31466d; --text: #edf5ff; --muted: #9aaac4; --accent: #8bd8e4; --gold: #efd08b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 36px; background: radial-gradient(circle at 80% 0, #172656 0, transparent 32%), var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+    header { max-width: 1500px; margin: 0 auto 24px; }
+    h1 { margin: 0; font: 700 34px Georgia, serif; color: var(--accent); }
+    header p { margin: 8px 0 0; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; max-width: 1500px; margin: auto; }
+    .candidate { min-width: 0; overflow: hidden; background: linear-gradient(145deg, rgba(17, 34, 64, .97), rgba(7, 19, 42, .98)); border: 1px solid var(--border); border-radius: 14px; box-shadow: inset 0 1px rgba(255,255,255,.04), 0 16px 36px rgba(0,0,0,.35); }
+    .candidate__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+    .candidate__head h2 { margin: 0; color: var(--accent); font: 750 24px/1.2 Georgia, serif; }
+    .candidate__head span { color: var(--gold); font-size: 12px; letter-spacing: .13em; text-transform: uppercase; }
+    .sample { padding: 18px 20px; border-bottom: 1px solid rgba(49,70,109,.66); }
+    .sample:last-child { border: 0; }
+    .sample__label { margin: 0 0 9px; color: var(--accent); font: 750 11px/1.2 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+    .sample h3 { margin: 0 0 7px; color: var(--text); font: 700 17px/1.25 Georgia, serif; }
+    .sample p { margin: 0; color: var(--text); font-size: 14px; line-height: 1.43; }
+    .sample p + p { margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 10px 0 0; }
+    .stat { padding: 8px; border: 1px solid var(--border); border-radius: 8px; text-align: center; }
+    .stat b { display: block; color: var(--text); font-size: 18px; }
+    .stat small { color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    .inter { font-family: "Inter Candidate", sans-serif; }
+    .manrope { font-family: "Manrope Candidate", sans-serif; }
+    .noto { font-family: "Noto Sans Candidate", sans-serif; }
+    .alphabet { overflow-wrap: anywhere; letter-spacing: .015em; }
+    @media (max-width: 1050px) { .grid { grid-template-columns: 1fr; } body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Основной текст «Астрального атласа»</h1>
+    <p>Три OFL-кандидата с полной кириллицей. Заголовки остаются Alegreya, дневник — Caveat; меняется только плотный основной текст.</p>
+  </header>
+  <main class="grid">
+    <article class="candidate inter">
+      <div class="candidate__head"><h2>1 · Inter</h2><span>нейтральный</span></div>
+      <section class="sample"><div class="sample__label">Лист персонажа</div><h3>Элария Ветрогрив · Следопыт 8 уровня</h3><p>Спасброски: Сила +5, Ловкость +8. Навыки: Восприятие +7, Выживание +7, Скрытность +8.</p><div class="stats"><div class="stat"><b>16</b><small>Класс доспеха</small></div><div class="stat"><b>61/72</b><small>Хиты</small></div><div class="stat"><b>35 фт.</b><small>Скорость</small></div></div></section>
+      <section class="sample"><div class="sample__label">Описание заклинания</div><h3>Огненный шар</h3><p>Яркая вспышка устремляется к выбранной точке и раскрывается с гулким рёвом. Все существа в пределах сферы совершают спасбросок Ловкости.</p><p>3 круг · Воплощение · Дистанция 150 футов · Концентрация не требуется</p></section>
+      <section class="sample"><div class="sample__label">Статблок бестиария</div><h3>Молодой серебряный дракон</h3><p><b>Класс Доспеха</b> 18 (природный доспех) · <b>Хиты</b> 168 (16к10 + 80) · <b>Скорость</b> 40 фт., летая 80 фт.</p><p class="alphabet">Съешь ещё этих мягких французских булок, да выпей чаю. Ёж, йод, щит, подъём, эльф, вьюга.</p></section>
+    </article>
+    <article class="candidate manrope">
+      <div class="candidate__head"><h2>2 · Manrope</h2><span>характерный</span></div>
+      <section class="sample"><div class="sample__label">Лист персонажа</div><h3>Элария Ветрогрив · Следопыт 8 уровня</h3><p>Спасброски: Сила +5, Ловкость +8. Навыки: Восприятие +7, Выживание +7, Скрытность +8.</p><div class="stats"><div class="stat"><b>16</b><small>Класс доспеха</small></div><div class="stat"><b>61/72</b><small>Хиты</small></div><div class="stat"><b>35 фт.</b><small>Скорость</small></div></div></section>
+      <section class="sample"><div class="sample__label">Описание заклинания</div><h3>Огненный шар</h3><p>Яркая вспышка устремляется к выбранной точке и раскрывается с гулким рёвом. Все существа в пределах сферы совершают спасбросок Ловкости.</p><p>3 круг · Воплощение · Дистанция 150 футов · Концентрация не требуется</p></section>
+      <section class="sample"><div class="sample__label">Статблок бестиария</div><h3>Молодой серебряный дракон</h3><p><b>Класс Доспеха</b> 18 (природный доспех) · <b>Хиты</b> 168 (16к10 + 80) · <b>Скорость</b> 40 фт., летая 80 фт.</p><p class="alphabet">Съешь ещё этих мягких французских булок, да выпей чаю. Ёж, йод, щит, подъём, эльф, вьюга.</p></section>
+    </article>
+    <article class="candidate noto">
+      <div class="candidate__head"><h2>3 · Noto Sans</h2><span>утилитарный</span></div>
+      <section class="sample"><div class="sample__label">Лист персонажа</div><h3>Элария Ветрогрив · Следопыт 8 уровня</h3><p>Спасброски: Сила +5, Ловкость +8. Навыки: Восприятие +7, Выживание +7, Скрытность +8.</p><div class="stats"><div class="stat"><b>16</b><small>Класс доспеха</small></div><div class="stat"><b>61/72</b><small>Хиты</small></div><div class="stat"><b>35 фт.</b><small>Скорость</small></div></div></section>
+      <section class="sample"><div class="sample__label">Описание заклинания</div><h3>Огненный шар</h3><p>Яркая вспышка устремляется к выбранной точке и раскрывается с гулким рёвом. Все существа в пределах сферы совершают спасбросок Ловкости.</p><p>3 круг · Воплощение · Дистанция 150 футов · Концентрация не требуется</p></section>
+      <section class="sample"><div class="sample__label">Статблок бестиария</div><h3>Молодой серебряный дракон</h3><p><b>Класс Доспеха</b> 18 (природный доспех) · <b>Хиты</b> 168 (16к10 + 80) · <b>Скорость</b> 40 фт., летая 80 фт.</p><p class="alphabet">Съешь ещё этих мягких французских булок, да выпей чаю. Ёж, йод, щит, подъём, эльф, вьюга.</p></section>
+    </article>
+  </main>
+</body>
+</html>

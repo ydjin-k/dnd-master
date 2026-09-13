@@ -153,11 +153,11 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
           <div className={`launcher__dial-center${selected ? " is-open" : ""}`} aria-live="polite">
             {selected ? (
               <>
-                <p className="launcher__portal-kicker">Выбранная хроника</p>
+                <p className="launcher__portal-kicker dm-micro">Выбранная хроника</p>
                 <h2 title={selected.name}>{selected.name || "Без названия"}</h2>
-                <p className="launcher__portal-meta">Героев: {selected.characterCount}</p>
+                <p className="launcher__portal-meta dm-chip">Героев: {selected.characterCount}</p>
                 <div className="launcher__campaign-actions">
-                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>
+                  <button className="launcher__continue dm-button--primary" onClick={() => continueCampaign(selected.id)}>
                     {selected.characterCount === 0 ? "Начать" : "Продолжить"}
                   </button>
                   <button className="launcher__portal-delete" onClick={() => deleteCampaign(selected.id, selected.name)}>Удалить</button>
@@ -174,7 +174,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
         <label htmlFor="launcher-new-name">Новая история</label>
         <div className="launcher__new-controls">
           <input id="launcher-new-name" placeholder="Название новой кампании" value={newName} onChange={(e) => setNewName(e.currentTarget.value)} aria-describedby={campaignLimitReached ? "launcher-campaign-limit" : undefined} />
-          <button type="submit" disabled={!newName.trim() || campaignLimitReached}>Новая кампания</button>
+          <button type="submit" className="dm-button--primary" disabled={!newName.trim() || campaignLimitReached}>Новая кампания</button>
         </div>
         {campaignLimitReached && <p id="launcher-campaign-limit" className="launcher__campaign-limit">Достигнут предел в 6 кампаний</p>}
       </form>

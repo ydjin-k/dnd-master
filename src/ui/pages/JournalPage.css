@@ -4,21 +4,19 @@
   --journal-paper: #d2b477;
   --journal-paper-light: #e2cd9a;
   --journal-paper-edge: #8a623a;
-  --journal-brass: #78532f;
-  --journal-brass-bright: #d7b86a;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .journal-page-layout > h2 {
   margin: 0 0 1rem;
-  color: var(--journal-brass-bright);
+  color: var(--dm-accent);
   font-family: var(--dm-font-display);
   font-size: clamp(1.35rem, 3vw, 1.85rem);
   letter-spacing: 0.08em;
   text-align: center;
   text-transform: uppercase;
-  text-shadow: 0 2px 14px rgba(218, 187, 108, 0.3);
+  text-shadow: 0 2px 14px color-mix(in srgb, var(--dm-accent) 30%, transparent);
 }
 
 .journal-page {
@@ -189,14 +187,14 @@
   width: min(100%, 31rem);
   margin: 1.35rem 0 0;
   padding: 1em;
-  background: rgba(4, 13, 28, 0.68);
-  border: 1px solid rgba(182, 147, 88, 0.48);
+  background: color-mix(in srgb, var(--dm-panel) 82%, transparent);
+  border: 1px solid var(--dm-border);
   border-radius: 5px;
   box-shadow: inset 0 0 20px rgba(1, 6, 18, 0.35);
 }
 
-.journal-page__form textarea { min-height: 4.4rem; max-height: 18rem; resize: vertical; color: var(--dm-text); background: rgba(4, 12, 26, 0.84); border-color: rgba(121, 151, 184, 0.55); field-sizing: content; }
-.journal-page__form textarea::placeholder { color: #8399b3; }
+.journal-page__form textarea { min-height: 4.4rem; max-height: 18rem; resize: vertical; color: var(--dm-text); background: color-mix(in srgb, var(--dm-bg) 88%, transparent); border-color: var(--dm-border); field-sizing: content; }
+.journal-page__form textarea::placeholder { color: var(--dm-text-muted); }
 .journal-page__form-hint { color: var(--journal-muted); font-size: 0.9rem; }
 .journal-page__form button { align-self: flex-end; }
 

@@ -42,9 +42,9 @@
 }
 
 .bestiary-page__list-item--active {
-  background: var(--dm-panel-raised);
-  border-color: var(--dm-border);
-  color: var(--dm-accent);
+  background: var(--dm-selected);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
 }
 
 .bestiary-page__list-name {
@@ -54,8 +54,7 @@
 }
 
 .bestiary-page__list-cr {
-  color: var(--dm-text-muted);
-  font-size: 0.8em;
+  flex: 0 0 auto;
 }
 
 .bestiary-page__empty,

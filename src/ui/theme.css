@@ -19,10 +19,10 @@
 }
 
 @font-face {
-  font-family: "Source Serif 4";
-  src: url("/fonts/SourceSerif4-Variable.ttf") format("truetype-variations");
+  font-family: "Manrope";
+  src: url("/fonts/Manrope-Variable.ttf") format("truetype-variations");
   font-style: normal;
-  font-weight: 200 900;
+  font-weight: 200 800;
   font-display: swap;
 }
 
@@ -35,22 +35,48 @@
 }
 
 :root {
-  --dm-bg: #081126;
-  --dm-panel: #101d38;
-  --dm-panel-raised: #17284a;
-  --dm-panel-glow: #21345b;
-  --dm-border: #3c5578;
+  /* Значения сняты пипеткой с docs/art/inbox/astral-atlas-reference.png.
+     Роли, которые уже были, меняют значение — синонимов к ним не заводится. */
+  --dm-bg: #061120;
+  --dm-panel: #0a1828;
+  --dm-panel-raised: #11223c;
+  --dm-panel-glow: #1a2d4d;
+  --dm-border: #38506c;
   --dm-border-bright: #72d6d0;
-  --dm-text: #e8f4ff;
-  --dm-text-muted: #9db9d5;
+  --dm-text: #edf5ff;
+  --dm-text-muted: #9aaac4;
   --dm-accent: #72d6d0;
   --dm-accent-hover: #b4fff7;
   --dm-secondary: #d39bee;
-  --dm-danger: #ff7f9a;
+  --dm-danger: #f2776a;
   --dm-shadow: rgba(1, 6, 18, 0.48);
 
+  /* Золото — заливки и линии, никогда мелкий текст и заголовки (решение владельца
+     от 10.09.2026: мелкое золото на тёмно-синем проваливается по контрасту). */
+  --dm-gold: #f7d390;
+  --dm-gold-line: #d9b169;
+  --dm-gold-ink: #1a1204;
+
+  /* Ледяной барвинок: рамка второстепенной кнопки, заливка выбранной вкладки,
+     свечение выделения, линии созвездных костей. */
+  --dm-periwinkle: #8798d2;
+  --dm-selected: #2a3f78;
+
+  /* Пять статусов. Три из них уже принадлежат существующим ролям — ссылка,
+     а не второе значение того же цвета. */
+  --dm-status-active: #5ccfa4;
+  --dm-status-progress: #f2c86a;
+  --dm-status-important: var(--dm-secondary);
+  --dm-status-done: var(--dm-accent);
+  --dm-status-blocked: var(--dm-danger);
+
+  --dm-star: rgba(214, 232, 255, 0.58);
+  --dm-star-bright: rgba(239, 247, 255, 0.88);
+  --dm-radius-panel: 14px;
+  --dm-radius-control: 10px;
+
   --dm-font-display: "Alegreya", Georgia, "Palatino Linotype", serif;
-  --dm-font-body: "Source Serif 4", Georgia, serif;
+  --dm-font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
 }
 
 * {
@@ -65,10 +91,19 @@ body {
 }
 
 body {
+  /* Звёздное поле макета: точки разного размера и яркости поверх туманностей.
+     Точки — фон, а не элементы: ни узла DOM, ни перерисовки при прокрутке. */
   background:
-    radial-gradient(circle at 82% 8%, rgba(105, 67, 158, 0.3), transparent 33%),
-    radial-gradient(circle at 17% 90%, rgba(55, 160, 164, 0.16), transparent 38%),
+    radial-gradient(circle at 17% 23%, var(--dm-star-bright) 0.8px, transparent 1.5px),
+    radial-gradient(circle at 73% 61%, rgba(195, 213, 255, 0.72) 0.65px, transparent 1.25px),
+    radial-gradient(circle at 41% 79%, var(--dm-star) 0.55px, transparent 1.1px),
+    radial-gradient(circle at 86% 17%, rgba(182, 151, 240, 0.66) 0.75px, transparent 1.4px),
+    radial-gradient(circle at 29% 47%, rgba(216, 235, 255, 0.42) 0.45px, transparent 1px),
+    radial-gradient(ellipse at 84% 3%, rgba(91, 58, 151, 0.3), transparent 34%),
+    radial-gradient(ellipse at 12% 86%, rgba(35, 135, 158, 0.18), transparent 38%),
+    radial-gradient(ellipse at 48% 56%, rgba(43, 66, 131, 0.13), transparent 46%),
     var(--dm-bg);
+  background-size: 211px 173px, 137px 119px, 91px 83px, 73px 101px, 54px 62px, auto, auto, auto, auto;
   color: var(--dm-text);
   font-family: var(--dm-font-body);
   font-size: 16px;
@@ -115,10 +150,10 @@ strong {
 button {
   font-family: var(--dm-font-body);
   min-height: 44px;
-  background: linear-gradient(145deg, var(--dm-panel-glow), var(--dm-panel-raised));
+  background: rgba(14, 28, 50, 0.72);
   color: var(--dm-text);
   border: 1px solid var(--dm-border);
-  border-radius: 10px;
+  border-radius: var(--dm-radius-control);
   padding: 0.5em 1em;
   cursor: pointer;
   font-weight: 650;
@@ -146,7 +181,7 @@ select {
   background: rgba(7, 15, 33, 0.88);
   color: var(--dm-text);
   border: 1px solid var(--dm-border);
-  border-radius: 10px;
+  border-radius: var(--dm-radius-control);
   padding: 0.55em 0.75em;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.25);
 }
@@ -244,6 +279,220 @@ summary { font-family: var(--dm-font-display); letter-spacing: 0.025em; }
 .launcher__item {
   background: linear-gradient(145deg, rgba(23, 40, 74, 0.95), rgba(13, 25, 49, 0.95));
   border: 1px solid var(--dm-border);
-  border-radius: 16px;
+  border-radius: var(--dm-radius-panel);
   box-shadow: 0 16px 36px var(--dm-shadow), inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
+.spell-view {
+  padding: 1em 1.15em;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Словарь контролов «Астрального атласа». Снят с правой панели макета
+   docs/art/inbox/astral-atlas-reference.png. Здесь живут ОБЩИЕ классы: если
+   элемент такого рода появляется на экране, он берёт стиль отсюда, а не заводит
+   свой диалект. Порядок — как в карточке.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Главная кнопка — единственное место, где золото несёт заливку,
+      и текст на ней тёмный, а не золотой. */
+.dm-button--primary {
+  background: linear-gradient(180deg, var(--dm-gold), #e8bd72);
+  border-color: var(--dm-gold-line);
+  color: var(--dm-gold-ink);
+  font-weight: 750;
+  text-shadow: none;
+}
+
+.dm-button--primary:hover {
+  background: linear-gradient(180deg, #ffe3a8, var(--dm-gold));
+  border-color: var(--dm-gold);
+  color: var(--dm-gold-ink);
+  box-shadow: 0 0 18px rgba(247, 211, 144, 0.3);
+}
+
+/* 2. Второстепенная кнопка — это и есть `button` по умолчанию (прозрачная
+      заливка + синяя рамка), поэтому отдельного класса ей не нужно. */
+
+/* 3. Вкладки: обычная / выбрана / наведение. */
+.dm-tab {
+  border-color: var(--dm-border);
+  color: var(--dm-text-muted);
+  font-weight: 650;
+}
+
+.dm-tab:hover { color: var(--dm-text); border-color: var(--dm-periwinkle); }
+
+.dm-tab[aria-selected="true"],
+.dm-tab.is-selected {
+  background: var(--dm-selected);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.07), 0 0 16px rgba(135, 152, 210, 0.2);
+}
+
+/* 4. Поле поиска — лупа слева, приглушённый плейсхолдер. Иконка вшита
+      data-URI: сеть при запуске приложению не нужна. */
+input[type="search"],
+.dm-field--search {
+  padding-left: 2.35em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aaac4' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.6-3.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.7em 50%;
+  background-size: 1.05em;
+}
+
+/* 5. Селект/фильтр — свой шеврон вместо системной стрелки. */
+select {
+  appearance: none;
+  padding-right: 2.2em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238798d2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7em center;
+  background-size: 1.05em;
+}
+
+/* 6. Статусные пилюли — пять состояний, у каждого ведущая точка. */
+.dm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.18em 0.7em 0.18em 0.55em;
+  border: 1px solid color-mix(in srgb, var(--dm-pill-color) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dm-pill-color) 12%, transparent);
+  color: var(--dm-text);
+  font-size: 0.82em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.dm-pill::before {
+  content: "";
+  width: 0.5em;
+  height: 0.5em;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--dm-pill-color);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--dm-pill-color) 65%, transparent);
+}
+
+.dm-pill { --dm-pill-color: var(--dm-status-active); }
+.dm-pill--progress { --dm-pill-color: var(--dm-status-progress); }
+.dm-pill--important { --dm-pill-color: var(--dm-status-important); }
+.dm-pill--done { --dm-pill-color: var(--dm-status-done); }
+.dm-pill--blocked { --dm-pill-color: var(--dm-status-blocked); }
+
+/* 7. Подсказка — кружок «i», жирный заголовок, приглушённый текст. */
+.dm-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7em;
+  padding: 0.7em 0.85em;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-control);
+  background: rgba(10, 24, 40, 0.7);
+}
+
+.dm-hint::before {
+  content: "i";
+  flex: 0 0 auto;
+  display: grid;
+  place-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border: 1px solid var(--dm-periwinkle);
+  border-radius: 50%;
+  color: var(--dm-periwinkle);
+  font-family: var(--dm-font-display);
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.dm-hint__title { display: block; color: var(--dm-text); font-weight: 750; }
+.dm-hint__text { display: block; color: var(--dm-text-muted); font-size: 0.9em; }
+
+/* 8. Шапка карточки — линейная иконка и заголовок слева, действие справа.
+      Всегда одинаково, на всех экранах. */
+.dm-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding-bottom: 0.6em;
+  margin-bottom: 0.8em;
+  border-bottom: 1px solid var(--dm-border);
+}
+
+.dm-card-head > :is(h1, h2, h3) { margin: 0; text-shadow: none; }
+.dm-card-head__action { margin-left: auto; }
+
+/* 9. Теги-чипы — «Ур. 3–8», «6 игроков». Мельче пилюль и без точки. */
+.dm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.14em 0.65em;
+  border: 1px solid var(--dm-border);
+  border-radius: 999px;
+  background: rgba(12, 26, 46, 0.75);
+  color: var(--dm-text-muted);
+  font-size: 0.78em;
+  white-space: nowrap;
+}
+
+/* 10. Строка списка — цветная иконка слева, подпись, действие справа. */
+.dm-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.45em 0.2em;
+  border-bottom: 1px solid color-mix(in srgb, var(--dm-border) 55%, transparent);
+}
+
+.dm-list-row:last-child { border-bottom: 0; }
+.dm-list-row__action { margin-left: auto; color: var(--dm-text-muted); }
+
+/* 11. Ранжированная строка — номер, имя, число, полоса, точка состояния. */
+.dm-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.dm-rank-row__index {
+  flex: 0 0 auto;
+  display: grid;
+  place-content: center;
+  width: 1.7em;
+  height: 1.7em;
+  border: 1px solid var(--dm-border);
+  border-radius: 8px;
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.dm-rank-row__bar {
+  flex: 1 1 auto;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dm-accent) 55%, transparent);
+}
+
+/* 12. Микро-подпись — капитель с разрядкой для служебных надписей. */
+.dm-micro {
+  color: var(--dm-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* 13. Рельс навигации — в AppShell.css: он единственный владелец этой раскладки. */
+
+/* Созвездная линия — общий штрих для линейной графики макета. */
+.dm-constellation-line {
+  stroke: var(--dm-periwinkle);
+  stroke-width: 1.2;
+  fill: none;
+  opacity: 0.75;
 }

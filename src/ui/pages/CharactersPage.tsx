@@ -67,6 +67,7 @@ import {
 } from "../classProgression";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
+import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
 import { CoinIcon } from "../CoinIcon";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
@@ -748,9 +749,10 @@ function CharacterCard({
 
   return (
     <li className="character-card">
-      <div className="character-card__name">
+      <div className="character-card__name dm-card-head">
+        <UIIcon name="characters" />
         <span>{c.name}</span>
-        <span className="character-card__header-actions">
+        <span className="character-card__header-actions dm-card-head__action">
           <button type="button" className="character-card__collapse" aria-expanded={!collapsed} aria-label={`${collapsed ? "Развернуть" : "Свернуть"} карточку ${c.name}`} onClick={() => setCollapsed((value) => !value)}>
             {collapsed ? "Развернуть" : "Свернуть"}
           </button>
@@ -758,7 +760,7 @@ function CharacterCard({
         </span>
       </div>
       <div className="character-card__summary">
-        <div className="character-card__meta">
+        <div className="character-card__meta dm-chip">
           {c.race || "раса не указана"} · {c.class || "класс не указан"}
           {c.subclass && <> ({c.subclass})</>}
           {c.background && <> · {c.background}</>} · ур. {c.level}
@@ -1039,7 +1041,7 @@ function CharacterCard({
                 const max = resourceMax(resource, c.abilities);
                 const current = resourceCurrent(resource);
                 return (
-                  <li key={resource.id} className="character-card__item">
+                  <li key={resource.id} className="character-card__item dm-list-row">
                     <strong>{resource.name}</strong>{" "}
                     <span className="character-card__resource-count">
                       {current}/{max} {resource.unit}
@@ -1078,7 +1080,7 @@ function CharacterCard({
                   : null;
                 const spent = resourceCurrent(resource) < (option.cost ?? 1);
                 return (
-                  <li key={option.id} className="character-card__item">
+                  <li key={option.id} className="character-card__item dm-list-row">
                     <strong>{option.name}</strong>{" "}
                     {value && (
                       <span className="character-card__resource-count">
@@ -1162,7 +1164,7 @@ function CharacterCard({
         <summary>Инвентарь ({c.inventory.length})</summary>
         <ul>
           {c.inventory.map((item) => (
-            <li key={item.id} className="character-card__item">
+            <li key={item.id} className="character-card__item dm-list-row">
               <strong>{item.name}</strong>
               <button type="button" onClick={() => adjustItemQuantity(item.id, -1)}>
                 −
@@ -1213,7 +1215,7 @@ function CharacterCard({
         <summary>Деньги (итого {coinsTotalGold(c.coins)} зм)</summary>
         <ul>
           {COIN_DENOMINATIONS.map((denomination) => (
-            <li key={denomination.key} className="character-card__item character-card__coin-row">
+            <li key={denomination.key} className="character-card__item character-card__coin-row dm-list-row">
               <CoinIcon denomination={denomination} />
               <button type="button" onClick={() => adjustCoin(denomination.key, -1)} data-own-sound>
                 −
@@ -1337,7 +1339,7 @@ function CharacterCard({
             {c.conditions.map((condition) => (
               <li key={condition}>
                 <div className="character-card__condition-row">
-                  {condition}{" "}
+                  <span className="dm-pill dm-pill--important">{condition}</span>{" "}
                   <button type="button" onClick={() => removeCondition(condition)}>
                     ✕
                   </button>
@@ -1573,10 +1575,11 @@ export function CharactersPage() {
 
   return (
     <div className="characters-page">
-      <div className="characters-page__heading">
+      <div className="characters-page__heading dm-card-head">
+        <UIIcon name="characters" />
         <h2>Персонажи</h2>
         <button
-          className={"characters-page__action characters-page__action--compact" + (panel === "wizard" ? " characters-page__action--active" : "")}
+          className={"characters-page__action characters-page__action--compact dm-card-head__action dm-button--primary" + (panel === "wizard" ? " characters-page__action--active" : "")}
           onClick={() => setPanel(panel === "wizard" ? "none" : "wizard")}
         >
           Создать персонажа по правилам
@@ -1609,7 +1612,7 @@ export function CharactersPage() {
 
       <div className="characters-page__actions">
         <button
-          className={"characters-page__action" + (panel === "presets" ? " characters-page__action--active" : "")}
+          className={"characters-page__action dm-tab" + (panel === "presets" ? " characters-page__action--active is-selected" : "")}
           onClick={() => setPanel(panel === "presets" ? "none" : "presets")}
         >
           Взять готового персонажа
@@ -1621,7 +1624,7 @@ export function CharactersPage() {
           {presets.map((preset) => (
             <li key={preset.id}>
               <button
-                className="characters-page__action"
+                className="characters-page__action dm-tab"
                 onClick={async () => {
                   await addCharacter(characterFromPreset(preset));
                   setPanel("none");

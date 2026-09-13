@@ -25,10 +25,6 @@
 }
 
 .rules-page__nav-category {
-  color: var(--dm-text-muted);
-  text-transform: uppercase;
-  font-size: 0.75em;
-  letter-spacing: 0.05em;
   margin-bottom: 0.25em;
 }
 
@@ -43,9 +39,9 @@
 }
 
 .rules-page__nav-item--active {
-  background: var(--dm-panel-raised);
-  border-color: var(--dm-border);
-  color: var(--dm-accent);
+  background: var(--dm-selected);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
 }
 
 .rules-page__content {

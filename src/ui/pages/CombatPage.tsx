@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
 import type { MonsterTemplate, Spell } from "../../state/types";
+import { UIIcon } from "../UIIcon";
 import "./CombatPage.css";
 
 function StartCombatPanel() {
@@ -21,7 +22,7 @@ function StartCombatPanel() {
   return (
     <div className="combat-start">
       <h2>Бой</h2>
-      <p className="combat-start__hint">Выбери противников и участников, затем начни бой.</p>
+      <p className="combat-start__hint dm-hint">Выбери противников и участников, затем начни бой.</p>
 
       <h3>Противники</h3>
       <div className="combat-start__list">
@@ -57,6 +58,7 @@ function StartCombatPanel() {
       </div>
 
       <button
+        className="dm-button--primary"
         disabled={monsterIds.length === 0 || characterIds.length === 0}
         onClick={() => startCombat(monsterIds, characterIds)}
       >
@@ -164,24 +166,39 @@ export function CombatPage() {
         </div>
 
         <aside className="combat-sidebar">
-          <p className="combat-sidebar__round">
+          <p className={`combat-sidebar__round dm-pill ${combat.finished ? "dm-pill--done" : "dm-pill--progress"}`}>
             Раунд {combat.round} {combat.finished && "— бой завершён"}
           </p>
           <p className="combat-sidebar__turn">
             Ходит: <strong>{current?.name ?? "—"}</strong>
           </p>
 
-          <h3>Порядок хода</h3>
+          <div className="combat-sidebar__heading dm-card-head">
+            <UIIcon name="combat" />
+            <h3>Порядок хода</h3>
+          </div>
           <ul className="combat-sidebar__order">
-            {combat.turnOrder.map((id) => {
+            {combat.turnOrder.map((id, index) => {
               const c = combat.combatants.find((c) => c.id === id);
               if (!c) return null;
+              const hpPercent = Math.max(0, Math.min(100, (c.currentHp / c.maxHp) * 100));
               return (
                 <li
                   key={id}
-                  className={id === currentId ? "combat-sidebar__order-item--current" : ""}
+                  className={
+                    "combat-sidebar__order-item dm-rank-row" +
+                    (id === currentId ? " combat-sidebar__order-item--current" : "")
+                  }
                 >
-                  {c.name} ({c.currentHp}/{c.maxHp}) — иниц. {c.initiative}
+                  <span className="dm-rank-row__index" aria-hidden="true">{index + 1}</span>
+                  <span className="combat-sidebar__avatar" aria-hidden="true">{c.name.slice(0, 2)}</span>
+                  <span className="combat-sidebar__order-name">{c.name}</span>
+                  <span className="combat-sidebar__initiative">Иниц. {c.initiative}</span>
+                  <span className="combat-sidebar__order-meta">{c.currentHp}/{c.maxHp} HP</span>
+                  <span className="combat-sidebar__hp" title={`${c.currentHp}/${c.maxHp} HP`}>
+                    <span className="dm-rank-row__bar" style={{ width: `${hpPercent}%` }} />
+                  </span>
+                  <span className="combat-sidebar__status" aria-hidden="true" />
                 </li>
               );
             })}
@@ -206,6 +223,7 @@ export function CombatPage() {
               </select>
             </label>
             <button
+              className="dm-button--primary"
               disabled={!selectedId || !targetId || combat.finished}
               onClick={() => selectedId && targetId && combatAttack(selectedId, targetId)}
             >
@@ -260,7 +278,7 @@ export function CombatPage() {
               </div>
             )}
 
-            <button disabled={combat.finished} onClick={() => endTurn()}>
+            <button className="dm-button--primary" disabled={combat.finished} onClick={() => endTurn()}>
               Закончить ход
             </button>
             <button onClick={() => endCombat()}>Завершить бой</button>

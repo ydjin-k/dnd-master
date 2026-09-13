@@ -97,8 +97,8 @@ export function SpellsPage() {
     <div className="rules-page">
       <nav className="rules-page__nav">
         <input
-          type="text"
-          className="rules-page__search"
+          type="search"
+          className="rules-page__search dm-field--search"
           placeholder="Поиск по заклинаниям и правилам..."
           aria-label="Поиск по заклинаниям и правилам"
           value={search}
@@ -113,14 +113,14 @@ export function SpellsPage() {
         >
           {visibleRulesTopics.length > 0 && (
             <div>
-              <div className="rules-page__nav-category">Правила сотворения</div>
+              <div className="rules-page__nav-category dm-micro">Правила сотворения</div>
               {visibleRulesTopics.map((t) => (
                 <button
                   key={t.id}
                   className={
-                    "rules-page__nav-item" +
+                    "rules-page__nav-item dm-tab" +
                     (active?.kind === "topic" && active.id === t.id
-                      ? " rules-page__nav-item--active"
+                      ? " rules-page__nav-item--active is-selected"
                       : "")
                   }
                   onClick={() => setActive({ kind: "topic", id: t.id })}
@@ -133,14 +133,14 @@ export function SpellsPage() {
 
           {visibleByLevel.map(([level, group]) => (
             <div key={level}>
-              <div className="rules-page__nav-category">{levelLabel(level)}</div>
+              <div className="rules-page__nav-category dm-micro">{levelLabel(level)}</div>
               {group.map((sp) => (
                 <button
                   key={sp.id}
                   className={
-                    "rules-page__nav-item" +
+                    "rules-page__nav-item dm-tab" +
                     (active?.kind === "spell" && active.id === sp.id
-                      ? " rules-page__nav-item--active"
+                      ? " rules-page__nav-item--active is-selected"
                       : "")
                   }
                   onClick={() => setActive({ kind: "spell", id: sp.id })}

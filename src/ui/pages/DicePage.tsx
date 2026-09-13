@@ -114,7 +114,7 @@ export function DicePage() {
           <option value="normal">Обычный</option><option value="adv">Преимущество</option><option value="dis">Помеха</option>
         </InlineSelect>
       </div>
-      <button className="dice-page__roll" type="button" aria-label="Бросить" onClick={roll} disabled={isRolling} data-own-sound>
+      <button className="dice-page__roll dm-button--primary" type="button" aria-label="Бросить" onClick={roll} disabled={isRolling} data-own-sound>
         <span className={`dice-page__rolling-icon${isRolling ? " is-rolling" : ""}`}><DiceIcon sides={sides} compact /></span>
         {isRolling ? "Катится…" : "Бросить"}
       </button>
@@ -133,7 +133,7 @@ export function DicePage() {
       return <li key={item.id} className="dice-log-entry">
         {entrySides && (item.result && item.result.rolls.length > 1
           ? <span className="dice-log-entry__icons">{item.result.rolls.map((roll, index) => <DiceIcon key={index} sides={entrySides} value={roll} log />)}</span>
-          : <DiceIcon sides={entrySides} value={item.result?.total} />)}
+          : <DiceIcon sides={entrySides} value={item.result?.total} log />)}
         <span className="dice-log-entry__expr">{item.label}</span>
         {item.result && <><span className="dice-log-entry__total">{item.result.total}</span>{showDetail && <span className="dice-log-entry__detail">
           {showRollBreakdown && <>[{item.result.rolls.join(", ")}]

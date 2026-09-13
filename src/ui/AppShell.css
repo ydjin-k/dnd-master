@@ -2,7 +2,8 @@
   --section-accent: #72d6d0;
   --section-accent-rgb: 114, 214, 208;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  /* Рельс макета узкий: иконка над подписью, а не иконка рядом с подписью. */
+  grid-template-columns: 124px 1fr;
   grid-template-rows: auto 1fr;
   height: 100%;
 }
@@ -22,8 +23,9 @@
   align-items: center;
   gap: 0.75em;
   padding: 0.75em 1.25em;
-  background: rgba(10, 21, 44, 0.94);
-  border-bottom: 1px solid rgba(114, 214, 208, 0.45);
+  background: rgba(8, 20, 36, 0.72);
+  backdrop-filter: blur(1px);
+  border-bottom: 1px solid var(--dm-border);
   box-shadow: 0 10px 28px rgba(1, 6, 18, 0.36);
 }
 
@@ -133,7 +135,8 @@
 }
 
 .app-shell__nav {
-  background: linear-gradient(180deg, rgba(16, 29, 56, 0.98), rgba(9, 19, 40, 0.98));
+  background: linear-gradient(180deg, rgba(10, 24, 40, 0.78), rgba(6, 17, 32, 0.7));
+  backdrop-filter: blur(1px);
   border-right: 1px solid var(--dm-border);
   padding: 1em 0.5em;
   min-height: 0;
@@ -145,15 +148,24 @@
 
 .app-shell__nav-item {
   --nav-accent: var(--dm-accent);
-  text-align: left;
+  text-align: center;
   background: transparent;
   border: 1px solid transparent;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.7em;
+  justify-content: center;
+  gap: 0.3em;
+  padding: 0.5em 0.25em;
   font-family: var(--dm-font-display);
-  letter-spacing: 0.035em;
+  font-size: 0.78em;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  hyphens: auto;
+  box-shadow: none;
 }
+
+.app-shell__nav-item .ui-icon { width: 1.6em; height: 1.6em; }
 
 .app-shell__nav-item[data-tab="adventure"] { --nav-accent: #66d9d1; }
 .app-shell__nav-item[data-tab="combat"] { --nav-accent: #ef6f68; }
@@ -165,11 +177,19 @@
 
 .app-shell__nav-item:not(.app-shell__nav-item--active) .ui-icon { color: var(--nav-accent); opacity: 0.72; }
 
+.app-shell__nav-item:not(.app-shell__nav-item--active):hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--nav-accent);
+  box-shadow: none;
+  transform: none;
+}
+
 .app-shell__nav-item--active {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--nav-accent) 24%, #17284a), rgba(23, 40, 74, 0.72));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--nav-accent) 30%, #17284a), rgba(23, 40, 74, 0.84));
   border-color: var(--nav-accent);
   color: var(--nav-accent);
-  box-shadow: inset 3px 0 var(--nav-accent), 0 0 18px color-mix(in srgb, var(--nav-accent) 18%, transparent);
+  box-shadow: inset 3px 0 var(--nav-accent), 0 0 20px color-mix(in srgb, var(--nav-accent) 28%, transparent);
 }
 
 .app-shell__nav-item--active[data-tab="combat"] { border-radius: 3px 10px 3px 10px; }

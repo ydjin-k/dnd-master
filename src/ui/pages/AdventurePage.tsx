@@ -68,7 +68,7 @@ export function AdventurePage() {
       )}
 
       <h3>Оракул</h3>
-      <p className="adventure-page__hint">
+      <p className="adventure-page__hint dm-hint">
         Задай да/нет-вопрос, оцени его вероятность на глаз — дальше решает бросок.
       </p>
       <div className="adventure-page__chaos">
@@ -96,7 +96,7 @@ export function AdventurePage() {
             </option>
           ))}
         </select>
-        <button type="submit">Спросить</button>
+        <button type="submit" className="dm-button--primary">Спросить</button>
       </form>
 
       <form className="adventure-page__custom-form" onSubmit={handleCustomSubmit}>

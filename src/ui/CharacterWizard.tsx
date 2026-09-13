@@ -741,7 +741,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     <div className="wizard">
       <div className="wizard__steps">
         {STEPS.map((s, i) => (
-          <span key={s} className={"wizard__step" + (s === step ? " wizard__step--active" : "")}>
+          <span
+            key={s}
+            className={
+              "wizard__step dm-pill " +
+              (i < stepIndex
+                ? "wizard__step--done dm-pill--done"
+                : s === step
+                  ? "wizard__step--active dm-pill--progress"
+                  : "wizard__step--pending")
+            }
+          >
             {i + 1}. {STEP_LABEL[s]}
           </span>
         ))}
@@ -756,7 +766,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             {races.map((r) => (
               <li key={r.id}>
                 <button
-                  className={"wizard__pick-item" + (r.id === raceId ? " wizard__pick-item--active" : "")}
+                  className={"wizard__pick-item dm-tab" + (r.id === raceId ? " wizard__pick-item--active is-selected" : "")}
                   onClick={() => selectRace(r.id)}
                 >
                   {r.title}
@@ -848,7 +858,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             {classes.map((c) => (
               <li key={c.id}>
                 <button
-                  className={"wizard__pick-item" + (c.id === classId ? " wizard__pick-item--active" : "")}
+                  className={"wizard__pick-item dm-tab" + (c.id === classId ? " wizard__pick-item--active is-selected" : "")}
                   onClick={() => selectClass(c.id)}
                 >
                   {c.title}
@@ -992,7 +1002,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             {BACKGROUNDS.map((b) => (
               <li key={b.id}>
                 <button
-                  className={"wizard__pick-item" + (b.id === backgroundId ? " wizard__pick-item--active" : "")}
+                  className={"wizard__pick-item dm-tab" + (b.id === backgroundId ? " wizard__pick-item--active is-selected" : "")}
                   onClick={() => selectBackground(b.id)}
                 >
                   {b.title}
@@ -1002,7 +1012,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
             <li>
               <button
                 className={
-                  "wizard__pick-item" + (backgroundId === CUSTOM_BACKGROUND_ID ? " wizard__pick-item--active" : "")
+                  "wizard__pick-item dm-tab" + (backgroundId === CUSTOM_BACKGROUND_ID ? " wizard__pick-item--active is-selected" : "")
                 }
                 onClick={() => selectBackground(CUSTOM_BACKGROUND_ID)}
               >
@@ -1596,7 +1606,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             )}
           </ul>
-          <button disabled={!!reviewMissing} onClick={finish}>
+          <button className="dm-button--primary" disabled={!!reviewMissing} onClick={finish}>
             Создать персонажа
           </button>
           {reviewMissing && <p className="wizard__hint wizard__step-warning">{reviewMissing}</p>}
@@ -1606,7 +1616,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       <div className="wizard__nav">
         {stepIndex > 0 && <button onClick={() => setStep(STEPS[stepIndex - 1])}>Назад</button>}
         {step !== "review" && (
-          <button disabled={!canGoNext} onClick={() => setStep(STEPS[stepIndex + 1])}>
+          <button className="dm-button--primary" disabled={!canGoNext} onClick={() => setStep(STEPS[stepIndex + 1])}>
             Далее
           </button>
         )}

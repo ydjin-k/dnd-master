@@ -11,7 +11,7 @@
 .wizard__steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 1em;
+  gap: 0.45em;
   align-items: center;
   margin-bottom: 1em;
   padding-bottom: 0.75em;
@@ -19,12 +19,15 @@
 }
 
 .wizard__step {
-  color: var(--dm-text-muted);
   font-size: 0.9em;
 }
 
+.wizard__steps .wizard__step--pending {
+  --dm-pill-color: var(--dm-text-muted);
+}
+
 .wizard__step--active {
-  color: var(--dm-accent);
+  color: var(--dm-text);
   font-weight: bold;
 }
 
@@ -44,7 +47,7 @@
   flex: 1 1 12.5em;
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px;
   overflow-y: auto;
 }
 
@@ -57,10 +60,15 @@
   margin-bottom: 0.15em;
 }
 
+.wizard__pick-item:hover,
+.wizard__pick-item:active {
+  transform: none;
+}
+
 .wizard__pick-item--active {
-  background: var(--dm-panel-raised);
-  border-color: var(--dm-border);
-  color: var(--dm-accent);
+  background: var(--dm-selected);
+  border-color: var(--dm-periwinkle);
+  color: var(--dm-text);
 }
 
 .wizard__pick-detail {
@@ -305,7 +313,14 @@
 .wizard__skill-list {
   margin: 0.3em 0 0;
   padding-left: 1.2em;
-  columns: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25em 2em;
+}
+
+.wizard__skill-list > li {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @container (max-width: 42rem) {
@@ -319,7 +334,7 @@
   }
 
   .wizard__skill-list {
-    columns: 1;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
