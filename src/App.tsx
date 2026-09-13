@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
+import { DiceLogProvider } from "./state/DiceLogContext";
 import { SoundtrackProvider } from "./state/SoundtrackContext";
 import type { CampaignState } from "./state/types";
 import { AppShell } from "./ui/AppShell";
@@ -87,7 +88,11 @@ function App() {
   return (
     <SoundtrackProvider>
       <CampaignProvider key={campaignKey}>
-        <AppContent onSwitchCampaign={() => setPhase("launcher")} />
+        {/* DiceLogProvider — внутри CampaignProvider, но над AppShell: журнал
+            бросков переживает смену вкладки и обнуляется вместе с кампанией. */}
+        <DiceLogProvider>
+          <AppContent onSwitchCampaign={() => setPhase("launcher")} />
+        </DiceLogProvider>
       </CampaignProvider>
     </SoundtrackProvider>
   );
