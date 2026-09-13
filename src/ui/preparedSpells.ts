@@ -36,7 +36,7 @@ import type { AbilityScores, Spell } from "../state/types";
  * сойдутся все четыре, множество совпадёт со `spellsKnownKind` и её можно
  * снять, оставив проверку вида класса.
  */
-export const PREPARED_ON_SHEET: ReadonlySet<string> = new Set(["classes-cleric"]);
+export const PREPARED_ON_SHEET: ReadonlySet<string> = new Set(["classes-cleric", "classes-paladin"]);
 
 /** Готовит ли этот класс заклинания на листе персонажа (см. `PREPARED_ON_SHEET`). */
 export function preparesSpells(classId: string | null | undefined): boolean {
@@ -44,9 +44,29 @@ export function preparesSpells(classId: string | null | undefined): boolean {
 }
 
 /**
+ * Классы, у которых в формулу подготовки идёт ПОЛОВИНА уровня с округлением
+ * вниз, а не полный уровень: полузаклинатели SRD, и из подготавливающих это
+ * один Паладин («выберите количество заклинаний паладина, равное вашему
+ * модификатору Харизмы + половине вашего уровня паладина, округлённого вниз»).
+ * Следопыт — тоже полузаклинатель, но список у него известный, и до этой
+ * формулы он не доходит вовсе.
+ *
+ * Ветвление живёт здесь и только здесь: и лист персонажа, и мастер создания
+ * спрашивают готовое число и про долю уровня не знают — иначе у формулы
+ * завёлся бы второй владелец в каждом вызывающем.
+ */
+const HALF_LEVEL_PREPARED: ReadonlySet<string> = new Set(["classes-paladin"]);
+
+/** Уровень, идущий в формулу подготовки: у полузаклинателя — половина, округляя вниз. */
+function levelInFormula(classId: string, level: number): number {
+  return HALF_LEVEL_PREPARED.has(classId) ? Math.floor(level / 2) : level;
+}
+
+/**
  * Сколько заклинаний класс может держать подготовленными: модификатор
  * заклинательной характеристики + уровень, минимум одно (SRD 5.1, «Подготовка
- * заклинаний» Жреца/Друида/Волшебника). Ноль — если класс не готовит
+ * заклинаний» Жреца/Друида/Волшебника), а у Паладина в ту же формулу идёт
+ * половина уровня (`HALF_LEVEL_PREPARED`). Ноль — если класс не готовит
  * заклинания вовсе или на этом уровне ещё не колдует: «ещё не колдует»
  * спрашивается у `highestSpellCircle`, а не сверяется с номером уровня, иначе
  * у полузаклинателя завёлся бы второй владелец факта «с какого уровня магия».
@@ -63,7 +83,19 @@ export function preparedSpellsMax(
   const ability = CLASS_SPELLCASTING_ABILITY_KEY[classId];
   if (!ability) return 0;
   if (highestSpellCircle(classId, level) === 0) return 0;
-  return Math.max(1, abilityMod(abilities[ability]) + level);
+  return Math.max(1, abilityMod(abilities[ability]) + levelInFormula(classId, level));
+}
+
+/**
+ * Из чего сложилась норма — словами, для подписи под числом. Владелец текста
+ * тот же, что и владелец формулы: экран берёт готовую строку и про половину
+ * уровня не знает, поэтому у Паладина подпись не расходится с числом.
+ */
+export function preparedSpellsFormulaLabel(classId: string | null | undefined, level: number): string {
+  const ability = "модификатор заклинательной характеристики";
+  return classId && HALF_LEVEL_PREPARED.has(classId)
+    ? `${ability} + половина уровня ${level}, округляя вниз`
+    : `${ability} + уровень ${level}`;
 }
 
 /** Разбор подготовленного списка: что занимает норму, что идёт сверх неё и сколько осталось. */

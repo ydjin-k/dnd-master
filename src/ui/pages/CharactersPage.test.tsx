@@ -989,6 +989,17 @@ describe("CharactersPage", () => {
     expect(char.level).toBe(12);
     expect(asiAt).toEqual([4, 8, 12]);
     expect(char.spellSlotsMax).toEqual([4, 3, 3, 0, 0, 0, 0, 0, 0]);
+    // Клятва берётся на 3 уровне (панель выбирает первый вариант) и по дороге
+    // сама доносит все три строки своей таблицы — 3, 5 и 9 уровней.
+    expect(char.subclass).toBe("Клятва преданности");
+    expect(char.knownSpells).toEqual([
+      "protection-from-evil-and-good",
+      "sanctuary",
+      "lesser-restoration",
+      "zone-of-truth",
+      "beacon-of-hope",
+      "dispel-magic",
+    ]);
   }, 30000);
 
   it("at max level (12), the XP row shows no threshold, just the total", () => {
@@ -1931,6 +1942,144 @@ describe("CharactersPage", () => {
       fireEvent.click(screen.getByText("Снять"));
       const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
       expect(unprepare(withOwn).knownSpells).toEqual(["bless", "cure-wounds"]);
+    });
+  });
+
+  /**
+   * characters-paladin-prepared-spells — приёмка карточки. Паладин тоже
+   * `prepared`, но полузаклинатель: магия приходит со 2 уровня, а в формулу
+   * идёт половина уровня. Заклинания клятвы раздаёт архетип тем же
+   * `subclassSpellsUpToLevel`, что и домены Жреца. Список заклинаний —
+   * поставляемый spells.json, не фикстура.
+   */
+  describe("подготовка заклинаний Паладина", () => {
+    const PALADIN_TOPIC = classTopic("classes-paladin", "Паладин", "10", "6");
+    /** Четыре клятвенных заклинания, открытых Клятвой преданности к 5 уровню. */
+    const OATH_TO_LEVEL_5 = ["protection-from-evil-and-good", "sanctuary", "lesser-restoration", "zone-of-truth"];
+
+    /** Харизма 16 (+3), 5 уровень: ячейки 4/2, норма 3 + половина 5 = 5. */
+    function preparedPaladin(extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Паладин",
+        subclass: "Клятва преданности",
+        conditions: ["Ослеплённое"],
+        abilities: { ...characterWithInventory().abilities, charisma: 16 },
+        level: 5,
+        knownSpells: [...OATH_TO_LEVEL_5],
+        spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        ...extra,
+      };
+    }
+
+    async function renderPaladin(char: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [PALADIN_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    /**
+     * Отрицательная проба на формулу: убери ветку половины уровня в
+     * `preparedSpellsMax` — норма станет 8 вместо 5, и краснеет и число, и
+     * подпись под ним.
+     */
+    it("норма считается от половины уровня, и подпись называет ту же формулу", async () => {
+      await renderPaladin(preparedPaladin());
+
+      expect(screen.getByText("Подготовленные заклинания (0/5):")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Подготовлено 0 из 5 \(модификатор заклинательной характеристики \+ половина уровня 5, округляя вниз\)/,
+        ),
+      ).toBeInTheDocument();
+      // Круг режется ячейками полузаклинателя: на 5 уровне это 2, а не 3.
+      expect(screen.getByText(/Подготовить до 2 круга \(0\/5\)/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Помощь \(2 круг\)/)).toBeInTheDocument();
+      // Заклинание жреца в списке паладина не появляется даже 1 круга.
+      expect(screen.queryByLabelText(/Направляющий луч/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Отрицательная проба на вторую половину карточки: убери строки 3 и 5 в
+     * `spellsByLevel` Клятвы преданности — и отдельной строки «сверх нормы» у
+     * паладина 5 уровня не станет вовсе.
+     */
+    it("заклинания клятвы идут отдельной строкой сверх нормы и снять их нельзя", async () => {
+      await renderPaladin(preparedPaladin());
+
+      const oath = screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(4\)/);
+      const oathGroup = oath.closest(".character-card__spell-group") as HTMLElement;
+      expect(within(oathGroup).getByText(/Защита от зла и добра/)).toBeInTheDocument();
+      expect(within(oathGroup).getByText(/Убежище/)).toBeInTheDocument();
+      expect(within(oathGroup).getByText(/Малое восстановление/)).toBeInTheDocument();
+      expect(within(oathGroup).getByText(/Зона истины/)).toBeInTheDocument();
+      expect(within(oathGroup).queryByText("Снять")).not.toBeInTheDocument();
+      // Норму они не занимают: подготовлено по-прежнему 0 из 5, перебора нет.
+      expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+      // И второй раз, уже своей рукой, их не подготовить — они уже подготовлены.
+      expect(screen.queryByLabelText(/Зона истины/)).not.toBeInTheDocument();
+      // «Убежища» в списке паладина нет вовсе — оно пришло только клятвой.
+      expect(screen.queryByLabelText(/Убежище/)).not.toBeInTheDocument();
+    });
+
+    it("до 2 уровня раздела заклинаний у паладина нет вовсе", async () => {
+      await renderPaladin(
+        preparedPaladin({
+          level: 1,
+          subclass: "",
+          knownSpells: [],
+          spellSlotsMax: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+          spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        }),
+      );
+
+      expect(screen.queryByText("Заклинания", { selector: "summary" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
+    });
+
+    it("упавшая Харизма пересчитывает норму и показывает перебор числом", async () => {
+      await renderPaladin(
+        preparedPaladin({
+          abilities: { ...characterWithInventory().abilities, charisma: 8 },
+          knownSpells: [...OATH_TO_LEVEL_5, "bless", "divine-favor", "heroism"],
+        }),
+      );
+
+      // Харизма 8 (−1) + половина 5 (2) = 1.
+      expect(screen.getByText(/Подготовлено 3 из 1/)).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 3 при норме 1 — сними 2/)).toBeInTheDocument();
+      // Клятвенные в перебор не входят: их четыре, а в счёт идут только три своих.
+      expect(screen.getAllByText("Снять")).toHaveLength(3);
+    });
+
+    /**
+     * У полузаклинателя норма растёт через уровень — это и отличает её от
+     * жреческой. 4 → 5 не двигает её вовсе, 5 → 6 поднимает на единицу.
+     */
+    it("левел-ап двигает норму через уровень, а не каждый", async () => {
+      const run = levelUpRunner(
+        PALADIN_TOPIC,
+        preparedPaladin({ level: 4, knownSpells: [], spellSlotsMax: [3, 0, 0, 0, 0, 0, 0, 0, 0], spellSlotsCurrent: [3, 0, 0, 0, 0, 0, 0, 0, 0] }),
+      );
+      await run.ready();
+      expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
+
+      run.levelUp();
+      expect(run.char.level).toBe(5);
+      // Клятвенные 5 уровня приехали на левел-апе — и норму не тронули.
+      expect(run.char.knownSpells).toEqual(OATH_TO_LEVEL_5);
+      expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
+
+      run.levelUp();
+      expect(run.char.level).toBe(6);
+      expect(screen.getByText(/Подготовлено 0 из 6/)).toBeInTheDocument();
     });
   });
 });

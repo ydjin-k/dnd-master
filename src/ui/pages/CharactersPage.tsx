@@ -65,7 +65,7 @@ import {
   spellSlotsForLevel,
   type ClassResource,
 } from "../classProgression";
-import { preparableSpells, preparedSpells, preparesSpells } from "../preparedSpells";
+import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
@@ -1584,8 +1584,7 @@ function CharacterCard({
           {preparesOnSheet && (
             <div className="character-card__asi">
               <p>
-                Подготовлено {prepared.prepared.length} из {prepared.max} (модификатор заклинательной характеристики +
-                уровень {c.level})
+                Подготовлено {prepared.prepared.length} из {prepared.max} ({preparedSpellsFormulaLabel(classId, c.level)})
                 {prepared.alwaysPrepared.length > 0 && (
                   <> — и ещё {prepared.alwaysPrepared.length} от архетипа сверх этой нормы</>
                 )}

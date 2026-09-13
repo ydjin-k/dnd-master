@@ -3557,11 +3557,13 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
       {
         name: "Клятва преданности",
         grants: {
-          // Только строка 9 уровня таблицы «Заклинания клятвы преданности»:
-          // строки 3 и 5 той же таблицы в приложении не заведены до сих пор —
-          // это отдельный пробел левелинга 1-5, и трогать его здесь нельзя
-          // (регрессия 1-5 запрещена карточкой), а 13 и 17 выше потолка.
+          // Таблица «Заклинания клятвы преданности» (rules.json → classes-paladin)
+          // целиком в пределах потолка уровней: 3 и 5 заведены карточкой
+          // characters-paladin-prepared-spells, 9 был заведён раньше, а строки
+          // 13 и 17 выше PROGRESSION_MAX_LEVEL и появятся вместе с ним.
           spellsByLevel: {
+            3: ["protection-from-evil-and-good", "sanctuary"],
+            5: ["lesser-restoration", "zone-of-truth"],
             9: ["beacon-of-hope", "dispel-magic"],
           },
           resources: [PALADIN_CHANNEL_DIVINITY],
@@ -4443,11 +4445,21 @@ export const CLASS_SPELLCASTING_ABILITY: Record<string, string> = {
   "classes-wizard": "Интеллект",
 };
 
-/** То же самое, но ключом характеристики модели персонажа, а не текстовой меткой — нужно для расчёта модификатора. */
+/**
+ * То же самое, но ключом характеристики модели персонажа, а не текстовой
+ * меткой — нужно для расчёта модификатора (норма подготовки, СЛ спасброска).
+ *
+ * Шире карты выше на одну строку, и намеренно: Паладин колдует со 2 уровня, а
+ * `CLASS_SPELLCASTING_ABILITY` служит мастеру создания признаком «у класса есть
+ * заклинания уже на 1 уровне» и открывает там выбор заговоров и заклинаний 1
+ * круга. Паладину на 1 уровне выбирать нечего, поэтому в текстовой карте его
+ * нет, а здесь есть: считать его норму подготовки и СЛ без Харизмы нельзя.
+ */
 export const CLASS_SPELLCASTING_ABILITY_KEY: Record<string, AbilityKey> = {
   "classes-bard": "charisma",
   "classes-cleric": "wisdom",
   "classes-druid": "wisdom",
+  "classes-paladin": "charisma",
   "classes-sorcerer": "charisma",
   "classes-warlock": "charisma",
   "classes-wizard": "intelligence",
