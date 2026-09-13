@@ -29,7 +29,6 @@ import {
   CLASS_EQUIPMENT,
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
-  CLASS_SPELLCASTING_ABILITY_KEY,
   CLASS_SUBCLASSES,
   catalogWeightLb,
   computeArmorClass,
@@ -64,6 +63,7 @@ import {
   type BackgroundData,
 } from "./characterCreationData";
 import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
+import { preparedSpellsMax } from "./preparedSpells";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -428,15 +428,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId)) : [];
   const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && sp.classes.includes(classId)) : [];
   const requiredCantrips = level1Progression?.cantripsKnown ?? 0;
-  // Волшебник/Друид/Жрец «подготавливают» заклинания: мод. заклинательной
-  // характеристики + уровень персонажа (в мастере всегда 1), минимум одно —
-  // не фиксированное число из таблицы (у тех классов spellsKnown = 0).
-  const spellAbilityKey = classId ? CLASS_SPELLCASTING_ABILITY_KEY[classId] : undefined;
-  const requiredSpells = !spellAbilityKey
-    ? 0
-    : CLASS_PROGRESSION[classId!]?.spellsKnownKind === "known"
+  // Число заклинаний 1 уровня: у класса с известным списком — из таблицы, у
+  // «подготавливающего» (Волшебник/Друид/Жрец) его считает preparedSpellsMax —
+  // единственный владелец формулы, тот же, что и на листе персонажа.
+  const requiredSpells =
+    CLASS_PROGRESSION[classId ?? ""]?.spellsKnownKind === "known"
       ? (level1Progression?.spellsKnown ?? 0)
-      : Math.max(1, abilityMod(totalAbilities[spellAbilityKey]) + 1);
+      : preparedSpellsMax(classId, totalAbilities, 1);
   const reviewMissing: string | null = !name.trim()
     ? "Впиши имя персонажа, чтобы продолжить."
     : spellAbility && knownCantrips.length !== requiredCantrips

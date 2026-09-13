@@ -7,7 +7,8 @@ import bundledSpells from "../../src-tauri/rules/spells.json";
 import { CharactersPage } from "./pages/CharactersPage";
 import { CharacterWizard } from "./CharacterWizard";
 import { characterFromPreset, type CharacterPreset } from "./characterPresets";
-import { ALL_SKILLS, ARMOR_STATS, CLASS_SUBCLASSES, abilityMod, catalogWeightLb, maxHpForLevel } from "./characterCreationData";
+import { ALL_SKILLS, ARMOR_STATS, CLASS_SUBCLASSES, abilityMod, catalogWeightLb, maxHpForLevel, subclassSpellsUpToLevel } from "./characterCreationData";
+import { preparedSpells } from "./preparedSpells";
 import { characterResources, resourceMax, spellSlotsForLevel } from "./classProgression";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic } from "../state/types";
 
@@ -451,6 +452,44 @@ describe("пресеты готовых персонажей", () => {
     const level3 = await levelUpThroughTheRoster({ ...level2, experiencePoints: 999999 });
     expect(level3.subclass).toBe("Домен прозрения");
     expect(level3.knownSpells).toEqual(expect.arrayContaining(["augury", "locate-object"]));
+  });
+
+  /**
+   * characters-cleric-prepared-spells: `knownSpells` у Жреца стал списком
+   * ПОДГОТОВЛЕННЫХ, и лист готового персонажа обязан пережить переход целиком
+   * — ни одно заклинание не исчезло и ни одно не оказалось сверх нормы.
+   * Оба жреца каталога проверяются одной пробой: домены у них разные, а
+   * правило одно.
+   */
+  it("готовые жрецы переходят на подготовку без потерь и без перебора нормы", async () => {
+    const clerics = PRESETS.filter((preset) => preset.class === "Жрец");
+    expect(clerics).toHaveLength(2);
+
+    for (const preset of clerics) {
+      const copy = characterFromPreset(preset);
+      const status = preparedSpells({
+        classId: "classes-cleric",
+        abilities: copy.abilities,
+        level: copy.level,
+        knownSpells: copy.knownSpells,
+        alwaysPrepared: subclassSpellsUpToLevel("classes-cleric", copy.subclass, copy.level, copy.subclassChoices),
+      });
+      // Ничего не потеряно: подготовленное плюс доменное — ровно лист пресета.
+      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.knownSpells].sort());
+      // Мудрость 16 (+3) на 1 уровне даёт норму в 4, и все четыре свои заняты,
+      // а два заклинания домена идут сверх неё.
+      expect(status.max, preset.id).toBe(4);
+      expect(status.prepared, preset.id).toHaveLength(4);
+      expect(status.alwaysPrepared, preset.id).toHaveLength(2);
+      expect(status.overflow, preset.id).toBe(0);
+    }
+
+    // И то же самое видно на листе взятого из панели жреца, а не только в расчёте.
+    const cleric = await presetFromThePanel(/Селиэн Ардвен/);
+    mockState = baseState({ characters: [cleric] });
+    render(<CharactersPage />);
+    expect(await screen.findByText("Подготовленные заклинания (4/4):")).toBeInTheDocument();
+    expect(screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(2\)/)).toBeInTheDocument();
   });
 
   /**
