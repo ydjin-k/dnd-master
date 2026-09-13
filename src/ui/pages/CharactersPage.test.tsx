@@ -2154,6 +2154,36 @@ describe("CharactersPage", () => {
       expect(screen.queryByLabelText(/Убежище/)).not.toBeInTheDocument();
     });
 
+    /**
+     * characters-oath-spells-for-original-oaths. Оригинальные клятвы студии
+     * ведут себя ровно как Преданность: заклинания раздаёт тот же
+     * `subclassSpellsUpToLevel`, разбор на «сверх нормы» — тот же
+     * `preparedSpells`, второго владельца у факта нет. Проба на листе, а не на
+     * данных: до карточки группа «сверх нормы» у этих двух паладинов не
+     * рисовалась вовсе.
+     *
+     * Отрицательная проба: убери у клятвы строку 5 уровня — клятвенных станет
+     * две вместо четырёх, и число в заголовке группы покраснеет.
+     */
+    it.each([
+      ["Клятва древних", ["entangle", "speak-with-animals", "moonbeam", "barkskin"], ["Опутывание", "Разговор с животными", "Лунный луч", "Кора"]],
+      ["Клятва мести", ["bane", "hunters-mark", "hold-person", "misty-step"], ["Проклятие", "Метка охотника", "Удержание личности", "Туманный шаг"]],
+    ])("паладин %s 5 уровня видит четыре клятвенных заклинания сверх нормы", async (oath, ids, names) => {
+      await renderPaladin(preparedPaladin({ subclass: oath, knownSpells: [...ids] }));
+
+      const group = screen
+        .getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(4\)/)
+        .closest(".character-card__spell-group") as HTMLElement;
+      for (const name of names) {
+        expect(within(group).getByText(new RegExp(name)), name).toBeInTheDocument();
+      }
+      // Снять их нельзя — как у Преданности и у домена жреца.
+      expect(within(group).queryByText("Снять")).not.toBeInTheDocument();
+      // Норму они не занимают: подготовлено 0 из 5, перебора нет.
+      expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+    });
+
     it("до 2 уровня раздела заклинаний у паладина нет вовсе", async () => {
       await renderPaladin(
         preparedPaladin({
