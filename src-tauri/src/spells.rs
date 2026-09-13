@@ -109,8 +109,8 @@ mod tests {
     }
 
     /// Официальные списки SRD 5.1 («Paladin Spells» / «Ranger Spells»). Полузаклинатели
-    /// заговоров не получают, а по `HALF_CASTER_SLOTS` до уровня 5 доходят только до 2 круга,
-    /// поэтому кругов выше здесь и не ожидается.
+    /// заговоров не получают; по `HALF_CASTER_SLOTS` 2 круг приходит на 5 уровне, 3 — на 9-м,
+    /// а 4 и 5 круги лежат за нынешним потолком 12 и в файле не размечены.
     fn assert_class_list(class_id: &str, level: u8, expected: &[&str]) {
         let mut actual: Vec<String> = load_bundled()
             .into_iter()
@@ -154,6 +154,21 @@ mod tests {
                 "magic-weapon",
                 "protection-from-poison",
                 "zone-of-truth",
+            ],
+        );
+        // rules-paladin-third-circle-spell-list: ячейки 3 круга приходят на 9 уровне, и с
+        // подъёмом потолка до 12 список перестал быть мёртвым. Снятая метка у любого из
+        // шести краснит именно этот состав, а не общий счёт заклинаний в файле.
+        assert_class_list(
+            "classes-paladin",
+            3,
+            &[
+                "create-food-and-water",
+                "daylight",
+                "dispel-magic",
+                "magic-circle",
+                "remove-curse",
+                "revivify",
             ],
         );
     }

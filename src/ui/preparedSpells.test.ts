@@ -196,7 +196,7 @@ describe("подготовка заклинаний", () => {
 
   /**
    * Источник паладина — тот же полный список класса, отбор общий. Круг режется
-   * ячейками: на 2 уровне только 1 круг, с 5-го — 2.
+   * ячейками: на 2 уровне только 1 круг, с 5-го — 2, с 9-го — 3.
    */
   it("паладину к выбору идёт список паладина по доступному кругу", () => {
     const level2 = preparableSpells(SPELLS, { classId: "classes-paladin", level: 2, alreadyPrepared: [] });
@@ -209,12 +209,45 @@ describe("подготовка заклинаний", () => {
     expect(level5.some((sp) => sp.id === "bless")).toBe(false);
 
     /*
-     * На 12 уровне паладину доступен 3 круг, но заклинаний 3 круга у него в
-     * spells.json нет ни одного — список тот же, что и на 5-м. Это состояние
-     * данных, а не потолок механики: появятся — попадут сюда сами.
+     * rules-paladin-third-circle-spell-list. Раньше здесь стояло «на 12 уровне
+     * список тот же, что и на 5-м»: ячейки 3 круга паладин получал с 9-го, а
+     * заклинаний 3 круга у него в spells.json не было ни одного. Проба
+     * фиксировала состояние данных, а не правило, и с появлением меток
+     * закономерно покраснела (19 → 25) — переписана, а не подогнана.
+     *
+     * На 8 уровне 3 круга ещё нет: ячейки приходят на 9-м, и режет список
+     * `highestSpellCircle`, а не наличие заклинаний в файле.
      */
+    const level8 = preparableSpells(SPELLS, { classId: "classes-paladin", level: 8, alreadyPrepared: [] });
+    expect(level8).toHaveLength(19);
+    expect(level8.every((sp) => sp.level <= 2)).toBe(true);
+  });
+
+  /**
+   * rules-paladin-third-circle-spell-list. Состав 3 круга паладина по списку
+   * SRD 5.1 («Paladin Spells», 3rd Level) — шесть заклинаний, все уже лежали в
+   * файле под другими классами. Отрицательная проба: сними `classes-paladin`
+   * хотя бы у одного из шести — краснеет именно состав, а не общий счёт
+   * заклинаний в файле.
+   */
+  it("с 9 уровня паладин готовит 3 круг, а 1 и 2 круги не сдвинулись", () => {
+    const level9 = preparableSpells(SPELLS, { classId: "classes-paladin", level: 9, alreadyPrepared: [] });
+    expect(level9.filter((sp) => sp.level === 3).map((sp) => sp.id).sort()).toEqual([
+      "create-food-and-water",
+      "daylight",
+      "dispel-magic",
+      "magic-circle",
+      "remove-curse",
+      "revivify",
+    ]);
+    // Круги 1 и 2 остались ровно теми же списками SRD: 11 и 8, итого 25.
+    expect(level9.filter((sp) => sp.level === 1)).toHaveLength(11);
+    expect(level9.filter((sp) => sp.level === 2)).toHaveLength(8);
+    expect(level9).toHaveLength(25);
+
+    // На 12 уровне список тот же: 4 круг паладину открывается за нынешним потолком.
     const level12 = preparableSpells(SPELLS, { classId: "classes-paladin", level: 12, alreadyPrepared: [] });
-    expect(level12).toHaveLength(19);
-    expect(level12.filter((sp) => sp.level === 3)).toEqual([]);
+    expect(level12).toHaveLength(25);
+    expect(level12.every((sp) => sp.level <= 3)).toBe(true);
   });
 });
