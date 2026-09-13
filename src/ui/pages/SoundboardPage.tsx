@@ -22,6 +22,7 @@ function TrackList({
       <ul className="soundboard__tracks">{category.tracks.map((track) => {
         const active = isActive(track.id);
         return <li key={track.id} className={"soundboard__track dm-list-row" + (active ? " is-active" : "")}>
+          <span className="soundboard__title">{track.title}</span>
           <button
             type="button"
             className="soundboard__toggle"
@@ -32,7 +33,6 @@ function TrackList({
           >
             <span aria-hidden="true">{active ? "❚❚" : "▶"}</span>
           </button>
-          <span className="soundboard__title">{track.title}</span>
           <input
             className="soundboard__volume"
             type="range"
