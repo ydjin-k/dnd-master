@@ -1780,6 +1780,159 @@ describe("CharactersPage", () => {
     expect(screen.queryByText(/Списка заклинаний этого класса в приложении пока нет/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Метка охотника/)).toBeInTheDocument();
   });
+
+  /**
+   * characters-cleric-prepared-spells — приёмка карточки. Жрец помечен
+   * `spellsKnownKind: "prepared"` и до этой карточки получал жёсткий ноль:
+   * ячейки и заговоры росли, а заклинаний не было ни одного. Настоящий
+   * поставляемый spells.json, не фикстура: «у жреца есть что готовить»
+   * держится ровно на данных, и подсунутый список ничего бы не доказал.
+   */
+  describe("подготовка заклинаний Жреца", () => {
+    /** Мудрость 16 (+3) — как у обоих готовых жрецов в presets.json. */
+    function preparedCleric(extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        class: "Жрец",
+        subclass: "Домен жизни",
+        conditions: ["Ослеплённое"],
+        abilities: { ...characterWithInventory().abilities, wisdom: 16 },
+        spellSlotsMax: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+        ...extra,
+      };
+    }
+
+    async function renderWithRealSpells(char: Character, topic = classTopic("classes-cleric", "Жрец", "8", "5")) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [topic, CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return bundledSpells as Spell[];
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/не может видеть/);
+    }
+
+    it("жрец 12 уровня готовит заклинания из всего списка класса вплоть до 6 круга", async () => {
+      await renderWithRealSpells(
+        preparedCleric({
+          level: 12,
+          // Только заклинания домена — своих подготовленных ещё нет ни одного.
+          knownSpells: [
+            "bless", "cure-wounds", "lesser-restoration", "spiritual-weapon", "beacon-of-hope",
+            "revivify", "death-ward", "guardian-of-faith", "mass-cure-wounds", "raise-dead",
+          ],
+          spellSlotsMax: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+          spellSlotsCurrent: [4, 3, 3, 3, 2, 1, 0, 0, 0],
+        }),
+      );
+
+      // Норма: модификатор Мудрости (+3) + уровень (12) = 15.
+      expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
+      expect(screen.getByText(/Подготовить до 6 круга \(0\/15\)/)).toBeInTheDocument();
+      // Из списка жреца доступно всё до 6 круга — «Исцеление» это 6 круг.
+      expect(screen.getByLabelText(/Исцеление \(6 круг\)/)).toBeInTheDocument();
+      // …и ничего выше: «Огненный шторм» жреца — 7 круг, ячеек под него нет.
+      expect(screen.queryByLabelText(/Огненный шторм/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Отрицательная проба карточки: снять исключение доменных из подсчёта
+     * (`preparedSpells` в preparedSpells.ts) — и эта проба краснеет, потому
+     * что подготовленных станет 6 при норме 4 с предупреждением о переборе.
+     */
+    it("заклинания домена показаны отдельно и в норму не засчитываются", async () => {
+      await renderWithRealSpells(
+        preparedCleric({
+          knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
+        }),
+      );
+
+      expect(screen.getByText("Подготовленные заклинания (4/4):")).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 4 из 4/)).toBeInTheDocument();
+      const domain = screen.getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(2\)/);
+      const domainGroup = domain.closest(".character-card__spell-group") as HTMLElement;
+      expect(within(domainGroup).getByText(/Благословение/)).toBeInTheDocument();
+      expect(within(domainGroup).getByText(/Лечение ран/)).toBeInTheDocument();
+      // Снять их нельзя — кнопка есть только у подготовленного самим игроком.
+      expect(within(domainGroup).queryByText("Снять")).not.toBeInTheDocument();
+      expect(screen.getAllByText("Снять")).toHaveLength(4);
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+    });
+
+    it("упавшая Мудрость пересчитывает норму и показывает перебор числом, а не молча срезает список", async () => {
+      await renderWithRealSpells(
+        preparedCleric({
+          abilities: { ...characterWithInventory().abilities, wisdom: 10 },
+          knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
+        }),
+      );
+
+      expect(screen.getByText(/Подготовлено 4 из 1/)).toBeInTheDocument();
+      expect(screen.getByText(/Подготовлено 4 при норме 1 — сними 3/)).toBeInTheDocument();
+      // Ничего не исчезло: все четыре по-прежнему на листе и их можно снять вручную.
+      expect(screen.getAllByText("Снять")).toHaveLength(4);
+    });
+
+    it("левел-ап поднимает норму подготовки вместе с уровнем", async () => {
+      const run = levelUpRunner(classTopic("classes-cleric", "Жрец", "8", "5"), preparedCleric({ level: 1 }));
+      await run.ready();
+      expect(screen.getByText(/Подготовлено 0 из 4/)).toBeInTheDocument();
+
+      run.levelUp();
+      expect(run.char.level).toBe(2);
+      expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
+    });
+
+    /**
+     * Калитка лесенки: подготовка включена только у Жреца. У класса с
+     * известным списком (Бард) и у трёх остальных `prepared`-классов, чьи
+     * карточки ещё не сделаны, ни счётчика нормы, ни предупреждения о
+     * переборе быть не должно — иначе общий код открыл бы им механику
+     * наполовину и без их чисел.
+     */
+    it("у класса с известным списком и у ждущих своих карточек подготовки нет", async () => {
+      await renderWithRealSpells({
+        ...preparedCleric(),
+        class: "Бард",
+        subclass: "Коллегия знаний",
+        knownSpells: ["bless", "cure-wounds"],
+      }, classTopic("classes-bard", "Бард", "8", "5"));
+      expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+      expect(screen.getByText("Известные заклинания:")).toBeInTheDocument();
+
+      cleanup();
+      await renderWithRealSpells({
+        ...preparedCleric(),
+        class: "Друид",
+        subclass: "Круг земли",
+        knownSpells: ["bless", "cure-wounds"],
+      }, classTopic("classes-druid", "Друид", "8", "5"));
+      expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
+      expect(screen.getByText("Подготовленные заклинания:")).toBeInTheDocument();
+    });
+
+    it("выбранное подготавливается и снимается через onUpdate", async () => {
+      const char = preparedCleric({ knownSpells: ["bless", "cure-wounds"] });
+      await renderWithRealSpells(char);
+
+      fireEvent.click(screen.getByLabelText(/Направляющий луч \(1 круг\)/));
+      fireEvent.click(screen.getByText("Подготовить"));
+      const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(prepare(char).knownSpells).toEqual(["bless", "cure-wounds", "guiding-bolt"]);
+
+      cleanup();
+      updateCharacter.mockClear();
+      const withOwn = preparedCleric({ knownSpells: ["bless", "cure-wounds", "guiding-bolt"] });
+      await renderWithRealSpells(withOwn);
+      fireEvent.click(screen.getByText("Снять"));
+      const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(unprepare(withOwn).knownSpells).toEqual(["bless", "cure-wounds"]);
+    });
+  });
 });
 
 describe("truncateDescription", () => {

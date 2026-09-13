@@ -65,6 +65,7 @@ import {
   spellSlotsForLevel,
   type ClassResource,
 } from "../classProgression";
+import { preparableSpells, preparedSpells, preparesSpells } from "../preparedSpells";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
@@ -220,6 +221,10 @@ function CharacterCard({
   const [choiceSelections, setChoiceSelections] = useState<string[]>([]);
   const [chosenCantrips, setChosenCantrips] = useState<string[]>([]);
   const [chosenSpells, setChosenSpells] = useState<string[]>([]);
+  // Выбор подготовки держится отдельно от выбора «выучить»: у класса с
+  // подготовкой оба списка могут быть открыты одновременно (заговоры по-
+  // прежнему учатся насовсем), и общий счётчик перемешал бы их.
+  const [chosenPrepared, setChosenPrepared] = useState<string[]>([]);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -320,6 +325,34 @@ function CharacterCard({
 
   function findSpell(id: string): Spell | undefined {
     return spells.find((sp) => sp.id === id);
+  }
+
+  /**
+   * Строка заклинания в списке: название, круг, трата ячейки и — только у
+   * того, что игрок подготовил сам, — снятие подготовки. `canUnprepare`
+   * приходит от разбора `preparedSpells`, потому что владелец факта «это
+   * снять нельзя» один: заклинания архетипа подготовлены всегда.
+   */
+  function spellLine(id: string, canUnprepare: boolean) {
+    const circle = findSpell(id)?.level ?? 1;
+    return (
+      <li key={id}>
+        {spellName(id)} ({circle} круг){" "}
+        <button
+          type="button"
+          onClick={() => useSpellSlot(circle)}
+          disabled={freeSlotIndex(c.spellSlotsCurrent, circle) === -1}
+          data-own-sound
+        >
+          Использовать
+        </button>
+        {canUnprepare && (
+          <button type="button" onClick={() => unprepareSpell(id)}>
+            Снять
+          </button>
+        )}
+      </li>
+    );
   }
 
   function restoreSpellSlots() {
@@ -688,6 +721,24 @@ function CharacterCard({
   );
   const subclassScaling = subclassScalingAt(classId, c.subclass, c.level, c.subclassChoices);
   const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level, c.subclassChoices);
+  /**
+   * Подготовка заклинаний (preparedSpells.ts) — у класса, который её уже ведёт
+   * на листе. Норма не хранится в персонаже: она пересчитывается здесь из
+   * `c.abilities` и `c.level` при каждом показе, поэтому смена характеристики
+   * и левел-ап двигают её сами, а не по снимку. Заклинания архетипа идут сверх
+   * нормы — их владелец прежний, `subclassSpellsUpToLevel`.
+   */
+  const preparesOnSheet = preparesSpells(classId);
+  const prepared = preparedSpells({
+    classId,
+    abilities: c.abilities,
+    level: c.level,
+    knownSpells: c.knownSpells,
+    alwaysPrepared: domainSpells,
+  });
+  const preparableNow = preparesOnSheet
+    ? preparableSpells(spells, { classId, level: c.level, alreadyPrepared: c.knownSpells })
+    : [];
   const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
   const weaponAttacks = weaponsInInventory(c.inventory.map((item) => item.name)).map((weapon) =>
     weaponAttackFor(weapon, c.abilities, c.level, weaponProficiencies),
@@ -717,6 +768,21 @@ function CharacterCard({
   function toggleLearn(id: string, limit: number, selected: string[], setSelected: (ids: string[]) => void) {
     if (selected.includes(id)) setSelected(selected.filter((x) => x !== id));
     else if (selected.length < limit) setSelected([...selected, id]);
+  }
+
+  /** Подготовить выбранное: список подготовленных — это и есть `knownSpells` у такого класса. */
+  function prepareChosen() {
+    onUpdate((ch) => ({ ...ch, knownSpells: [...ch.knownSpells, ...chosenPrepared] }));
+    setChosenPrepared([]);
+  }
+
+  /**
+   * Снять подготовку. Заклинания архетипа сюда не приходят: по SRD они
+   * подготовлены всегда, и кнопки у них нет — разделяет списки
+   * `preparedSpells`, второй проверки здесь не заводится.
+   */
+  function unprepareSpell(id: string) {
+    onUpdate((ch) => ({ ...ch, knownSpells: ch.knownSpells.filter((spellId) => spellId !== id) }));
   }
 
   function learnChosen() {
@@ -1397,27 +1463,28 @@ function CharacterCard({
               </ul>
             </div>
           )}
-          {c.knownSpells.length > 0 && (
+          {(preparesOnSheet || c.knownSpells.length > 0) && (
             <div className="character-card__spell-group">
-              {spellsKnownKind === "prepared" ? "Подготовленные заклинания:" : "Известные заклинания:"}
+              {preparesOnSheet
+                ? `Подготовленные заклинания (${prepared.prepared.length}/${prepared.max}):`
+                : spellsKnownKind === "prepared"
+                  ? "Подготовленные заклинания:"
+                  : "Известные заклинания:"}
               <ul className="character-card__spell-list">
-                {c.knownSpells.map((id) => {
-                  const spell = findSpell(id);
-                  const circle = spell?.level ?? 1;
-                  return (
-                    <li key={id}>
-                      {spellName(id)} ({circle} круг){" "}
-                      <button
-                        type="button"
-                        onClick={() => useSpellSlot(circle)}
-                        disabled={freeSlotIndex(c.spellSlotsCurrent, circle) === -1}
-                        data-own-sound
-                      >
-                        Использовать
-                      </button>
-                    </li>
-                  );
-                })}
+                {(preparesOnSheet ? prepared.prepared : c.knownSpells).map((id) => spellLine(id, preparesOnSheet))}
+              </ul>
+            </div>
+          )}
+          {preparesOnSheet && prepared.overflow > 0 && (
+            <p className="character-card__danger">
+              ⚠ Подготовлено {prepared.prepared.length} при норме {prepared.max} — сними {prepared.overflow}.
+            </p>
+          )}
+          {preparesOnSheet && prepared.alwaysPrepared.length > 0 && (
+            <div className="character-card__spell-group">
+              Заклинания архетипа — всегда подготовлены, сверх нормы ({prepared.alwaysPrepared.length}):
+              <ul className="character-card__spell-list">
+                {prepared.alwaysPrepared.map((id) => spellLine(id, false))}
               </ul>
             </div>
           )}
@@ -1511,6 +1578,44 @@ function CharacterCard({
                     Выучить
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+          {preparesOnSheet && (
+            <div className="character-card__asi">
+              <p>
+                Подготовлено {prepared.prepared.length} из {prepared.max} (модификатор заклинательной характеристики +
+                уровень {c.level})
+                {prepared.alwaysPrepared.length > 0 && (
+                  <> — и ещё {prepared.alwaysPrepared.length} от архетипа сверх этой нормы</>
+                )}
+                .
+              </p>
+              {prepared.free > 0 && preparableNow.length > 0 && (
+                <>
+                  <p>
+                    Подготовить до {highestCircle} круга ({chosenPrepared.length}/{prepared.free}):
+                  </p>
+                  <ul className="character-card__spell-list">
+                    {preparableNow.map((sp) => (
+                      <li key={sp.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={chosenPrepared.includes(sp.id)}
+                            onChange={() => toggleLearn(sp.id, prepared.free, chosenPrepared, setChosenPrepared)}
+                          />{" "}
+                          {sp.name} ({sp.level} круг)
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="character-card__asi-actions">
+                    <button type="button" disabled={chosenPrepared.length === 0} onClick={prepareChosen}>
+                      Подготовить
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
