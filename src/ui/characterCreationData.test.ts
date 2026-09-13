@@ -679,3 +679,154 @@ describe("Особенности архетипов на уровнях 6-12", (
     }
   });
 });
+
+/**
+ * characters-archetypes-6-12-mechanics-fixes — приёмка карточки: блок 2
+ * отчёта original-archetypes-6-12-review. Каждая проба сторожит ОДНУ
+ * позицию и краснеет при её откате, а не общий снимок данных: за снимок
+ * отвечают пробы выше, и на подмену эффекта они не реагируют.
+ */
+describe("механика архетипов 6-12 уровней", () => {
+  const abilities = { ...emptyAbilityScores(), wisdom: 16, charisma: 16 };
+
+  function scalingNamed(classId: string, subclass: string, level: number, name: string) {
+    return subclassScalingAt(classId, subclass, level).find((s) => s.name === name);
+  }
+  function ownResource(classId: string, subclass: string, id: string) {
+    return subclassGrants(classId, subclass)?.resources?.find((r) => r.id === id);
+  }
+
+  // Позиция 1: текст обещал временные хиты самому жрецу, а temp-hp-allies по
+  // построению считает только союзников — своё число жрец на листе не видел.
+  it("Знамя стойкости даёт жрецу СВОИ временные хиты, а не только союзничьи", () => {
+    const banner = scalingNamed("classes-cleric", "Домен войны", 6, "Знамя стойкости");
+    expect(banner?.effect).toEqual({ kind: "temp-hp-self", perLevel: 1 });
+    expect(subclassEffectValue(banner!.effect, { classId: "classes-cleric", abilities, level: 6 })).toEqual({
+      label: "временных хитов",
+      value: 6,
+    });
+    // «Боевой клич» остаётся владельцем союзничьего числа — это разные факты.
+    const cry = subclassResourceOptionsAt("classes-cleric", "Домен войны", 6).find((o) => o.id === "battle-cry")!;
+    expect(cry.effect).toEqual({ kind: "temp-hp-allies", perLevel: 1 });
+  });
+
+  it("до 6 уровня Знамени стойкости на листе нет", () => {
+    expect(scalingNamed("classes-cleric", "Домен войны", 5, "Знамя стойкости")).toBeUndefined();
+  });
+
+  // Позиция 4: «модификатор Мудрости к урону заговора» не выражал ни один вид
+  // эффекта — число было мёртвым текстом.
+  it("Мощное заклинательство даёт кость урона, а не мёртвый модификатор Мудрости", () => {
+    const mighty = scalingNamed("classes-cleric", "Домен прозрения", 8, "Мощное заклинательство");
+    expect(subclassEffectValue(mighty!.effect, { classId: "classes-cleric", abilities, level: 8 })).toEqual({
+      label: "дополнительного урона",
+      value: "1к8",
+    });
+  });
+
+  // Позиция 10б: урон громом «= модификатор Харизмы» был помечен descriptive,
+  // то есть движок его не считал вовсе.
+  it("Око бури даёт кость урона громом, а не descriptive", () => {
+    const eye = subclassResourceOptionsAt("classes-sorcerer", "Происхождение от бури", 6).find(
+      (o) => o.id === "eye-of-the-storm",
+    )!;
+    expect(eye.effect).toEqual({ kind: "bonus-damage-dice", count: 1, die: 6 });
+    expect(subclassEffectValue(eye.effect, { classId: "classes-sorcerer", abilities, level: 6 })?.value).toBe("1к6");
+  });
+
+  // Позиция 5: «однажды между отдыхами» было написано, а счётчика не было —
+  // в отличие от соседей по классу.
+  it("Милость двора имеет счётчик той же формы, что у соседних покровителей", () => {
+    expect(ownResource("classes-warlock", "Покровитель-Архифея", "courts-favor")).toEqual({
+      id: "courts-favor",
+      name: "Милость двора",
+      max: 1,
+      recharge: "short",
+      unit: "использование",
+    });
+    expect(ownResource("classes-warlock", "Покровитель-Древний Ужас", "echoed-whisper")?.recharge).toBe("short");
+  });
+
+  // Позиция 16: безусловный детектор лжи заменён спасброском; владелец просил
+  // оба числа перед глазами — счётчик и сама СЛ.
+  it("Слух повсюду имеет счётчик на короткий отдых и показывает СЛ заклинаний барда", () => {
+    expect(ownResource("classes-bard", "Коллегия шёпота", "ears-everywhere")?.recharge).toBe("short");
+    const ears = scalingNamed("classes-bard", "Коллегия шёпота", 6, "Слух повсюду");
+    expect(ears?.effect).toEqual({ kind: "saving-throw", against: "charisma" });
+    // Бард 6 уровня с Харизмой 16: 8 + 3 бонуса мастерства + 3 модификатора.
+    expect(spellSaveDc("classes-bard", abilities, 6)).toBe(14);
+    expect(subclassEffectValue(ears!.effect, { classId: "classes-bard", abilities, level: 6 })).toEqual({
+      label: "СЛ спасброска (Харизма)",
+      value: 14,
+    });
+  });
+
+  // Позиция 22: весь архетип живёт на 2 очках, не растущих с 3 по 12 уровень,
+  // и два умения делят их между собой.
+  it("Очки мистической энергии возвращаются коротким отдыхом", () => {
+    expect(ownResource("classes-fighter", "Мистический рыцарь", "arcane-charge")).toMatchObject({
+      max: 2,
+      recharge: "short",
+    });
+  });
+
+  // Позиция 19б: «одну потраченную кость за короткий отдых» не выражается
+  // ничем — recharge знает только short/long. Владелец выбрал полный short,
+  // зная, что выдача растёт с 4 за день до 4 за каждый короткий отдых.
+  it("Знание поля возвращает кости превосходства за короткий отдых", () => {
+    expect(ownResource("classes-fighter", "Мастер боя", "superiority-dice")).toMatchObject({
+      max: 4,
+      recharge: "short",
+    });
+  });
+
+  // Позиция 20 после решения владельца: дешевеет БРОСОК, а не цена. Цена в две
+  // кости — то, что держит выдачу манёвров от перемножения с коротким отдыхом
+  // у костей превосходства (проба на него — соседняя, «Знание поля»): при цене
+  // в одну кость двойной манёвр удваивал бы каждую кость, а при цене в две он
+  // по числу манёвров нейтрален, и вся выгода приёма — один бросок на оба.
+  it("Двойной манёвр стоит две кости, но бросок на оба — один", () => {
+    const double = subclassResourceOptionsAt("classes-fighter", "Мастер боя", 10).find(
+      (o) => o.id === "maneuver-double",
+    )!;
+    expect(double.cost).toBe(2);
+    // Одиночный манёвр тратит одну кость (cost по умолчанию) — значит двойной
+    // стоит ровно столько же, сколько два манёвра порознь.
+    const single = subclassResourceOptionsAt("classes-fighter", "Мастер боя", 10).find(
+      (o) => o.id === "maneuver-precision",
+    )!;
+    expect(single.cost ?? 1).toBe(1);
+    expect(double.cost).toBe(2 * (single.cost ?? 1));
+    // Кость эффекта одна — её бросок идёт в оба манёвра сразу.
+    expect(double.effect).toEqual({ kind: "bonus-dice", count: 1, die: 8 });
+    expect(subclassResourceOptionsAt("classes-fighter", "Мастер боя", 9).map((o) => o.id)).not.toContain(
+      "maneuver-double",
+    );
+  });
+
+  // Позиция 23: перемещение остаётся бесплатным, преимущество — за очко ци.
+  it("преимущество Шага сквозь тень стоит очко ци, а само перемещение бесплатно", () => {
+    const step = subclassResourceOptionsAt("classes-monk", "Путь тени", 6).find(
+      (o) => o.id === "shadow-step-advantage",
+    )!;
+    expect(step.cost).toBe(1);
+    expect(subclassResourceOptionsAt("classes-monk", "Путь тени", 5).map((o) => o.id)).not.toContain(
+      "shadow-step-advantage",
+    );
+  });
+
+  // Позиция Д: подпись на экране — «СЛ спасброска», значит и в текстах «СЛ».
+  it("в текстах особенностей и заклинаний нет написания «Сл»", () => {
+    const wrong = /(?<![А-Яа-яЁё])Сл(?![а-яё])/;
+    for (const info of Object.values(CLASS_SUBCLASSES)) {
+      for (const subclass of info.subclasses) {
+        for (const features of Object.values(subclass.featuresByLevel)) {
+          for (const f of features) expect(f.description, `${subclass.name} / ${f.name}`).not.toMatch(wrong);
+        }
+      }
+    }
+    for (const spell of bundledSpells as { name: string; description: string }[]) {
+      expect(spell.description, spell.name).not.toMatch(wrong);
+    }
+  });
+});
