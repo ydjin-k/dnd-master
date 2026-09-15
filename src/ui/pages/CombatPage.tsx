@@ -10,9 +10,12 @@ function StartCombatPanel() {
   const [bestiary, setBestiary] = useState<MonsterTemplate[]>([]);
   const [monsterIds, setMonsterIds] = useState<string[]>([]);
   const [characterIds, setCharacterIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<MonsterTemplate[]>("get_bestiary").then(setBestiary);
+    invoke<MonsterTemplate[] | null>("get_bestiary")
+      .then((loaded) => setBestiary(loaded ?? []))
+      .catch((e) => setError(String(e)));
   }, []);
 
   function toggle(list: string[], set: (v: string[]) => void, id: string) {
@@ -23,6 +26,8 @@ function StartCombatPanel() {
     <div className="combat-start">
       <h2>Бой</h2>
       <p className="combat-start__hint dm-hint">Выбери противников и участников, затем начни бой.</p>
+
+      {error && <p className="combat-page__error">Не удалось загрузить бестиарий: {error}</p>}
 
       <h3>Противники</h3>
       <div className="combat-start__list">
@@ -84,9 +89,12 @@ export function CombatPage() {
   const [targetId, setTargetId] = useState<string>("");
   const [spells, setSpells] = useState<Spell[]>([]);
   const [castSpellId, setCastSpellId] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<Spell[] | null>("get_spells").then((s) => setSpells(s ?? []));
+    invoke<Spell[] | null>("get_spells")
+      .then((s) => setSpells(s ?? []))
+      .catch((e) => setError(String(e)));
   }, []);
 
   if (!combat) {
@@ -128,6 +136,7 @@ export function CombatPage() {
 
   return (
     <div className="combat-page">
+      {error && <p className="combat-page__error">Не удалось загрузить заклинания: {error}</p>}
       <div className="combat-page__layout">
         <div
           className="combat-grid"

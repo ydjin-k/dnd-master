@@ -537,3 +537,7 @@
   border-color: var(--dm-gold);
   color: var(--dm-gold-ink);
 }
+
+.characters-page__error {
+  color: var(--dm-danger);
+}

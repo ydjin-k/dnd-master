@@ -227,3 +227,7 @@
   font-size: 0.9em;
   color: var(--dm-text-muted);
 }
+
+.combat-page__error {
+  color: var(--dm-danger);
+}

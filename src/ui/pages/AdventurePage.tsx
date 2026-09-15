@@ -20,10 +20,18 @@ export function AdventurePage() {
   const [likelihoods, setLikelihoods] = useState<LikelihoodOption[]>([]);
   const [oracleQuestion, setOracleQuestion] = useState("");
   const [oracleLikelihood, setOracleLikelihood] = useState<Likelihood>("even");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<Adventure>("get_adventure").then(setAdventure);
-    invoke<LikelihoodOption[]>("get_oracle_likelihoods").then(setLikelihoods);
+    invoke<Adventure | null>("get_adventure")
+      .then(setAdventure)
+      .catch((e) => setError(String(e)));
+    // `?? []` — не догадка о бэкенде, а страховка перебора ниже: список
+    // разворачивается через likelihoods.map, и пустой список здесь честнее,
+    // чем взрыв в рендере, уносящий всё приложение в корневую заглушку.
+    invoke<LikelihoodOption[] | null>("get_oracle_likelihoods")
+      .then((options) => setLikelihoods(options ?? []))
+      .catch((e) => setError(String(e)));
   }, []);
 
   useEffect(() => {
@@ -51,6 +59,8 @@ export function AdventurePage() {
   return (
     <div className="adventure-page">
       <h2>Приключение</h2>
+
+      {error && <p className="adventure-page__error">Не удалось загрузить приключение: {error}</p>}
 
       {!scene && <p>Загрузка сцены…</p>}
 

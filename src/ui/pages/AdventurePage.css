@@ -102,3 +102,7 @@
 .adventure-log-entry__label {
   font-weight: bold;
 }
+
+.adventure-page__error {
+  color: var(--dm-danger);
+}

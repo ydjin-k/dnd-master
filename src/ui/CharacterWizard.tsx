@@ -186,10 +186,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [goldLimitHit, setGoldLimitHit] = useState(false);
   const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
   const [knownSpells, setKnownSpells] = useState<string[]>([]);
+  // Отказ загрузки справочника — не то же, что незаполненный шаг
+  // (`stepValidationMessage`): без rules.json/spells.json мастеру нечего
+  // показать вообще, и молчать об этом нельзя.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<RuleTopic[]>("get_rules").then(setTopics);
-    invoke<Spell[]>("get_spells").then(setSpells);
+    invoke<RuleTopic[] | null>("get_rules")
+      .then((loaded) => setTopics(loaded ?? []))
+      .catch((e) => setLoadError(String(e)));
+    invoke<Spell[] | null>("get_spells")
+      .then((loaded) => setSpells(loaded ?? []))
+      .catch((e) => setLoadError(String(e)));
   }, []);
 
   const races = useMemo(
@@ -763,6 +771,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           Отмена
         </button>
       </div>
+
+      {loadError && <p className="wizard__error">Не удалось загрузить справочник: {loadError}</p>}
 
       {step === "race" && (
         <div className="wizard__pick">

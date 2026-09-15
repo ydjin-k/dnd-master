@@ -369,3 +369,7 @@
   color: var(--dm-danger);
   background: rgba(168, 64, 47, 0.14);
 }
+
+.wizard__error {
+  color: var(--dm-danger);
+}

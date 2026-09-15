@@ -1897,15 +1897,24 @@ export function CharactersPage() {
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
   const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    invoke<Spell[]>("get_spells").then(setSpells);
-    invoke<CharacterPreset[]>("get_character_presets").then(setPresets);
-    invoke<RuleTopic[]>("get_rules").then((topics) => {
-      setConditionEffects(extractConditionEffects(topics));
-      setClassHitDiceByTitle(extractClassHitDice(topics));
-      setRaceHpBonusByTitle(extractRaceHpBonus(topics));
-    });
+    invoke<Spell[] | null>("get_spells")
+      .then((loaded) => setSpells(loaded ?? []))
+      .catch((e) => setError(String(e)));
+    invoke<CharacterPreset[] | null>("get_character_presets")
+      .then((loaded) => setPresets(loaded ?? []))
+      .catch((e) => setError(String(e)));
+    invoke<RuleTopic[] | null>("get_rules")
+      .then((loaded) => {
+        // Все три extract* обходят список — пустой список здесь честнее взрыва.
+        const topics = loaded ?? [];
+        setConditionEffects(extractConditionEffects(topics));
+        setClassHitDiceByTitle(extractClassHitDice(topics));
+        setRaceHpBonusByTitle(extractRaceHpBonus(topics));
+      })
+      .catch((e) => setError(String(e)));
   }, []);
 
   return (
@@ -1920,6 +1929,10 @@ export function CharactersPage() {
           Создать персонажа по правилам
         </button>
       </div>
+
+      {error && (
+        <p className="characters-page__error">Не удалось загрузить справочные данные: {error}</p>
+      )}
 
       {panel === "wizard" && <CharacterWizard onDone={() => setPanel("none")} />}
 
