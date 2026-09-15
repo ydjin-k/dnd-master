@@ -121,7 +121,7 @@ describe("подготовка заклинаний", () => {
       classId: "classes-cleric",
       abilities: abilities(16),
       level: 1,
-      knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
+      castableSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
       alwaysPrepared: ["bless", "cure-wounds"],
     });
     expect(status.max).toBe(4);
@@ -136,7 +136,7 @@ describe("подготовка заклинаний", () => {
       classId: "classes-cleric",
       abilities: abilities(10), // модификатор 0 → норма на 1 уровне всего одно
       level: 1,
-      knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "bless"],
+      castableSpells: ["healing-word", "shield-of-faith", "sanctuary", "bless"],
       alwaysPrepared: ["bless"],
     });
     expect(status.max).toBe(1);
@@ -207,7 +207,7 @@ describe("подготовка заклинаний", () => {
         classId: "classes-druid",
         abilities: abilities(16),
         level: 3,
-        knownSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
+        castableSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
         alwaysPrepared: ["barkskin", "spider-climb"],
       });
       expect(status.max).toBe(6);

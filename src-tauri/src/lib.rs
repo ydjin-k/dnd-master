@@ -324,7 +324,7 @@ fn cast_spell_action(
             return Err(format!("заговор «{}» не изучен персонажем", spell.name));
         }
     } else {
-        if !character.known_spells.contains(&spell.id) {
+        if !character.castable_spells.contains(&spell.id) {
             return Err(format!("заклинание «{}» не изучено персонажем", spell.name));
         }
         if character.free_spell_slot_index(spell.level).is_none() {
@@ -486,7 +486,7 @@ mod tests {
             characters: vec![model::Character {
                 id: "pc".into(),
                 name: "pc".into(),
-                known_spells: vec!["test-spell".into()],
+                castable_spells: vec!["test-spell".into()],
                 spell_slots_max: vec![1, 0, 0, 0, 0],
                 spell_slots_current: vec![1, 0, 0, 0, 0],
                 ..Default::default()

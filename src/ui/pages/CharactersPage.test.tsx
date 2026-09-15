@@ -129,7 +129,7 @@ describe("CharactersPage", () => {
     return {
       ...characterWithInventory(),
       knownCantrips: ["cantrip-1"],
-      knownSpells: ["spell-1"],
+      castableSpells: ["spell-1"],
       spellSlotsMax: [2, 0, 0, 0, 0],
       spellSlotsCurrent: [2, 0, 0, 0, 0],
     };
@@ -184,7 +184,7 @@ describe("CharactersPage", () => {
       fightingStyle: "",
       skillProficiencies: [],
       knownCantrips: [],
-      knownSpells: [],
+      castableSpells: [],
       spellbook: [],
       spellSlotsMax: [0, 0, 0, 0, 0],
       spellSlotsCurrent: [0, 0, 0, 0, 0],
@@ -274,7 +274,7 @@ describe("CharactersPage", () => {
           fightingStyle: "",
           skillProficiencies: [],
           knownCantrips: [],
-          knownSpells: [],
+          castableSpells: [],
           spellbook: [],
           spellSlotsMax: [0, 0, 0, 0, 0],
           spellSlotsCurrent: [0, 0, 0, 0, 0],
@@ -704,7 +704,7 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
 
     const useButtons = screen.getAllByText("Использовать");
-    fireEvent.click(useButtons[0]); // only group with a button now is knownSpells (level 1)
+    fireEvent.click(useButtons[0]); // only group with a button now is castableSpells (level 1)
 
     expect(updateCharacter).toHaveBeenCalledTimes(1);
     const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
@@ -1210,7 +1210,7 @@ describe("CharactersPage", () => {
         conditions: ["Ослеплённое"],
         abilities: { ...characterWithInventory().abilities, charisma: 16 },
         knownCantrips: ["cantrip-1", "cantrip-2"],
-        knownSpells: ["spell-1", "spell-2", "spell-3", "spell-4"],
+        castableSpells: ["spell-1", "spell-2", "spell-3", "spell-4"],
         spellSlotsMax: [2, 0, 0, 0, 0, 0, 0, 0, 0],
         spellSlotsCurrent: [2, 0, 0, 0, 0, 0, 0, 0, 0],
       });
@@ -1277,7 +1277,7 @@ describe("CharactersPage", () => {
         level: 1,
         conditions: ["Ослеплённое"],
         knownCantrips: ["cantrip-1", "cantrip-2"],
-        knownSpells: ["spell-1", "spell-2"],
+        castableSpells: ["spell-1", "spell-2"],
         spellSlotsMax: [1, 0, 0, 0, 0, 0, 0, 0, 0],
         spellSlotsCurrent: [1, 0, 0, 0, 0, 0, 0, 0, 0],
       });
@@ -1631,7 +1631,7 @@ describe("CharactersPage", () => {
           subclass: "Дикая магия",
           level: 6,
           conditions: ["Ослеплённое"],
-          knownSpells: ["magic-missile"],
+          castableSpells: ["magic-missile"],
           spellSlotsMax: [4, 3, 3, 0, 0, 0, 0, 0, 0],
           spellSlotsCurrent: [4, 3, 3, 0, 0, 0, 0, 0, 0],
           ...extra,
@@ -1941,7 +1941,7 @@ describe("CharactersPage", () => {
       expect(char.subclass).toBe("Круг земли");
       expect(char.subclassChoices).toEqual({ "circle-of-the-land-terrain": ["arctic"] });
       // На 2 уровне заклинаний местности ещё нет (они с 3 уровня).
-      expect(char.knownSpells).not.toContain("hold-person");
+      expect(char.castableSpells).not.toContain("hold-person");
 
       // 2 -> 3: местность уже выбрана — второй панели быть не должно, левел-ап
       // применяется сразу, и заклинания Арктики 3 круга появляются.
@@ -1954,7 +1954,7 @@ describe("CharactersPage", () => {
       calls = updateCharacter.mock.calls;
       char = (calls[calls.length - 1][1] as (c: Character) => Character)(char);
       expect(char.level).toBe(3);
-      expect(char.knownSpells).toEqual(expect.arrayContaining(["hold-person", "spike-growth"]));
+      expect(char.castableSpells).toEqual(expect.arrayContaining(["hold-person", "spike-growth"]));
 
       cleanup();
       updateCharacter.mockClear();
@@ -2077,7 +2077,7 @@ describe("CharactersPage", () => {
         preparedCleric({
           level: 12,
           // Только заклинания домена — своих подготовленных ещё нет ни одного.
-          knownSpells: [
+          castableSpells: [
             "bless", "cure-wounds", "lesser-restoration", "spiritual-weapon", "beacon-of-hope",
             "revivify", "death-ward", "guardian-of-faith", "mass-cure-wounds", "raise-dead",
           ],
@@ -2103,7 +2103,7 @@ describe("CharactersPage", () => {
     it("заклинания домена показаны отдельно и в норму не засчитываются", async () => {
       await renderWithRealSpells(
         preparedCleric({
-          knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
+          castableSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
         }),
       );
 
@@ -2123,7 +2123,7 @@ describe("CharactersPage", () => {
       await renderWithRealSpells(
         preparedCleric({
           abilities: { ...characterWithInventory().abilities, wisdom: 10 },
-          knownSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
+          castableSpells: ["healing-word", "shield-of-faith", "sanctuary", "command", "bless", "cure-wounds"],
         }),
       );
 
@@ -2155,7 +2155,7 @@ describe("CharactersPage", () => {
         ...preparedCleric(),
         class: "Бард",
         subclass: "Коллегия знаний",
-        knownSpells: ["bless", "cure-wounds"],
+        castableSpells: ["bless", "cure-wounds"],
       }, classTopic("classes-bard", "Бард", "8", "5"));
       expect(screen.queryByText(/Подготовлено/)).not.toBeInTheDocument();
       expect(screen.queryByText(/при норме/)).not.toBeInTheDocument();
@@ -2163,21 +2163,21 @@ describe("CharactersPage", () => {
     });
 
     it("выбранное подготавливается и снимается через onUpdate", async () => {
-      const char = preparedCleric({ knownSpells: ["bless", "cure-wounds"] });
+      const char = preparedCleric({ castableSpells: ["bless", "cure-wounds"] });
       await renderWithRealSpells(char);
 
       fireEvent.click(screen.getByLabelText(/Направляющий луч \(1 круг\)/));
       fireEvent.click(screen.getByText("Подготовить"));
       const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-      expect(prepare(char).knownSpells).toEqual(["bless", "cure-wounds", "guiding-bolt"]);
+      expect(prepare(char).castableSpells).toEqual(["bless", "cure-wounds", "guiding-bolt"]);
 
       cleanup();
       updateCharacter.mockClear();
-      const withOwn = preparedCleric({ knownSpells: ["bless", "cure-wounds", "guiding-bolt"] });
+      const withOwn = preparedCleric({ castableSpells: ["bless", "cure-wounds", "guiding-bolt"] });
       await renderWithRealSpells(withOwn);
       fireEvent.click(screen.getByText("Снять"));
       const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-      expect(unprepare(withOwn).knownSpells).toEqual(["bless", "cure-wounds"]);
+      expect(unprepare(withOwn).castableSpells).toEqual(["bless", "cure-wounds"]);
     });
   });
 
@@ -2220,7 +2220,7 @@ describe("CharactersPage", () => {
         preparedDruid({
           level: 12,
           // Только заклинания круга Леса — своих подготовленных ещё нет ни одного.
-          knownSpells: [
+          castableSpells: [
             "barkskin", "spider-climb", "call-lightning", "plant-growth",
             "divination", "freedom-of-movement", "tree-stride", "commune-with-nature",
           ],
@@ -2250,7 +2250,7 @@ describe("CharactersPage", () => {
       await renderDruid(
         preparedDruid({
           level: 3,
-          knownSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
+          castableSpells: ["entangle", "goodberry", "barkskin", "spider-climb"],
           spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
           spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
         }),
@@ -2280,7 +2280,7 @@ describe("CharactersPage", () => {
         preparedDruid({
           level: 3,
           abilities: { ...characterWithInventory().abilities, wisdom: 8 }, // −1 → норма 3 − 1 = 2
-          knownSpells: ["entangle", "goodberry", "thunderwave", "barkskin", "spider-climb"],
+          castableSpells: ["entangle", "goodberry", "thunderwave", "barkskin", "spider-climb"],
           spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
           spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
         }),
@@ -2297,7 +2297,7 @@ describe("CharactersPage", () => {
     it("левел-ап поднимает норму подготовки вместе с уровнем друида", async () => {
       const run = levelUpRunner(
         classTopic("classes-druid", "Друид", "8", "5"),
-        preparedDruid({ level: 5, subclass: "Круг луны", subclassChoices: {}, knownSpells: [] }),
+        preparedDruid({ level: 5, subclass: "Круг луны", subclassChoices: {}, castableSpells: [] }),
       );
       await run.ready();
       expect(screen.getByText(/Подготовлено 0 из 8/)).toBeInTheDocument();
@@ -2308,21 +2308,21 @@ describe("CharactersPage", () => {
     });
 
     it("выбранное подготавливается и снимается через onUpdate", async () => {
-      const char = preparedDruid({ level: 3, knownSpells: ["barkskin", "spider-climb"] });
+      const char = preparedDruid({ level: 3, castableSpells: ["barkskin", "spider-climb"] });
       await renderDruid(char);
 
       fireEvent.click(screen.getByLabelText(/Чудесная ягода \(1 круг\)/));
       fireEvent.click(screen.getByText("Подготовить"));
       const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-      expect(prepare(char).knownSpells).toEqual(["barkskin", "spider-climb", "goodberry"]);
+      expect(prepare(char).castableSpells).toEqual(["barkskin", "spider-climb", "goodberry"]);
 
       cleanup();
       updateCharacter.mockClear();
-      const withOwn = preparedDruid({ level: 3, knownSpells: ["barkskin", "spider-climb", "goodberry"] });
+      const withOwn = preparedDruid({ level: 3, castableSpells: ["barkskin", "spider-climb", "goodberry"] });
       await renderDruid(withOwn);
       fireEvent.click(screen.getByText("Снять"));
       const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-      expect(unprepare(withOwn).knownSpells).toEqual(["barkskin", "spider-climb"]);
+      expect(unprepare(withOwn).castableSpells).toEqual(["barkskin", "spider-climb"]);
     });
   });
 
@@ -2347,7 +2347,7 @@ describe("CharactersPage", () => {
         conditions: ["Ослеплённое"],
         abilities: { ...characterWithInventory().abilities, charisma: 16 },
         level: 5,
-        knownSpells: [...OATH_TO_LEVEL_5],
+        castableSpells: [...OATH_TO_LEVEL_5],
         spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
         spellSlotsCurrent: [4, 2, 0, 0, 0, 0, 0, 0, 0],
         ...extra,
@@ -2425,7 +2425,7 @@ describe("CharactersPage", () => {
       ["Клятва древних", ["entangle", "speak-with-animals", "moonbeam", "barkskin"], ["Опутывание", "Разговор с животными", "Лунный луч", "Кора"]],
       ["Клятва мести", ["bane", "hunters-mark", "hold-person", "misty-step"], ["Проклятие", "Метка охотника", "Удержание личности", "Туманный шаг"]],
     ])("паладин %s 5 уровня видит четыре клятвенных заклинания сверх нормы", async (oath, ids, names) => {
-      await renderPaladin(preparedPaladin({ subclass: oath, knownSpells: [...ids] }));
+      await renderPaladin(preparedPaladin({ subclass: oath, castableSpells: [...ids] }));
 
       const group = screen
         .getByText(/Заклинания архетипа — всегда подготовлены, сверх нормы \(4\)/)
@@ -2445,7 +2445,7 @@ describe("CharactersPage", () => {
         preparedPaladin({
           level: 1,
           subclass: "",
-          knownSpells: [],
+          castableSpells: [],
           spellSlotsMax: [0, 0, 0, 0, 0, 0, 0, 0, 0],
           spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
         }),
@@ -2459,7 +2459,7 @@ describe("CharactersPage", () => {
       await renderPaladin(
         preparedPaladin({
           abilities: { ...characterWithInventory().abilities, charisma: 8 },
-          knownSpells: [...OATH_TO_LEVEL_5, "bless", "divine-favor", "heroism"],
+          castableSpells: [...OATH_TO_LEVEL_5, "bless", "divine-favor", "heroism"],
         }),
       );
 
@@ -2477,7 +2477,7 @@ describe("CharactersPage", () => {
     it("левел-ап двигает норму через уровень, а не каждый", async () => {
       const run = levelUpRunner(
         PALADIN_TOPIC,
-        preparedPaladin({ level: 4, knownSpells: [], spellSlotsMax: [3, 0, 0, 0, 0, 0, 0, 0, 0], spellSlotsCurrent: [3, 0, 0, 0, 0, 0, 0, 0, 0] }),
+        preparedPaladin({ level: 4, castableSpells: [], spellSlotsMax: [3, 0, 0, 0, 0, 0, 0, 0, 0], spellSlotsCurrent: [3, 0, 0, 0, 0, 0, 0, 0, 0] }),
       );
       await run.ready();
       expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
@@ -2485,7 +2485,7 @@ describe("CharactersPage", () => {
       run.levelUp();
       expect(run.char.level).toBe(5);
       // Клятвенные 5 уровня приехали на левел-апе — и норму не тронули.
-      expect(run.char.knownSpells).toEqual(OATH_TO_LEVEL_5);
+      expect(run.char.castableSpells).toEqual(OATH_TO_LEVEL_5);
       expect(screen.getByText(/Подготовлено 0 из 5/)).toBeInTheDocument();
 
       run.levelUp();
@@ -2542,7 +2542,7 @@ describe("CharactersPage", () => {
     }
 
     it("волшебник 12 уровня вписывает в книгу заклинания вплоть до 6 круга", async () => {
-      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield", "fireball"], knownSpells: [] }));
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield", "fireball"], castableSpells: [] }));
 
       // Норма книги на 12 уровне: шесть на первом плюс по два за одиннадцать следующих.
       expect(screen.getByText("Книга заклинаний (3/28):")).toBeInTheDocument();
@@ -2565,7 +2565,7 @@ describe("CharactersPage", () => {
      * нет, окажется в выборе подготовки.
      */
     it("готовит волшебник только из книги, а не из всего списка класса", async () => {
-      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield"], knownSpells: [] }));
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile", "shield"], castableSpells: [] }));
 
       // Норма подготовки: модификатор Интеллекта (+3) + уровень (12) = 15.
       expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
@@ -2577,7 +2577,7 @@ describe("CharactersPage", () => {
     });
 
     it("вписанное уходит в книгу, а подготовленное — в список подготовленных", async () => {
-      const char = wizardAt12({ spellbook: ["magic-missile"], knownSpells: [] });
+      const char = wizardAt12({ spellbook: ["magic-missile"], castableSpells: [] });
       await renderWizard(char);
 
       fireEvent.click(screen.getByLabelText(/Огненный шар \(3 круг\)/));
@@ -2585,16 +2585,16 @@ describe("CharactersPage", () => {
       const write = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
       expect(write(char).spellbook).toEqual(["magic-missile", "fireball"]);
       // Вписанное не считается подготовленным: это разные списки.
-      expect(write(char).knownSpells).toEqual([]);
+      expect(write(char).castableSpells).toEqual([]);
 
       cleanup();
       updateCharacter.mockClear();
-      const withBook = wizardAt12({ spellbook: ["magic-missile", "fireball"], knownSpells: [] });
+      const withBook = wizardAt12({ spellbook: ["magic-missile", "fireball"], castableSpells: [] });
       await renderWizard(withBook);
       fireEvent.click(screen.getByLabelText(/Огненный шар \(3 круг\)/));
       fireEvent.click(screen.getByText("Подготовить"));
       const prepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
-      expect(prepare(withBook).knownSpells).toEqual(["fireball"]);
+      expect(prepare(withBook).castableSpells).toEqual(["fireball"]);
       expect(prepare(withBook).spellbook).toEqual(["magic-missile", "fireball"]);
     });
 
@@ -2604,7 +2604,7 @@ describe("CharactersPage", () => {
      * книги при этом не меняется вовсе: он от уровня, а не от Интеллекта.
      */
     it("Интеллект двигает число подготовленных и не двигает объём книги", async () => {
-      await renderWizard(wizardAt12({ spellbook: ["magic-missile"], knownSpells: [] }));
+      await renderWizard(wizardAt12({ spellbook: ["magic-missile"], castableSpells: [] }));
       expect(screen.getByText(/Подготовлено 0 из 15/)).toBeInTheDocument();
       expect(screen.getByText("Книга заклинаний (1/28):")).toBeInTheDocument();
 
@@ -2612,7 +2612,7 @@ describe("CharactersPage", () => {
       await renderWizard(
         wizardAt12({
           spellbook: ["magic-missile"],
-          knownSpells: [],
+          castableSpells: [],
           abilities: { ...characterWithInventory().abilities, intelligence: 8 },
         }),
       );
@@ -2637,14 +2637,14 @@ describe("CharactersPage", () => {
 
     /**
      * Переход старых сохранений: до карточки заклинания волшебника лежали в
-     * `knownSpells`. Отрицательная проба — убери запасной путь `spellbookOf`,
+     * `castableSpells`. Отрицательная проба — убери запасной путь `spellbookOf`,
      * и книга такого персонажа окажется пустой, а снятие подготовки вычеркнет
      * заклинание не только из подготовленных, но и из книги.
      */
     it("у сохранения без книги её роль играет прежний список, и снятие подготовки его не съедает", async () => {
       const legacy = wizardChar({
         spellbook: [],
-        knownSpells: ["shield", "mage-armor", "magic-missile", "find-familiar"],
+        castableSpells: ["shield", "mage-armor", "magic-missile", "find-familiar"],
       });
       await renderWizard(legacy);
 
@@ -2654,7 +2654,7 @@ describe("CharactersPage", () => {
       fireEvent.click(screen.getAllByText("Снять")[3]);
       const unprepare = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
       const after = unprepare(legacy);
-      expect(after.knownSpells).toEqual(["shield", "mage-armor", "magic-missile"]);
+      expect(after.castableSpells).toEqual(["shield", "mage-armor", "magic-missile"]);
       expect(after.spellbook).toEqual(["shield", "mage-armor", "magic-missile", "find-familiar"]);
     });
 
@@ -2666,7 +2666,7 @@ describe("CharactersPage", () => {
         return [];
       });
       mockState = baseState({
-        characters: [{ ...wizardChar(), class: "Жрец", subclass: "Домен жизни", knownSpells: ["bless"] }],
+        characters: [{ ...wizardChar(), class: "Жрец", subclass: "Домен жизни", castableSpells: ["bless"] }],
       });
       render(<CharactersPage />);
       await screen.findByText(/не может видеть/);

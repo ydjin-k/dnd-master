@@ -638,8 +638,8 @@ function CharacterCard({
           ...new Set([...ch.toolProficiencies, ...toolProficienciesFor(dice?.id, subclassName, allSubclassChoices)]),
         ],
         skillProficiencies: [...new Set([...ch.skillProficiencies, ...(effectiveGrants?.skills ?? [])])],
-        knownSpells: [
-          ...new Set([...ch.knownSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel, allSubclassChoices)]),
+        castableSpells: [
+          ...new Set([...ch.castableSpells, ...subclassSpellsUpToLevel(dice?.id, subclassName, newLevel, allSubclassChoices)]),
         ],
         spellSlotsMax: newSlotsMax,
         spellSlotsCurrent: newSlotsMax.map((max, i) => {
@@ -810,7 +810,7 @@ function CharacterCard({
   const cantripsNorm = (progression?.cantripsKnown ?? 0) + (grants?.bonusCantrips?.count ?? 0);
   const missingCantrips = Math.max(0, cantripsNorm - c.knownCantrips.length);
   const missingSpells =
-    spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.knownSpells.length) : 0;
+    spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.castableSpells.length) : 0;
   // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
   const classResources = characterResources(classId, c.subclass, c.level);
   const classScaling = progression?.scaling ?? [];
@@ -832,7 +832,7 @@ function CharacterCard({
     classId,
     abilities: c.abilities,
     level: c.level,
-    knownSpells: c.knownSpells,
+    castableSpells: c.castableSpells,
     alwaysPrepared: domainSpells,
   });
   /**
@@ -845,7 +845,7 @@ function CharacterCard({
   const book = spellbookAt({ classId, level: c.level, character: c });
   const preparedSource = hasSpellbook(classId) ? spellbookSource(spells, book.spells) : spells;
   const preparableNow = preparesOnSheet
-    ? preparableSpells(preparedSource, { classId, level: c.level, alreadyPrepared: c.knownSpells })
+    ? preparableSpells(preparedSource, { classId, level: c.level, alreadyPrepared: c.castableSpells })
     : [];
   const writableNow = book.free > 0 ? writableSpells(spells, { classId, level: c.level, book: book.spells }) : [];
   const armorIssue = unproficientArmorIssue(c.inventory.map((item) => item.name), armorProficiencies);
@@ -854,7 +854,7 @@ function CharacterCard({
   );
   const healingBonus = grants?.healingBonus;
   const isSpellcaster =
-    c.knownCantrips.length > 0 || c.knownSpells.length > 0 || highestCircle > 0 || missingCantrips > 0;
+    c.knownCantrips.length > 0 || c.castableSpells.length > 0 || highestCircle > 0 || missingCantrips > 0;
 
   // Заговоры своего класса плюс чужой список, если архетип открывает именно его
   // (Мистический ловкач учит заговоры волшебника, своих у плута нет вовсе).
@@ -870,7 +870,7 @@ function CharacterCard({
   const learnableSpells = classId
     ? spells.filter(
         (sp) =>
-          sp.level >= 1 && sp.level <= highestCircle && sp.classes.includes(classId) && !c.knownSpells.includes(sp.id),
+          sp.level >= 1 && sp.level <= highestCircle && sp.classes.includes(classId) && !c.castableSpells.includes(sp.id),
       )
     : [];
 
@@ -879,9 +879,9 @@ function CharacterCard({
     else if (selected.length < limit) setSelected([...selected, id]);
   }
 
-  /** Подготовить выбранное: список подготовленных — это и есть `knownSpells` у такого класса. */
+  /** Подготовить выбранное: у класса с подготовкой `castableSpells` — это и есть подготовленное. */
   function prepareChosen() {
-    onUpdate((ch) => ({ ...ch, knownSpells: [...ch.knownSpells, ...chosenPrepared] }));
+    onUpdate((ch) => ({ ...ch, castableSpells: [...ch.castableSpells, ...chosenPrepared] }));
     setChosenPrepared([]);
   }
 
@@ -891,13 +891,13 @@ function CharacterCard({
    * `preparedSpells`, второй проверки здесь не заводится.
    *
    * `keepSpellbook` — про переход старых сохранений: у волшебника, чья книга
-   * ещё живёт в `knownSpells`, снятие подготовки без записи книги вычеркнуло
+   * ещё живёт в `castableSpells`, снятие подготовки без записи книги вычеркнуло
    * бы заклинание и из неё. У остальных классов ничего не меняет.
    */
   function unprepareSpell(id: string) {
     onUpdate((ch) => {
       const kept = keepSpellbook(ch, classId);
-      return { ...kept, knownSpells: kept.knownSpells.filter((spellId) => spellId !== id) };
+      return { ...kept, castableSpells: kept.castableSpells.filter((spellId) => spellId !== id) };
     });
   }
 
@@ -911,7 +911,7 @@ function CharacterCard({
     onUpdate((ch) => ({
       ...ch,
       knownCantrips: [...ch.knownCantrips, ...chosenCantrips],
-      knownSpells: [...ch.knownSpells, ...chosenSpells],
+      castableSpells: [...ch.castableSpells, ...chosenSpells],
     }));
     setChosenCantrips([]);
     setChosenSpells([]);
@@ -1612,13 +1612,13 @@ function CharacterCard({
               </ul>
             </div>
           )}
-          {(preparesOnSheet || c.knownSpells.length > 0) && (
+          {(preparesOnSheet || c.castableSpells.length > 0) && (
             <div className="character-card__spell-group">
               {preparesOnSheet
                 ? `Подготовленные заклинания (${prepared.prepared.length}/${prepared.max}):`
                 : "Известные заклинания:"}
               <ul className="character-card__spell-list">
-                {(preparesOnSheet ? prepared.prepared : c.knownSpells).map((id) => spellLine(id, preparesOnSheet))}
+                {(preparesOnSheet ? prepared.prepared : c.castableSpells).map((id) => spellLine(id, preparesOnSheet))}
               </ul>
             </div>
           )}
@@ -1642,7 +1642,7 @@ function CharacterCard({
                 {book.spells.map((id) => (
                   <li key={id}>
                     {spellName(id)} ({findSpell(id)?.level ?? 1} круг)
-                    {c.knownSpells.includes(id) && <> — подготовлено</>}
+                    {c.castableSpells.includes(id) && <> — подготовлено</>}
                   </li>
                 ))}
                 {book.spells.length === 0 && <li>Книга пуста — впиши в неё заклинания ниже.</li>}

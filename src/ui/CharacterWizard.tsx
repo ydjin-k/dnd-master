@@ -185,7 +185,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [ageLimitHit, setAgeLimitHit] = useState(false);
   const [goldLimitHit, setGoldLimitHit] = useState(false);
   const [knownCantrips, setKnownCantrips] = useState<string[]>([]);
-  const [knownSpells, setKnownSpells] = useState<string[]>([]);
+  const [castableSpells, setCastableSpells] = useState<string[]>([]);
 
   useEffect(() => {
     invoke<RuleTopic[]>("get_rules").then(setTopics);
@@ -363,7 +363,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setChosenMonkTool("");
     setBardInstruments(id === "classes-bard" ? INSTRUMENTS.slice(0, 3).map((i) => i.name) : []);
     setKnownCantrips([]);
-    setKnownSpells([]);
+    setCastableSpells([]);
   }
 
   function changeMonkToolCategory(category: "craft" | "music") {
@@ -440,7 +440,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     ? "Впиши имя персонажа, чтобы продолжить."
     : spellAbility && knownCantrips.length !== requiredCantrips
       ? `Выбери ${requiredCantrips} заговора(ов), чтобы продолжить.`
-      : spellAbility && knownSpells.length !== requiredSpells
+      : spellAbility && castableSpells.length !== requiredSpells
         ? `Выбери ${requiredSpells} заклинание(й) 1 уровня, чтобы продолжить.`
         : null;
 
@@ -452,8 +452,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     });
   }
 
-  function toggleKnownSpell(id: string) {
-    setKnownSpells((prev) => {
+  function toggleCastableSpell(id: string) {
+    setCastableSpells((prev) => {
       if (prev.includes(id)) return prev.filter((s) => s !== id);
       if (prev.length >= requiredSpells) return prev;
       return [...prev, id];
@@ -553,7 +553,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   async function finish() {
     if (!name.trim()) return;
-    if (spellAbility && (knownCantrips.length !== requiredCantrips || knownSpells.length !== requiredSpells)) return;
+    if (spellAbility && (knownCantrips.length !== requiredCantrips || castableSpells.length !== requiredSpells)) return;
     const conMod = abilityMod(totalAbilities.constitution);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod + raceHpBonus);
     const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
@@ -624,12 +624,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       knownCantrips: spellAbility ? knownCantrips : [],
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму
       // класса — добавляются поверх выбранных игроком (SRD, «Заклинания домена»).
-      knownSpells: spellAbility ? [...new Set([...knownSpells, ...level1SubclassSpells])] : [],
+      castableSpells: spellAbility ? [...new Set([...castableSpells, ...level1SubclassSpells])] : [],
       // Волшебник кладёт выбранное ещё и в книгу: подготовленное у него — срез
       // из книги, и заклинание, которого в книге нет, готовить не из чего.
       // Остаток книги 1 уровня (spellbook.ts: шесть) вписывается на листе
       // персонажа — там же, где она растёт с уровнями. У классов без книги пусто.
-      spellbook: hasSpellbook(classId) ? [...knownSpells] : [],
+      spellbook: hasSpellbook(classId) ? [...castableSpells] : [],
       spellSlotsMax: level1SpellSlots,
       spellSlotsCurrent: [...level1SpellSlots],
       // Классовые ресурсы 1 уровня (Второе дыхание воина, Вдохновение барда,
@@ -1587,7 +1587,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     {classCantrips.length === 0 && <li>Загрузка списка заговоров…</li>}
                   </ul>
                   <p className="wizard__hint">
-                    Заклинания 1 уровня ({knownSpells.length}/{requiredSpells}):
+                    Заклинания 1 уровня ({castableSpells.length}/{requiredSpells}):
                   </p>
                   <ul className="wizard__traits">
                     {classLevel1Spells.map((sp) => (
@@ -1595,9 +1595,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                         <label>
                           <input
                             type="checkbox"
-                            checked={knownSpells.includes(sp.id)}
-                            disabled={!knownSpells.includes(sp.id) && knownSpells.length >= requiredSpells}
-                            onChange={() => toggleKnownSpell(sp.id)}
+                            checked={castableSpells.includes(sp.id)}
+                            disabled={!castableSpells.includes(sp.id) && castableSpells.length >= requiredSpells}
+                            onChange={() => toggleCastableSpell(sp.id)}
                           />{" "}
                           {sp.name}
                         </label>

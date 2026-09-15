@@ -10,7 +10,7 @@ import type { Character, Spell } from "../state/types";
  * У Волшебника уровня два, и путать их нельзя:
  * - книга (`Character.spellbook`) — что выучено вообще; сама по себе не даёт
  *   творить ничего, кроме ритуалов;
- * - подготовленное (`Character.knownSpells`) — срез из книги, который можно
+ * - подготовленное (`Character.castableSpells`) — срез из книги, который можно
  *   творить сегодня. Его число и разбор считает preparedSpells.ts, второго
  *   владельца этому числу здесь не заводится: модуль лишь подставляет книгу
  *   источником в тот же вызов, что у сестёр подставляет список класса.
@@ -58,22 +58,22 @@ export function spellbookMax(classId: string | null | undefined, level: number):
  * Что в книге сейчас. У класса без книги — пусто.
  *
  * Персонажи, сохранённые до появления книги (и листы пресетов той же поры),
- * держали заклинания волшебника в `knownSpells`: тогда это значило «выучено»,
- * а не «подготовлено». Такой список и есть книга — иначе при переходе он
- * исчез бы целиком. Переход читается на месте, а не сохраняется молча: в
+ * держали заклинания волшебника в `castableSpells` (тогда поле звалось
+ * `knownSpells`) — и значило это «выучено», а не «подготовлено». Такой список и
+ * есть книга — иначе при переходе он исчез бы целиком. Переход читается на месте, а не сохраняется молча: в
  * персонажа книга попадает первой же правкой списков (см. `keepSpellbook`).
  */
 export function spellbookOf(
-  character: Pick<Character, "spellbook" | "knownSpells">,
+  character: Pick<Character, "spellbook" | "castableSpells">,
   classId: string | null | undefined,
 ): string[] {
   if (!hasSpellbook(classId)) return [];
-  return character.spellbook.length > 0 ? character.spellbook : character.knownSpells;
+  return character.spellbook.length > 0 ? character.spellbook : character.castableSpells;
 }
 
 /**
  * Записать книгу в персонажа перед правкой подготовленного списка. Нужно
- * ровно для перехода выше: у старого сохранения книга живёт в `knownSpells`,
+ * ровно для перехода выше: у старого сохранения книга живёт в `castableSpells`,
  * и снятие подготовки без этого вычеркнуло бы заклинание не только из
  * подготовленных, но и из книги. У класса без книги и у персонажа с уже
  * записанной книгой ничего не меняет.
@@ -96,7 +96,7 @@ export interface SpellbookState {
 export function spellbookAt(args: {
   classId: string | null | undefined;
   level: number;
-  character: Pick<Character, "spellbook" | "knownSpells">;
+  character: Pick<Character, "spellbook" | "castableSpells">;
 }): SpellbookState {
   const { classId, level, character } = args;
   const max = spellbookMax(classId, level);

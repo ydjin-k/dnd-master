@@ -20,8 +20,8 @@ function intelligence(score: number): AbilityScores {
 }
 
 /** Только те поля, которых касается книга; остальной лист персонажа ей не нужен. */
-function wizard(spellbook: string[], knownSpells: string[] = []): Character {
-  return { spellbook, knownSpells } as Character;
+function wizard(spellbook: string[], castableSpells: string[] = []): Character {
+  return { spellbook, castableSpells } as Character;
 }
 
 describe("книга заклинаний Волшебника", () => {
@@ -56,7 +56,7 @@ describe("книга заклинаний Волшебника", () => {
 
   /**
    * Переход старых сохранений: до этой карточки заклинания волшебника лежали в
-   * `knownSpells` и значили «выучено». Проба отрицательная — убери запасной
+   * `castableSpells` и значили «выучено». Проба отрицательная — убери запасной
    * путь в `spellbookOf`, и книга такого персонажа окажется пустой, то есть
    * шесть заклинаний Финдла пропадут при первом же показе листа.
    */
@@ -72,8 +72,8 @@ describe("книга заклинаний Волшебника", () => {
     expect(spellbookOf(legacy, "classes-cleric")).toEqual([]);
 
     const kept = keepSpellbook(legacy, "classes-wizard");
-    const unprepared = { ...kept, knownSpells: kept.knownSpells.filter((id) => id !== "find-familiar") };
-    expect(unprepared.knownSpells).toEqual(["shield", "mage-armor", "magic-missile"]);
+    const unprepared = { ...kept, castableSpells: kept.castableSpells.filter((id) => id !== "find-familiar") };
+    expect(unprepared.castableSpells).toEqual(["shield", "mage-armor", "magic-missile"]);
     expect(spellbookOf(unprepared, "classes-wizard")).toContain("find-familiar");
   });
 
