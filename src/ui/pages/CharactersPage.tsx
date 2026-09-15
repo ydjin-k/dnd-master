@@ -1257,7 +1257,8 @@ function CharacterCard({
                       Восстановить
                     </button>
                     <span className="character-card__hint">
-                      {resource.recharge === "short" ? "короткий или длинный отдых" : "длинный отдых"}
+                      {resource.description} Восстановление:{" "}
+                      {resource.recharge === "short" ? "короткий или длинный отдых" : "длинный отдых"}.
                     </span>
                   </li>
                 );
@@ -1296,6 +1297,8 @@ function CharacterCard({
                     >
                       Применить
                     </button>
+                    {/* Чем платится, уже сказано в подсказке кнопки «Применить» — здесь только что даёт. */}
+                    <span className="character-card__hint">{option.description}</span>
                   </li>
                 );
               })}

@@ -1946,6 +1946,13 @@ export interface SubclassResourceOption {
   id: string;
   resourceId: string;
   name: string;
+  /**
+   * Подпись варианта на листе персонажа — одно предложение по тому же правилу,
+   * что и `ClassResource.description`: что даёт и чем платится, без чисел.
+   * Полный текст особенности остаётся в `featuresByLevel` архетипа, здесь его
+   * копии нет: это подпись под кнопкой, а не пересказ правила.
+   */
+  description: string;
   minLevel: number;
   effect: SubclassEffect;
   /** Сколько использований ресурса тратит применение; по умолчанию одно (Тень между вздохов — 2 очка ци). */
@@ -2074,6 +2081,7 @@ export interface ClassSubclassInfo {
 const PALADIN_CHANNEL_DIVINITY: ClassResource = {
   id: "channel-divinity",
   name: "Проведение энергии",
+  description: "Запас божественной энергии: одно использование тратит любой вариант, который даёт ваша клятва.",
   max: 1,
   recharge: "short",
   unit: "использование",
@@ -2107,6 +2115,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "preserve-life",
               resourceId: "channel-divinity",
               name: "Сохранение жизни",
+              description: "Действием раздаёт хиты существам вокруг, но не поднимает никого выше половины его максимума.",
               minLevel: 2,
               effect: { kind: "healing-pool", perLevel: 5 },
             },
@@ -2179,6 +2188,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "voice-of-battle",
               resourceId: "channel-divinity",
               name: "Голос сражения",
+              description: "Реакцией даёт союзнику преимущество на его бросок атаки.",
               minLevel: 1,
               effect: { kind: "descriptive" },
             },
@@ -2186,6 +2196,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "battle-cry",
               resourceId: "channel-divinity",
               name: "Боевой клич",
+              description: "Действием даёт слышащим вас союзникам временные хиты.",
               minLevel: 2,
               effect: { kind: "temp-hp-allies", perLevel: 1 },
             },
@@ -2248,6 +2259,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "deceptive-trail",
               resourceId: "channel-divinity",
               name: "Обманный след",
+              description: "Действием показывает вас стоящим не там, где вы стоите, если цель провалит спасбросок Мудрости.",
               minLevel: 2,
               effect: { kind: "saving-throw", against: "wisdom" },
             },
@@ -2317,6 +2329,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "revealing-word",
               resourceId: "channel-divinity",
               name: "Раскрывающее слово",
+              description: "Действием срывает с существа маскировку и ложь о себе при провале спасброска Харизмы.",
               minLevel: 2,
               effect: { kind: "saving-throw", against: "charisma" },
             },
@@ -2384,7 +2397,14 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
             9: ["flame-strike", "hallow"],
           },
           resources: [
-            { id: "dark-ones-own-luck", name: "Удача темнейшего", max: 1, recharge: "short", unit: "использование" },
+            {
+              id: "dark-ones-own-luck",
+              name: "Удача темнейшего",
+              description: "Добавляет бросок кости к вашей проверке характеристики или спасброску уже после того, как кость упала.",
+              max: 1,
+              recharge: "short",
+              unit: "использование",
+            },
           ],
           scaling: [
             { name: "Благословение темнейшего", minLevel: 1, effect: { kind: "temp-hp-self", perLevel: 1, ability: "charisma", min: 1 } },
@@ -2431,7 +2451,14 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
           // счётчик той же формы, что у «Удачи темнейшего» и «Отражённого
           // шёпота», иначе обещание нечем проверить.
           resources: [
-            { id: "courts-favor", name: "Милость двора", max: 1, recharge: "short", unit: "использование" },
+            {
+              id: "courts-favor",
+              name: "Милость двора",
+              description: "Реакцией на попавшую атаку переносит вас в свободное место неподалёку и оставляет нападавшему помеху на атаки по вам.",
+              max: 1,
+              recharge: "short",
+              unit: "использование",
+            },
           ],
           // Список подобран из заклинаний spells.json по теме очарования и
           // иллюзии — покровитель оригинальный, книжного списка у него нет.
@@ -2487,7 +2514,14 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
             9: ["modify-memory", "telekinesis"],
           },
           resources: [
-            { id: "echoed-whisper", name: "Отражённый шёпот", max: 1, recharge: "short", unit: "использование" },
+            {
+              id: "echoed-whisper",
+              name: "Отражённый шёпот",
+              description: "Реакцией возвращает обидчику его же мысли: при провале спасброска Мудрости он получает психический урон.",
+              max: 1,
+              recharge: "short",
+              unit: "использование",
+            },
           ],
           scaling: [{ name: "Шёпот безумия", minLevel: 1, effect: { kind: "saving-throw", against: "wisdom" } }],
         },
@@ -2538,6 +2572,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "elemental-affinity-resistance",
               resourceId: "sorcery-points",
               name: "Родство со стихией: сопротивление",
+              description: "Даёт вам сопротивление виду урона вашего драконьего предка.",
               minLevel: 6,
               effect: { kind: "descriptive" },
               cost: 1,
@@ -2585,6 +2620,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "saving-magic",
               resourceId: "sorcery-points",
               name: "Спасительная магия",
+              description: "Бросает кость к проваленному спасброску и может обратить провал в успех.",
               minLevel: 2,
               effect: { kind: "bonus-dice", count: 1, die: 6 },
             },
@@ -2623,6 +2659,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
             {
               id: "storm-wind",
               name: "Ветер потомка бури",
+              description: "Запас порывов ветра, которые вы призываете бонусным действием.",
               maxFrom: { ability: "charisma", plus: 0, min: 1 },
               recharge: "long",
               unit: "использование",
@@ -2633,6 +2670,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "storm-wind-push",
               resourceId: "storm-wind",
               name: "Порыв ветра",
+              description: "Бонусным действием отталкивает существо рядом и валит его с ног при провале спасброска Силы.",
               minLevel: 1,
               effect: { kind: "saving-throw", against: "strength" },
             },
@@ -2642,6 +2680,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "eye-of-the-storm",
               resourceId: "sorcery-points",
               name: "Око бури",
+              description: "Окружает вас вихрем: дальнобойные атаки по вам идут с помехой, а враги вплотную получают урон громом.",
               minLevel: 6,
               effect: { kind: "bonus-damage-dice", count: 1, die: 6 },
               cost: 1,
@@ -2800,13 +2839,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         grants: {
           bonusCantrips: { count: 1 },
           resources: [
-            { id: "natural-recovery", name: "Естественное восстановление", max: 1, recharge: "long", unit: "использование" },
+            {
+              id: "natural-recovery",
+              name: "Естественное восстановление",
+              description: "Запас на восстановление ячеек заклинаний посреди короткого отдыха.",
+              max: 1,
+              recharge: "long",
+              unit: "использование",
+            },
           ],
           resourceOptions: [
             {
               id: "natural-recovery-slots",
               resourceId: "natural-recovery",
               name: "Естественное восстановление",
+              description: "Возвращает потраченные ячейки заклинаний невысоких кругов.",
               minLevel: 2,
               effect: { kind: "half-level" },
             },
@@ -2960,12 +3007,22 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
           "Друиды этого круга не сражаются сами — они читают предзнаменования в узорах ночного неба, направляя решения группы задолго до того, как прольётся кровь.",
         grants: {
           bonusCantrips: { count: 1 },
-          resources: [{ id: "star-omen", name: "Звёздное знамение", max: 1, recharge: "short", unit: "использование" }],
+          resources: [
+            {
+              id: "star-omen",
+              name: "Звёздное знамение",
+              description: "Запас вопросов, которые вы задаёте звёздам о ближайшем часе.",
+              max: 1,
+              recharge: "short",
+              unit: "использование",
+            },
+          ],
           resourceOptions: [
             {
               id: "star-omen-read",
               resourceId: "star-omen",
               name: "Прочесть знамение",
+              description: "Спрашивает у звёзд об опасности, направлении или погоде ближайшего часа.",
               minLevel: 2,
               effect: { kind: "descriptive" },
             },
@@ -3023,6 +3080,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "cutting-words",
               resourceId: "bardic-inspiration",
               name: "Острые слова",
+              description: "Реакцией вычитает бросок кости вдохновения из чужой атаки, проверки или урона.",
               minLevel: 3,
               effect: { kind: "descriptive" },
             },
@@ -3103,7 +3161,14 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
           // счётчик использования (resources) и сама СЛ заклинаний барда
           // (scaling), чтобы её не считали в уме. Бросок кнопкой не нужен.
           resources: [
-            { id: "ears-everywhere", name: "Слух повсюду", max: 1, recharge: "short", unit: "использование" },
+            {
+              id: "ears-everywhere",
+              name: "Слух повсюду",
+              description: "Разговор длиной в минуту выдаёт вам, солгало ли существо, если оно провалит спасбросок Харизмы.",
+              max: 1,
+              recharge: "short",
+              unit: "использование",
+            },
           ],
           scaling: [{ name: "Слух повсюду", minLevel: 6, effect: { kind: "saving-throw", against: "charisma" } }],
         },
@@ -3140,7 +3205,14 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         // поэтому кнопка тратит использование Ярости, а не заводит второй счётчик.
         grants: {
           resourceOptions: [
-            { id: "frenzy", resourceId: "rage", name: "Неистовство", minLevel: 3, effect: { kind: "descriptive" } },
+            {
+              id: "frenzy",
+              resourceId: "rage",
+              name: "Неистовство",
+              description: "Пока держится ярость, даёт бонусным действием лишнюю рукопашную атаку каждый ход, а после неё — уровень истощения.",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
           ],
         },
         featuresByLevel: {
@@ -3179,9 +3251,30 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         // же траты Ярости, а не постоянное сопротивление урону.
         grants: {
           resourceOptions: [
-            { id: "totem-bear", resourceId: "rage", name: "Дух зверя: Медведь", minLevel: 3, effect: { kind: "descriptive" } },
-            { id: "totem-eagle", resourceId: "rage", name: "Дух зверя: Орёл", minLevel: 3, effect: { kind: "descriptive" } },
-            { id: "totem-wolf", resourceId: "rage", name: "Дух зверя: Волк", minLevel: 3, effect: { kind: "descriptive" } },
+            {
+              id: "totem-bear",
+              resourceId: "rage",
+              name: "Дух зверя: Медведь",
+              description: "На эту ярость даёт сопротивление всему урону, кроме психического.",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "totem-eagle",
+              resourceId: "rage",
+              name: "Дух зверя: Орёл",
+              description: "На эту ярость прибавляет скорости при рывке.",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
+            {
+              id: "totem-wolf",
+              resourceId: "rage",
+              name: "Дух зверя: Волк",
+              description: "На эту ярость даёт союзникам рядом преимущество на атаки по выбранной вами цели.",
+              minLevel: 3,
+              effect: { kind: "descriptive" },
+            },
           ],
         },
         featuresByLevel: {
@@ -3286,12 +3379,22 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
           // короткий отдых» — доля траты не выражается ничем: recharge знает
           // только short/long. Владелец выбрал полный короткий отдых, зная,
           // что это поднимает архетип (4 кости на отдых вместо 4 на день).
-          resources: [{ id: "superiority-dice", name: "Кости превосходства", max: 4, recharge: "short", unit: "кость" }],
+          resources: [
+            {
+              id: "superiority-dice",
+              name: "Кости превосходства",
+              description: "Запас костей на манёвры Мастера боя: одна кость — один манёвр.",
+              max: 4,
+              recharge: "short",
+              unit: "кость",
+            },
+          ],
           resourceOptions: [
             {
               id: "maneuver-distracting",
               resourceId: "superiority-dice",
               name: "Манёвр: Отвлекающий удар",
+              description: "Оставляет цели помеху на следующую атаку по вам.",
               minLevel: 3,
               effect: { kind: "descriptive" },
             },
@@ -3299,6 +3402,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "maneuver-rally",
               resourceId: "superiority-dice",
               name: "Манёвр: Ободряющий рывок",
+              description: "Даёт союзнику временные хиты по броску кости превосходства.",
               minLevel: 3,
               effect: { kind: "bonus-dice", count: 1, die: 8 },
             },
@@ -3306,6 +3410,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "maneuver-precision",
               resourceId: "superiority-dice",
               name: "Манёвр: Точный выпад",
+              description: "Добавляет кость превосходства к объявленной атаке, пока её исход ещё не известен.",
               minLevel: 3,
               effect: { kind: "bonus-dice", count: 1, die: 8 },
             },
@@ -3320,6 +3425,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "maneuver-double",
               resourceId: "superiority-dice",
               name: "Двойной манёвр",
+              description: "Накладывает на одно попадание два разных манёвра, бросая кость один раз на оба.",
               minLevel: 10,
               cost: 2,
               effect: { kind: "bonus-dice", count: 1, die: 8 },
@@ -3359,13 +3465,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
           // «Мистический рывок» делят между собой одни и те же 2 очка, —
           // поэтому восстановление коротким отдыхом, а не длинным.
           resources: [
-            { id: "arcane-charge", name: "Очки мистической энергии", max: 2, recharge: "short", unit: "очко" },
+            {
+              id: "arcane-charge",
+              name: "Очки мистической энергии",
+              description: "Запас магии рыцаря: очки питают Заряженный клинок и Мистический рывок.",
+              max: 2,
+              recharge: "short",
+              unit: "очко",
+            },
           ],
           resourceOptions: [
             {
               id: "charged-blade",
               resourceId: "arcane-charge",
               name: "Заряженный клинок",
+              description: "Добавляет к попавшей рукопашной атаке урон силовым полем.",
               minLevel: 3,
               effect: { kind: "bonus-damage-dice", count: 1, die: 8 },
             },
@@ -3374,6 +3488,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "arcane-dash",
               resourceId: "arcane-charge",
               name: "Мистический рывок",
+              description: "Бонусным действием телепортирует вас недалеко и даёт преимущество на первую атаку в этот ход.",
               minLevel: 10,
               effect: { kind: "descriptive" },
             },
@@ -3415,13 +3530,21 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         // тела» (6 ур.) ци не тратит вовсе — у него собственный счётчик.
         grants: {
           resources: [
-            { id: "wholeness-of-body", name: "Исцеление тела", max: 1, recharge: "long", unit: "использование" },
+            {
+              id: "wholeness-of-body",
+              name: "Исцеление тела",
+              description: "Действием возвращает себе хиты, кратные уровню монаха.",
+              max: 1,
+              recharge: "long",
+              unit: "использование",
+            },
           ],
           resourceOptions: [
             {
               id: "open-hand-prone",
               resourceId: "ki",
               name: "Открытая ладонь: сбить с ног",
+              description: "Сбивает цель Шквала ударов с ног при провале спасброска Ловкости.",
               minLevel: 3,
               effect: { kind: "saving-throw", against: "dexterity" },
             },
@@ -3429,6 +3552,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "open-hand-push",
               resourceId: "ki",
               name: "Открытая ладонь: оттолкнуть",
+              description: "Отталкивает цель Шквала ударов при провале спасброска Силы.",
               minLevel: 3,
               effect: { kind: "saving-throw", against: "strength" },
             },
@@ -3436,6 +3560,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "open-hand-no-reactions",
               resourceId: "ki",
               name: "Открытая ладонь: лишить реакций",
+              description: "Лишает цель Шквала ударов реакций до конца вашего следующего хода.",
               minLevel: 3,
               effect: { kind: "descriptive" },
             },
@@ -3482,6 +3607,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "shadow-step",
               resourceId: "ki",
               name: "Тень между вздохов",
+              description: "Делает вас невидимым, пока вы не атакуете, не сотворите заклинание или не кончится следующий ход.",
               minLevel: 3,
               cost: 2,
               effect: { kind: "descriptive" },
@@ -3494,6 +3620,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "shadow-step-advantage",
               resourceId: "ki",
               name: "Шаг сквозь тень: преимущество",
+              description: "После перехода между тенями даёт преимущество на первую атаку без оружия в этот ход.",
               minLevel: 6,
               cost: 1,
               effect: { kind: "descriptive" },
@@ -3503,6 +3630,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "ring-of-silence",
               resourceId: "ki",
               name: "Тишина вокруг",
+              description: "Гасит звук вокруг вас, пока держится концентрация, и глушит вербальные компоненты заклинаний.",
               minLevel: 11,
               cost: 2,
               effect: { kind: "descriptive" },
@@ -3543,6 +3671,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "elemental-burst",
               resourceId: "ki",
               name: "Стихийный всплеск",
+              description: "Добавляет к попавшей атаке без оружия урон выбранной стихией.",
               minLevel: 3,
               effect: { kind: "bonus-damage-dice", count: 1, die: 6 },
             },
@@ -3551,6 +3680,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "elemental-wave",
               resourceId: "ki",
               name: "Стихийная волна",
+              description: "Бьёт конусом выбранной стихии, а спасбросок Ловкости уменьшает урон вдвое.",
               minLevel: 11,
               cost: 3,
               effect: { kind: "saving-throw", against: "dexterity" },
@@ -3604,6 +3734,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "sacred-weapon",
               resourceId: "channel-divinity",
               name: "Священное оружие",
+              description: "Даёт оружию бонус атаки от Харизмы и заставляет его светиться.",
               minLevel: 3,
               effect: { kind: "attack-bonus", ability: "charisma", min: 1 },
             },
@@ -3611,6 +3742,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "turn-the-unholy",
               resourceId: "channel-divinity",
               name: "Изгнать нечистого",
+              description: "Гонит прочь исчадий и нежить вокруг, провалившихся на спасброске Мудрости.",
               minLevel: 3,
               effect: { kind: "saving-throw", against: "wisdom" },
             },
@@ -3659,6 +3791,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "veil-of-nature",
               resourceId: "channel-divinity",
               name: "Пелена природы",
+              description: "Даёт вам и союзникам рядом сопротивление урону от заклинаний.",
               minLevel: 3,
               effect: { kind: "descriptive" },
             },
@@ -3666,6 +3799,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "wrath-of-the-wood",
               resourceId: "channel-divinity",
               name: "Гнев леса",
+              description: "Оставляет выбранным существам вокруг помеху на атаки по вам при провале спасброска Ловкости.",
               minLevel: 3,
               effect: { kind: "saving-throw", against: "dexterity" },
             },
@@ -3712,6 +3846,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "tormentors-threat",
               resourceId: "channel-divinity",
               name: "Угроза мучителя",
+              description: "Пугает видимое существо при провале спасброска Мудрости.",
               minLevel: 3,
               effect: { kind: "saving-throw", against: "wisdom" },
             },
@@ -3719,6 +3854,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "vow-of-pursuit",
               resourceId: "channel-divinity",
               name: "Обет преследования",
+              description: "Не даёт цели уйти: ваша скорость в погоне не падает, а укрытие её от ваших выстрелов не спасает.",
               minLevel: 3,
               effect: { kind: "descriptive" },
             },
@@ -3977,12 +4113,22 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         name: "Странник",
         description: "Странники следопыта не привязаны ни к одному покровителю или зверю — их сила в чистой выносливости человека, идущего в одиночку туда, куда другие не решаются.",
         grants: {
-          resources: [{ id: "tireless-step", name: "Неутомимый шаг", max: 1, recharge: "long", unit: "использование" }],
+          resources: [
+            {
+              id: "tireless-step",
+              name: "Неутомимый шаг",
+              description: "Запас на возврат потраченной ячейки заклинаний посреди короткого отдыха.",
+              max: 1,
+              recharge: "long",
+              unit: "использование",
+            },
+          ],
           resourceOptions: [
             {
               id: "tireless-step-slot",
               resourceId: "tireless-step",
               name: "Вернуть ячейку 1 круга",
+              description: "Возвращает одну потраченную ячейку заклинаний первого круга.",
               minLevel: 3,
               effect: { kind: "restore-slot", circle: 1 },
             },
@@ -3993,6 +4139,7 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
               id: "tireless-step-slot-2",
               resourceId: "tireless-step",
               name: "Вернуть ячейку 2 круга",
+              description: "Возвращает одну потраченную ячейку заклинаний второго круга вместо первого.",
               minLevel: 7,
               effect: { kind: "restore-slot", circle: 2 },
             },

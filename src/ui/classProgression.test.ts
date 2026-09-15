@@ -156,6 +156,27 @@ describe("CLASS_PROGRESSION", () => {
     expect(maxOf("classes-warlock", 11, "mystic-arcanum-6")).toBe(1);
   });
 
+  /**
+   * characters-class-feature-short-descriptions: подпись особенности — это поле
+   * данных, а не строка разметки. Снимите `description` у любого ресурса, и
+   * краснеет эта проба, а не только показ.
+   */
+  it("у каждого классового ресурса есть подпись — одно предложение и без чисел", () => {
+    for (const classId of ALL_CLASS_IDS) {
+      for (let level = 1; level <= PROGRESSION_MAX_LEVEL; level++) {
+        for (const resource of progressionAt(classId, level)!.resources) {
+          const where = `${classId} ур. ${level}: ${resource.name}`;
+          expect(resource.description, `${where}: подписи нет`).toBeTruthy();
+          expect(resource.description.endsWith("."), `${where}: подпись обрывается`).toBe(true);
+          expect(resource.description.slice(0, -1), `${where}: подпись длиннее предложения`).not.toContain(". ");
+          // Числа принадлежат `max`/`maxFrom` и тексту особенности. Попав в подпись,
+          // они заводят второго владельца и однажды разойдутся с таблицей.
+          expect(resource.description, `${where}: число в подписи`).not.toMatch(/\d/);
+        }
+      }
+    }
+  });
+
   it("раздаёт улучшения характеристик по столбцу «Умения» таблиц классов", () => {
     expect(asiLevels("classes-wizard")).toEqual([4, 8, 12]);
     expect(asiLevels("classes-fighter")).toEqual([4, 6, 8, 12]);

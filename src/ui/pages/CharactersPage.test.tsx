@@ -1454,6 +1454,29 @@ describe("CharactersPage", () => {
       expect(restored.featureUses).toContainEqual({ featureId: "channel-divinity", usesCurrent: 1 });
     });
 
+    /**
+     * characters-class-feature-short-descriptions: строка особенности показывает
+     * подпись из данных. Тексты ниже дословны — снимите `description` у ресурса
+     * в classProgression.ts или у варианта в characterCreationData.ts, и здесь
+     * станет нечего искать.
+     */
+    it("строка особенности показывает подпись — и у классового ресурса, и у варианта домена", async () => {
+      await renderCleric(cleric("Домен жизни", { level: 2 }));
+
+      expect(
+        screen.getByText(/Запас божественной энергии: одно использование тратит любой вариант, который даёт ваш домен\./),
+      ).toBeInTheDocument();
+      // Подпись встала в ту же строку-подсказку, что и правило отдыха, — новой строки не завелось.
+      expect(screen.getByText(/Восстановление: короткий или длинный отдых\./)).toBeInTheDocument();
+      expect(
+        screen.getByText("Действием раздаёт хиты существам вокруг, но не поднимает никого выше половины его максимума."),
+      ).toBeInTheDocument();
+      // Счётчик и обе кнопки на месте: подпись их не подвинула.
+      expect(screen.getByText(/1\/1 использование/)).toBeInTheDocument();
+      expect(screen.getByTitle("Потратить: Проведение энергии")).toBeInTheDocument();
+      expect(screen.getByTitle("Применить: Сохранение жизни (тратит Проведение энергии)")).toBeInTheDocument();
+    });
+
     it("вариант архетипа не применяется, когда использование уже потрачено", async () => {
       const spent = cleric("Домен жизни", {
         level: 2,

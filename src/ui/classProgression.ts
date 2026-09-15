@@ -31,6 +31,15 @@ export type SpellsKnownKind = "known" | "prepared" | "none";
 export interface ClassResource {
   id: string;
   name: string;
+  /**
+   * Подпись особенности на листе персонажа — одно предложение: что даёт и чем
+   * платится. Единственный владелец ИМЕННО ЭТОГО текста; полное правило живёт
+   * в `CLASS_LEVEL_FEATURES`/`featuresByLevel` (characterCreationData.ts) и в
+   * `rules.json` и сюда не копируется. Чисел в подписи нет намеренно: максимум
+   * уже считает `max`/`maxFrom` и показывает счётчик строки, а кость, дальность
+   * и длительность принадлежат тексту особенности — второй копии не заводим.
+   */
+  description: string;
   max?: number;
   maxFrom?: { ability: AbilityKey; plus: number; min: number };
   /** На каком отдыхе восстанавливается (SRD-текст умения). */
@@ -168,6 +177,7 @@ function byLevelRow(level: number, row: number[]): number {
 const BARDIC_INSPIRATION: ClassResource = {
   id: "bardic-inspiration",
   name: "Вдохновение барда",
+  description: "Бонусным действием отдаёт союзнику кость вдохновения: он прибавит её бросок к одной проверке, атаке или спасброску.",
   maxFrom: { ability: "charisma", plus: 0, min: 1 },
   recharge: "long",
   unit: "использование",
@@ -176,9 +186,12 @@ const BARDIC_INSPIRATION: ClassResource = {
 /**
  * Прогрессия всех 12 базовых классов на уровнях 1-12 — числа сняты построчно с
  * таблиц прогрессии классов в `src-tauri/rules/rules.json` (SRD 5.1, уже
- * переведённый), тексты самих особенностей живут отдельно и здесь не
+ * переведённый). ПОЛНЫЕ тексты особенностей живут отдельно и здесь не
  * дублируются (см. `CLASS_LEVEL_FEATURES` в characterCreationData.ts —
- * единственный владелец описаний особенностей).
+ * единственный владелец полных описаний). Здесь у ресурса есть только
+ * `description` — однострочная подпись под кнопкой, см. `ClassResource`:
+ * это отдельный текст, а не сокращение того; пересказывать им правило
+ * целиком не надо, за этим игрок идёт в «Правила».
  */
 export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   "classes-bard": {
@@ -208,6 +221,8 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
         {
           id: "rage",
           name: "Ярость",
+          description:
+            "Бонусным действием даёт преимущество на Силу, сопротивление физическому урону и прибавку к рукопашному урону, но закрыта для носящих тяжёлый доспех.",
           max: byStep(level, [[1, 2], [3, 3], [6, 4], [12, 5]]),
           recharge: "long",
           unit: "использование",
@@ -223,12 +238,37 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       cantripsKnown: 0,
       spellsKnown: 0,
       resources: [
-        { id: "second-wind", name: "Второе дыхание", max: 1, recharge: "short", unit: "использование" },
+        {
+          id: "second-wind",
+          name: "Второе дыхание",
+          description: "Бонусным действием возвращает себе хиты броском кости с прибавкой за уровень воина.",
+          max: 1,
+          recharge: "short",
+          unit: "использование",
+        },
         ...(level >= 2
-          ? [{ id: "action-surge", name: "Всплеск действий", max: 1, recharge: "short", unit: "использование" } as ClassResource]
+          ? [
+              {
+                id: "action-surge",
+                name: "Всплеск действий",
+                description: "В свой ход даёт второе действие сверх обычного.",
+                max: 1,
+                recharge: "short",
+                unit: "использование",
+              } as ClassResource,
+            ]
           : []),
         ...(level >= 9
-          ? [{ id: "indomitable", name: "Неукротимый", max: 1, recharge: "long", unit: "использование" } as ClassResource]
+          ? [
+              {
+                id: "indomitable",
+                name: "Неукротимый",
+                description: "Позволяет перебросить проваленный спасбросок, и новый результат придётся принять.",
+                max: 1,
+                recharge: "long",
+                unit: "использование",
+              } as ClassResource,
+            ]
           : []),
       ],
     })),
@@ -240,7 +280,14 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       cantripsKnown: byStep(level, [[1, 3], [4, 4], [10, 5]]),
       spellsKnown: 0,
       resources: [
-        { id: "arcane-recovery", name: "Магическое восстановление", max: 1, recharge: "long", unit: "использование" },
+        {
+          id: "arcane-recovery",
+          name: "Магическое восстановление",
+          description: "В коротком отдыхе возвращает часть потраченных ячеек заклинаний невысоких кругов.",
+          max: 1,
+          recharge: "long",
+          unit: "использование",
+        },
       ],
     })),
   },
@@ -252,7 +299,16 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       spellsKnown: 0,
       resources:
         level >= 2
-          ? [{ id: "wild-shape", name: "Дикий облик", max: 2, recharge: "short", unit: "использование" }]
+          ? [
+              {
+                id: "wild-shape",
+                name: "Дикий облик",
+                description: "Действием обращает вас в зверя доступного уровня опасности — его облик и характеристики на время заменяют ваши.",
+                max: 2,
+                recharge: "short",
+                unit: "использование",
+              },
+            ]
           : [],
       scaling:
         level >= 2
@@ -277,6 +333,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
               {
                 id: "channel-divinity",
                 name: "Проведение энергии",
+                description: "Запас божественной энергии: одно использование тратит любой вариант, который даёт ваш домен.",
                 max: byStep(level, [[2, 1], [6, 2]]),
                 recharge: "short",
                 unit: "использование",
@@ -311,6 +368,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
               {
                 id: "mystic-arcanum-6",
                 name: "Таинственный арканум (6 круг)",
+                description: "Даёт наложить выбранное заклинание этого круга, не тратя ячейку заклинаний.",
                 max: 1,
                 recharge: "long",
                 unit: "использование",
@@ -336,7 +394,19 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
       spellsKnown: 0,
-      resources: level >= 2 ? [{ id: "ki", name: "Ци", max: level, recharge: "short", unit: "очко" }] : [],
+      resources:
+        level >= 2
+          ? [
+              {
+                id: "ki",
+                name: "Ци",
+                description: "Запас внутренней энергии: очки тратят приёмы монаха и умения выбранной традиции.",
+                max: level,
+                recharge: "short",
+                unit: "очко",
+              },
+            ]
+          : [],
       scaling: [
         { name: "Боевые искусства", value: byStep(level, [[1, "1к4"], [5, "1к6"], [11, "1к8"]]) },
         ...(level >= 2
@@ -357,10 +427,18 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       cantripsKnown: 0,
       spellsKnown: 0,
       resources: [
-        { id: "lay-on-hands", name: "Наложение рук", max: level * 5, recharge: "long", unit: "хит" },
+        {
+          id: "lay-on-hands",
+          name: "Наложение рук",
+          description: "Прикосновением лечит из общего запаса хитов — столько, сколько решите потратить, — либо снимает болезнь или яд.",
+          max: level * 5,
+          recharge: "long",
+          unit: "хит",
+        },
         {
           id: "divine-sense",
           name: "Божественное чувство",
+          description: "Действием открывает, где рядом небожитель, исчадие или нежить и есть ли поблизости освящённое или осквернённое место.",
           maxFrom: { ability: "charisma", plus: 1, min: 1 },
           recharge: "long",
           unit: "использование",
@@ -399,7 +477,16 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       spellsKnown: byLevelRow(level, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12]),
       resources:
         level >= 2
-          ? [{ id: "sorcery-points", name: "Очки чар", max: level, recharge: "long", unit: "очко" }]
+          ? [
+              {
+                id: "sorcery-points",
+                name: "Очки чар",
+                description: "Запас магии чародея: очки обращаются в ячейки заклинаний и обратно и питают приёмы происхождения.",
+                max: level,
+                recharge: "long",
+                unit: "очко",
+              },
+            ]
           : [],
     })),
   },
