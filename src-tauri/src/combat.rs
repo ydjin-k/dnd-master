@@ -60,9 +60,8 @@ pub fn load_bestiary(app: &tauri::AppHandle) -> Result<Vec<MonsterTemplate>, Str
 
 /// Каталог картинок существ — забандлен рядом с bestiary.json (см.
 /// `bestiary_path`), не отдаётся напрямую через asset-протокол (у проекта
-/// его нигде нет), а читается и кодируется в data-URL тем же приёмом, что и
-/// импорт файлов персонажа в `import.rs` — команда получает путь, отдаёт
-/// готовые для <img src> байты.
+/// его нигде нет), а читается и кодируется в data-URL: команда получает путь,
+/// отдаёт готовые для <img src> байты.
 fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
     if cfg!(debug_assertions) {
@@ -78,8 +77,7 @@ fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, Str
 }
 
 /// Ядро без Tauri — так уменьшение можно проверить юнит-тестом на реальном
-/// файле без запуска приложения (тот же приём, что и `extract_text_from_image_with_models`
-/// в `import.rs`). Оригиналы картинок бестиария — ~1122×1402px, 1.5-3.3 МБ
+/// файле без запуска приложения. Оригиналы картинок бестиария — ~1122×1402px, 1.5-3.3 МБ
 /// каждый (см. отчёт карточки `bestiary-image-loading-hang`), а показываются
 /// мелкой иконкой в списке и один раз крупно в деталях — отдавать оригинал на
 /// оба случая было избыточно на два порядка и вешало вкладку на 50
