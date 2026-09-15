@@ -78,6 +78,7 @@ import {
   type WildMagicTurnState,
 } from "../wildMagicSurges";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
+import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
@@ -250,6 +251,11 @@ function CharacterCard({
   // случается и показывается здесь и сейчас, как и бросок кости.
   const [wildMagicTurn, setWildMagicTurn] = useState<WildMagicTurnState>(NO_WILD_MAGIC_TURN);
   const [lastSurge, setLastSurge] = useState<{ surge: WildMagicSurge; payback: number } | null>(null);
+  // Сколько ячеек какого круга игрок собрался вернуть. Ключ — круг, значение —
+  // то, что набрано в поле (строка, чтобы поле можно было очистить). В сейв не
+  // пишется: это намерение перед нажатием, а не состояние персонажа. Предел
+  // считает не оно, а spellSlots.ts — здесь лежит только набранное.
+  const [slotsToRestore, setSlotsToRestore] = useState<Record<number, string>>({});
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -381,7 +387,24 @@ function CharacterCard({
   }
 
   function restoreSpellSlots() {
-    onUpdate((ch) => ({ ...ch, spellSlotsCurrent: [...ch.spellSlotsMax] }));
+    onUpdate((ch) => ({ ...ch, spellSlotsCurrent: restoreAllSlots(ch.spellSlotsCurrent, ch.spellSlotsMax) }));
+  }
+
+  /**
+   * Возврат нескольких ячеек одного круга: «Естественное восстановление»
+   * друида, предмет, решение Мастера. Предел считает `restoreSlots`, тот же,
+   * что и у кнопки «всё» и у эффекта архетипа, — здесь только намерение.
+   */
+  function restoreSpellSlotsOfCircle(circle: number, count: number) {
+    // Возвращать нечего либо в поле не число — жать не на что, состояние не трогаем.
+    if (spentSlots(c.spellSlotsCurrent, c.spellSlotsMax, circle) === 0 || !(count >= 1)) {
+      playLimitSound();
+      return;
+    }
+    onUpdate((ch) => ({
+      ...ch,
+      spellSlotsCurrent: restoreSlots(ch.spellSlotsCurrent, ch.spellSlotsMax, circle, count),
+    }));
   }
 
   /** SRD: заклинание творится ячейкой своего круга или любого старшего — тратим наименьшую подходящую. */
@@ -507,7 +530,7 @@ function CharacterCard({
     }
     // Ячейку некуда возвращать, если ни одной этого круга не потрачено.
     const restoredCircle = option.effect.kind === "restore-slot" ? option.effect.circle : 0;
-    if (restoredCircle > 0 && c.spellSlotsCurrent[restoredCircle - 1] >= (c.spellSlotsMax[restoredCircle - 1] ?? 0)) {
+    if (restoredCircle > 0 && spentSlots(c.spellSlotsCurrent, c.spellSlotsMax, restoredCircle) === 0) {
       playLimitSound();
       return;
     }
@@ -516,9 +539,10 @@ function CharacterCard({
       return {
         ...ch,
         currentHp: Math.min(ch.maxHp, ch.currentHp + selfHeal),
-        spellSlotsCurrent: ch.spellSlotsCurrent.map((free, i) =>
-          i === restoredCircle - 1 ? Math.min(ch.spellSlotsMax[i] ?? 0, free + 1) : free,
-        ),
+        spellSlotsCurrent:
+          restoredCircle > 0
+            ? restoreSlots(ch.spellSlotsCurrent, ch.spellSlotsMax, restoredCircle, 1)
+            : ch.spellSlotsCurrent,
         featureUses: [...rest, { featureId: resource.id, usesCurrent: current - cost }],
       };
     });
@@ -1624,18 +1648,45 @@ function CharacterCard({
           )}
           <div className="character-card__spell-group">
             <ul className="character-card__spell-list">
-              {c.spellSlotsMax.map((max, i) =>
-                max > 0 ? (
+              {c.spellSlotsMax.map((max, i) => {
+                if (max <= 0) return null;
+                const circle = i + 1;
+                const spent = spentSlots(c.spellSlotsCurrent, c.spellSlotsMax, circle);
+                const typed = slotsToRestore[circle] ?? "1";
+                return (
                   <li key={i}>
-                    Ячейки {i + 1} круга: {c.spellSlotsCurrent[i] ?? 0}/{max}
+                    Ячейки {circle} круга: {c.spellSlotsCurrent[i] ?? 0}/{max}{" "}
+                    <input
+                      type="number"
+                      className="character-card__slot-input"
+                      min={1}
+                      max={Math.max(1, spent)}
+                      value={typed}
+                      disabled={spent === 0}
+                      aria-label={`Сколько ячеек ${circle} круга вернуть`}
+                      onChange={(e) => {
+                        // Значение снимается ДО setState: читать поля события
+                        // внутри updater'а нельзя, он выполняется отложенно.
+                        const value = e.target.value;
+                        setSlotsToRestore((prev) => ({ ...prev, [circle]: value }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      title={`Вернуть ячейки ${circle} круга (потрачено ${spent})`}
+                      disabled={spent === 0}
+                      onClick={() => restoreSpellSlotsOfCircle(circle, Number(typed))}
+                    >
+                      Вернуть
+                    </button>
                   </li>
-                ) : null,
-              )}
+                );
+              })}
             </ul>
             <button
               type="button"
               onClick={restoreSpellSlots}
-              disabled={c.spellSlotsMax.every((max, i) => (c.spellSlotsCurrent[i] ?? 0) >= max)}
+              disabled={c.spellSlotsMax.every((_max, i) => spentSlots(c.spellSlotsCurrent, c.spellSlotsMax, i + 1) === 0)}
             >
               Восстановить все ячейки
             </button>

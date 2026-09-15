@@ -743,6 +743,110 @@ describe("CharactersPage", () => {
     expect(updateCharacter).not.toHaveBeenCalled();
   });
 
+  /**
+   * characters-spell-slot-partial-restore: возврат ячеек по кругу и по числу.
+   * Предел «не выше максимума» живёт в `spellSlots.ts` и проверяется там же
+   * отрицательными пробами; здесь — что строка круга действительно даёт
+   * вернуть ровно столько, сколько набрано, и не трогает соседние круги.
+   */
+  describe("частичный возврат ячеек по кругам", () => {
+    /** Два круга: 1-й полон (2/2), во 2-м потрачено две из трёх — 1/3. */
+    function twoCircles(overrides: Partial<Character> = {}): Character {
+      return {
+        ...spellcaster(),
+        spellSlotsMax: [2, 3, 0, 0, 0],
+        spellSlotsCurrent: [2, 1, 0, 0, 0],
+        ...overrides,
+      };
+    }
+
+    function circleRow(circle: number): HTMLElement {
+      return screen.getByText(new RegExp(`Ячейки ${circle} круга`)).closest("li") as HTMLElement;
+    }
+
+    it("вернуть одну ячейку 2 круга: 1/3 → 2/3, первый круг не тронут", () => {
+      const char = twoCircles();
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      const row = circleRow(2);
+      fireEvent.change(within(row).getByLabelText("Сколько ячеек 2 круга вернуть"), { target: { value: "1" } });
+      fireEvent.click(within(row).getByText("Вернуть"));
+
+      const updated = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char);
+      expect(updated.spellSlotsCurrent).toEqual([2, 2, 0, 0, 0]);
+
+      cleanup();
+      mockState = baseState({ characters: [updated] });
+      render(<CharactersPage />);
+      expect(screen.getByText(/Ячейки 2 круга: 2\/3/)).toBeInTheDocument();
+      expect(screen.getByText(/Ячейки 1 круга: 2\/2/)).toBeInTheDocument();
+    });
+
+    it("вернуть можно и несколько разом — все три потраченные ячейки одним нажатием", () => {
+      const char = twoCircles({ spellSlotsCurrent: [2, 0, 0, 0, 0] });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      const row = circleRow(2);
+      fireEvent.change(within(row).getByLabelText("Сколько ячеек 2 круга вернуть"), { target: { value: "3" } });
+      fireEvent.click(within(row).getByText("Вернуть"));
+
+      expect((updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char).spellSlotsCurrent).toEqual([
+        2, 3, 0, 0, 0,
+      ]);
+    });
+
+    it("больше потраченного не вернуть: просим 9 при двух потраченных — станет 3/3, а не 10/3", () => {
+      const char = twoCircles();
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      const row = circleRow(2);
+      fireEvent.change(within(row).getByLabelText("Сколько ячеек 2 круга вернуть"), { target: { value: "9" } });
+      fireEvent.click(within(row).getByText("Вернуть"));
+
+      expect((updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char).spellSlotsCurrent).toEqual([
+        2, 3, 0, 0, 0,
+      ]);
+    });
+
+    it("полному кругу возвращать нечего: поле и кнопка недоступны, состояние не меняется", () => {
+      const char = twoCircles({ spellSlotsCurrent: [2, 3, 0, 0, 0] });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      const row = circleRow(2);
+      expect(within(row).getByLabelText("Сколько ячеек 2 круга вернуть")).toBeDisabled();
+      expect(within(row).getByText("Вернуть")).toBeDisabled();
+      fireEvent.click(within(row).getByText("Вернуть"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("пустое поле ячейку не возвращает — жмём и слышим предел, а не молчаливую правку", () => {
+      const char = twoCircles();
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      const row = circleRow(2);
+      fireEvent.change(within(row).getByLabelText("Сколько ячеек 2 круга вернуть"), { target: { value: "" } });
+      fireEvent.click(within(row).getByText("Вернуть"));
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(sounds.playLimitSound).toHaveBeenCalled();
+    });
+
+    it("«Восстановить все ячейки» осталась и поднимает оба круга до максимума", () => {
+      const char = twoCircles({ spellSlotsCurrent: [0, 1, 0, 0, 0] });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      fireEvent.click(screen.getByText("Восстановить все ячейки"));
+      expect((updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char).spellSlotsCurrent).toEqual([
+        2, 3, 0, 0, 0,
+      ]);
+    });
+  });
+
   it("a cantrip has no 'Использовать' button, only usage info; the level-1 spell keeps its button", async () => {
     const cantripSpell: Spell = {
       id: "cantrip-1",

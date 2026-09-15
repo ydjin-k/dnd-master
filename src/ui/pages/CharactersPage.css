@@ -486,6 +486,12 @@
   font-size: 0.9em;
 }
 
+/* Сколько ячеек круга вернуть: поле на две-три цифры, чтобы строка круга
+   осталась строкой, а не превратилась в панель. */
+.character-card__slot-input {
+  width: 4.5em;
+}
+
 .characters-page__actions {
   display: flex;
   flex-wrap: wrap;
