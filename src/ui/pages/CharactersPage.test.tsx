@@ -4,6 +4,7 @@ import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-li
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
+import { WILD_MAGIC_TABLE, WILD_MAGIC_TABLE_SIZE } from "../wildMagicSurges";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
@@ -1423,6 +1424,72 @@ describe("CharactersPage", () => {
       cleanup();
       await renderWith("classes-sorcerer", "Чародей", "6", "4", sorcerer("Дикая магия"));
       expect(screen.queryByText(/Сопротивление урону/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * characters-wild-magic-surge-table — приёмка карточки: всплеск бросает
+     * движок сам, игрок видит выпавшую строку, и «Расплата за всплеск»
+     * (6 ур.) при этом действительно возвращает очки чар.
+     *
+     * Отрицательная проба: убрать вызов `rollWildMagic` из `useSpellSlot` —
+     * и обе пробы ниже краснеют, потому что строки на листе не появится.
+     */
+    describe("Дикий всплеск чародея", () => {
+      function wildSorcerer(extra: Partial<Character> = {}): Character {
+        return {
+          ...characterWithInventory(),
+          class: "Чародей",
+          subclass: "Дикая магия",
+          level: 6,
+          conditions: ["Ослеплённое"],
+          knownSpells: ["magic-missile"],
+          spellSlotsMax: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+          spellSlotsCurrent: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+          ...extra,
+        };
+      }
+
+      /** Кость подменена: первый бросок к20 = 1 (всплеск), второй — первая строка таблицы. */
+      async function castWith(char: Character) {
+        const random = vi.spyOn(Math, "random").mockReturnValue(0);
+        try {
+          await renderWith("classes-sorcerer", "Чародей", "6", "4", char);
+          fireEvent.click(screen.getByText("Использовать"));
+        } finally {
+          random.mockRestore();
+        }
+      }
+
+      it("наложенное заклинание показывает игроку выпавшую строку и возвращает очки чар", async () => {
+        const char = wildSorcerer({ featureUses: [{ featureId: "sorcery-points", usesCurrent: 1 }] });
+        await castWith(char);
+
+        expect(screen.getByText(`Дикий всплеск (1/${WILD_MAGIC_TABLE_SIZE}):`)).toBeInTheDocument();
+        expect(screen.getByText(WILD_MAGIC_TABLE[0].text)).toBeInTheDocument();
+        // Половина уровня чародея округляя вверх: 6 → 3.
+        expect(screen.getByText(/Расплата за всплеск: \+3 к очкам чар/)).toBeInTheDocument();
+
+        const after = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char);
+        expect(after.featureUses).toContainEqual({ featureId: "sorcery-points", usesCurrent: 4 });
+        // Ячейка 1 круга всё равно потрачена — всплеск её не отменяет.
+        expect(after.spellSlotsCurrent[0]).toBe(3);
+      });
+
+      it("полный запас очков чар выше максимума не поднимается, а строка всё равно видна", async () => {
+        // Максимум очков чар на 6 уровне — 6, потрачено одно.
+        const char = wildSorcerer({ featureUses: [{ featureId: "sorcery-points", usesCurrent: 6 }] });
+        await castWith(char);
+
+        expect(screen.getByText(WILD_MAGIC_TABLE[0].text)).toBeInTheDocument();
+        expect(screen.queryByText(/Расплата за всплеск: \+/)).not.toBeInTheDocument();
+        const after = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(char);
+        expect(after.featureUses).toEqual([{ featureId: "sorcery-points", usesCurrent: 6 }]);
+      });
+
+      it("у Драконьей крови всплеска не бывает — таблица принадлежит Дикой магии", async () => {
+        await castWith(wildSorcerer({ subclass: "Драконья кровь" }));
+        expect(screen.queryByText(/Дикий всплеск \(/)).not.toBeInTheDocument();
+      });
     });
 
     it("Тень между вздохов тратит сразу два очка ци, Стихийный всплеск — одно", async () => {
