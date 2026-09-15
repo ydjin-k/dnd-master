@@ -6,6 +6,7 @@ import {
   catalogWeightLb,
   encumbranceLevel,
   encumbranceSpeedPenaltyFeet,
+  encumbranceThresholdsLb,
   CLASS_PROFICIENCIES,
   CLASS_SUBCLASSES,
   type SubclassGrants,
@@ -619,6 +620,23 @@ describe("encumbranceLevel (свои пороги, не книжные — chara
     expect(encumbranceLevel(202.5, 15)).toBe("encumbered");
     expect(encumbranceLevel(225, 15)).toBe("encumbered");
     expect(encumbranceLevel(225.5, 15)).toBe("heavily-encumbered");
+  });
+});
+
+describe("encumbranceThresholdsLb (characters-encumbrance-threshold-visible)", () => {
+  it("при нечётной Силе порог — ровная половина фунта без хвоста (Сила 13 → 175.5)", () => {
+    expect(encumbranceThresholdsLb(13)).toEqual({ encumberedFromLb: 175.5, heavilyEncumberedAboveLb: 195 });
+  });
+
+  // Один владелец: предикат сравнивает вес ровно с этими числами — на всём диапазоне Силы.
+  it("encumbranceLevel меняется ровно на выданных порогах, с 1 до 20 Силы", () => {
+    for (let strength = 1; strength <= 20; strength++) {
+      const { encumberedFromLb, heavilyEncumberedAboveLb } = encumbranceThresholdsLb(strength);
+      expect([strength, encumbranceLevel(encumberedFromLb - 0.1, strength)]).toEqual([strength, "normal"]);
+      expect([strength, encumbranceLevel(encumberedFromLb, strength)]).toEqual([strength, "encumbered"]);
+      expect([strength, encumbranceLevel(heavilyEncumberedAboveLb, strength)]).toEqual([strength, "encumbered"]);
+      expect([strength, encumbranceLevel(heavilyEncumberedAboveLb + 0.1, strength)]).toEqual([strength, "heavily-encumbered"]);
+    }
   });
 });
 

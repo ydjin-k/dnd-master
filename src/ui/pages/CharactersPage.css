@@ -151,6 +151,13 @@
   line-height: 1.15;
 }
 
+/* Пороги нагрузки числом — подсказка под плитками, читается вместе с плиткой «Вес». */
+.character-card__encumbrance-scale {
+  margin: 0.1em 0 0.15em;
+  color: var(--dm-text-muted);
+  font-size: 0.82em;
+}
+
 .character-card__danger {
   color: var(--dm-danger);
   font-weight: 600;

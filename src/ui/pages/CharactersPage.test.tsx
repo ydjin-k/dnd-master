@@ -415,12 +415,7 @@ describe("CharactersPage", () => {
 
   // Сила 10 -> грузоподъёмность 150 фнт; пороги свои, не книжные: «Нагружен» с 135 фнт
   // (90 % грузоподъёмности), «Сильно нагружен» — свыше 150 (characters-encumbrance-own-thresholds).
-  function withWeight(weightLb: number) {
-    return {
-      ...characterWithInventory(),
-      inventory: [{ id: "load-1", name: "Груз", quantity: 1, notes: "", weightLb }],
-    };
-  }
+  const withWeight = (weightLb: number) => withLoad(weightLb, 10);
 
   it("shows no encumbrance tier and full speed under 135 фнт (90 % грузоподъёмности)", () => {
     mockState = baseState({ characters: [withWeight(134)] });
@@ -435,7 +430,7 @@ describe("CharactersPage", () => {
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
     expectStat("Скорость", "20 фт");
-    expect(screen.queryByText(/Сильно нагружен/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/⚠ Сильно нагружен/)).not.toBeInTheDocument(); // плашка, а не строка порогов
     expect(screen.queryByText(/Помеха на проверки/)).not.toBeInTheDocument();
   });
 
@@ -443,7 +438,7 @@ describe("CharactersPage", () => {
     mockState = baseState({ characters: [withWeight(150)] });
     render(<CharactersPage />);
     expect(screen.getByText(/⚠ Нагружен — скорость 20 фт \(было 30 фт\)/)).toBeInTheDocument();
-    expect(screen.queryByText(/Сильно нагружен/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/⚠ Сильно нагружен/)).not.toBeInTheDocument(); // плашка, а не строка порогов
   });
 
   it("151 фнт (фунт сверх потолка): Сильно нагружен, скорость −20 (30 → 10), помеха-напоминание видна", () => {
@@ -483,6 +478,73 @@ describe("CharactersPage", () => {
     expect(applied.inventory.reduce((sum, i) => sum + i.weightLb * i.quantity, 0)).toBeGreaterThan(150);
     // Перевес перестал быть запретом — звука предела здесь быть не должно.
     expect(sounds.playLimitSound).not.toHaveBeenCalled();
+  });
+
+  // ── порог виден числом (characters-encumbrance-threshold-visible) ──────────────
+
+  function withLoad(weightLb: number, strength: number) {
+    const base = characterWithInventory();
+    return {
+      ...base,
+      abilities: { ...base.abilities, strength },
+      inventory: [{ id: "load-1", name: "Груз", quantity: 1, notes: "", weightLb }],
+    };
+  }
+
+  /** Читает два порога С ЭКРАНА — в пробу они не вписаны. */
+  function shownThresholds(strength: number) {
+    mockState = baseState({ characters: [withLoad(0, strength)] });
+    render(<CharactersPage />);
+    const text = screen.getByText(/^Нагружен с /).textContent ?? "";
+    cleanup();
+    const m = text.match(/Нагружен с ([\d.]+) фнт\. · Сильно нагружен свыше ([\d.]+) фнт\./);
+    expect(m, `не разобралась строка порогов: ${text}`).not.toBeNull();
+    return { encumberedFrom: Number(m![1]), heavilyAbove: Number(m![2]) };
+  }
+
+  /** Что на самом деле показывает плашка при таком весе. */
+  function tierAt(weightLb: number, strength: number) {
+    mockState = baseState({ characters: [withLoad(weightLb, strength)] });
+    render(<CharactersPage />);
+    const heavy = screen.queryByText(/⚠ Сильно нагружен/) !== null;
+    const enc = screen.queryByText(/⚠ Нагружен/) !== null;
+    cleanup();
+    return heavy ? "heavily-encumbered" : enc ? "encumbered" : "normal";
+  }
+
+  /**
+   * Главная проба карточки: показанное число и момент смены плашки — один
+   * и тот же вес. Ни одно число сюда не вписано: границы читаются с экрана,
+   * поведение — рендерами вокруг них. Сдвинь сравнение в encumbranceLevel — проба
+   * краснеет, хотя разметка не менялась (сами 90 % и потолок прибиты
+   * числами в characterCreationData.test.ts — там они решение владельца).
+   */
+  it.each([10, 13, 15])("показанный порог совпадает с тем, где реально меняется плашка (Сила %i)", (strength) => {
+    const { encumberedFrom, heavilyAbove } = shownThresholds(strength);
+
+    expect(tierAt(encumberedFrom - 0.1, strength)).toBe("normal");
+    expect(tierAt(encumberedFrom, strength)).toBe("encumbered");
+    expect(tierAt(heavilyAbove, strength)).toBe("encumbered");
+    expect(tierAt(heavilyAbove + 0.1, strength)).toBe("heavily-encumbered");
+  });
+
+  it("нечётная Сила 13: полфунта показаны, а не спрятаны округлением", () => {
+    mockState = baseState({ characters: [withLoad(0, 13)] });
+    render(<CharactersPage />);
+    expect(
+      screen.getByText("Нагружен с 175.5 фнт. · Сильно нагружен свыше 195 фнт."),
+    ).toBeInTheDocument();
+  });
+
+  // Границы из DoD карточки при Силе 10: 134 / 135 / 150 / 151 фнт.
+  it.each([
+    [134, "normal"],
+    [135, "encumbered"],
+    [150, "encumbered"],
+    [151, "heavily-encumbered"],
+  ])("Сила 10, %i фнт — плашка согласна с показанными 135 / свыше 150", (weightLb, tier) => {
+    expect(shownThresholds(10)).toEqual({ encumberedFrom: 135, heavilyAbove: 150 });
+    expect(tierAt(weightLb as number, 10)).toBe(tier);
   });
 
   it("adding a new item and a condition (typed, SRD or custom) calls updateCharacter correctly", async () => {

@@ -16,6 +16,7 @@ import {
   ENCUMBRANCE_LABELS,
   encumbranceLevel,
   encumbranceSpeedPenaltyFeet,
+  encumbranceThresholdsLb,
   HEALING_POTIONS,
   HEAVILY_ENCUMBERED_DISADVANTAGE_HINT,
   inventoryWeightLb,
@@ -895,6 +896,13 @@ function CharacterCard({
   const totalWeightLb = inventoryWeightLb(c.inventory) + coinsWeightLb(c.coins);
   const carryingCapacity = carryingCapacityLb(c.abilities.strength);
   const encLevel = encumbranceLevel(totalWeightLb, c.abilities.strength);
+  /**
+   * Веса, на которых меняется плашка, — берутся у того же кода, что её и ставит
+   * (encumbranceThresholdsLb), формула сюда не переписана. Числа не округляем:
+   * при нечётной Силе порог — ровно половина фунта (Сила 13 → 175.5 фнт), и
+   * округление развело бы показанное число с моментом появления плашки.
+   */
+  const encThresholds = encumbranceThresholdsLb(c.abilities.strength);
   const speedPenaltyFeet = encumbranceSpeedPenaltyFeet(encLevel);
   const effectiveSpeedFeet = Math.max(0, c.speedFeet - speedPenaltyFeet);
   const speedLabel = speedPenaltyFeet > 0 ? `${effectiveSpeedFeet} фт` : `${c.speedFeet} фт`;
@@ -967,6 +975,9 @@ function CharacterCard({
           <dd>{Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.</dd>
         </div>
         </dl>
+        <div className="character-card__encumbrance-scale">
+          Нагружен с {encThresholds.encumberedFromLb} фнт. · Сильно нагружен свыше {encThresholds.heavilyEncumberedAboveLb} фнт.
+        </div>
       </div>
       {!collapsed && <div className="character-card__body">
       {encLevel !== "normal" && (

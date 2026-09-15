@@ -1193,10 +1193,36 @@ const ENCUMBERED_CAPACITY_SHARE = 0.9;
  * наступали вместе (encumbranceSpeedPenaltyFeet).
  */
 export function encumbranceLevel(totalWeightLb: number, strength: number): EncumbranceLevel {
-  const capacity = carryingCapacityLb(strength);
-  if (totalWeightLb > capacity) return "heavily-encumbered";
-  if (totalWeightLb >= capacity * ENCUMBERED_CAPACITY_SHARE) return "encumbered";
+  const { encumberedFromLb, heavilyEncumberedAboveLb } = encumbranceThresholdsLb(strength);
+  if (totalWeightLb > heavilyEncumberedAboveLb) return "heavily-encumbered";
+  if (totalWeightLb >= encumberedFromLb) return "encumbered";
   return "normal";
+}
+
+export interface EncumbranceThresholds {
+  /** «Нагружен» наступает с этого веса ВКЛЮЧИТЕЛЬНО (>=). */
+  encumberedFromLb: number;
+  /** «Сильно нагружен» наступает СТРОГО выше этого веса (>), ровно на нём — ещё только «Нагружен». */
+  heavilyEncumberedAboveLb: number;
+}
+
+/**
+ * Веса, на которых меняется плашка, — чтобы лист персонажа мог назвать их
+ * числом (characters-encumbrance-threshold-visible). Пороги здесь не
+ * вычисляются вторым экземпляром: это ЕДИНСТВЕННОЕ место, где доля и потолок
+ * превращаются в числа, а `encumbranceLevel` сравнивает вес ровно с ними —
+ * сдвинь любое из двух, и предикат со строкой на экране сдвинутся вместе.
+ *
+ * Числа не округляются: доля даёт Сила × 13.5, то есть при нечётной Силе
+ * ровно половину фунта (Сила 13 → 175.5 фнт), и она точна — округлить её
+ * значило бы показать вес, на котором плашка ещё (или уже) не та.
+ */
+export function encumbranceThresholdsLb(strength: number): EncumbranceThresholds {
+  const capacity = carryingCapacityLb(strength);
+  return {
+    encumberedFromLb: capacity * ENCUMBERED_CAPACITY_SHARE,
+    heavilyEncumberedAboveLb: capacity,
+  };
 }
 
 /** Штраф к скорости в футах для уровня нагрузки (0 для обычного). */
