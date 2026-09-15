@@ -2,7 +2,6 @@ mod adventure;
 mod characters;
 mod combat;
 mod dice;
-mod import;
 mod model;
 mod oracle;
 mod rules;
@@ -178,25 +177,6 @@ fn adjust_chaos_factor(app: AppHandle, delta: i32) -> Result<CampaignState, Stri
         state.chaos_factor = next as u8;
         Ok(())
     })
-}
-
-/// Достаёт текст из PDF/DOCX/TXT или распознаёт его на фото (офлайн-OCR).
-/// Выбор способа — по расширению файла.
-#[tauri::command]
-fn import_character_sheet(app: AppHandle, path: String) -> Result<String, String> {
-    let ext = std::path::Path::new(&path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase())
-        .unwrap_or_default();
-
-    match ext.as_str() {
-        "pdf" => import::extract_text_from_pdf(&app, &path),
-        "docx" => import::extract_text_from_docx(&path),
-        "txt" => import::extract_text_from_txt(&path),
-        "png" | "jpg" | "jpeg" | "bmp" | "webp" => import::extract_text_from_image(&app, &path),
-        other => Err(format!("формат {other:?} не поддерживается (PDF, DOCX, TXT, PNG/JPG)")),
-    }
 }
 
 #[tauri::command]
@@ -408,7 +388,6 @@ pub fn run() {
             get_oracle_likelihoods,
             ask_oracle,
             adjust_chaos_factor,
-            import_character_sheet,
             get_bestiary,
             get_bestiary_image,
             get_rules,
