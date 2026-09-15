@@ -6,8 +6,9 @@ import type { AbilityScores, Spell } from "../state/types";
  * Подготовка заклинаний — механика классов с `spellsKnownKind: "prepared"`
  * (Жрец, Друид, Волшебник, Паладин). Известного списка у них нет: по SRD 5.1
  * доступен весь список класса, а игрок держит подготовленным подмножество,
- * которое меняет после длинного отдыха. Поэтому `Character.knownSpells` у
- * такого класса хранит не «что знает», а «что подготовлено сейчас».
+ * которое меняет после длинного отдыха. Поэтому в `Character.castableSpells` у
+ * такого класса лежит подготовленное сейчас, а не выученное навсегда: имя поля
+ * называет право творить, общее для обоих составов, а не происхождение списка.
  *
  * Здесь живёт ЕДИНСТВЕННЫЙ владелец числа подготовленных и разбора «что идёт
  * в счёт нормы, а что сверх неё»: и лист персонажа (`CharactersPage`), и
@@ -120,13 +121,13 @@ export function preparedSpells(args: {
   classId: string | null | undefined;
   abilities: AbilityScores;
   level: number;
-  knownSpells: string[];
+  castableSpells: string[];
   alwaysPrepared: string[];
 }): PreparedSpells {
-  const { classId, abilities, level, knownSpells, alwaysPrepared } = args;
+  const { classId, abilities, level, castableSpells, alwaysPrepared } = args;
   const max = preparedSpellsMax(classId, abilities, level);
-  const always = alwaysPrepared.filter((id) => knownSpells.includes(id));
-  const prepared = knownSpells.filter((id) => !alwaysPrepared.includes(id));
+  const always = alwaysPrepared.filter((id) => castableSpells.includes(id));
+  const prepared = castableSpells.filter((id) => !alwaysPrepared.includes(id));
   return {
     max,
     prepared,

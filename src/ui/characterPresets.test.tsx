@@ -171,7 +171,7 @@ function blankCharacter(): Character {
     toolProficiencies: [],
     fightingStyle: "",
     knownCantrips: [],
-    knownSpells: [],
+    castableSpells: [],
     spellbook: [],
     spellSlotsMax: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -310,7 +310,7 @@ describe("пресеты готовых персонажей", () => {
     // Четвёртое известное заклинание барда — «Надтреснутая нота» (cracked-note):
     // на листе там стоит «Диссонирующий шёпот» (PHB, вне SRD), и его место заняло
     // наше оригинальное заклинание близкой темы (docs/design/character-presets.md).
-    expect(bard.knownSpells).toEqual(["longstrider", "healing-word", "heroism", "cracked-note"]);
+    expect(bard.castableSpells).toEqual(["longstrider", "healing-word", "heroism", "cracked-note"]);
     expect(bard.spellSlotsMax).toEqual(spellSlotsForLevel("classes-bard", 1));
     expect(bard.featureUses).toEqual([{ featureId: "bardic-inspiration", usesCurrent: 3 }]);
   });
@@ -386,7 +386,7 @@ describe("пресеты готовых персонажей", () => {
     const updated = await levelUpThroughTheRoster(druid);
     expect(updated.level).toBe(3);
     expect(updated.subclassChoices).toEqual({ "circle-of-the-land-terrain": ["forest"] });
-    expect(updated.knownSpells).toEqual(expect.arrayContaining(["barkskin", "spider-climb"]));
+    expect(updated.castableSpells).toEqual(expect.arrayContaining(["barkskin", "spider-climb"]));
   });
 
   it("каталог отдаёт все двенадцать листов, каждый под своим именем, расой и классом", async () => {
@@ -419,7 +419,7 @@ describe("пресеты готовых персонажей", () => {
     const armorNames = Object.keys(ARMOR_STATS);
 
     for (const preset of PRESETS) {
-      for (const id of [...preset.knownCantrips, ...preset.knownSpells]) {
+      for (const id of [...preset.knownCantrips, ...preset.castableSpells]) {
         expect(spellIds, `заклинание ${id} пресета ${preset.id}`).toContain(id);
       }
       for (const skill of preset.skillProficiencies) {
@@ -447,18 +447,18 @@ describe("пресеты готовых персонажей", () => {
     const cleric = await presetFromThePanel(/Селиэн Ардвен/);
     expect(cleric.subclass).toBe("Домен прозрения");
     // Заклинания домена 1 уровня — те же, что игрок выписал на лист.
-    expect(cleric.knownSpells).toEqual(expect.arrayContaining(["identify", "detect-magic"]));
+    expect(cleric.castableSpells).toEqual(expect.arrayContaining(["identify", "detect-magic"]));
 
     const level2 = await levelUpThroughTheRoster({ ...cleric, experiencePoints: 999999 });
     expect(level2.featureUses.map((f) => f.featureId)).toContain("channel-divinity");
 
     const level3 = await levelUpThroughTheRoster({ ...level2, experiencePoints: 999999 });
     expect(level3.subclass).toBe("Домен прозрения");
-    expect(level3.knownSpells).toEqual(expect.arrayContaining(["augury", "locate-object"]));
+    expect(level3.castableSpells).toEqual(expect.arrayContaining(["augury", "locate-object"]));
   });
 
   /**
-   * characters-cleric-prepared-spells: `knownSpells` у Жреца стал списком
+   * characters-cleric-prepared-spells: `castableSpells` у Жреца стал списком
    * ПОДГОТОВЛЕННЫХ, и лист готового персонажа обязан пережить переход целиком
    * — ни одно заклинание не исчезло и ни одно не оказалось сверх нормы.
    * Оба жреца каталога проверяются одной пробой: домены у них разные, а
@@ -474,11 +474,11 @@ describe("пресеты готовых персонажей", () => {
         classId: "classes-cleric",
         abilities: copy.abilities,
         level: copy.level,
-        knownSpells: copy.knownSpells,
+        castableSpells: copy.castableSpells,
         alwaysPrepared: subclassSpellsUpToLevel("classes-cleric", copy.subclass, copy.level, copy.subclassChoices),
       });
       // Ничего не потеряно: подготовленное плюс доменное — ровно лист пресета.
-      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.knownSpells].sort());
+      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.castableSpells].sort());
       // Мудрость 16 (+3) на 1 уровне даёт норму в 4, и все четыре свои заняты,
       // а два заклинания домена идут сверх неё.
       expect(status.max, preset.id).toBe(4);
@@ -511,11 +511,11 @@ describe("пресеты готовых персонажей", () => {
         classId: "classes-druid",
         abilities: copy.abilities,
         level: copy.level,
-        knownSpells: copy.knownSpells,
+        castableSpells: copy.castableSpells,
         alwaysPrepared: subclassSpellsUpToLevel("classes-druid", copy.subclass, copy.level, copy.subclassChoices),
       });
       // Ничего не потеряно: подготовленное плюс круговое — ровно лист пресета.
-      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.knownSpells].sort());
+      expect([...status.prepared, ...status.alwaysPrepared].sort(), preset.id).toEqual([...preset.castableSpells].sort());
       // Мудрость 16 (+3) на 1 уровне даёт норму в 4, и все четыре свои заняты.
       expect(status.max, preset.id).toBe(4);
       expect(status.prepared, preset.id).toHaveLength(4);
@@ -534,7 +534,7 @@ describe("пресеты готовых персонажей", () => {
 
   /**
    * characters-wizard-spellbook: у волшебника заклинания листа — это КНИГА, а
-   * подготовленное из неё — срез (`knownSpells`). Лист готового персонажа
+   * подготовленное из неё — срез (`castableSpells`). Лист готового персонажа
    * обязан пережить переход целиком: все шесть заклинаний остаются в книге, а
    * подготовленных не больше нормы. Шесть заклинаний Финдла перечислены здесь
    * руками — это сторожевая строчка на потерю: положи книгу только в
@@ -558,13 +558,13 @@ describe("пресеты готовых персонажей", () => {
       expect(spellbookOf(copy, "classes-wizard"), preset.id).toHaveLength(6);
       expect(spellbookMax("classes-wizard", copy.level), preset.id).toBe(6);
       // Подготовленное — подмножество книги: готовить не из книги нельзя.
-      expect(copy.knownSpells.every((id) => copy.spellbook.includes(id)), preset.id).toBe(true);
+      expect(copy.castableSpells.every((id) => copy.spellbook.includes(id)), preset.id).toBe(true);
 
       const status = preparedSpells({
         classId: "classes-wizard",
         abilities: copy.abilities,
         level: copy.level,
-        knownSpells: copy.knownSpells,
+        castableSpells: copy.castableSpells,
         alwaysPrepared: subclassSpellsUpToLevel("classes-wizard", copy.subclass, copy.level, copy.subclassChoices),
       });
       // Интеллект 16 (+3) на 1 уровне даёт норму в 4, и перебора нет ни у одного.
@@ -572,7 +572,7 @@ describe("пресеты готовых персонажей", () => {
       expect(status.overflow, preset.id).toBe(0);
       // Неподготовленный остаток — ритуалы: их волшебник творит прямо из книги
       // (rules.json, «Ритуальное сотворение»), и место в норме им не нужно.
-      const unprepared = copy.spellbook.filter((id) => !copy.knownSpells.includes(id));
+      const unprepared = copy.spellbook.filter((id) => !copy.castableSpells.includes(id));
       expect(
         unprepared.every((id) => bundledSpells.find((sp) => sp.id === id)?.ritual),
         `${preset.id}: ${unprepared.join(", ")}`,

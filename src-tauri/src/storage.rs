@@ -384,6 +384,72 @@ mod tests {
         assert!(!base.join("campaign.json.migrated").exists());
     }
 
+    /// characters-known-spells-honest-name — ГЛАВНАЯ проба карточки, и она
+    /// идёт по НАСТОЯЩЕМУ сохранению, а не по собранному в тесте литералу:
+    /// `tests/fixtures/legacy-campaign-known-spells.json` — это файл живой
+    /// кампании «Vox Machina» (4 персонажа, 15 заклинаний на всех), записанный
+    /// приложением ДО переименования поля, скопированный байт в байт.
+    ///
+    /// Путь тот же, каким кампанию открывает приложение (`load_active_in` →
+    /// `read_campaign_file`), а не `serde_json::from_str` в обход: молча
+    /// потерять заклинания можно как раз между этими двумя.
+    ///
+    /// Отрицательная проба: снять `#[serde(alias = "knownSpells")]` с
+    /// `Character::castable_spells` — краснеет именно она, а не общий разбор
+    /// файла: кампания читается «успешно», просто у всех четверых пусто.
+    #[test]
+    fn legacy_campaign_with_known_spells_keeps_every_spell_after_rename() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("legacy-campaign-known-spells.json");
+        let raw = fs::read_to_string(&fixture).expect("прочитать настоящее старое сохранение");
+        assert!(
+            raw.contains("\"knownSpells\""),
+            "фикстура обязана нести СТАРОЕ имя поля — иначе проба сторожит пустоту"
+        );
+
+        let base = temp_dir("legacy-known-spells");
+        let id = "18d2261063107fb4-b886b8a7";
+        fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let state = load_active_in(&base).unwrap().expect("кампания должна открыться");
+        assert_eq!(state.campaign_name, "Vox Machina");
+        assert_eq!(state.characters.len(), 4);
+
+        // Списки выписаны числом и поимённо: «не пусто» пропустило бы обрезку.
+        let expected: [(&str, &[&str]); 4] = [
+            (
+                "Дарин Светоч",
+                &["shield-of-faith", "sanctuary", "command", "bless", "cure-wounds", "protection-from-evil-and-good"],
+            ),
+            ("Дарнвел", &["protection-from-evil-and-good", "sanctuary"]),
+            ("Финдл Шестерёнка", &["shield", "mage-armor", "magic-missile", "detect-magic"]),
+            ("Вэйт Данкил", &["healing-word", "entangle", "speak-with-animals", "goodberry"]),
+        ];
+        for (name, spells) in expected {
+            let character = state
+                .characters
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| panic!("персонаж «{name}» пропал из старого сохранения"));
+            assert_eq!(
+                character.castable_spells, spells,
+                "у персонажа «{name}» заклинания потерялись при переименовании поля"
+            );
+        }
+
+        // Книга волшебника — третья сущность, и своё имя она не меняла:
+        // переезд `knownSpells` не имеет права её задеть.
+        let wizard = state
+            .characters
+            .iter()
+            .find(|c| c.name == "Финдл Шестерёнка")
+            .expect("волшебник");
+        assert_eq!(wizard.spellbook.len(), 6, "книга волшебника должна остаться целой");
+    }
+
     #[test]
     fn with_active_locked_concurrent_mutations_both_survive() {
         let base = temp_dir("atomic-write");

@@ -105,11 +105,15 @@ export function CombatPage() {
   const current = combat.combatants.find((c) => c.id === currentId);
   const currentCharacter =
     current && !current.isMonster ? state.characters.find((c) => c.id === current.id) : undefined;
-  const knownSpellIds = currentCharacter
-    ? [...currentCharacter.knownCantrips, ...currentCharacter.knownSpells]
+  // Что боец может творить прямо сейчас: заговоры плюс `castableSpells` —
+  // подготовленное у класса с подготовкой, известное у класса с известным
+  // списком. Разбирать, чьё тут что, бою не нужно, и права творить он не
+  // пересчитывает: его владелец — `cast_spell_action` на стороне Rust.
+  const castableSpellIds = currentCharacter
+    ? [...currentCharacter.knownCantrips, ...currentCharacter.castableSpells]
     : [];
-  const knownSpellList = spells.filter((s) => knownSpellIds.includes(s.id));
-  const selectedSpell = knownSpellList.find((s) => s.id === castSpellId);
+  const castableSpellList = spells.filter((s) => castableSpellIds.includes(s.id));
+  const selectedSpell = castableSpellList.find((s) => s.id === castSpellId);
   const spellNeedsTarget = !!selectedSpell && (selectedSpell.attackRoll || !!selectedSpell.savingThrow);
   /** SRD: заклинание творится ячейкой своего круга или любого старшего — у Колдуна доступен только высший. */
   function hasFreeSlotFor(circle: number): boolean {
@@ -239,7 +243,7 @@ export function CombatPage() {
               Атаковать выбранным
             </button>
 
-            {currentCharacter && knownSpellList.length > 0 && (
+            {currentCharacter && castableSpellList.length > 0 && (
               <div className="combat-sidebar__spellcasting">
                 <label>
                   Заклинание:
@@ -248,7 +252,7 @@ export function CombatPage() {
                     onChange={(e) => setCastSpellId(e.currentTarget.value)}
                   >
                     <option value="">—</option>
-                    {knownSpellList.map((s) => {
+                    {castableSpellList.map((s) => {
                       const noSlots = s.level > 0 && !hasFreeSlotFor(s.level);
                       return (
                         <option key={s.id} value={s.id} disabled={noSlots}>

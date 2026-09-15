@@ -134,10 +134,25 @@ pub struct Character {
     /// («Оборона» — +1 в доспехе), поэтому должен пережить сохранение.
     pub fighting_style: String,
     pub known_cantrips: Vec<String>,
-    /// У класса с известным списком — что персонаж знает, у класса с
-    /// подготовкой (Жрец/Друид/Волшебник/Паладин) — что подготовлено сейчас;
-    /// разбор и норма живут на стороне UI (`preparedSpells.ts`).
-    pub known_spells: Vec<String>,
+    /// Что персонаж может творить ячейкой прямо сейчас: у класса с известным
+    /// списком (Бард/Колдун/Чародей/Следопыт) это выученное навсегда, у класса
+    /// с подготовкой (Жрец/Друид/Волшебник/Паладин) — подготовленное после
+    /// последнего отдыха. Разбор и норма живут на стороне UI
+    /// (`preparedSpells.ts`), модель хранит только список.
+    ///
+    /// Не путать с `spellbook`: книга — что ВЫУЧЕНО вообще, и сама по себе
+    /// творить не даёт. Заговоры сюда тоже не входят — они в `known_cantrips`,
+    /// не тратят ячейку и подготовки не требуют, поэтому «известны» у всех
+    /// честно.
+    ///
+    /// `alias` — это и есть миграция старых сохранений: до переименования поле
+    /// звалось `knownSpells` и под этим именем лежит во всех файлах, записанных
+    /// раньше. Снять alias — значит молча потерять заклинания у сохранённой
+    /// партии: `#[serde(default)]` на структуре подставит пустой список без
+    /// единой ошибки. Стережёт это `legacy_campaign_with_known_spells_*` в
+    /// storage.rs и `legacy_known_spells_field_reads_into_castable_spells` ниже.
+    #[serde(alias = "knownSpells")]
+    pub castable_spells: Vec<String>,
     /// Книга заклинаний Волшебника (SRD 5.1) — что выучено вообще, источник
     /// для подготовки. Пуста у остальных классов; кто её ведёт и сколько в неё
     /// входит, знает только UI (`spellbook.ts`) — модель её просто хранит.
@@ -307,7 +322,7 @@ mod tests {
         assert_eq!(character.gender, "");
         assert_eq!(character.age, 0);
         assert!(character.known_cantrips.is_empty());
-        assert!(character.known_spells.is_empty());
+        assert!(character.castable_spells.is_empty());
         assert!(character.spell_slots_max.is_empty());
         assert!(character.spell_slots_current.is_empty());
         assert!(character.feature_uses.is_empty());
@@ -376,6 +391,54 @@ mod tests {
         // Идемпотентность: повторный вызов ничего не меняет.
         character.migrate_legacy_gold();
         assert_eq!(character.coins, Coins { gold: 250, ..Coins::default() });
+    }
+
+    /// characters-known-spells-honest-name: поле `knownSpells` переименовано в
+    /// `castableSpells`, и все сохранения, записанные до переименования, несут
+    /// СТАРОЕ имя. Читать его обязан serde-alias — без него `#[serde(default)]`
+    /// молча подставит пустой список, и партия потеряет заклинания без единой
+    /// ошибки. Отрицательная проба: убрать `#[serde(alias = "knownSpells")]` в
+    /// `Character` — эта проба краснеет на непустом списке.
+    #[test]
+    fn legacy_known_spells_field_reads_into_castable_spells() {
+        let old_json = r#"{
+            "id": "abc", "name": "Дарин", "race": "Человек", "class": "Жрец", "level": 1,
+            "abilities": {
+                "strength": 10, "dexterity": 10, "constitution": 10,
+                "intelligence": 10, "wisdom": 16, "charisma": 10
+            },
+            "maxHp": 10, "currentHp": 10, "armorClass": 10,
+            "conditions": [], "inventory": [],
+            "knownCantrips": ["guidance"],
+            "knownSpells": ["bless", "cure-wounds", "sanctuary"]
+        }"#;
+        let character: Character =
+            serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+
+        assert_eq!(
+            character.castable_spells,
+            vec!["bless", "cure-wounds", "sanctuary"],
+            "заклинания из старого поля knownSpells обязаны попасть в castable_spells"
+        );
+        assert_eq!(character.known_cantrips, vec!["guidance"], "заговоры своего поля не меняли");
+    }
+
+    /// Обратная сторона той же миграции: сохранение, записанное уже новым
+    /// именем, читается напрямую — alias не должен требовать старого ключа.
+    #[test]
+    fn new_castable_spells_field_reads_as_is() {
+        let json = r#"{
+            "id": "abc", "name": "Кимри", "race": "Полурослик", "class": "Бард", "level": 1,
+            "abilities": {
+                "strength": 10, "dexterity": 16, "constitution": 10,
+                "intelligence": 10, "wisdom": 10, "charisma": 16
+            },
+            "maxHp": 9, "currentHp": 9, "armorClass": 14,
+            "conditions": [], "inventory": [],
+            "castableSpells": ["healing-word", "charm-person"]
+        }"#;
+        let character: Character = serde_json::from_str(json).expect("новый персонаж должен читаться");
+        assert_eq!(character.castable_spells, vec!["healing-word", "charm-person"]);
     }
 
     /// characters-carrying-capacity: инвентарь, сохранённый до появления

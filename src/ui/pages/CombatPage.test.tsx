@@ -101,7 +101,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         fightingStyle: "",
         skillProficiencies: [],
         knownCantrips: [],
-        knownSpells: [],
+        castableSpells: [],
         spellbook: [],
         spellSlotsMax: [0, 0, 0, 0, 0],
         spellSlotsCurrent: [0, 0, 0, 0, 0],

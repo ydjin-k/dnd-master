@@ -1356,7 +1356,7 @@ describe("CharacterWizard", () => {
     expect(new Set(character.knownCantrips)).toEqual(
       new Set(["wizard-cantrip-1", "wizard-cantrip-2", "wizard-cantrip-3"]),
     );
-    expect(character.knownSpells).toEqual(["wizard-spell-1"]);
+    expect(character.castableSpells).toEqual(["wizard-spell-1"]);
     expect(character.spellSlotsMax).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(character.spellSlotsCurrent).toEqual([2, 0, 0, 0, 0, 0, 0, 0, 0]);
   });
@@ -1400,7 +1400,7 @@ describe("CharacterWizard", () => {
 
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
-    expect(character.knownSpells).toEqual(["wizard-spell-1"]);
+    expect(character.castableSpells).toEqual(["wizard-spell-1"]);
     expect(character.spellbook).toEqual(["wizard-spell-1"]);
   });
 
@@ -1555,7 +1555,7 @@ describe("CharacterWizard", () => {
     // characters-subclass-features-have-no-mechanical-effect: выбранный домен
     // даёт владение навыком, а не только строчку текста на «Итоге».
     expect(character.skillProficiencies).toContain("Обман");
-    expect(character.knownSpells).toEqual(expect.arrayContaining(["sanctuary", "bane"]));
+    expect(character.castableSpells).toEqual(expect.arrayContaining(["sanctuary", "bane"]));
     expect(character.armorProficiencies).not.toContain("heavy");
   });
 
