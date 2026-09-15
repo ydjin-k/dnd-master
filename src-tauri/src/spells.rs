@@ -209,5 +209,24 @@ mod tests {
                 "spike-growth",
             ],
         );
+        // rules-ranger-third-circle-spell-list: близнец записи 106 — ячейки 3 круга следопыт
+        // получает на 9 уровне по той же `HALF_CASTER_SLOTS`, что и паладин, и с подъёмом
+        // потолка до 12 (запись 95) список перестал быть мёртвым. Снятая метка у любого из
+        // девяти краснит именно этот состав, а не общий счёт заклинаний в файле.
+        assert_class_list(
+            "classes-ranger",
+            3,
+            &[
+                "conjure-animals",
+                "daylight",
+                "nondetection",
+                "plant-growth",
+                "protection-from-energy",
+                "speak-with-plants",
+                "water-breathing",
+                "water-walk",
+                "wind-wall",
+            ],
+        );
     }
 }
