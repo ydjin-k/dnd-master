@@ -23,7 +23,9 @@ import type { Character, Spell } from "../state/types";
 /**
  * Классы, ведущие книгу заклинаний. Множество, а не сравнение с
  * `"classes-wizard"` в десяти местах: факт «у этого класса есть книга» обязан
- * иметь одного владельца — как и `PREPARED_ON_SHEET` рядом.
+ * иметь одного владельца. Своим списком книга остаётся потому, что в данных
+ * класса такого признака нет: подготовка рядом (`preparesSpells`) свой список
+ * уже сдала и спрашивает `spellsKnownKind`.
  */
 export const SPELLBOOK_CLASSES: ReadonlySet<string> = new Set(["classes-wizard"]);
 

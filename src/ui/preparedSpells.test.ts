@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import bundledSpells from "../../src-tauri/rules/spells.json";
+import { CLASS_PROGRESSION } from "./classProgression";
 import {
-  PREPARED_ON_SHEET,
   preparableSpells,
   preparedSpells,
   preparedSpellsFormulaLabel,
@@ -75,22 +75,46 @@ describe("подготовка заклинаний", () => {
   });
 
   /**
-   * Калитка лесенки из четырёх карточек: сошлись все четыре — Жрец, Друид,
-   * Паладин и Волшебник. Проба сторожит состав: класс попадает в калитку
-   * только своей карточкой, и другого способа его включить нет.
+   * Калитки лесенки больше нет: состав спрашивается у `spellsKnownKind`, и
+   * проба сторожит именно это — не список в коде, а то, что ответ приходит из
+   * данных класса. Отрицательная проба: поменяй Барду `spellsKnownKind` на
+   * `"prepared"` — он попадёт в подготовку, и проба покраснеет здесь же.
    */
   it("на листе подготовку ведут все четыре подготовленных заклинателя", () => {
     for (const classId of ["classes-cleric", "classes-druid", "classes-paladin", "classes-wizard"]) {
       expect(preparesSpells(classId), classId).toBe(true);
     }
-    // Класс с известным списком в калитку не попадает.
+    // Класс с известным списком в подготовку не проваливается.
     expect(preparesSpells("classes-bard")).toBe(false);
-    expect([...PREPARED_ON_SHEET]).toEqual([
+  });
+
+  /**
+   * Второй владелец состава не должен завестись снова: перебор ВСЕХ классов
+   * ловит и лишнего (Бард уехал в подготовку), и недостачу (класс выпал из
+   * неё). Список classId здесь не зашит — он берётся из тех же данных, что и
+   * ответ, поэтому сверка идёт по факту, а не по копии списка.
+   */
+  it("подготовку ведут ровно те классы, у кого в данных `spellsKnownKind: \"prepared\"`", () => {
+    const prepares = Object.keys(CLASS_PROGRESSION).filter((classId) => preparesSpells(classId));
+    const byData = Object.keys(CLASS_PROGRESSION).filter(
+      (classId) => CLASS_PROGRESSION[classId].spellsKnownKind === "prepared",
+    );
+    expect([...prepares].sort()).toEqual([...byData].sort());
+    expect([...prepares].sort()).toEqual([
       "classes-cleric",
       "classes-druid",
       "classes-paladin",
       "classes-wizard",
-    ]);  });
+    ]);
+  });
+
+  it("не готовит ни класс без магии, ни отсутствующий класс", () => {
+    expect(preparesSpells("classes-fighter")).toBe(false);
+    expect(preparesSpells(null)).toBe(false);
+    expect(preparesSpells(undefined)).toBe(false);
+    // Неизвестный classId не должен падать и не должен готовить.
+    expect(preparesSpells("classes-nonexistent")).toBe(false);
+  });
 
   it("заклинания архетипа не занимают места в норме и остаются сверх неё", () => {
     const status = preparedSpells({

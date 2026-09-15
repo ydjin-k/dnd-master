@@ -795,11 +795,12 @@ function CharacterCard({
   const subclassScaling = subclassScalingAt(classId, c.subclass, c.level, c.subclassChoices);
   const domainSpells = subclassSpellsUpToLevel(classId, c.subclass, c.level, c.subclassChoices);
   /**
-   * Подготовка заклинаний (preparedSpells.ts) — у класса, который её уже ведёт
-   * на листе. Норма не хранится в персонаже: она пересчитывается здесь из
-   * `c.abilities` и `c.level` при каждом показе, поэтому смена характеристики
-   * и левел-ап двигают её сами, а не по снимку. Заклинания архетипа идут сверх
-   * нормы — их владелец прежний, `subclassSpellsUpToLevel`.
+   * Подготовка заклинаний (preparedSpells.ts) — у класса, который готовит их
+   * по данным SRD (`spellsKnownKind`). Норма не хранится в персонаже: она
+   * пересчитывается здесь из `c.abilities` и `c.level` при каждом показе,
+   * поэтому смена характеристики и левел-ап двигают её сами, а не по снимку.
+   * Заклинания архетипа идут сверх нормы — их владелец прежний,
+   * `subclassSpellsUpToLevel`.
    */
   const preparesOnSheet = preparesSpells(classId);
   const prepared = preparedSpells({
@@ -1577,9 +1578,7 @@ function CharacterCard({
             <div className="character-card__spell-group">
               {preparesOnSheet
                 ? `Подготовленные заклинания (${prepared.prepared.length}/${prepared.max}):`
-                : spellsKnownKind === "prepared"
-                  ? "Подготовленные заклинания:"
-                  : "Известные заклинания:"}
+                : "Известные заклинания:"}
               <ul className="character-card__spell-list">
                 {(preparesOnSheet ? prepared.prepared : c.knownSpells).map((id) => spellLine(id, preparesOnSheet))}
               </ul>
@@ -1776,7 +1775,7 @@ function CharacterCard({
               )}
             </div>
           )}
-          {spellsKnownKind === "prepared" && (
+          {preparesOnSheet && (
             <p className="character-card__spell-info">
               {hasSpellbook(classId) ? (
                 <>
