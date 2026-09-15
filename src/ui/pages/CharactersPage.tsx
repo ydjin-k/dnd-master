@@ -65,6 +65,17 @@ import {
   spellSlotsForLevel,
   type ClassResource,
 } from "../classProgression";
+import {
+  attemptWildMagicSurge,
+  isWildMagicSorcerer,
+  NO_WILD_MAGIC_TURN,
+  WILD_MAGIC_PAYBACK_FEATURE,
+  WILD_MAGIC_PAYBACK_RESOURCE_ID,
+  WILD_MAGIC_TABLE_SIZE,
+  wildMagicTurnKey,
+  type WildMagicSurge,
+  type WildMagicTurnState,
+} from "../wildMagicSurges";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
@@ -195,6 +206,7 @@ function CharacterCard({
   conditionEffects,
   classHitDiceByTitle,
   raceHpBonusByTitle,
+  turnKey,
   onRemove,
   onUpdate,
 }: {
@@ -203,6 +215,8 @@ function CharacterCard({
   conditionEffects: Record<string, string[]>;
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
+  /** Ключ текущего хода боя или null вне боя — им ограничивается «не чаще раза за ход» у Дикого всплеска. */
+  turnKey: string | null;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -230,6 +244,11 @@ function CharacterCard({
   // насовсем и своей нормой (spellbook.ts), а подготовка меняется каждый день
   // и своей, и общий счётчик у них был бы неверен обоим.
   const [chosenForBook, setChosenForBook] = useState<string[]>([]);
+  // Дикий всплеск: за какой ход бросок уже сделан и что выпало в последний раз.
+  // Оба живут в листе, а не в персонаже: в сейв это не пишется — всплеск
+  // случается и показывается здесь и сейчас, как и бросок кости.
+  const [wildMagicTurn, setWildMagicTurn] = useState<WildMagicTurnState>(NO_WILD_MAGIC_TURN);
+  const [lastSurge, setLastSurge] = useState<{ surge: WildMagicSurge; payback: number } | null>(null);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -369,6 +388,41 @@ function CharacterCard({
     return slots.findIndex((free, i) => i >= circle - 1 && free > 0);
   }
 
+  /**
+   * Дикий всплеск при наложенном заклинании. Бросок целиком за движком
+   * (`attemptWildMagicSurge` в wildMagicSurges.ts): лист только отвечает на
+   * вопрос «чей это персонаж и какой сейчас ход» и запоминает выпавшее, чтобы
+   * показать строку игроку. Возвращает null, если всплеска не было.
+   */
+  function rollWildMagic(circle: number): WildMagicSurge | null {
+    if (!isWildMagicSorcerer(c.subclass)) return null;
+    const { attempt, turnState } = attemptWildMagicSurge({ circle, turnKey, turnState: wildMagicTurn });
+    setWildMagicTurn(turnState);
+    return attempt.kind === "surge" ? attempt.surge : null;
+  }
+
+  /**
+   * Сколько очков чар вернёт «Расплата за всплеск» ИМЕННО СЕЙЧАС: половина
+   * уровня чародея, но не выше максимума запаса (оговорка особенности). Само
+   * число принадлежит `grants.scaling` архетипа и считается тем же
+   * `subclassEffectValue`, что и остальные числа архетипов, — второго владельца
+   * половине уровня здесь не заводится.
+   */
+  function wildMagicPaybackGain(): number {
+    const sorceryPoints = classResources.find((r) => r.id === WILD_MAGIC_PAYBACK_RESOURCE_ID);
+    const entry = subclassScaling.find((s) => s.name === WILD_MAGIC_PAYBACK_FEATURE);
+    if (!classId || !sorceryPoints || !entry) return 0;
+    const value = subclassEffectValue(entry.effect, {
+      classId,
+      abilities: c.abilities,
+      level: c.level,
+      spellCircle: highestCircle,
+    });
+    const points = typeof value?.value === "number" ? value.value : 0;
+    const current = resourceCurrent(sorceryPoints);
+    return Math.max(0, Math.min(resourceMax(sorceryPoints, c.abilities), current + points) - current);
+  }
+
   function useSpellSlot(circle: number) {
     const index = freeSlotIndex(c.spellSlotsCurrent, circle);
     if (index === -1) {
@@ -376,9 +430,23 @@ function CharacterCard({
       return;
     }
     playSpellCastSound();
+    // Бросок делается ДО onUpdate и его результат кладётся в переменные: читать
+    // что-либо внутри updater'а нельзя, он выполняется отложенно.
+    const surge = rollWildMagic(circle);
+    const payback = surge ? wildMagicPaybackGain() : 0;
+    const sorceryPoints = classResources.find((r) => r.id === WILD_MAGIC_PAYBACK_RESOURCE_ID);
+    const restored = sorceryPoints && payback > 0 ? resourceCurrent(sorceryPoints) + payback : 0;
+    setLastSurge(surge ? { surge, payback } : null);
     onUpdate((ch) => ({
       ...ch,
       spellSlotsCurrent: ch.spellSlotsCurrent.map((free, i) => (i === index ? Math.max(0, free - 1) : free)),
+      featureUses:
+        sorceryPoints && payback > 0
+          ? [
+              ...ch.featureUses.filter((u) => u.featureId !== sorceryPoints.id),
+              { featureId: sorceryPoints.id, usesCurrent: restored },
+            ]
+          : ch.featureUses,
     }));
   }
 
@@ -1471,6 +1539,20 @@ function CharacterCard({
       {isSpellcaster && (
         <details className="character-card__spells" open>
           <summary>Заклинания</summary>
+          {lastSurge && (
+            <p className="character-card__spell-group">
+              <strong>
+                Дикий всплеск ({lastSurge.surge.roll}/{WILD_MAGIC_TABLE_SIZE}):
+              </strong>{" "}
+              <span className="character-card__spell-info">{lastSurge.surge.text}</span>
+              {lastSurge.payback > 0 && (
+                <>
+                  {" "}
+                  {WILD_MAGIC_PAYBACK_FEATURE}: +{lastSurge.payback} к очкам чар.
+                </>
+              )}
+            </p>
+          )}
           {c.knownCantrips.length > 0 && (
             <div className="character-card__spell-group">
               Заговоры:
@@ -1786,6 +1868,7 @@ export function CharactersPage() {
             conditionEffects={conditionEffects}
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
+            turnKey={wildMagicTurnKey(state.combat)}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);
