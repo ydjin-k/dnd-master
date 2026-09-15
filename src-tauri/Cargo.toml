@@ -24,11 +24,6 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rand = "0.8"
-docx-rs = "0.4"
-ocrs = "0.12"
-rten = "0.24"
-rten-tensor = "0.24"
 image = "0.25"
-pdfium-render = "0.9.3"
 base64 = "0.22"
 
