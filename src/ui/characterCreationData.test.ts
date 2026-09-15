@@ -833,7 +833,10 @@ describe("механика архетипов 6-12 уровней", () => {
   // Позиция 5: «однажды между отдыхами» было написано, а счётчика не было —
   // в отличие от соседей по классу.
   it("Милость двора имеет счётчик той же формы, что у соседних покровителей", () => {
-    expect(ownResource("classes-warlock", "Покровитель-Архифея", "courts-favor")).toEqual({
+    // toMatchObject, а не toEqual: сторож про ФОРМУ СЧЁТЧИКА, и подпись
+    // особенности (characters-class-feature-short-descriptions) его не касается —
+    // пересказывать её здесь значило бы завести второй копии текста.
+    expect(ownResource("classes-warlock", "Покровитель-Архифея", "courts-favor")).toMatchObject({
       id: "courts-favor",
       name: "Милость двора",
       max: 1,
@@ -923,6 +926,66 @@ describe("механика архетипов 6-12 уровней", () => {
     }
     for (const spell of bundledSpells as { name: string; description: string }[]) {
       expect(spell.description, spell.name).not.toMatch(wrong);
+    }
+  });
+});
+
+/**
+ * characters-class-feature-short-descriptions. Подпись особенности — поле
+ * данных, а не строка разметки: снимите `description` у любого ресурса или
+ * варианта архетипа, и первая из этих проб краснеет.
+ */
+describe("подписи ресурсов и вариантов архетипов", () => {
+  /** Все ресурсы и варианты всех архетипов, включая приходящие с выбором внутри архетипа (`choices`). */
+  function allCaptions(): { where: string; description: string }[] {
+    const out: { where: string; description: string }[] = [];
+    const collect = (grants: SubclassGrants | undefined, from: string) => {
+      for (const r of grants?.resources ?? []) out.push({ where: `${from}: ресурс «${r.name}»`, description: r.description });
+      for (const o of grants?.resourceOptions ?? []) out.push({ where: `${from}: вариант «${o.name}»`, description: o.description });
+      for (const choice of grants?.choices ?? []) {
+        for (const option of choice.options) collect(option.grants, `${from} / ${option.label}`);
+      }
+    };
+    for (const [classId, info] of Object.entries(CLASS_SUBCLASSES)) {
+      for (const subclass of info.subclasses) collect(subclass.grants, `${classId} / ${subclass.name}`);
+    }
+    return out;
+  }
+
+  it("есть у каждого — одно предложение и без чисел", () => {
+    const captions = allCaptions();
+    // Ресурсов и вариантов у архетипов заведомо больше десятка: пустой обход
+    // прошёл бы молча и ничего не доказал.
+    expect(captions.length).toBeGreaterThan(40);
+    for (const { where, description } of captions) {
+      expect(description, `${where}: подписи нет`).toBeTruthy();
+      expect(description.endsWith("."), `${where}: подпись обрывается`).toBe(true);
+      expect(description.slice(0, -1), `${where}: подпись длиннее предложения`).not.toContain(". ");
+      // Числа принадлежат `effect` и тексту особенности; в подписи они завели бы
+      // второго владельца и однажды разошлись бы с ним.
+      expect(description, `${where}: число в подписи`).not.toMatch(/\d/);
+    }
+  });
+
+  it("не копируют текст особенности — у подписи и у правила разные владельцы", () => {
+    const featureTexts: string[] = [];
+    for (const info of Object.values(CLASS_SUBCLASSES)) {
+      for (const subclass of info.subclasses) {
+        for (const features of Object.values(subclass.featuresByLevel)) {
+          for (const f of features) featureTexts.push(f.description);
+        }
+      }
+    }
+    for (const features of Object.values(CLASS_LEVEL_FEATURES)) {
+      for (const byLevel of Object.values(features)) {
+        for (const f of byLevel) featureTexts.push(f.description);
+      }
+    }
+    for (const { where, description } of allCaptions()) {
+      for (const text of featureTexts) {
+        expect(text.includes(description), `${where}: подпись взята куском из текста особенности`).toBe(false);
+        expect(description.includes(text), `${where}: подпись вобрала в себя текст особенности`).toBe(false);
+      }
     }
   });
 });
