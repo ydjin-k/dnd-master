@@ -267,7 +267,6 @@ summary { font-family: var(--dm-font-display); letter-spacing: 0.025em; }
 
 .ui-icon { width: 1.35em; height: 1.35em; flex: 0 0 auto; filter: drop-shadow(0 0 5px rgba(114, 214, 208, 0.18)); }
 
-.adventure-page__scene,
 .character-card,
 .journal-entry,
 .journal-page__form,

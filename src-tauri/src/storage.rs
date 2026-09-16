@@ -165,7 +165,6 @@ fn create_campaign_in(base: &Path, name: String) -> Result<CampaignState, String
     let mut state = CampaignState::default();
     state.id = generate_id();
     state.campaign_name = name;
-    state.chaos_factor = 5;
     save_campaign_in(base, &state)?;
     write_active_pointer(base, &ActivePointer { active_id: Some(state.id.clone()) })?;
     Ok(state)
@@ -275,7 +274,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{AdventureLogEntry, Character};
+    use crate::model::{Character, JournalEntry};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dnd-master-storage-test-{name}-{}", generate_id()));
@@ -457,19 +456,20 @@ mod tests {
 
         let base_a = base.clone();
         let base_b = base.clone();
+        let entry = |text: &str| JournalEntry {
+            id: generate_id(),
+            timestamp: String::new(),
+            text: text.into(),
+        };
         let a = std::thread::spawn(move || {
             with_active_locked_in(&base_a, |state| {
-                state
-                    .adventure_log
-                    .push(AdventureLogEntry::Custom("A".into()));
+                state.journal.push(entry("A"));
                 Ok(())
             })
         });
         let b = std::thread::spawn(move || {
             with_active_locked_in(&base_b, |state| {
-                state
-                    .adventure_log
-                    .push(AdventureLogEntry::Custom("B".into()));
+                state.journal.push(entry("B"));
                 Ok(())
             })
         });
@@ -478,7 +478,7 @@ mod tests {
 
         let saved = load_active_in(&base).unwrap().unwrap();
         assert_eq!(
-            saved.adventure_log.len(),
+            saved.journal.len(),
             2,
             "обе параллельные мутации должны быть сохранены, а не одна затёрта другой"
         );

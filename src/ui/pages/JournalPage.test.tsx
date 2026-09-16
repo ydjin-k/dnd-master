@@ -38,10 +38,7 @@ describe("JournalPage", () => {
       campaignName: "Тест",
       characters: [],
       journal: [{ id: "e1", timestamp: new Date("2026-01-01T10:00:00Z").toISOString(), text: "Старая запись" }],
-      currentSceneId: null,
-      adventureLog: [],
       combat: null,
-      chaosFactor: 5,
     };
     render(<JournalPage />);
 
@@ -67,10 +64,7 @@ describe("JournalPage", () => {
       campaignName: "Тест",
       characters: [],
       journal: [{ id: "entry-to-remove", timestamp: "2026-01-01T10:00:00Z", text: "Старая запись" }],
-      currentSceneId: null,
-      adventureLog: [],
       combat: null,
-      chaosFactor: 5,
     };
     render(<JournalPage />);
 
@@ -155,9 +149,6 @@ function createStateWithEntries(count: number, textLength = 0): CampaignState {
       timestamp: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
       text: `Запись ${index + 1} ${"т".repeat(textLength)}`,
     })),
-    currentSceneId: null,
-    adventureLog: [],
     combat: null,
-    chaosFactor: 5,
   };
 }

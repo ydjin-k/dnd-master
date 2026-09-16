@@ -26,7 +26,7 @@ describe("AppShell", () => {
       </SoundtrackProvider>,
     );
 
-    expect(screen.getByTestId("tab-content")).toHaveTextContent("adventure");
+    expect(screen.getByTestId("tab-content")).toHaveTextContent("characters");
 
     fireEvent.click(screen.getByText("Бой"));
     expect(screen.getByTestId("tab-content")).toHaveTextContent("combat");
