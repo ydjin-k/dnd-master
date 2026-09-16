@@ -1,8 +1,9 @@
 type IconName =
-  | "combat" | "dice" | "characters"
+  | "adventures" | "combat" | "dice" | "characters"
   | "journal" | "rules" | "spells" | "bestiary" | "soundboard" | "campaign";
 
 const paths: Record<IconName, React.ReactNode> = {
+  adventures: <><path d="M4 20c5-1 6-6 9-9s5-4 7-7"/><path d="M14 4h6v6M5 16l3 3"/></>,
   combat: <><path d="M5 20L19 6M14 5l5 1 1 5M4 4l16 16"/><path d="M4 9V4h5M15 20h5v-5"/></>,
   dice: <><path d="M12 2l8 6-3 11H7L4 8z"/><path d="M12 2v17M4 8h16M7 19l5-11 5 11"/></>,
   characters: <><circle cx="9" cy="7" r="3"/><path d="M3 20c0-5 2-8 6-8s6 3 6 8M16 9l2 2 3-4M17 14h4"/></>,

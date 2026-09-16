@@ -13,6 +13,7 @@ vi.mock("../state/CampaignContext", () => ({
 }));
 
 const TAB_LABELS: Record<string, string> = {
+  adventures: "Приключения",
   combat: "Бой", dice: "Кубики", characters: "Персонажи", journal: "Дневник",
   rules: "Правила", spells: "Заклинания", bestiary: "Бестиарий", soundboard: "Саундборд",
 };
@@ -39,14 +40,13 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByText("Заклинания"));
     expect(screen.getByTestId("tab-content")).toHaveTextContent("spells");
 
-    // engine-wipe-adventure-and-oracle: «Приключение» снесено вместе с движком —
-    // пустой экран-заглушка хуже отсутствующего пункта. Остальные восемь стоят
-    // в прежнем порядке и открываются.
+    // engine-event-generator: вкладка вернулась на прежнее место — первой в
+    // рельсе, — но стартовой осталась «Персонажи» (проверено выше). Остальные
+    // восемь стоят в прежнем порядке и открываются.
     expect(
       screen.getAllByRole("button").map((b) => b.getAttribute("data-tab")).filter(Boolean),
-    ).toEqual(["combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]);
-    expect(screen.queryByText("Приключение")).not.toBeInTheDocument();
-    for (const id of ["combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]) {
+    ).toEqual(["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]);
+    for (const id of ["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]) {
       fireEvent.click(screen.getByRole("button", { name: TAB_LABELS[id] }));
       expect(screen.getByTestId("tab-content")).toHaveTextContent(id);
     }

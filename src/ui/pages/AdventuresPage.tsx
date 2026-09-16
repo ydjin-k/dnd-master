@@ -1,0 +1,186 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { playDiceRollSound } from "../../audio/uiSounds";
+import { useCampaign } from "../../state/CampaignContext";
+import type { RollResult } from "../../state/types";
+import {
+  EVENT_TABLES,
+  TABLE_GROUPS,
+  findTable,
+  rollExpression,
+  rowForRoll,
+  type EventTable,
+  type EventTableRow,
+} from "../eventTables";
+import "./AdventuresPage.css";
+
+/**
+ * Раздел приключений. Задуман из двух входов: «Начать приключение» (движок
+ * владельца, работа по нему на паузе) и «Сгенерировать события». Место под
+ * первый оставлено раскладкой, но кнопки нет: неактивных заглушек и «скоро
+ * будет» в разделе не держим.
+ */
+type View = "menu" | "generator";
+
+/** Что показано игроку после броска. Держится до следующего броска. */
+interface Outcome {
+  table: EventTable;
+  roll: number;
+  row: EventTableRow;
+}
+
+/**
+ * Текст записи дневника. Рождается здесь и только здесь: и кнопка «В дневник»,
+ * и проба берут его отсюда, поэтому формат не разъезжается между ними.
+ * Бросок в записи назван числом — за столом важно, что выпало, а не только что
+ * приложение показало.
+ */
+export function journalTextFor({ table, roll, row }: Outcome): string {
+  return `${table.name} (d${table.die}), выпало ${roll}: ${row.text}`;
+}
+
+export function AdventuresPage() {
+  const [view, setView] = useState<View>("menu");
+
+  if (view === "menu") {
+    return (
+      <section className="adventures-page">
+        <h2>Приключения</h2>
+        <div className="adventures-page__entries">
+          <button
+            type="button"
+            className="adventures-page__entry dm-button--primary"
+            onClick={() => setView("generator")}
+          >
+            <span className="adventures-page__entry-title">Сгенерировать события</span>
+            <span className="adventures-page__entry-hint">
+              Выберите таблицу — приложение бросит её кость и покажет выпавшее
+            </span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return <EventGenerator onBack={() => setView("menu")} />;
+}
+
+function EventGenerator({ onBack }: { onBack: () => void }) {
+  const { state, addJournalEntry } = useCampaign();
+  const [tableId, setTableId] = useState(EVENT_TABLES[0].id);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRolling, setIsRolling] = useState(false);
+  /** id записи, которую только что положили в дневник, — для подписи под ней. */
+  const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
+
+  const table = findTable(tableId) ?? EVENT_TABLES[0];
+  const savedNow = savedEntryId !== null && state.journal.some((e) => e.id === savedEntryId);
+
+  async function roll() {
+    if (isRolling) return;
+    setIsRolling(true);
+    setError(null);
+    setSavedEntryId(null);
+    const expression = rollExpression(table);
+    try {
+      const result = await invoke<RollResult>("roll_dice", { expression });
+      const row = rowForRoll(table, result.total);
+      if (!row) {
+        // Дыру в диапазонах стережёт проба на покрытие кости; если она всё же
+        // добралась до игрока — честнее сказать, чем показать пустоту.
+        setError(`Таблица «${table.name}» не покрывает число ${result.total}`);
+        setOutcome(null);
+      } else {
+        setOutcome({ table, roll: result.total, row });
+      }
+      playDiceRollSound();
+    } catch (e) {
+      setError(String(e));
+      setOutcome(null);
+    } finally {
+      setIsRolling(false);
+    }
+  }
+
+  /** Записывает только по нажатию: неудачный бросок игрок перебрасывает, не
+   *  засоряя историю кампании. Автоматически не пишется ничего. */
+  async function saveToJournal() {
+    if (!outcome) return;
+    const id = crypto.randomUUID();
+    await addJournalEntry({
+      id,
+      timestamp: new Date().toISOString(),
+      text: journalTextFor(outcome),
+    });
+    setSavedEntryId(id);
+  }
+
+  return (
+    <section className="adventures-page">
+      <div className="adventures-page__head">
+        <button type="button" className="adventures-page__back" onClick={onBack}>
+          ← Приключения
+        </button>
+        <h2>Генератор событий</h2>
+      </div>
+
+      <div className="adventures-page__generator">
+        <label className="adventures-page__picker">
+          Таблица
+          <select
+            aria-label="Таблица событий"
+            value={tableId}
+            onChange={(e) => {
+              setTableId(e.currentTarget.value);
+              setOutcome(null);
+              setError(null);
+              setSavedEntryId(null);
+            }}
+          >
+            {TABLE_GROUPS.map((group) => (
+              <optgroup key={group} label={group}>
+                {EVENT_TABLES.filter((t) => t.group === group).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} (d{t.die})
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+
+        <p className="adventures-page__die">
+          Кость таблицы: <strong>d{table.die}</strong>, строк: {table.rows.length}
+        </p>
+
+        <button
+          type="button"
+          className="adventures-page__roll dm-button--primary"
+          onClick={roll}
+          disabled={isRolling}
+        >
+          Бросить
+        </button>
+
+        {error && <p className="adventures-page__error">{error}</p>}
+
+        {outcome && (
+          <article className="adventures-page__outcome">
+            <p className="adventures-page__outcome-roll">
+              <span className="adventures-page__outcome-number">{outcome.roll}</span>
+              <span className="adventures-page__outcome-of">из d{outcome.table.die}</span>
+            </p>
+            <p className="adventures-page__outcome-text">{outcome.row.text}</p>
+            <button type="button" className="adventures-page__save" onClick={saveToJournal}>
+              В дневник
+            </button>
+            {savedNow && <span className="adventures-page__saved">Записано в дневник</span>}
+          </article>
+        )}
+
+        {table.sourceNote && <p className="adventures-page__source">{table.sourceNote}</p>}
+      </div>
+    </section>
+  );
+}
