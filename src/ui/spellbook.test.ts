@@ -102,13 +102,15 @@ describe("книга заклинаний Волшебника", () => {
       level: 12,
       alreadyPrepared: ["shield"],
     });
-    expect(fromWholeList).toHaveLength(147);
+    expect(fromWholeList).toHaveLength(148);
   });
 
   it("вписать можно заклинания волшебника до доступного круга, кроме уже вписанных", () => {
     const level12 = writableSpells(SPELLS, { classId: "classes-wizard", level: 12, book: ["magic-missile"] });
-    // Список волшебника до 6 круга — 148 заклинаний, минус одно уже в книге.
-    expect(level12).toHaveLength(147);
+    // Список волшебника до 6 круга — 149 заклинаний, минус одно уже в книге. Было 148:
+    // `stinking-cloud` потерял волшебника, хотя в SRD 3 круг волшебника его содержит
+    // (rules-vendor-srd-spell-lists — сверка с эталоном `src-tauri/reference/`).
+    expect(level12).toHaveLength(148);
     expect(level12.every((sp) => sp.level >= 1 && sp.level <= 6)).toBe(true);
     expect(level12.some((sp) => sp.id === "magic-missile")).toBe(false);
     // Круги 7-9 у волшебника в spells.json есть, но ячеек под них на 12 уровне нет.

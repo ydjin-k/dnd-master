@@ -151,8 +151,10 @@ describe("подготовка заклинаний", () => {
       level: 12,
       alreadyPrepared: ["bless"],
     });
-    // На 12 уровне жрецу доступен 6 круг: 81 заклинание списка минус подготовленное.
-    expect(level12).toHaveLength(80);
+    // На 12 уровне жрецу доступен 6 круг: 80 заклинаний списка минус подготовленное.
+    // Было 81: `wind-walk` числился за жрецом, хотя в SRD это заклинание только друида
+    // (rules-vendor-srd-spell-lists — сверка с эталоном `src-tauri/reference/`).
+    expect(level12).toHaveLength(79);
     expect(level12.every((sp) => sp.level >= 1 && sp.level <= 6)).toBe(true);
     expect(level12.some((sp) => sp.id === "bless")).toBe(false);
 
