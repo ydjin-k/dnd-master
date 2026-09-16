@@ -85,6 +85,7 @@ import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
 import { CoinIcon } from "../CoinIcon";
+import { characterPortraitUrl } from "../characterPortraits";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
@@ -941,6 +942,7 @@ function CharacterCard({
   const addItemOverloads = wouldExceedCapacity(catalogWeightLb(newItemName.trim()));
   const nextLevelXp = xpNeededForNextLevel(c.level);
   const levelUpReady = canLevelUp(c.level, c.experiencePoints);
+  const portraitUrl = characterPortraitUrl(c.race, c.gender);
 
   return (
     <li className="character-card">
@@ -955,52 +957,65 @@ function CharacterCard({
         </span>
       </div>
       <div className="character-card__summary">
-        <div className="character-card__meta dm-chip">
-          {c.race || "раса не указана"} · {c.class || "класс не указан"}
-          {c.subclass && <> ({c.subclass})</>}
-          {c.background && <> · {c.background}</>} · ур. {c.level}
-          {c.alignment && <> · {c.alignment}</>}
-          {c.gender && <> · {c.gender}</>}
-          {c.age > 0 && <> · {c.age} л.</>}
+        <div className="character-card__portrait-frame">
+          <img
+            className="character-card__portrait"
+            src={portraitUrl}
+            alt={`Портрет персонажа ${c.name}: ${c.race || "раса не указана"}, ${c.gender || "пол не указан"}`}
+            width="112"
+            height="112"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
-        {c.languages.length > 0 && (
-          <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
-        )}
-        {(c.favoredEnemy || c.knownTerrain) && (
-          <div className="character-card__prof">
-            {c.favoredEnemy && <>Избранный враг: {c.favoredEnemy}</>}
-            {c.favoredEnemy && c.knownTerrain && " · "}
-            {c.knownTerrain && <>Известная местность: {c.knownTerrain}</>}
+        <div className="character-card__summary-main">
+          <div className="character-card__meta dm-chip">
+            {c.race || "раса не указана"} · {c.class || "класс не указан"}
+            {c.subclass && <> ({c.subclass})</>}
+            {c.background && <> · {c.background}</>} · ур. {c.level}
+            {c.alignment && <> · {c.alignment}</>}
+            {c.gender && <> · {c.gender}</>}
+            {c.age > 0 && <> · {c.age} л.</>}
           </div>
-        )}
-        <dl className="character-card__hp" aria-label="Характеристики персонажа">
-        <div className="character-card__stat">
-          <dt>HP</dt>
-          <dd>{c.currentHp}/{c.maxHp}</dd>
-        </div>
-        <div className="character-card__stat">
-          <dt>КД</dt>
-          <dd>{c.armorClass}</dd>
-        </div>
-        <div className="character-card__stat">
-          <dt>Скорость</dt>
-          <dd>{speedLabel}</dd>
-        </div>
-        <div className="character-card__stat">
-          <dt>Инициатива</dt>
-          <dd>{c.initiative >= 0 ? `+${c.initiative}` : c.initiative}</dd>
-        </div>
-        <div className="character-card__stat">
-          <dt>Пас. внимательность</dt>
-          <dd>{c.passivePerception}</dd>
-        </div>
-        <div className="character-card__stat">
-          <dt>Вес</dt>
-          <dd>{Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.</dd>
-        </div>
-        </dl>
-        <div className="character-card__encumbrance-scale">
-          Нагружен с {encThresholds.encumberedFromLb} фнт. · Сильно нагружен свыше {encThresholds.heavilyEncumberedAboveLb} фнт.
+          {c.languages.length > 0 && (
+            <div className="character-card__prof">Языки: {c.languages.join(", ")}</div>
+          )}
+          {(c.favoredEnemy || c.knownTerrain) && (
+            <div className="character-card__prof">
+              {c.favoredEnemy && <>Избранный враг: {c.favoredEnemy}</>}
+              {c.favoredEnemy && c.knownTerrain && " · "}
+              {c.knownTerrain && <>Известная местность: {c.knownTerrain}</>}
+            </div>
+          )}
+          <dl className="character-card__hp" aria-label="Характеристики персонажа">
+            <div className="character-card__stat">
+              <dt>HP</dt>
+              <dd>{c.currentHp}/{c.maxHp}</dd>
+            </div>
+            <div className="character-card__stat">
+              <dt>КД</dt>
+              <dd>{c.armorClass}</dd>
+            </div>
+            <div className="character-card__stat">
+              <dt>Скорость</dt>
+              <dd>{speedLabel}</dd>
+            </div>
+            <div className="character-card__stat">
+              <dt>Инициатива</dt>
+              <dd>{c.initiative >= 0 ? `+${c.initiative}` : c.initiative}</dd>
+            </div>
+            <div className="character-card__stat">
+              <dt>Пас. внимательность</dt>
+              <dd>{c.passivePerception}</dd>
+            </div>
+            <div className="character-card__stat">
+              <dt>Вес</dt>
+              <dd>{Math.round(totalWeightLb * 10) / 10} / {carryingCapacity} фнт.</dd>
+            </div>
+          </dl>
+          <div className="character-card__encumbrance-scale">
+            Нагружен с {encThresholds.encumberedFromLb} фнт. · Сильно нагружен свыше {encThresholds.heavilyEncumberedAboveLb} фнт.
+          </div>
         </div>
       </div>
       {!collapsed && <div className="character-card__body">
