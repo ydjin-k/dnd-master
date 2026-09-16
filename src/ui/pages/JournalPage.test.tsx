@@ -131,6 +131,36 @@ describe("JournalPage", () => {
     expect(screen.queryByText(/Запись 8/)).not.toBeInTheDocument();
   });
 
+  // engine-wipe-adventure-and-oracle: записи, переехавшие из снесённого журнала
+  // приключения, пришли без времени — его у них никогда не было. Выдуманной
+  // даты быть не должно, «Invalid Date» на экране — тем более.
+  // Отрицательная проба: вернуть `new Date(entry.timestamp).toLocaleString()`
+  // вместо `entryTime` — краснеет именно эта проба, остальные остаются зелёными.
+  it("запись без даты подписана честно и уходит в конец дневника", () => {
+    mockState = {
+      id: "c1",
+      campaignName: "Тест",
+      characters: [],
+      journal: [
+        { id: "old", timestamp: "", text: "Оракул: «Есть ли тут ловушка?» → Да" },
+        { id: "new", timestamp: new Date("2026-01-01T10:00:00Z").toISOString(), text: "Своя запись" },
+      ],
+      combat: null,
+    };
+    render(<JournalPage />);
+
+    expect(screen.getByText("без даты")).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Удалить запись от без даты" }),
+    ).toBeInTheDocument();
+
+    const texts = screen
+      .getAllByText(/.*/, { selector: ".journal-entry__text" })
+      .map((el) => el.textContent);
+    expect(texts).toEqual(["Своя запись", "Оракул: «Есть ли тут ловушка?» → Да"]);
+  });
+
   it("shows the page-count window even with a single spread", () => {
     mockState = createStateWithEntries(2);
     render(<JournalPage />);
