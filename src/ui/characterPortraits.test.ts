@@ -13,18 +13,19 @@ const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
 });
 
 describe("characterPortraitUrl", () => {
-  it("выдаёт 54 уникальных имени и каждый ожидаемый файл есть в библиотеке", () => {
+  it("выдаёт 60 уникальных имён и каждый ожидаемый файл есть в библиотеке", () => {
     const urls = CHARACTER_PORTRAIT_RACES.flatMap((race) =>
       CHARACTER_PORTRAIT_GENDERS.flatMap((gender) =>
         CHARACTER_PORTRAIT_VARIANTS.map((variant) => characterPortraitUrl(race, gender, variant)),
       ),
     );
 
-    expect(urls).toHaveLength(54);
-    expect(new Set(urls).size).toBe(54);
+    expect(urls).toHaveLength(60);
+    expect(new Set(urls).size).toBe(60);
     expect(Object.keys(bundledPortraits).sort()).toEqual(urls.map((url) => `/public${url}`).sort());
     expect(urls).toContain("/character-portraits/dragonborn-female-3.jpg");
     expect(urls).toContain("/character-portraits/half-orc-male-2.jpg");
+    expect(urls).toContain("/character-portraits/abyss-elf-female-3.jpg");
   });
 
   it("для отсутствующего или произвольного пола предсказуемо берёт мужской вариант той же расы", () => {

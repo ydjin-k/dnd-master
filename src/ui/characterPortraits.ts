@@ -1,6 +1,7 @@
 const RACE_PORTRAIT_SLUGS = {
   Человек: "human",
   Эльф: "elf",
+  "Эльф бездны": "abyss-elf",
   Дварф: "dwarf",
   Гном: "gnome",
   Полурослик: "halfling",
