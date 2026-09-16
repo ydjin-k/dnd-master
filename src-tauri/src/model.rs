@@ -75,6 +75,9 @@ pub struct Character {
     pub flaws: String,
     pub alignment: String,
     pub gender: String,
+    /// Вариант портрета 1–3. Старые сохранения получают 0 через структурный
+    /// `#[serde(default)]`, а единый подборщик URL трактует его как вариант 1.
+    pub portrait_variant: u8,
     pub age: u32,
     /// Описательные поля листа персонажа — рост/вес/глаза/кожа/волосы,
     /// внешность, предыстория, союзники, сокровища. Модель их только хранит:
@@ -299,6 +302,7 @@ mod tests {
         assert!(character.saving_throw_proficiencies.is_empty());
         assert!(character.skill_proficiencies.is_empty());
         assert_eq!(character.gender, "");
+        assert_eq!(character.portrait_variant, 0);
         assert_eq!(character.age, 0);
         assert!(character.known_cantrips.is_empty());
         assert!(character.castable_spells.is_empty());

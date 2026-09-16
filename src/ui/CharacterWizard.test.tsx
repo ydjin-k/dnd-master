@@ -949,7 +949,7 @@ describe("CharacterWizard", () => {
     }
   });
 
-  it("carries gender and age chosen on the review step into the finished character", async () => {
+  it("shows three portraits, resets the choice after gender changes, and saves the selected variant", async () => {
     addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);
 
@@ -971,7 +971,15 @@ describe("CharacterWizard", () => {
     fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
       target: { value: "Возрастной Герой" },
     });
+    const portraitButtons = screen.getAllByRole("button", { name: /Вариант портрета/ });
+    expect(portraitButtons).toHaveLength(3);
+    expect(portraitButtons[0]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(portraitButtons[2]);
+    expect(portraitButtons[2]).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(screen.getByDisplayValue("Мужской"), { target: { value: "Женский" } });
+    expect(portraitButtons[0]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(portraitButtons[1]);
+    expect(portraitButtons[1]).toHaveAttribute("aria-pressed", "true");
     const ageInput = document.querySelector('input[type="number"]') as HTMLInputElement;
     fireEvent.change(ageInput, { target: { value: "134" } });
     fireEvent.click(screen.getByText("Создать персонажа"));
@@ -979,6 +987,7 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.gender).toBe("Женский");
+    expect(character.portraitVariant).toBe(2);
     expect(character.age).toBe(134);
   });
 

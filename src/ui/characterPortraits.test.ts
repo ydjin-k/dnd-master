@@ -2,28 +2,40 @@ import { describe, expect, it } from "vitest";
 import {
   CHARACTER_PORTRAIT_GENDERS,
   CHARACTER_PORTRAIT_RACES,
+  CHARACTER_PORTRAIT_VARIANTS,
   characterPortraitUrl,
 } from "./characterPortraits";
 
+const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
+  eager: true,
+  query: "?url",
+  import: "default",
+});
+
 describe("characterPortraitUrl", () => {
-  it("выдаёт 18 уникальных имён для девяти рас и двух полов", () => {
+  it("выдаёт 54 уникальных имени и каждый ожидаемый файл есть в библиотеке", () => {
     const urls = CHARACTER_PORTRAIT_RACES.flatMap((race) =>
-      CHARACTER_PORTRAIT_GENDERS.map((gender) => characterPortraitUrl(race, gender)),
+      CHARACTER_PORTRAIT_GENDERS.flatMap((gender) =>
+        CHARACTER_PORTRAIT_VARIANTS.map((variant) => characterPortraitUrl(race, gender, variant)),
+      ),
     );
 
-    expect(urls).toHaveLength(18);
-    expect(new Set(urls).size).toBe(18);
-    expect(urls).toContain("/character-portraits/dragonborn-female.jpg");
-    expect(urls).toContain("/character-portraits/half-orc-male.jpg");
+    expect(urls).toHaveLength(54);
+    expect(new Set(urls).size).toBe(54);
+    expect(Object.keys(bundledPortraits).sort()).toEqual(urls.map((url) => `/public${url}`).sort());
+    expect(urls).toContain("/character-portraits/dragonborn-female-3.jpg");
+    expect(urls).toContain("/character-portraits/half-orc-male-2.jpg");
   });
 
   it("для отсутствующего или произвольного пола предсказуемо берёт мужской вариант той же расы", () => {
-    expect(characterPortraitUrl("Эльф", "")).toBe("/character-portraits/elf-male.jpg");
-    expect(characterPortraitUrl("Тифлинг", "не указано")).toBe("/character-portraits/tiefling-male.jpg");
+    expect(characterPortraitUrl("Эльф", "")).toBe("/character-portraits/elf-male-1.jpg");
+    expect(characterPortraitUrl("Тифлинг", "не указано", 3)).toBe("/character-portraits/tiefling-male-3.jpg");
   });
 
-  it("не оставляет пустого места для неизвестной расы", () => {
-    expect(characterPortraitUrl("", "Женский")).toBe("/character-portraits/human-female.jpg");
-    expect(characterPortraitUrl("Кастомная раса", "другое")).toBe("/character-portraits/human-male.jpg");
+  it("старого персонажа без варианта и неизвестную расу показывает первым портретом", () => {
+    expect(characterPortraitUrl("", "Женский", 0)).toBe("/character-portraits/human-female-1.jpg");
+    expect(characterPortraitUrl("Кастомная раса", "другое", Number.NaN)).toBe(
+      "/character-portraits/human-male-1.jpg",
+    );
   });
 });

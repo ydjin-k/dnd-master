@@ -89,6 +89,57 @@
   max-width: 100%;
 }
 
+.wizard__portrait-choice {
+  margin: 0.7em 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.wizard__portrait-choice legend {
+  margin-bottom: 0.45em;
+  color: var(--dm-text-muted);
+  font-style: italic;
+}
+
+.wizard__portrait-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65em;
+}
+
+.wizard__portrait-option {
+  display: grid;
+  gap: 0.35em;
+  min-width: 108px;
+  min-height: 44px;
+  padding: 5px;
+  color: var(--dm-text-muted);
+  background: var(--dm-panel-raised);
+  border: 1px solid var(--dm-border);
+  border-radius: 10px;
+}
+
+.wizard__portrait-option:hover,
+.wizard__portrait-option:active {
+  transform: none;
+}
+
+.wizard__portrait-option img {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 7px;
+}
+
+.wizard__portrait-option--selected {
+  color: var(--dm-text);
+  border-color: var(--dm-periwinkle);
+  background: var(--dm-selected);
+  box-shadow: 0 0 0 2px rgba(114, 214, 208, 0.18), 0 0 16px rgba(118, 131, 255, 0.2);
+}
+
 .wizard__coins {
   display: flex;
   flex-wrap: wrap;

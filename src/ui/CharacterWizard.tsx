@@ -65,6 +65,7 @@ import {
 import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
 import { preparedSpellsMax } from "./preparedSpells";
 import { hasSpellbook, spellbookMax } from "./spellbook";
+import { CHARACTER_PORTRAIT_VARIANTS, characterPortraitUrl } from "./characterPortraits";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -181,6 +182,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState("");
   const [lastSuggestedName, setLastSuggestedName] = useState<string | null>(null);
   const [gender, setGender] = useState<(typeof GENDERS)[number]>(GENDERS[0]);
+  const [portraitVariant, setPortraitVariant] = useState(1);
   const [age, setAge] = useState(0);
   const [ageLimitHit, setAgeLimitHit] = useState(false);
   const [goldLimitHit, setGoldLimitHit] = useState(false);
@@ -330,6 +332,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   function selectRace(id: string) {
     setRaceId(id);
+    setPortraitVariant(1);
     setChoiceBonusKeys([]);
     setChosenLanguage("");
     setRaceSkillChoices([]);
@@ -584,6 +587,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       flaws: flaws.trim(),
       alignment,
       gender,
+      portraitVariant,
       age,
       // Описательные поля листа (рост/вес/внешность/предыстория…) мастер не
       // спрашивает — они заполняются потом в карточке персонажа или приезжают
@@ -1368,7 +1372,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           {alignment && <p className="wizard__hint">{ALIGNMENT_DESCRIPTIONS[alignment]}</p>}
           <label className="wizard__hint">
             Пол:{" "}
-            <select value={gender} onChange={(e) => setGender(e.currentTarget.value as (typeof GENDERS)[number])}>
+            <select
+              value={gender}
+              onChange={(e) => {
+                setGender(e.currentTarget.value as (typeof GENDERS)[number]);
+                setPortraitVariant(1);
+              }}
+            >
               {GENDERS.map((g) => (
                 <option key={g} value={g}>
                   {g}
@@ -1376,6 +1386,29 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               ))}
             </select>
           </label>
+          <fieldset className="wizard__portrait-choice">
+            <legend>Портрет</legend>
+            <div className="wizard__portrait-options">
+              {CHARACTER_PORTRAIT_VARIANTS.map((variant) => (
+                <button
+                  key={variant}
+                  type="button"
+                  className={`wizard__portrait-option${portraitVariant === variant ? " wizard__portrait-option--selected" : ""}`}
+                  aria-label={`Вариант портрета ${variant}`}
+                  aria-pressed={portraitVariant === variant}
+                  onClick={() => setPortraitVariant(variant)}
+                >
+                  <img
+                    src={characterPortraitUrl(race?.title ?? "", gender, variant)}
+                    alt=""
+                    width="96"
+                    height="96"
+                  />
+                  <span>Вариант {variant}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <label className="wizard__hint">
             Возраст (до {AGE_LIMIT} лет):{" "}
             <input

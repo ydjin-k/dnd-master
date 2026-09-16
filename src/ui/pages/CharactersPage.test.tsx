@@ -146,6 +146,7 @@ describe("CharactersPage", () => {
       flaws: "",
       alignment: "",
       gender: "",
+      portraitVariant: 0,
       age: 0,
       height: "",
       weight: "",
@@ -223,6 +224,16 @@ describe("CharactersPage", () => {
     };
   }
 
+  it("показывает первый портрет персонажу из старого сохранения без выбранного варианта", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    expect(screen.getByRole("img", { name: /Портрет персонажа Герой/ })).toHaveAttribute(
+      "src",
+      "/character-portraits/human-male-1.jpg",
+    );
+  });
+
   it("deletes a character after confirmation without crashing", async () => {
     mockState = baseState({
       characters: [
@@ -239,6 +250,7 @@ describe("CharactersPage", () => {
           flaws: "",
           alignment: "",
           gender: "",
+          portraitVariant: 0,
           age: 0,
           height: "",
           weight: "",
@@ -341,6 +353,7 @@ describe("CharactersPage", () => {
         background: "Солдат",
         alignment: "Нейтральный",
         gender: "Мужской",
+        portraitVariant: 1,
         age: 30,
         height: "",
         weight: "",

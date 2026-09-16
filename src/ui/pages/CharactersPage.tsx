@@ -942,7 +942,7 @@ function CharacterCard({
   const addItemOverloads = wouldExceedCapacity(catalogWeightLb(newItemName.trim()));
   const nextLevelXp = xpNeededForNextLevel(c.level);
   const levelUpReady = canLevelUp(c.level, c.experiencePoints);
-  const portraitUrl = characterPortraitUrl(c.race, c.gender);
+  const portraitUrl = characterPortraitUrl(c.race, c.gender, c.portraitVariant);
 
   return (
     <li className="character-card">

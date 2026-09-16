@@ -136,6 +136,7 @@ function blankCharacter(): Character {
     flaws: "",
     alignment: "",
     gender: "",
+    portraitVariant: 1,
     age: 0,
     height: "",
     weight: "",

@@ -47,6 +47,8 @@ export interface Character {
   flaws: string;
   alignment: string;
   gender: string;
+  /** Вариант портрета 1–3; старые сохранения без поля показывают вариант 1. */
+  portraitVariant: number;
   age: number;
   /**
    * Описательные поля листа персонажа (рост/вес/глаза/кожа/волосы, внешность,

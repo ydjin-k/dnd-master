@@ -69,6 +69,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         flaws: "",
         alignment: "",
         gender: "",
+        portraitVariant: 1,
         age: 0,
         height: "",
         weight: "",
