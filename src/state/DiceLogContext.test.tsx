@@ -65,10 +65,6 @@ describe("журнал бросков в контексте", () => {
           return { ...emptyCampaignState(), campaignName: "Стол" } satisfies CampaignState;
         case "list_campaigns":
           return [{ id: "c1", name: "Стол", characterCount: 0 }];
-        // Вкладка «Приключение» монтируется первой и тянет свои списки:
-        // без них она падает и утаскивает за собой всё дерево.
-        case "get_oracle_likelihoods":
-          return [];
         case "switch_campaign":
           return { ...emptyCampaignState(), campaignName: "Стол" } satisfies CampaignState;
         default:

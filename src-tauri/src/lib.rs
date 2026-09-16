@@ -1,17 +1,13 @@
-mod adventure;
 mod characters;
 mod combat;
 mod dice;
 mod model;
-mod oracle;
 mod rules;
 mod spells;
 mod storage;
 
-use adventure::{demo_adventure, roll_table, Adventure};
 use combat::MonsterTemplate;
-use model::{AdventureLogEntry, CampaignState, Character};
-use oracle::{LikelihoodOption, Likelihood, OracleResult};
+use model::{CampaignState, Character};
 use rules::RuleTopic;
 use spells::Spell;
 use storage::CampaignSummary;
@@ -59,124 +55,6 @@ fn roll_dice(expression: String) -> Result<dice::RollResult, String> {
 #[tauri::command]
 fn roll_ability_scores() -> Vec<dice::AbilityScoreRoll> {
     dice::roll_ability_scores()
-}
-
-#[tauri::command]
-fn get_adventure() -> Adventure {
-    demo_adventure()
-}
-
-#[tauri::command]
-fn start_adventure(app: AppHandle) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        if state.current_scene_id.is_none() {
-            let adventure = demo_adventure();
-            let scene = adventure
-                .scene(&adventure.start_scene_id)
-                .ok_or("в демо-приключении не найдена стартовая сцена")?;
-            state.current_scene_id = Some(adventure.start_scene_id.clone());
-            state
-                .adventure_log
-                .push(AdventureLogEntry::Scene(scene.text.clone()));
-        }
-        Ok(())
-    })
-}
-
-#[tauri::command]
-fn choose_option(app: AppHandle, option_id: String) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        let adventure = demo_adventure();
-
-        let current_id = state
-            .current_scene_id
-            .clone()
-            .unwrap_or_else(|| adventure.start_scene_id.clone());
-        let scene = adventure
-            .scene(&current_id)
-            .ok_or_else(|| format!("сцена {current_id:?} не найдена"))?;
-        let option = scene
-            .options
-            .iter()
-            .find(|o| o.id == option_id)
-            .ok_or_else(|| format!("вариант {option_id:?} не найден в сцене {current_id:?}"))?;
-
-        state
-            .adventure_log
-            .push(AdventureLogEntry::Choice(option.label.clone()));
-
-        let next_scene_id = if let Some(table_id) = &option.table_id {
-            let table = adventure
-                .table(table_id)
-                .ok_or_else(|| format!("таблица {table_id:?} не найдена"))?;
-            let entry = roll_table(table)?;
-            state
-                .adventure_log
-                .push(AdventureLogEntry::Roll(entry.text.clone()));
-            entry.next_scene_id.unwrap_or_else(|| current_id.clone())
-        } else {
-            option
-                .next_scene_id
-                .clone()
-                .unwrap_or_else(|| current_id.clone())
-        };
-
-        let next_scene = adventure
-            .scene(&next_scene_id)
-            .ok_or_else(|| format!("сцена {next_scene_id:?} не найдена"))?;
-        state
-            .adventure_log
-            .push(AdventureLogEntry::Scene(next_scene.text.clone()));
-        state.current_scene_id = Some(next_scene_id);
-        Ok(())
-    })
-}
-
-#[tauri::command]
-fn submit_custom_action(app: AppHandle, text: String) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        state.adventure_log.push(AdventureLogEntry::Custom(text));
-        Ok(())
-    })
-}
-
-#[tauri::command]
-fn get_oracle_likelihoods() -> Vec<LikelihoodOption> {
-    oracle::likelihood_options()
-}
-
-#[tauri::command]
-fn ask_oracle(
-    app: AppHandle,
-    question: String,
-    likelihood: Likelihood,
-) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        let result: OracleResult = oracle::ask(likelihood, state.chaos_factor as i32);
-
-        let mut text = format!(
-            "«{}» ({}) → {} (бросок {})",
-            question.trim(),
-            likelihood.label(),
-            result.answer.label(),
-            result.roll
-        );
-        if let Some(focus) = &result.random_event {
-            text.push_str(&format!(". Случайное событие: {focus}"));
-        }
-        state.adventure_log.push(AdventureLogEntry::Oracle(text));
-        Ok(())
-    })
-}
-
-#[tauri::command]
-fn adjust_chaos_factor(app: AppHandle, delta: i32) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        let next = (state.chaos_factor as i32 + delta)
-            .clamp(oracle::MIN_CHAOS_FACTOR, oracle::MAX_CHAOS_FACTOR);
-        state.chaos_factor = next as u8;
-        Ok(())
-    })
 }
 
 #[tauri::command]
@@ -381,13 +259,6 @@ pub fn run() {
             save_campaign,
             roll_dice,
             roll_ability_scores,
-            get_adventure,
-            start_adventure,
-            choose_option,
-            submit_custom_action,
-            get_oracle_likelihoods,
-            ask_oracle,
-            adjust_chaos_factor,
             get_bestiary,
             get_bestiary_image,
             get_rules,

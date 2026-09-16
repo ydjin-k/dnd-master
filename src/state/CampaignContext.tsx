@@ -11,7 +11,6 @@ import {
   type CampaignState,
   type Character,
   type JournalEntry,
-  type Likelihood,
   emptyCampaignState,
 } from "./types";
 
@@ -25,11 +24,6 @@ interface CampaignContextValue {
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
   removeJournalEntry: (id: string) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
-  startAdventure: () => Promise<void>;
-  chooseOption: (optionId: string) => Promise<void>;
-  submitCustomAction: (text: string) => Promise<void>;
-  askOracle: (question: string, likelihood: Likelihood) => Promise<void>;
-  adjustChaosFactor: (delta: number) => Promise<void>;
   startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
   combatAttack: (attackerId: string, targetId: string) => Promise<void>;
@@ -111,36 +105,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [state, persist],
   );
 
-  // Эти три действия сохраняют состояние уже на бэкенде (внутри Rust-команды),
-  // поэтому здесь только применяем результат, не вызываем save_campaign повторно.
-  const startAdventure = useCallback(async () => {
-    try {
-      setState(await invoke<CampaignState>("start_adventure"));
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  }, []);
-
-  const chooseOption = useCallback(async (optionId: string) => {
-    try {
-      setState(await invoke<CampaignState>("choose_option", { optionId }));
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  }, []);
-
-  const submitCustomAction = useCallback(async (text: string) => {
-    try {
-      setState(await invoke<CampaignState>("submit_custom_action", { text }));
-      setError(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  }, []);
-
-  // Бой: тоже сохраняется на бэкенде внутри команды — тут только применяем
+  // Бой сохраняется на бэкенде внутри команды — тут только применяем
   // результат. Общий враппер вместо семи одинаковых try/catch.
   const runServerAction = useCallback(
     async (command: string, args?: Record<string, unknown>) => {
@@ -152,16 +117,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       }
     },
     [],
-  );
-
-  const askOracle = useCallback(
-    (question: string, likelihood: Likelihood) =>
-      runServerAction("ask_oracle", { question, likelihood }),
-    [runServerAction],
-  );
-  const adjustChaosFactor = useCallback(
-    (delta: number) => runServerAction("adjust_chaos_factor", { delta }),
-    [runServerAction],
   );
 
   const startCombat = useCallback(
@@ -207,11 +162,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         addJournalEntry,
         removeJournalEntry,
         setCampaignName,
-        startAdventure,
-        chooseOption,
-        submitCustomAction,
-        askOracle,
-        adjustChaosFactor,
         startCombat,
         moveCombatant,
         combatAttack,

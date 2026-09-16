@@ -225,16 +225,6 @@ pub struct JournalEntry {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "kind", content = "text")]
-pub enum AdventureLogEntry {
-    Scene(String),
-    Choice(String),
-    Roll(String),
-    Custom(String),
-    Oracle(String),
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Combatant {
@@ -278,18 +268,7 @@ pub struct CampaignState {
     pub campaign_name: String,
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
-    pub current_scene_id: Option<String>,
-    pub adventure_log: Vec<AdventureLogEntry>,
     pub combat: Option<CombatState>,
-    /// 1-9, нейтральное значение 5 — см. oracle.rs. Сериализуемый дефолт
-    /// нужен отдельно от общего `default` на структуре: он даёт 0, а не
-    /// нейтральные 5, для кампаний, сохранённых до этой пачки.
-    #[serde(default = "default_chaos_factor")]
-    pub chaos_factor: u8,
-}
-
-fn default_chaos_factor() -> u8 {
-    5
 }
 
 #[cfg(test)]
@@ -298,7 +277,7 @@ mod tests {
 
     /// Персонажи, сохранённые до появления background/владений (эта пачка),
     /// не должны ломать загрузку — ровно та же ошибка класса, что уже
-    /// однажды ловили на CampaignState (missing field adventureLog).
+    /// однажды ловили на CampaignState (missing field journal).
     #[test]
     fn character_without_new_fields_deserializes_with_defaults() {
         let old_json = r#"{

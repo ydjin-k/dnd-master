@@ -15,10 +15,7 @@ const initialState: CampaignState = {
     { id: "keep", timestamp: "2026-01-01T10:00:00Z", text: "Оставить" },
     { id: "remove", timestamp: "2026-01-02T10:00:00Z", text: "Удалить" },
   ],
-  currentSceneId: null,
-  adventureLog: [],
   combat: null,
-  chaosFactor: 5,
 };
 
 describe("CampaignContext journal persistence", () => {
