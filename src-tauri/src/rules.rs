@@ -21,7 +21,7 @@ pub struct RuleTopic {
 }
 
 /// Правила — из bundle.resources в сборке, из src-tauri/rules в dev (ресурсы
-/// установщика там не собраны — тот же приём, что и для моделей OCR).
+/// установщика там не собраны — тот же приём, что и для spells.json).
 fn rules_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -67,9 +67,26 @@ mod tests {
             topics.iter().filter(|t| t.category == "spellcasting").collect();
         assert_eq!(
             spellcasting.len(),
-            3,
-            "ожидал три темы правил сотворения заклинаний, получил {}",
+            4,
+            "ожидал четыре темы правил сотворения заклинаний, получил {}",
             spellcasting.len()
+        );
+        // rules-vendor-srd-spell-lists: четвёртая тема — `spellcasting-attribution`. Лицензия
+        // CC-BY-4.0 требует дословного уведомления там, где игрок видит сам материал, и
+        // единственное место в приложении, где раздел заклинаний виден целиком, — эта вкладка.
+        let attribution = spellcasting
+            .iter()
+            .find(|t| t.id == "spellcasting-attribution")
+            .expect("не нашёл тему spellcasting-attribution");
+        let has_verbatim_statement = attribution.blocks.iter().any(|b| matches!(
+            b,
+            RuleBlock::Paragraph { text }
+                if text.contains("This work includes material taken from the System Reference Document 5.1")
+                    && text.contains("https://creativecommons.org/licenses/by/4.0/legalcode")
+        ));
+        assert!(
+            has_verbatim_statement,
+            "в теме атрибуции нет дословного уведомления CC-BY-4.0 — вендоринг SRD без него нарушает лицензию"
         );
         let casting = spellcasting
             .iter()

@@ -16687,7 +16687,7 @@
     "id": "spellcasting-basics",
     "category": "spellcasting",
     "title": "Заклинания и ячейки",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",
@@ -16816,7 +16816,7 @@
     "id": "spellcasting-casting",
     "category": "spellcasting",
     "title": "Сотворение заклинания",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",
@@ -17128,7 +17128,7 @@
     "id": "spellcasting-schools",
     "category": "spellcasting",
     "title": "Школы магии и сочетание эффектов",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",
@@ -17191,6 +17191,35 @@
       {
         "type": "paragraph",
         "text": "Например, если два жреца сотворят благословение на одну и ту же цель, персонаж получит выгоду заклинания только один раз — он не станет бросать два бонусных кубика."
+      }
+    ]
+  },
+  {
+    "id": "spellcasting-attribution",
+    "category": "spellcasting",
+    "title": "Источник и лицензия",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
+    "blocks": [
+      {
+        "type": "heading",
+        "level": 1,
+        "text": "Источник и лицензия"
+      },
+      {
+        "type": "paragraph",
+        "text": "Списки заклинаний по классам, круги и правила сотворения в этом разделе взяты из System Reference Document 5.1 издания 2023 года, который Wizards of the Coast раздаёт под лицензией Creative Commons Attribution 4.0 International (CC BY 4.0). Лицензия требует приводить следующее уведомление дословно и по-английски:"
+      },
+      {
+        "type": "paragraph",
+        "text": "This work includes material taken from the System Reference Document 5.1 (“SRD 5.1”) by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode."
+      },
+      {
+        "type": "paragraph",
+        "text": "Русские имена и тексты заклинаний — наш перевод этого источника, а не часть самого SRD."
+      },
+      {
+        "type": "paragraph",
+        "text": "Несколько заклинаний в этом разделе написаны нами с нуля и в SRD не входят: «Ползучий корень», «Отпевание», «Надтреснутая нота», «Стеклянный колокол», «Слово, которого нет» и «Голодная почва». Атрибуция выше к ним не относится."
       }
     ]
   }
