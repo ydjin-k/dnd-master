@@ -1,0 +1,3052 @@
+{
+  "source": {
+    "document": "System Reference Document 5.1",
+    "edition": "2023 (CC-BY-4.0)",
+    "url": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
+    "license": "CC-BY-4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/legalcode",
+    "attribution": "This work includes material taken from the System Reference Document 5.1 (“SRD 5.1”) by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.",
+    "extractedWith": "pdftotext -enc UTF-8 SRD_CC_v5.1.pdf srd.txt",
+    "extractedFrom": "разделы «Spell Lists» (восемь списков «<Класс> Spells») и «Spell Descriptions» (319 заголовков); см. reference/ATTRIBUTION.md",
+    "contains": "только имя, id, круг и список классов — ни описаний, ни компонентов, ни дистанций"
+  },
+  "projectOriginal": [
+    {
+      "id": "creeping-root",
+      "name": "Ползучий корень"
+    },
+    {
+      "id": "requiem",
+      "name": "Отпевание"
+    },
+    {
+      "id": "cracked-note",
+      "name": "Надтреснутая нота"
+    },
+    {
+      "id": "glass-bell",
+      "name": "Стеклянный колокол"
+    },
+    {
+      "id": "unword",
+      "name": "Слово, которого нет"
+    },
+    {
+      "id": "hungry-soil",
+      "name": "Голодная почва"
+    }
+  ],
+  "spells": [
+    {
+      "name": "Acid Arrow",
+      "id": "acid-arrow",
+      "level": 2,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Acid Splash",
+      "id": "acid-splash",
+      "level": 0,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Aid",
+      "id": "aid",
+      "level": 2,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Alarm",
+      "id": "alarm",
+      "level": 1,
+      "classes": [
+        "classes-ranger",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Alter Self",
+      "id": "alter-self",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Animal Friendship",
+      "id": "animal-friendship",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Animal Messenger",
+      "id": "animal-messenger",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Animal Shapes",
+      "id": "animal-shapes",
+      "level": 8,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Animate Dead",
+      "id": "animate-dead",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Animate Objects",
+      "id": "animate-objects",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Antilife Shell",
+      "id": "antilife-shell",
+      "level": 5,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Antimagic Field",
+      "id": "antimagic-field",
+      "level": 8,
+      "classes": [
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Antipathy/Sympathy",
+      "id": "antipathy-sympathy",
+      "level": 8,
+      "classes": [
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Arcane Eye",
+      "id": "arcane-eye",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Arcane Hand",
+      "id": "arcane-hand",
+      "level": 5,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Arcane Lock",
+      "id": "arcane-lock",
+      "level": 2,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Arcane Sword",
+      "id": "arcane-sword",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Arcanist's Magic Aura",
+      "id": "arcanists-magic-aura",
+      "level": 2,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Astral Projection",
+      "id": "astral-projection",
+      "level": 9,
+      "classes": [
+        "classes-cleric",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Augury",
+      "id": "augury",
+      "level": 2,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Awaken",
+      "id": "awaken",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Bane",
+      "id": "bane",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Banishment",
+      "id": "banishment",
+      "level": 4,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Barkskin",
+      "id": "barkskin",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Beacon of Hope",
+      "id": "beacon-of-hope",
+      "level": 3,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Bestow Curse",
+      "id": "bestow-curse",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Black Tentacles",
+      "id": "black-tentacles",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Blade Barrier",
+      "id": "blade-barrier",
+      "level": 6,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Bless",
+      "id": "bless",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Blight",
+      "id": "blight",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Blindness/Deafness",
+      "id": "blindness-deafness",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Blink",
+      "id": "blink",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Blur",
+      "id": "blur",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Branding Smite",
+      "id": "branding-smite",
+      "level": 2,
+      "classes": [
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Burning Hands",
+      "id": "burning-hands",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Call Lightning",
+      "id": "call-lightning",
+      "level": 3,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Calm Emotions",
+      "id": "calm-emotions",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Chain Lightning",
+      "id": "chain-lightning",
+      "level": 6,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Charm Person",
+      "id": "charm-person",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Chill Touch",
+      "id": "chill-touch",
+      "level": 0,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Circle of Death",
+      "id": "circle-of-death",
+      "level": 6,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Clairvoyance",
+      "id": "clairvoyance",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Clone",
+      "id": "clone",
+      "level": 8,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Cloudkill",
+      "id": "cloudkill",
+      "level": 5,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Color Spray",
+      "id": "color-spray",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Command",
+      "id": "command",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Commune",
+      "id": "commune",
+      "level": 5,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Commune with Nature",
+      "id": "commune-with-nature",
+      "level": 5,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Comprehend Languages",
+      "id": "comprehend-languages",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Compulsion",
+      "id": "compulsion",
+      "level": 4,
+      "classes": [
+        "classes-bard"
+      ]
+    },
+    {
+      "name": "Cone of Cold",
+      "id": "cone-of-cold",
+      "level": 5,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Confusion",
+      "id": "confusion",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Conjure Animals",
+      "id": "conjure-animals",
+      "level": 3,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Conjure Celestial",
+      "id": "conjure-celestial",
+      "level": 7,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Conjure Elemental",
+      "id": "conjure-elemental",
+      "level": 5,
+      "classes": [
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Conjure Fey",
+      "id": "conjure-fey",
+      "level": 6,
+      "classes": [
+        "classes-druid",
+        "classes-warlock"
+      ]
+    },
+    {
+      "name": "Conjure Minor Elementals",
+      "id": "conjure-minor-elementals",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Conjure Woodland Beings",
+      "id": "conjure-woodland-beings",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Contact Other Plane",
+      "id": "contact-other-plane",
+      "level": 5,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Contagion",
+      "id": "contagion",
+      "level": 5,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Contingency",
+      "id": "contingency",
+      "level": 6,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Continual Flame",
+      "id": "continual-flame",
+      "level": 2,
+      "classes": [
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Control Water",
+      "id": "control-water",
+      "level": 4,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Control Weather",
+      "id": "control-weather",
+      "level": 8,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Counterspell",
+      "id": "counterspell",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Create Food and Water",
+      "id": "create-food-and-water",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Create or Destroy Water",
+      "id": "create-or-destroy-water",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Create Undead",
+      "id": "create-undead",
+      "level": 6,
+      "classes": [
+        "classes-cleric",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Creation",
+      "id": "creation",
+      "level": 5,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Cure Wounds",
+      "id": "cure-wounds",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Dancing Lights",
+      "id": "dancing-lights",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Darkness",
+      "id": "darkness",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Darkvision",
+      "id": "darkvision",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Daylight",
+      "id": "daylight",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Death Ward",
+      "id": "death-ward",
+      "level": 4,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Delayed Blast Fireball",
+      "id": "delayed-blast-fireball",
+      "level": 7,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Demiplane",
+      "id": "demiplane",
+      "level": 8,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Detect Evil and Good",
+      "id": "detect-evil-and-good",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Detect Magic",
+      "id": "detect-magic",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Detect Poison and Disease",
+      "id": "detect-poison-and-disease",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Detect Thoughts",
+      "id": "detect-thoughts",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Dimension Door",
+      "id": "dimension-door",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Disguise Self",
+      "id": "disguise-self",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Disintegrate",
+      "id": "disintegrate",
+      "level": 6,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Dispel Evil and Good",
+      "id": "dispel-evil-and-good",
+      "level": 5,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Dispel Magic",
+      "id": "dispel-magic",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Divination",
+      "id": "divination",
+      "level": 4,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Divine Favor",
+      "id": "divine-favor",
+      "level": 1,
+      "classes": [
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Divine Word",
+      "id": "divine-word",
+      "level": 7,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Dominate Beast",
+      "id": "dominate-beast",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Dominate Monster",
+      "id": "dominate-monster",
+      "level": 8,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Dominate Person",
+      "id": "dominate-person",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Dream",
+      "id": "dream",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Druidcraft",
+      "id": "druidcraft",
+      "level": 0,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Earthquake",
+      "id": "earthquake",
+      "level": 8,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Eldritch Blast",
+      "id": "eldritch-blast",
+      "level": 0,
+      "classes": [
+        "classes-warlock"
+      ]
+    },
+    {
+      "name": "Enhance Ability",
+      "id": "enhance-ability",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Enlarge/Reduce",
+      "id": "enlarge-reduce",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Entangle",
+      "id": "entangle",
+      "level": 1,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Enthrall",
+      "id": "enthrall",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-warlock"
+      ]
+    },
+    {
+      "name": "Etherealness",
+      "id": "etherealness",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Expeditious Retreat",
+      "id": "expeditious-retreat",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Eyebite",
+      "id": "eyebite",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fabricate",
+      "id": "fabricate",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Faerie Fire",
+      "id": "faerie-fire",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Faithful Hound",
+      "id": "faithful-hound",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "False Life",
+      "id": "false-life",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fear",
+      "id": "fear",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Feather Fall",
+      "id": "feather-fall",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Feeblemind",
+      "id": "feeblemind",
+      "level": 8,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Find Familiar",
+      "id": "find-familiar",
+      "level": 1,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Find Steed",
+      "id": "find-steed",
+      "level": 2,
+      "classes": [
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Find the Path",
+      "id": "find-the-path",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Find Traps",
+      "id": "find-traps",
+      "level": 2,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Finger of Death",
+      "id": "finger-of-death",
+      "level": 7,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fireball",
+      "id": "fireball",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fire Bolt",
+      "id": "fire-bolt",
+      "level": 0,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fire Shield",
+      "id": "fire-shield",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fire Storm",
+      "id": "fire-storm",
+      "level": 7,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Flame Blade",
+      "id": "flame-blade",
+      "level": 2,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Flame Strike",
+      "id": "flame-strike",
+      "level": 5,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Flaming Sphere",
+      "id": "flaming-sphere",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Flesh to Stone",
+      "id": "flesh-to-stone",
+      "level": 6,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Floating Disk",
+      "id": "floating-disk",
+      "level": 1,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fly",
+      "id": "fly",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Fog Cloud",
+      "id": "fog-cloud",
+      "level": 1,
+      "classes": [
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Forbiddance",
+      "id": "forbiddance",
+      "level": 6,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Forcecage",
+      "id": "forcecage",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Foresight",
+      "id": "foresight",
+      "level": 9,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Freedom of Movement",
+      "id": "freedom-of-movement",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Freezing Sphere",
+      "id": "freezing-sphere",
+      "level": 6,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Gaseous Form",
+      "id": "gaseous-form",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Gate",
+      "id": "gate",
+      "level": 9,
+      "classes": [
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Geas",
+      "id": "geas",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Gentle Repose",
+      "id": "gentle-repose",
+      "level": 2,
+      "classes": [
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Giant Insect",
+      "id": "giant-insect",
+      "level": 4,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Glibness",
+      "id": "glibness",
+      "level": 8,
+      "classes": [
+        "classes-bard",
+        "classes-warlock"
+      ]
+    },
+    {
+      "name": "Globe of Invulnerability",
+      "id": "globe-of-invulnerability",
+      "level": 6,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Glyph of Warding",
+      "id": "glyph-of-warding",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Goodberry",
+      "id": "goodberry",
+      "level": 1,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Grease",
+      "id": "grease",
+      "level": 1,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Greater Invisibility",
+      "id": "greater-invisibility",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Greater Restoration",
+      "id": "greater-restoration",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Guardian of Faith",
+      "id": "guardian-of-faith",
+      "level": 4,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Guards and Wards",
+      "id": "guards-and-wards",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Guidance",
+      "id": "guidance",
+      "level": 0,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Guiding Bolt",
+      "id": "guiding-bolt",
+      "level": 1,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Gust of Wind",
+      "id": "gust-of-wind",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Hallow",
+      "id": "hallow",
+      "level": 5,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Hallucinatory Terrain",
+      "id": "hallucinatory-terrain",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Harm",
+      "id": "harm",
+      "level": 6,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Haste",
+      "id": "haste",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Heal",
+      "id": "heal",
+      "level": 6,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Healing Word",
+      "id": "healing-word",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Heat Metal",
+      "id": "heat-metal",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Hellish Rebuke",
+      "id": "hellish-rebuke",
+      "level": 1,
+      "classes": [
+        "classes-warlock"
+      ]
+    },
+    {
+      "name": "Heroes' Feast",
+      "id": "heroes-feast",
+      "level": 6,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Heroism",
+      "id": "heroism",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Hideous Laughter",
+      "id": "hideous-laughter",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Hold Monster",
+      "id": "hold-monster",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Hold Person",
+      "id": "hold-person",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Holy Aura",
+      "id": "holy-aura",
+      "level": 8,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Hunter's Mark",
+      "id": "hunters-mark",
+      "level": 1,
+      "classes": [
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Hypnotic Pattern",
+      "id": "hypnotic-pattern",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Ice Storm",
+      "id": "ice-storm",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Identify",
+      "id": "identify",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Illusory Script",
+      "id": "illusory-script",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Imprisonment",
+      "id": "imprisonment",
+      "level": 9,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Incendiary Cloud",
+      "id": "incendiary-cloud",
+      "level": 8,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Inflict Wounds",
+      "id": "inflict-wounds",
+      "level": 1,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Insect Plague",
+      "id": "insect-plague",
+      "level": 5,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Instant Summons",
+      "id": "instant-summons",
+      "level": 6,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Invisibility",
+      "id": "invisibility",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Irresistible Dance",
+      "id": "irresistible-dance",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Jump",
+      "id": "jump",
+      "level": 1,
+      "classes": [
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Knock",
+      "id": "knock",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Legend Lore",
+      "id": "legend-lore",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Lesser Restoration",
+      "id": "lesser-restoration",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Levitate",
+      "id": "levitate",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Light",
+      "id": "light",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Lightning Bolt",
+      "id": "lightning-bolt",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Locate Animals or Plants",
+      "id": "locate-animals-or-plants",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Locate Creature",
+      "id": "locate-creature",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Locate Object",
+      "id": "locate-object",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Longstrider",
+      "id": "longstrider",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mage Armor",
+      "id": "mage-armor",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mage Hand",
+      "id": "mage-hand",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magic Circle",
+      "id": "magic-circle",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magic Jar",
+      "id": "magic-jar",
+      "level": 6,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magic Missile",
+      "id": "magic-missile",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magic Mouth",
+      "id": "magic-mouth",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magic Weapon",
+      "id": "magic-weapon",
+      "level": 2,
+      "classes": [
+        "classes-paladin",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Magnificent Mansion",
+      "id": "magnificent-mansion",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Major Image",
+      "id": "major-image",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mass Cure Wounds",
+      "id": "mass-cure-wounds",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Mass Heal",
+      "id": "mass-heal",
+      "level": 9,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Mass Healing Word",
+      "id": "mass-healing-word",
+      "level": 3,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Mass Suggestion",
+      "id": "mass-suggestion",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Maze",
+      "id": "maze",
+      "level": 8,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Meld into Stone",
+      "id": "meld-into-stone",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Mending",
+      "id": "mending",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Message",
+      "id": "message",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Meteor Swarm",
+      "id": "meteor-swarm",
+      "level": 9,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mind Blank",
+      "id": "mind-blank",
+      "level": 8,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Minor Illusion",
+      "id": "minor-illusion",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mirage Arcane",
+      "id": "mirage-arcane",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mirror Image",
+      "id": "mirror-image",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Mislead",
+      "id": "mislead",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Misty Step",
+      "id": "misty-step",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Modify Memory",
+      "id": "modify-memory",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Moonbeam",
+      "id": "moonbeam",
+      "level": 2,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Move Earth",
+      "id": "move-earth",
+      "level": 6,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Nondetection",
+      "id": "nondetection",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-ranger",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Pass without Trace",
+      "id": "pass-without-trace",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Passwall",
+      "id": "passwall",
+      "level": 5,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Phantasmal Killer",
+      "id": "phantasmal-killer",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Phantom Steed",
+      "id": "phantom-steed",
+      "level": 3,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Planar Ally",
+      "id": "planar-ally",
+      "level": 6,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Planar Binding",
+      "id": "planar-binding",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Plane Shift",
+      "id": "plane-shift",
+      "level": 7,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Plant Growth",
+      "id": "plant-growth",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Poison Spray",
+      "id": "poison-spray",
+      "level": 0,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Polymorph",
+      "id": "polymorph",
+      "level": 4,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Power Word Kill",
+      "id": "power-word-kill",
+      "level": 9,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Power Word Stun",
+      "id": "power-word-stun",
+      "level": 8,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Prayer of Healing",
+      "id": "prayer-of-healing",
+      "level": 2,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Prestidigitation",
+      "id": "prestidigitation",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Prismatic Spray",
+      "id": "prismatic-spray",
+      "level": 7,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Prismatic Wall",
+      "id": "prismatic-wall",
+      "level": 9,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Private Sanctum",
+      "id": "private-sanctum",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Produce Flame",
+      "id": "produce-flame",
+      "level": 0,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Programmed Illusion",
+      "id": "programmed-illusion",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Project Image",
+      "id": "project-image",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Protection from Energy",
+      "id": "protection-from-energy",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Protection from Evil and Good",
+      "id": "protection-from-evil-and-good",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Protection from Poison",
+      "id": "protection-from-poison",
+      "level": 2,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Purify Food and Drink",
+      "id": "purify-food-and-drink",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Raise Dead",
+      "id": "raise-dead",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Ray of Enfeeblement",
+      "id": "ray-of-enfeeblement",
+      "level": 2,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Ray of Frost",
+      "id": "ray-of-frost",
+      "level": 0,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Regenerate",
+      "id": "regenerate",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Reincarnate",
+      "id": "reincarnate",
+      "level": 5,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Remove Curse",
+      "id": "remove-curse",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Resilient Sphere",
+      "id": "resilient-sphere",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Resistance",
+      "id": "resistance",
+      "level": 0,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Resurrection",
+      "id": "resurrection",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Reverse Gravity",
+      "id": "reverse-gravity",
+      "level": 7,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Revivify",
+      "id": "revivify",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Rope Trick",
+      "id": "rope-trick",
+      "level": 2,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sacred Flame",
+      "id": "sacred-flame",
+      "level": 0,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Sanctuary",
+      "id": "sanctuary",
+      "level": 1,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Scorching Ray",
+      "id": "scorching-ray",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Scrying",
+      "id": "scrying",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-druid",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Secret Chest",
+      "id": "secret-chest",
+      "level": 4,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "See Invisibility",
+      "id": "see-invisibility",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Seeming",
+      "id": "seeming",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sending",
+      "id": "sending",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sequester",
+      "id": "sequester",
+      "level": 7,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Shapechange",
+      "id": "shapechange",
+      "level": 9,
+      "classes": [
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Shatter",
+      "id": "shatter",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Shield",
+      "id": "shield",
+      "level": 1,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Shield of Faith",
+      "id": "shield-of-faith",
+      "level": 1,
+      "classes": [
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    },
+    {
+      "name": "Shillelagh",
+      "id": "shillelagh",
+      "level": 0,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Shocking Grasp",
+      "id": "shocking-grasp",
+      "level": 0,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Silence",
+      "id": "silence",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Silent Image",
+      "id": "silent-image",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Simulacrum",
+      "id": "simulacrum",
+      "level": 7,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sleep",
+      "id": "sleep",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sleet Storm",
+      "id": "sleet-storm",
+      "level": 3,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Slow",
+      "id": "slow",
+      "level": 3,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Spare the Dying",
+      "id": "spare-the-dying",
+      "level": 0,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Speak with Animals",
+      "id": "speak-with-animals",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Speak with Dead",
+      "id": "speak-with-dead",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Speak with Plants",
+      "id": "speak-with-plants",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Spider Climb",
+      "id": "spider-climb",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Spike Growth",
+      "id": "spike-growth",
+      "level": 2,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Spirit Guardians",
+      "id": "spirit-guardians",
+      "level": 3,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Spiritual Weapon",
+      "id": "spiritual-weapon",
+      "level": 2,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Stinking Cloud",
+      "id": "stinking-cloud",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Stone Shape",
+      "id": "stone-shape",
+      "level": 4,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Stoneskin",
+      "id": "stoneskin",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Storm of Vengeance",
+      "id": "storm-of-vengeance",
+      "level": 9,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Suggestion",
+      "id": "suggestion",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sunbeam",
+      "id": "sunbeam",
+      "level": 6,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Sunburst",
+      "id": "sunburst",
+      "level": 8,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Symbol",
+      "id": "symbol",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Telekinesis",
+      "id": "telekinesis",
+      "level": 5,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Telepathic Bond",
+      "id": "telepathic-bond",
+      "level": 5,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Teleport",
+      "id": "teleport",
+      "level": 7,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Teleportation Circle",
+      "id": "teleportation-circle",
+      "level": 5,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Thaumaturgy",
+      "id": "thaumaturgy",
+      "level": 0,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Thunderwave",
+      "id": "thunderwave",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Time Stop",
+      "id": "time-stop",
+      "level": 9,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Tiny Hut",
+      "id": "tiny-hut",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Tongues",
+      "id": "tongues",
+      "level": 3,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Transport via Plants",
+      "id": "transport-via-plants",
+      "level": 6,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Tree Stride",
+      "id": "tree-stride",
+      "level": 5,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "True Polymorph",
+      "id": "true-polymorph",
+      "level": 9,
+      "classes": [
+        "classes-bard",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "True Resurrection",
+      "id": "true-resurrection",
+      "level": 9,
+      "classes": [
+        "classes-cleric",
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "True Seeing",
+      "id": "true-seeing",
+      "level": 6,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "True Strike",
+      "id": "true-strike",
+      "level": 0,
+      "classes": [
+        "classes-bard",
+        "classes-sorcerer",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Unseen Servant",
+      "id": "unseen-servant",
+      "level": 1,
+      "classes": [
+        "classes-bard",
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Vampiric Touch",
+      "id": "vampiric-touch",
+      "level": 3,
+      "classes": [
+        "classes-warlock",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Vicious Mockery",
+      "id": "vicious-mockery",
+      "level": 0,
+      "classes": [
+        "classes-bard"
+      ]
+    },
+    {
+      "name": "Wall of Fire",
+      "id": "wall-of-fire",
+      "level": 4,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Wall of Force",
+      "id": "wall-of-force",
+      "level": 5,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Wall of Ice",
+      "id": "wall-of-ice",
+      "level": 6,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Wall of Stone",
+      "id": "wall-of-stone",
+      "level": 5,
+      "classes": [
+        "classes-druid",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Wall of Thorns",
+      "id": "wall-of-thorns",
+      "level": 6,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Warding Bond",
+      "id": "warding-bond",
+      "level": 2,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Water Breathing",
+      "id": "water-breathing",
+      "level": 3,
+      "classes": [
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Water Walk",
+      "id": "water-walk",
+      "level": 3,
+      "classes": [
+        "classes-cleric",
+        "classes-druid",
+        "classes-ranger",
+        "classes-sorcerer"
+      ]
+    },
+    {
+      "name": "Web",
+      "id": "web",
+      "level": 2,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Weird",
+      "id": "weird",
+      "level": 9,
+      "classes": [
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Wind Walk",
+      "id": "wind-walk",
+      "level": 6,
+      "classes": [
+        "classes-druid"
+      ]
+    },
+    {
+      "name": "Wind Wall",
+      "id": "wind-wall",
+      "level": 3,
+      "classes": [
+        "classes-druid",
+        "classes-ranger"
+      ]
+    },
+    {
+      "name": "Wish",
+      "id": "wish",
+      "level": 9,
+      "classes": [
+        "classes-sorcerer",
+        "classes-wizard"
+      ]
+    },
+    {
+      "name": "Word of Recall",
+      "id": "word-of-recall",
+      "level": 6,
+      "classes": [
+        "classes-cleric"
+      ]
+    },
+    {
+      "name": "Zone of Truth",
+      "id": "zone-of-truth",
+      "level": 2,
+      "classes": [
+        "classes-bard",
+        "classes-cleric",
+        "classes-paladin"
+      ]
+    }
+  ]
+}

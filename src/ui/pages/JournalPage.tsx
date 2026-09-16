@@ -4,6 +4,15 @@ import "./JournalPage.css";
 
 export const JOURNAL_ENTRY_MAX_LENGTH = 100;
 
+/** Записи, переехавшие из снесённого журнала приключения, времени не имели
+ *  никогда, и в них `timestamp` пуст (см. `storage::migrate_legacy_adventure_log`).
+ *  `new Date("")` дал бы «Invalid Date» — вместо выдуманной даты подписываем
+ *  честно. Пустая строка сортируется ниже любой настоящей даты, поэтому такие
+ *  записи ложатся в конец дневника сами, без отдельного правила. */
+function entryTime(timestamp: string): string {
+  return timestamp ? new Date(timestamp).toLocaleString() : "без даты";
+}
+
 export function JournalPage() {
   const { state, addJournalEntry, removeJournalEntry } = useCampaign();
   const [text, setText] = useState("");
@@ -54,13 +63,11 @@ export function JournalPage() {
               {column.map((entry) => (
                 <li key={entry.id} className="journal-entry">
                   <div className="journal-entry__heading">
-                    <div className="journal-entry__time">
-                      {new Date(entry.timestamp).toLocaleString()}
-                    </div>
+                    <div className="journal-entry__time">{entryTime(entry.timestamp)}</div>
                     <button
                       className="journal-entry__remove"
                       type="button"
-                      aria-label={`Удалить запись от ${new Date(entry.timestamp).toLocaleString()}`}
+                      aria-label={`Удалить запись от ${entryTime(entry.timestamp)}`}
                       title="Удалить запись"
                       onClick={() => void removeJournalEntry(entry.id)}
                     >

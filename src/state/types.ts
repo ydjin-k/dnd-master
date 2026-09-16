@@ -140,27 +140,6 @@ export interface JournalEntry {
   text: string;
 }
 
-export type AdventureLogEntry =
-  | { kind: "scene"; text: string }
-  | { kind: "choice"; text: string }
-  | { kind: "roll"; text: string }
-  | { kind: "custom"; text: string }
-  | { kind: "oracle"; text: string };
-
-export type Likelihood =
-  | "almost-never"
-  | "unlikely"
-  | "some-chance"
-  | "even"
-  | "likely"
-  | "very-likely"
-  | "almost-sure";
-
-export interface LikelihoodOption {
-  id: Likelihood;
-  label: string;
-}
-
 export interface Combatant {
   id: string;
   name: string;
@@ -210,41 +189,7 @@ export interface CampaignState {
   campaignName: string;
   characters: Character[];
   journal: JournalEntry[];
-  currentSceneId: string | null;
-  adventureLog: AdventureLogEntry[];
   combat: CombatState | null;
-  chaosFactor: number;
-}
-
-export interface SceneOption {
-  id: string;
-  label: string;
-  nextSceneId: string | null;
-  tableId: string | null;
-}
-
-export interface Scene {
-  id: string;
-  text: string;
-  options: SceneOption[];
-}
-
-export interface TableEntry {
-  weight: number;
-  text: string;
-  nextSceneId: string | null;
-}
-
-export interface EncounterTable {
-  id: string;
-  name: string;
-  entries: TableEntry[];
-}
-
-export interface Adventure {
-  startSceneId: string;
-  scenes: Scene[];
-  tables: EncounterTable[];
 }
 
 export interface CampaignSummary {
@@ -322,8 +267,5 @@ export const emptyCampaignState = (): CampaignState => ({
   campaignName: "",
   characters: [],
   journal: [],
-  currentSceneId: null,
-  adventureLog: [],
   combat: null,
-  chaosFactor: 5,
 });

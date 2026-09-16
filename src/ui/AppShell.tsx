@@ -5,11 +5,10 @@ import { UIIcon } from "./UIIcon";
 import "./AppShell.css";
 
 export type Tab =
-  | "adventure" | "combat" | "dice" | "characters"
+  | "combat" | "dice" | "characters"
   | "journal" | "rules" | "spells" | "bestiary" | "soundboard";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "adventure", label: "Приключение" },
   { id: "combat", label: "Бой" },
   { id: "dice", label: "Кубики" },
   { id: "characters", label: "Персонажи" },
@@ -27,7 +26,7 @@ export function AppShell({
   children: (tab: Tab) => ReactNode;
   onSwitchCampaign: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("adventure");
+  const [tab, setTab] = useState<Tab>("characters");
   const { state, setCampaignName } = useCampaign();
 
   return (

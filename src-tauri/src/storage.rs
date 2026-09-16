@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::model::CampaignState;
+use crate::model::{CampaignState, JournalEntry};
 
 /// Tauri-команды выполняются на разных потоках, и без этого две почти
 /// одновременных загрузки (например, двойной вызов эффекта у React
@@ -82,7 +82,51 @@ fn read_campaign_file(path: &Path) -> Result<CampaignState, String> {
         character.migrate_legacy_gold();
         character.migrate_legacy_spell_slots();
     }
+    migrate_legacy_adventure_log(&mut state, &raw);
     Ok(state)
+}
+
+/// Движок приключения снесён целиком (`engine-wipe-adventure-and-oracle`), и
+/// вместе с ним из `CampaignState` ушло поле `adventureLog`. Само поле в старых
+/// файлах серде просто игнорирует — но две записи из пяти в нём писал ЧЕЛОВЕК:
+/// «Своё действие» — текст игрока целиком, и «Оракул» — его вопрос вместе с
+/// выпавшим ответом. Они переезжают в дневник, остальные три (сцена, выбор,
+/// бросок) — вывод снесённого движка и переезжать им некуда.
+///
+/// Текст переносится ровно таким, каким игрок видел его на экране, вместе с той
+/// же подписью вида: дневник — не то же место, и без подписи вопрос оракула
+/// читался бы как чья-то реплика.
+///
+/// **Времени у записей приключения не было никогда**, и выдумывать его нельзя:
+/// `timestamp` остаётся пустым. Дневник сортирует по нему строкой и показывает
+/// такие записи последними, подписывая «без даты», — см. `JournalPage`.
+///
+/// Однократность держится сама, без флага миграции: первое же сохранение
+/// кампании пишет состояние уже без `adventureLog`, и переносить становится
+/// нечего. Второй раз те же строки в дневник не попадут.
+fn migrate_legacy_adventure_log(state: &mut CampaignState, raw: &str) {
+    let Ok(document) = serde_json::from_str::<serde_json::Value>(raw) else {
+        return;
+    };
+    let Some(entries) = document.get("adventureLog").and_then(|v| v.as_array()) else {
+        return;
+    };
+
+    for entry in entries {
+        let label = match entry.get("kind").and_then(|k| k.as_str()) {
+            Some("custom") => "Своё действие",
+            Some("oracle") => "Оракул",
+            _ => continue,
+        };
+        let Some(text) = entry.get("text").and_then(|t| t.as_str()) else {
+            continue;
+        };
+        state.journal.push(JournalEntry {
+            id: generate_id(),
+            timestamp: String::new(),
+            text: format!("{label}: {text}"),
+        });
+    }
 }
 
 pub fn generate_id() -> String {
@@ -165,7 +209,6 @@ fn create_campaign_in(base: &Path, name: String) -> Result<CampaignState, String
     let mut state = CampaignState::default();
     state.id = generate_id();
     state.campaign_name = name;
-    state.chaos_factor = 5;
     save_campaign_in(base, &state)?;
     write_active_pointer(base, &ActivePointer { active_id: Some(state.id.clone()) })?;
     Ok(state)
@@ -275,7 +318,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{AdventureLogEntry, Character};
+    use crate::model::Character;
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dnd-master-storage-test-{name}-{}", generate_id()));
@@ -450,6 +493,116 @@ mod tests {
         assert_eq!(wizard.spellbook.len(), 6, "книга волшебника должна остаться целой");
     }
 
+    /// engine-wipe-adventure-and-oracle — ГЛАВНАЯ проба карточки, и она идёт по
+    /// тому же НАСТОЯЩЕМУ сохранению «Vox Machina», записанному приложением до
+    /// сноса: в файле лежат `currentSceneId`, `adventureLog` из 17 записей и
+    /// `chaosFactor` — полей, которых в модели больше нет.
+    ///
+    /// Спрашивается ровно две вещи, и обе — предмет приёмки карточки:
+    /// 1. кампания вообще открывается, а персонажи, деньги и дневник целы;
+    /// 2. четыре записи оракула, которые писал игрок, доехали до дневника.
+    ///
+    /// Отрицательная проба: снять вызов `migrate_legacy_adventure_log` в
+    /// `read_campaign_file` — краснеет именно эта проба и именно на записях
+    /// оракула; общий снимок состояния (персонажи, дневник, заклинания) при
+    /// этом остаётся зелёным, потому что ломается только перенос.
+    #[test]
+    fn legacy_campaign_with_adventure_fields_opens_and_keeps_what_the_player_wrote() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("legacy-campaign-known-spells.json");
+        let raw = fs::read_to_string(&fixture).expect("прочитать настоящее старое сохранение");
+        for field in ["\"currentSceneId\"", "\"adventureLog\"", "\"chaosFactor\""] {
+            assert!(
+                raw.contains(field),
+                "фикстура обязана нести снесённое поле {field} — иначе проба сторожит пустоту"
+            );
+        }
+
+        let base = temp_dir("legacy-adventure-fields");
+        let id = "18d2261063107fb4-b886b8a7";
+        fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let state = load_active_in(&base)
+            .expect("старое сохранение обязано открываться, а не падать на лишних полях")
+            .expect("кампания должна найтись");
+
+        // Персонажи, деньги и дневник — главный риск карточки.
+        assert_eq!(state.campaign_name, "Vox Machina");
+        assert_eq!(state.characters.len(), 4);
+        assert_eq!(state.characters[0].name, "Дарин Светоч");
+        assert!(
+            state.characters.iter().any(|c| !c.inventory.is_empty()),
+            "инвентарь не должен потеряться вместе с приключением"
+        );
+
+        // Пять записей дневника были в файле, четыре приехали из оракула.
+        let own: Vec<&str> = state
+            .journal
+            .iter()
+            .filter(|e| !e.timestamp.is_empty())
+            .map(|e| e.text.as_str())
+            .collect();
+        assert_eq!(own, ["Test", "Test", "Test", "Test", "Test"]);
+
+        let migrated: Vec<&str> = state
+            .journal
+            .iter()
+            .filter(|e| e.timestamp.is_empty())
+            .map(|e| e.text.as_str())
+            .collect();
+        assert_eq!(
+            migrated,
+            [
+                "Оракул: «За углом есть ловушка?» (50/50) → Нет (бросок 80)",
+                "Оракул: «За углом есть ловушка?» (50/50) → Да (бросок 46)",
+                "Оракул: «За углом есть ловушка?» (Почти невозможно) → Да (бросок 22). Случайное событие: Везение — в вашу пользу",
+                "Оракул: «За углом есть ловушка?» (Почти наверняка) → Да (бросок 11). Случайное событие: Внимание переключается на NPC",
+            ],
+            "вопросы оракула писал игрок — они обязаны пережить снос движка"
+        );
+
+        // Сцены, выборы и броски — вывод снесённого движка, им в дневнике не место.
+        assert!(
+            !state.journal.iter().any(|e| e.text.contains("Тропа выводит отряд")),
+            "текст сцены — не запись игрока и в дневник не переезжает"
+        );
+        assert_eq!(state.journal.len(), 9);
+    }
+
+    /// Вторая загрузка того же файла не должна удваивать перенесённые записи, а
+    /// после сохранения `adventureLog` в файле не остаётся вовсе.
+    #[test]
+    fn adventure_log_migrates_exactly_once_and_leaves_no_trace_after_save() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("legacy-campaign-known-spells.json");
+        let raw = fs::read_to_string(&fixture).unwrap();
+
+        let base = temp_dir("legacy-adventure-once");
+        let id = "18d2261063107fb4-b886b8a7";
+        fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let state = load_active_in(&base).unwrap().unwrap();
+        assert_eq!(state.journal.len(), 9);
+        save_campaign_in(&base, &state).unwrap();
+
+        let saved_raw = fs::read_to_string(campaign_path(&base, id).unwrap()).unwrap();
+        assert!(
+            !saved_raw.contains("adventureLog"),
+            "сохранение поверх старого файла обязано унести поле приключения совсем"
+        );
+        assert_eq!(
+            load_active_in(&base).unwrap().unwrap().journal.len(),
+            9,
+            "повторная загрузка не должна перенести те же записи второй раз"
+        );
+    }
+
     #[test]
     fn with_active_locked_concurrent_mutations_both_survive() {
         let base = temp_dir("atomic-write");
@@ -457,19 +610,20 @@ mod tests {
 
         let base_a = base.clone();
         let base_b = base.clone();
+        let entry = |text: &str| JournalEntry {
+            id: generate_id(),
+            timestamp: String::new(),
+            text: text.into(),
+        };
         let a = std::thread::spawn(move || {
             with_active_locked_in(&base_a, |state| {
-                state
-                    .adventure_log
-                    .push(AdventureLogEntry::Custom("A".into()));
+                state.journal.push(entry("A"));
                 Ok(())
             })
         });
         let b = std::thread::spawn(move || {
             with_active_locked_in(&base_b, |state| {
-                state
-                    .adventure_log
-                    .push(AdventureLogEntry::Custom("B".into()));
+                state.journal.push(entry("B"));
                 Ok(())
             })
         });
@@ -478,7 +632,7 @@ mod tests {
 
         let saved = load_active_in(&base).unwrap().unwrap();
         assert_eq!(
-            saved.adventure_log.len(),
+            saved.journal.len(),
             2,
             "обе параллельные мутации должны быть сохранены, а не одна затёрта другой"
         );

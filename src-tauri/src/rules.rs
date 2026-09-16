@@ -21,7 +21,7 @@ pub struct RuleTopic {
 }
 
 /// Правила — из bundle.resources в сборке, из src-tauri/rules в dev (ресурсы
-/// установщика там не собраны — тот же приём, что и для моделей OCR).
+/// установщика там не собраны — тот же приём, что и для spells.json).
 fn rules_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))

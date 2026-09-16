@@ -16687,7 +16687,7 @@
     "id": "spellcasting-basics",
     "category": "spellcasting",
     "title": "Заклинания и ячейки",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",
@@ -16816,7 +16816,7 @@
     "id": "spellcasting-casting",
     "category": "spellcasting",
     "title": "Сотворение заклинания",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",
@@ -17128,7 +17128,7 @@
     "id": "spellcasting-schools",
     "category": "spellcasting",
     "title": "Школы магии и сочетание эффектов",
-    "sourceUrl": "https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf",
+    "sourceUrl": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
     "blocks": [
       {
         "type": "heading",

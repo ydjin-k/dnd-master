@@ -110,10 +110,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
       },
     ],
     journal: [],
-    currentSceneId: null,
-    adventureLog: [],
     combat: null,
-    chaosFactor: 5,
     ...overrides,
   };
 }

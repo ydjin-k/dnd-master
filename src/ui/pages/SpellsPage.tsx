@@ -166,7 +166,7 @@ export function SpellsPage() {
 
         <footer className="rules-page__attribution">
           Текст заклинаний и правил сотворения — перевод официального{" "}
-          <ExternalLink href="https://media.wizards.com/2016/downloads/DND/SRD-OGL_V5.1.pdf">
+          <ExternalLink href="https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf">
             System Reference Document 5.1
           </ExternalLink>{" "}
           от Wizards of the Coast, распространяется по лицензии{" "}

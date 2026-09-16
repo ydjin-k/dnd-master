@@ -101,10 +101,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
     campaignName: "Тест",
     characters: [],
     journal: [],
-    currentSceneId: null,
-    adventureLog: [],
     combat: null,
-    chaosFactor: 5,
     ...overrides,
   };
 }
@@ -2554,8 +2551,9 @@ describe("CharactersPage", () => {
       expect(within(write).queryByLabelText(/Отсроченный огненный шар/)).not.toBeInTheDocument();
       // Уже вписанное второй раз не предлагается: в книге оно есть, вписывать нечего.
       expect(within(write).queryByLabelText(/Волшебная стрела/)).not.toBeInTheDocument();
-      // Весь список волшебника до 6 круга — 148 заклинаний, минус три уже вписанных.
-      expect(within(write).getAllByRole("checkbox")).toHaveLength(145);
+      // Весь список волшебника до 6 круга — 149 заклинаний, минус три уже вписанных
+      // (было 148: `stinking-cloud` вернулся волшебнику по сверке с эталоном SRD).
+      expect(within(write).getAllByRole("checkbox")).toHaveLength(146);
     });
 
     /**
