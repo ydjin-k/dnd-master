@@ -126,10 +126,17 @@ mod tests {
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct SrdReference {
+        source: SrdSource,
         /// Наш собственный контент: заклинания, которых в SRD нет и не должно быть. Пропуск
         /// идёт поимённо — правило «чего нет в эталоне, то сойдёт» было бы дырой шире прежней.
         project_original: Vec<SrdWhitelisted>,
         spells: Vec<SrdSpell>,
+    }
+
+    #[derive(Deserialize)]
+    struct SrdSource {
+        license: String,
+        attribution: String,
     }
 
     #[derive(Deserialize)]
@@ -236,6 +243,55 @@ mod tests {
                 own.name
             );
         }
+    }
+
+    /// Лицензионное обязательство несёт **вендоренная выдержка**, а не экран: CC-BY-4.0
+    /// требует дословного уведомления там, где раздаётся материал, и раздаётся он из
+    /// `reference/`. Атрибуцию для игрока держит футер `SpellsPage.tsx` — тем же приёмом, что
+    /// и на двух соседних страницах справочника; заводить ей второго владельца в данных правил
+    /// не надо. Эта проба стережёт ровно свой файл: удали `ATTRIBUTION.md` или вычисти из него
+    /// уведомление — и вендоринг станет нарушением молча.
+    #[test]
+    fn vendored_srd_extract_ships_its_attribution() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("reference")
+            .join("ATTRIBUTION.md");
+        let raw = std::fs::read_to_string(&path)
+            .expect("прочитать reference/ATTRIBUTION.md — без него вендоринг SRD нарушает CC-BY-4.0");
+
+        // Уведомление напечатано markdown-цитатой и потому разбито на строки с «> ». Сличаем
+        // по смыслу, а не по вёрстке: иначе проба краснела бы на переносе строки в абзаце.
+        let text = raw
+            .lines()
+            .map(|l| l.trim().trim_start_matches('>').trim())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        for required in [
+            "This work includes material taken from the System Reference Document 5.1",
+            "by Wizards of the Coast LLC",
+            "https://creativecommons.org/licenses/by/4.0/legalcode",
+        ] {
+            assert!(
+                text.contains(required),
+                "в reference/ATTRIBUTION.md нет обязательного куска уведомления CC-BY-4.0: {required:?}"
+            );
+        }
+
+        // Уведомление обязано совпадать с тем, что лежит в самом эталоне: два разных текста
+        // атрибуции — это снова два владельца одного факта, ровно то, что здесь убрано.
+        let reference = load_srd_reference();
+        assert!(
+            text.contains(reference.source.attribution.trim()),
+            "уведомление в ATTRIBUTION.md разошлось с полем source.attribution эталона"
+        );
+        assert_eq!(
+            reference.source.license, "CC-BY-4.0",
+            "эталон обязан называть лицензию, под которой взят SRD"
+        );
     }
 
     #[test]
