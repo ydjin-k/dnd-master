@@ -5,9 +5,9 @@
 
 Имя файла = `id` существа из `src-tauri/bestiary/bestiary.json` (поле `imageAsset`), например:
 
-- `wolf.png` — Волк
-- `werewolf.png` — Оборотень
-- `bandit.png` — Разбойник
+- `wolf.jpg` — Волк
+- `werewolf.jpg` — Оборотень
+- `bandit.jpg` — Разбойник
 
 Формат — любой, который поддерживает `<img>` (png/jpg/webp и т.п.), главное чтобы имя файла (без
 расширения) совпадало с `id`, а расширение — с тем, что указано в `imageAsset` соответствующей

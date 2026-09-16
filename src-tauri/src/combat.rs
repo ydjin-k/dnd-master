@@ -801,17 +801,24 @@ mod bestiary_data_tests {
     }
 
     /// Регресс на карточку `bestiary-image-loading-hang`: раньше команда отдавала
-    /// оригинал целиком (~1.5-3.3 МБ на файл) на любой запрос — вкладка гоняла все
-    /// 50 таких через IPC разом. Уменьшенное превью должно быть меньше на порядки,
-    /// не «визуально компактнее».
+    /// оригинал целиком на любой запрос — вкладка гоняла все 50 таких через IPC разом.
+    ///
+    /// **Порог переписан 17.09.2026.** Раньше проба требовала «меньше в 100 раз», и это
+    /// работало, пока на диске лежали PNG-мастера по 1.5-3.3 МБ. Теперь картинки бестиария
+    /// хранятся ужатыми (JPEG 1024px, ~300 КБ), и отношение к оригиналу схлопнулось до ~36x
+    /// не потому, что превью раздулось, а потому что оригинал похудел по нашему же решению.
+    /// Отношение к весу исходника — плохая мера: она зависит от того, как сжат мастер.
+    /// Сторожим то, что действительно важно: **сколько байт уходит в IPC на одну строку
+    /// списка**. Пятьдесят превью по 8 КБ — это 400 КБ на вкладку; отдача оригиналов дала бы
+    /// 15 МБ и вернула бы тот самый подвисон.
     #[test]
     fn resized_list_thumbnail_is_orders_of_magnitude_smaller_than_the_original() {
         let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("bestiary")
             .join("images");
-        let path = images_dir.join("giant-octopus.png");
+        let path = images_dir.join("giant-octopus.jpg");
         let original_len = std::fs::metadata(&path)
-            .expect("giant-octopus.png должен быть на диске")
+            .expect("giant-octopus.jpg должен быть на диске")
             .len();
 
         let data_url = super::resize_image_to_data_url(&path, 160).expect("уменьшить картинку");
@@ -820,9 +827,15 @@ mod bestiary_data_tests {
             .expect("data URL с ожидаемым префиксом");
         let resized_len = base64_part.len() as u64 * 3 / 4; // грубая оценка байт до base64
 
+        // Абсолютный потолок: столько байт уходит в IPC на одну строку списка.
         assert!(
-            resized_len * 100 < original_len,
-            "превью ({resized_len} байт) должно быть минимум на два порядка меньше оригинала ({original_len} байт)"
+            resized_len < 32_768,
+            "превью списка ({resized_len} байт) должно укладываться в 32 КБ —              пятьдесят таких идут через IPC разом"
+        );
+        // И оно всё равно обязано быть заметно легче исходника, иначе отдаётся оригинал.
+        assert!(
+            resized_len * 4 < original_len,
+            "превью ({resized_len} байт) слишком близко к оригиналу ({original_len} байт) —              похоже, картинка отдаётся как есть"
         );
     }
 
@@ -831,7 +844,7 @@ mod bestiary_data_tests {
         let images_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("bestiary")
             .join("images");
-        let path = images_dir.join("giant-octopus.png");
+        let path = images_dir.join("giant-octopus.jpg");
 
         let data_url = super::resize_image_to_data_url(&path, 160).expect("уменьшить картинку");
         let base64_part = data_url.strip_prefix("data:image/jpeg;base64,").unwrap();
@@ -896,7 +909,7 @@ mod bestiary_cache_tests {
 
     #[test]
     fn cache_file_name_keys_list_and_detail_sizes_separately() {
-        let file_name = std::ffi::OsStr::new("giant-octopus.png");
+        let file_name = std::ffi::OsStr::new("giant-octopus.jpg");
         assert_eq!(cache_file_name(file_name, 160), "giant-octopus-160.jpg");
         assert_eq!(cache_file_name(file_name, 480), "giant-octopus-480.jpg");
     }
