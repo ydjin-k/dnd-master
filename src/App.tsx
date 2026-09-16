@@ -6,6 +6,7 @@ import { SoundtrackProvider } from "./state/SoundtrackContext";
 import type { CampaignState } from "./state/types";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
+import { AdventuresPage } from "./ui/pages/AdventuresPage";
 import { CombatPage } from "./ui/pages/CombatPage";
 import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
@@ -29,6 +30,8 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
       <AppShell onSwitchCampaign={onSwitchCampaign}>
         {(tab) => {
           switch (tab) {
+            case "adventures":
+              return <AdventuresPage />;
             case "combat":
               return <CombatPage />;
             case "dice":

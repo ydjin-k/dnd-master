@@ -1,0 +1,176 @@
+.adventures-page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.adventures-page > h2,
+.adventures-page__head h2 {
+  margin: 0 0 1rem;
+  color: var(--dm-accent);
+  font-family: var(--dm-font-display);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Экран выбора. Сетка на одну колонку с запасом по ширине: место под второй
+   вход («Начать приключение») задумано раскладкой, но самой кнопки нет. */
+.adventures-page__entries {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.adventures-page__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.5rem;
+  border-radius: var(--dm-radius-panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.adventures-page__entry-title {
+  font-family: var(--dm-font-display);
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+.adventures-page__entry-hint {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.adventures-page__head {
+  position: relative;
+}
+
+.adventures-page__back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-control);
+  background: var(--dm-panel-raised);
+  color: var(--dm-text-muted);
+  cursor: pointer;
+}
+
+.adventures-page__back:hover {
+  color: var(--dm-text);
+  border-color: var(--dm-border-bright);
+}
+
+.adventures-page__generator {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 1.5rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-panel);
+  background: var(--dm-panel);
+}
+
+.adventures-page__picker {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  width: 100%;
+  max-width: 560px;
+  color: var(--dm-text-muted);
+}
+
+.adventures-page__picker select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-control);
+  background: var(--dm-panel-raised);
+  color: var(--dm-text);
+}
+
+.adventures-page__die {
+  margin: 0;
+  color: var(--dm-text-muted);
+  font-size: 0.9rem;
+}
+
+.adventures-page__roll {
+  padding: 0.6rem 2.2rem;
+  cursor: pointer;
+}
+
+.adventures-page__error {
+  margin: 0;
+  color: var(--dm-danger);
+}
+
+.adventures-page__outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  align-items: center;
+  width: 100%;
+  padding: 1.2rem;
+  border: 1px solid var(--dm-border-bright);
+  border-radius: var(--dm-radius-panel);
+  background: var(--dm-panel-raised);
+}
+
+.adventures-page__outcome-roll {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0;
+}
+
+/* Выпавшее число — самое крупное на карточке: игрок за столом должен видеть
+   бросок, а не только его последствие. */
+.adventures-page__outcome-number {
+  color: var(--dm-gold);
+  font-family: var(--dm-font-display);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.adventures-page__outcome-of {
+  color: var(--dm-text-muted);
+  font-size: 0.95rem;
+}
+
+.adventures-page__outcome-text {
+  margin: 0;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.adventures-page__save {
+  padding: 0.45rem 1.4rem;
+  border: 1px solid var(--dm-border-bright);
+  border-radius: var(--dm-radius-control);
+  background: transparent;
+  color: var(--dm-accent);
+  cursor: pointer;
+}
+
+.adventures-page__save:hover {
+  background: color-mix(in srgb, var(--dm-accent) 14%, transparent);
+}
+
+.adventures-page__saved {
+  color: var(--dm-status-done);
+  font-size: 0.85rem;
+}
+
+.adventures-page__source {
+  margin: 0;
+  color: var(--dm-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-align: center;
+}
