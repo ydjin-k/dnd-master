@@ -33,6 +33,15 @@ describe("characterPortraitUrl", () => {
     expect(characterPortraitUrl("Тифлинг", "не указано", 3)).toBe("/character-portraits/tiefling-male-3.jpg");
   });
 
+  it("эльф бездны без выбранного варианта берёт свой первый портрет, а не человеческий запасной", () => {
+    // Отрицательная проба на строку «Эльф бездны» в RACE_PORTRAIT_SLUGS: убери
+    // её — и раса молча свалится в человеческий запасной портрет, а не выдаст
+    // ошибку. Проба называет расу, поэтому падение читается сразу.
+    expect(characterPortraitUrl("Эльф бездны", "Мужской", 0)).toBe("/character-portraits/abyss-elf-male-1.jpg");
+    expect(characterPortraitUrl("Эльф бездны", "Женский")).toBe("/character-portraits/abyss-elf-female-1.jpg");
+    expect(characterPortraitUrl("Эльф бездны", "Женский", 3)).toBe("/character-portraits/abyss-elf-female-3.jpg");
+  });
+
   it("старого персонажа без варианта и неизвестную расу показывает первым портретом", () => {
     expect(characterPortraitUrl("", "Женский", 0)).toBe("/character-portraits/human-female-1.jpg");
     expect(characterPortraitUrl("Кастомная раса", "другое", Number.NaN)).toBe(

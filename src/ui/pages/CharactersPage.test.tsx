@@ -2689,6 +2689,86 @@ describe("CharactersPage", () => {
       expect(screen.getByText(/доступен весь список класса до 1 круга/)).toBeInTheDocument();
     });
   });
+
+  describe("Эльф бездны на листе персонажа", () => {
+    /** Персонаж нашей расы: остальное — обычная заготовка листа. */
+    function abyssElf(level: number): Character {
+      return {
+        ...characterWithInventory(),
+        name: "Ксарнет",
+        race: "Эльф бездны",
+        subclass: "Воитель",
+        level,
+        conditions: ["Ослеплённое"],
+        knownCantrips: ["dancing-lights"],
+        featureUses: [{ featureId: "abyss-call", usesCurrent: 1 }],
+      };
+    }
+
+    /** Заклинания расы в справочнике — лист берёт их названия по id, а не хранит копию. */
+    const RACE_SPELLS: Spell[] = (bundledSpells as Spell[]).filter((s) =>
+      ["dancing-lights", "faerie-fire", "darkness"].includes(s.id),
+    );
+
+    it("показывает расовые особенности, счётчик «Зова бездны» и цену числом", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [FIGHTER_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "get_spells") return RACE_SPELLS;
+        return [];
+      });
+      mockState = baseState({ characters: [abyssElf(1)] });
+      render(<CharactersPage />);
+
+      const block = (await screen.findByText(/Расовые особенности \(3\)/)).closest("details") as HTMLElement;
+      expect(within(block).getByText("Превосходное тёмное зрение")).toBeInTheDocument();
+      expect(within(block).getByText("Зов бездны")).toBeInTheDocument();
+      expect(within(block).getByText("Дар бездны")).toBeInTheDocument();
+      expect(within(block).getByText(/1\/1 использование/)).toBeInTheDocument();
+      // Цена названа числом: пассивная внимательность 10, под прямым солнцем 5.
+      expect(within(block).getByText(/Пассивная внимательность там же — 5 вместо 10/)).toBeInTheDocument();
+      // Названия заклинаний приехали из spells.json по id, а не из текста расы.
+      expect(within(block).getByText(/Пляшущие огоньки.*Огонь фей.*Тьма/)).toBeInTheDocument();
+    });
+
+    it("«Зов бездны» тратится, переживает левел-ап и на 5 уровне даёт второе использование", async () => {
+      const run = levelUpRunner(FIGHTER_TOPIC, abyssElf(4));
+      await run.ready();
+
+      fireEvent.click(screen.getByTitle("Потратить: Зов бездны"));
+      const spent = (updateCharacter.mock.calls[0][1] as (c: Character) => Character)(run.char);
+      expect(spent.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 0 });
+
+      run.levelUp(); // 4 -> 5: наша лесенка открывает второе использование
+      expect(run.char.level).toBe(5);
+      expect(run.char.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 2 });
+    });
+
+    it("остальным девяти расам ни счётчика, ни цены не достаётся", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules"
+          ? [FIGHTER_TOPIC, CONDITIONS_TOPIC, { id: "races-elf", category: "races", title: "Эльф", sourceUrl: "", blocks: [] }]
+          : [],
+      );
+      mockState = baseState({ characters: [{ ...characterWithInventory(), race: "Эльф" }] });
+      render(<CharactersPage />);
+
+      await screen.findByText(/Расовые особенности/);
+      expect(screen.queryByText("Зов бездны")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Пассивная внимательность там же/)).not.toBeInTheDocument();
+    });
+
+    it("старое сохранение расы без особенностей открывается и блока не заводит", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      // Человек — единственная раса SRD вовсе без особенностей в списке.
+      mockState = baseState({ characters: [characterWithInventory()] });
+      render(<CharactersPage />);
+
+      await screen.findByText("Герой");
+      expect(screen.queryByText(/Расовые особенности/)).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe("truncateDescription", () => {

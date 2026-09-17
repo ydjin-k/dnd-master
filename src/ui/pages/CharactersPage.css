@@ -485,12 +485,14 @@
   width: min(21em, 100%);
 }
 
+.character-card__race-features,
 .character-card__class-features,
 .character-card__gear-proficiency {
   margin-top: 0.4em;
   font-size: 0.9em;
 }
 
+.character-card__race-features summary,
 .character-card__class-features summary,
 .character-card__gear-proficiency summary {
   cursor: pointer;
