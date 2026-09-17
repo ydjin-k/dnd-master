@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -13,7 +14,7 @@ import {
   type JournalEntry,
   emptyCampaignState,
 } from "./types";
-import { JOURNAL_ENTRY_MAX_LENGTH, clampToLength } from "../ui/journalEntryText";
+import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
 
 interface CampaignContextValue {
   state: CampaignState;
@@ -42,24 +43,75 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Свежее состояние для тех, кто не может ждать перерисовки.
+   *
+   * `state` из `useState` виден вызывающему только с того рендера, в котором
+   * он захвачен, а `setState` с функцией выполняется не сразу — React вправе
+   * отложить обновление. Поэтому «прочитать актуальное прямо сейчас» через
+   * него нельзя, и первая моя попытка сделать это функциональным обновлением
+   * просто не сохраняла ничего: проба `persists the journal without the
+   * removed entry` это и поймала.
+   *
+   * Ссылка обновляется в ОДНОМ месте — `commit` ниже, — поэтому разъехаться
+   * с `state` ей негде.
+   */
+  const latest = useRef<CampaignState>(state);
+
+  const commit = useCallback((next: CampaignState) => {
+    latest.current = next;
+    setState(next);
+  }, []);
+
   useEffect(() => {
     invoke<CampaignState | null>("load_active_campaign")
       .then((loaded) => {
-        if (loaded) setState(loaded);
+        if (loaded) commit(loaded);
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [commit]);
 
   const persist = useCallback(async (next: CampaignState) => {
-    setState(next);
+    commit(next);
     try {
       await invoke("save_campaign", { state: next });
       setError(null);
     } catch (e) {
       setError(String(e));
     }
-  }, []);
+  }, [commit]);
+
+  /**
+   * Сохранение, которое считает новое состояние ОТ СВЕЖЕГО, а не от снимка.
+   *
+   * Обычный `persist` принимает готовый объект, а мутаторы собирают его из
+   * `state`, захваченного в замыкании своего рендера. Две записи подряд,
+   * сделанные до перерисовки, исходят из одного снимка — и вторая затирает
+   * первую вместе со всем, что появилось между ними. Для дневника это прямой
+   * путь потерять записи, а с дописыванием в страницу ещё и текст: слияние
+   * считалось бы от старого содержимого листа.
+   *
+   * Здесь новое состояние считается от `latest.current` — от того, что лежит
+   * в кампании прямо сейчас, а не от снимка рендера.
+   *
+   * Остальные мутаторы пока ходят через `persist` со снимком — та же
+   * опасность есть и у них, но переводить их скопом мимо этой задачи было бы
+   * шире её объёма; заведено отдельной карточкой.
+   */
+  const persistWith = useCallback(
+    async (update: (current: CampaignState) => CampaignState) => {
+      const next = update(latest.current);
+      commit(next);
+      try {
+        await invoke("save_campaign", { state: next });
+        setError(null);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [commit],
+  );
 
   const addCharacter = useCallback(
     async (character: Character) => {
@@ -86,27 +138,58 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   );
 
   /**
-   * Предел длины проверяется ЗДЕСЬ, а не в форме дневника.
+   * Пометка ДОПИСЫВАЕТСЯ в текущую страницу, пока на ней есть место, и только
+   * потом начинает новую. Страница дневника — лист, а не ячейка на одну
+   * запись: владелец 17.09.2026 — «я сделал пометку на 100, потом хочу ещё
+   * дописать в этот же блок, но получается мне уже нужно заводить новый».
    *
-   * Раньше он жил атрибутом `maxLength` у поля ввода на «Дневнике», то есть
-   * был свойством одной формы. Кнопка «В дневник» на «Приключениях» пишет
-   * мимо этой формы и предела не видела — в кампанию уезжали записи до 3043
-   * символов при пределе 100, а стили их молча обрезали. Теперь правило
-   * принадлежит данным: кто бы ни писал, длина одна и та же.
+   * Предел проверяется ЗДЕСЬ, а не в форме дневника. Раньше он жил атрибутом
+   * `maxLength` у поля ввода, то есть был свойством одной формы; кнопка
+   * «В дневник» на «Приключениях» пишет мимо неё и предела не видела — в
+   * кампанию уезжали записи до 3043 символов при пределе 100, а стили их
+   * молча обрезали. Теперь правило принадлежит данным: кто бы ни писал —
+   * форма, генератор событий или что появится дальше, — страница набирается
+   * одинаково.
+   *
+   * Дописываем в САМУЮ СВЕЖУЮ страницу, а не в последнюю по порядку массива:
+   * дневник показывает записи по времени, и «текущая» для игрока — верхняя.
    */
   const addJournalEntry = useCallback(
     async (entry: JournalEntry) => {
-      const text = clampToLength(entry.text, JOURNAL_ENTRY_MAX_LENGTH);
-      await persist({ ...state, journal: [...state.journal, { ...entry, text }] });
+      await persistWith((current) => {
+        const note = clampToLength(entry.text, JOURNAL_ENTRY_MAX_LENGTH);
+        const newest = current.journal.reduce<JournalEntry | null>(
+          (best, candidate) =>
+            best === null || candidate.timestamp.localeCompare(best.timestamp) > 0
+              ? candidate
+              : best,
+          null,
+        );
+        const merged = newest === null ? null : appendedText(newest.text, note);
+
+        if (newest !== null && merged !== null) {
+          return {
+            ...current,
+            journal: current.journal.map((item) =>
+              item.id === newest.id ? { ...item, text: merged } : item,
+            ),
+          };
+        }
+
+        return { ...current, journal: [...current.journal, { ...entry, text: note }] };
+      });
     },
-    [state, persist],
+    [persistWith],
   );
 
   const removeJournalEntry = useCallback(
     async (id: string) => {
-      await persist({ ...state, journal: state.journal.filter((entry) => entry.id !== id) });
+      await persistWith((current) => ({
+        ...current,
+        journal: current.journal.filter((entry) => entry.id !== id),
+      }));
     },
-    [state, persist],
+    [persistWith],
   );
 
   const setCampaignName = useCallback(
@@ -121,13 +204,16 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const runServerAction = useCallback(
     async (command: string, args?: Record<string, unknown>) => {
       try {
-        setState(await invoke<CampaignState>(command, args));
+        // Через `commit`, а не `setState`: иначе `latest` протухнет после
+        // любого хода боя, и следующая запись в дневник посчиталась бы от
+        // состояния до боя.
+        commit(await invoke<CampaignState>(command, args));
         setError(null);
       } catch (e) {
         setError(String(e));
       }
     },
-    [],
+    [commit],
   );
 
   const startCombat = useCallback(

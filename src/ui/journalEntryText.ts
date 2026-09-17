@@ -96,3 +96,22 @@ export function clampToLength(text: string, limit: number): string {
   const body = lastSpace > room / 2 ? cut.slice(0, lastSpace) : cut;
   return body.replace(/[\s,;:—-]+$/u, "") + ELLIPSIS;
 }
+
+/** Разделитель между пометками на одной странице: пустая строка. Дневник
+ *  рукописный, и абзацный отступ читается там естественнее любого значка. */
+export const APPEND_SEPARATOR = "\n\n";
+
+/**
+ * Можно ли дописать пометку в текущую страницу.
+ *
+ * Страница дневника — не «одна запись», а лист, на котором пишут дальше,
+ * пока есть место. Владелец 17.09.2026: «я сделал пометку на 100, потом хочу
+ * ещё дописать в этот же блок, но получается мне уже нужно заводить новый,
+ * а это как-то не правильно».
+ */
+export function appendedText(pageText: string, note: string): string | null {
+  // Пустой лист разделителем не открывается: пустая строка сверху читалась бы
+  // как потерянная запись.
+  const merged = pageText === "" ? note : pageText + APPEND_SEPARATOR + note;
+  return merged.length <= JOURNAL_ENTRY_MAX_LENGTH ? merged : null;
+}
