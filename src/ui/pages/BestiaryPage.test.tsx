@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { BestiaryPage } from "./BestiaryPage";
 import type { MonsterTemplate } from "../../state/types";
@@ -19,6 +19,12 @@ const monsters: MonsterTemplate[] = [
     creatureType: "зверь",
     size: "Средний",
     description: "Средний зверь, без мировоззрения.",
+    abilities: { strength: 12, dexterity: 15, constitution: 12, intelligence: 3, wisdom: 12, charisma: 6 },
+    passivePerception: 13,
+    skills: [
+      { skill: "Восприятие", bonus: 3 },
+      { skill: "Скрытность", bonus: 4 },
+    ],
     traits: ["Острый нюх."],
     actions: ["Укус. Попадание: 7 (2к4+2) колющего урона."],
     imageAsset: "images/wolf.jpg",
@@ -35,6 +41,9 @@ const monsters: MonsterTemplate[] = [
     creatureType: "гуманоид",
     size: "Средний",
     description: "Средний гуманоид.",
+    abilities: { strength: 11, dexterity: 12, constitution: 12, intelligence: 10, wisdom: 10, charisma: 10 },
+    passivePerception: 10,
+    languages: ["любой один язык (обычно Общий)"],
     traits: [],
     actions: ["Скимитар. Попадание: 4 (1к6+1) рубящего урона."],
     imageAsset: null,
@@ -51,9 +60,47 @@ const monsters: MonsterTemplate[] = [
     creatureType: "зверь",
     size: "Крошечный",
     description: "Крошечный зверь, без мировоззрения.",
+    abilities: { strength: 2, dexterity: 15, constitution: 8, intelligence: 2, wisdom: 12, charisma: 4 },
+    passivePerception: 11,
+    senses: [{ name: "слепое зрение", rangeFeet: 60 }],
     traits: [],
     actions: ["Укус."],
     imageAsset: "images/bat.png",
+  },
+  // Существо с ПОЛНОЙ шапкой стат-блока. Оно нарочно выдумано и живёт только
+  // здесь: у нынешних пятидесяти нет ни спасбросков, ни сопротивлений, ни
+  // реакций (в их блоках SRD этих строк нет), а показ этих строк проверить
+  // надо — их привезёт следующая карточка, `bestiary-finish-srd-monsters`.
+  {
+    id: "test-dummy",
+    name: "Пробное чудище",
+    maxHp: 40,
+    armorClass: 15,
+    speedFeet: 30,
+    attackBonus: 5,
+    damageDice: "2d6+3",
+    challengeRating: "5",
+    creatureType: "исчадие",
+    size: "Большой",
+    description: "Большое исчадие, законно-злое.",
+    abilities: { strength: 18, dexterity: 14, constitution: 16, intelligence: 8, wisdom: 11, charisma: 9 },
+    passivePerception: 14,
+    savingThrows: [
+      { ability: "dexterity", bonus: 5 },
+      { ability: "wisdom", bonus: 3 },
+    ],
+    skills: [{ skill: "Восприятие", bonus: 4 }],
+    damageVulnerabilities: ["лучистый"],
+    damageResistances: ["холод"],
+    damageImmunities: ["огонь", "яд"],
+    conditionImmunities: ["Отравленное"],
+    senses: [{ name: "тёмное зрение", rangeFeet: 120 }],
+    languages: ["Инфернальный"],
+    traits: ["Пробная особенность."],
+    actions: ["Пробная атака."],
+    reactions: ["Пробная реакция."],
+    legendaryActions: ["Пробное легендарное действие."],
+    imageAsset: null,
   },
 ];
 
@@ -206,5 +253,80 @@ describe("BestiaryPage", () => {
       )
       .map(([, args]) => (args as { imageAsset: string }).imageAsset);
     expect(detailAssets).toEqual(["images/bat.png"]);
+  });
+
+  it("shows every stat-block field a creature has", async () => {
+    render(<BestiaryPage />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Пробное чудище"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Пробное чудище" })).toBeInTheDocument(),
+    );
+
+    const card = screen.getByRole("article");
+
+    // Характеристики — значение и модификатор, посчитанный тем же abilityMod,
+    // что и на листе персонажа.
+    expect(within(card).getByText("Сила").nextSibling).toHaveTextContent("18 (+4)");
+    expect(within(card).getByText("Интеллект").nextSibling).toHaveTextContent("8 (-1)");
+
+    const rowValue = (label: string) =>
+      within(card).getByText(label).nextSibling?.textContent;
+
+    expect(rowValue("Спасброски")).toBe("Ловкость +5, Мудрость +3");
+    expect(rowValue("Навыки")).toBe("Восприятие +4");
+    expect(rowValue("Уязвимость к урону")).toBe("лучистый");
+    expect(rowValue("Сопротивление урону")).toBe("холод");
+    expect(rowValue("Иммунитет к урону")).toBe("огонь, яд");
+    expect(rowValue("Иммунитет к состояниям")).toBe("Отравленное");
+    expect(rowValue("Чувства")).toBe("тёмное зрение 120 футов");
+    expect(rowValue("Языки")).toBe("Инфернальный");
+    expect(rowValue("Пассивная внимательность")).toBe("14");
+
+    expect(within(card).getByText("Реакции")).toBeInTheDocument();
+    expect(within(card).getByText(/Пробная реакция/)).toBeInTheDocument();
+    expect(within(card).getByText("Легендарные действия")).toBeInTheDocument();
+    expect(within(card).getByText(/Пробное легендарное действие/)).toBeInTheDocument();
+  });
+
+  it("leaves no empty row where a creature simply has no such field", async () => {
+    render(<BestiaryPage />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
+
+    // У волка в блоке SRD нет ни языков, ни чувств с дальностью, ни
+    // спасбросков, ни иммунитетов — подписи не должны появиться ВООБЩЕ.
+    // Пустая клетка на их месте читалась бы как потерянные данные.
+    const card = screen.getByRole("article");
+    for (const label of [
+      "Спасброски",
+      "Уязвимость к урону",
+      "Сопротивление урону",
+      "Иммунитет к урону",
+      "Иммунитет к состояниям",
+      "Чувства",
+      "Языки",
+      "Реакции",
+      "Легендарные действия",
+    ]) {
+      expect(within(card).queryByText(label)).not.toBeInTheDocument();
+    }
+
+    // А то, что у волка есть, на месте.
+    expect(within(card).getByText("Навыки").nextSibling).toHaveTextContent(
+      "Восприятие +3, Скрытность +4",
+    );
+    expect(within(card).getByText("Пассивная внимательность").nextSibling).toHaveTextContent("13");
+
+    // У летучей мыши чувство есть, а языков нет — соседняя проверка тому же правилу.
+    fireEvent.click(screen.getByText("Летучая мышь"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Летучая мышь" })).toBeInTheDocument(),
+    );
+    const batCard = screen.getByRole("article");
+    expect(within(batCard).getByText("Чувства").nextSibling).toHaveTextContent(
+      "слепое зрение 60 футов",
+    );
+    expect(within(batCard).queryByText("Языки")).not.toBeInTheDocument();
   });
 });

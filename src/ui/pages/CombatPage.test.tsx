@@ -16,6 +16,8 @@ const bestiary: MonsterTemplate[] = [
     creatureType: "зверь",
     size: "Средний",
     description: "",
+    abilities: { strength: 12, dexterity: 15, constitution: 12, intelligence: 3, wisdom: 12, charisma: 6 },
+    passivePerception: 13,
     traits: [],
     actions: [],
     imageAsset: null,

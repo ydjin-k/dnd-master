@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dice;
-use crate::model::{Character, CombatState, Combatant};
+use crate::model::{AbilityScores, Character, CombatState, Combatant};
 use crate::spells::Spell;
 
 const GRID_WIDTH: i32 = 12;
@@ -14,6 +14,48 @@ const PLAYER_DAMAGE_DICE_PLACEHOLDER: &str = "1d6";
 const PLAYER_SPELL_ATTACK_BONUS_PLACEHOLDER: i32 = 5;
 const PLAYER_SPELL_SAVE_DC_PLACEHOLDER: i32 = 13;
 
+/// Спасбросок из шапки стат-блока: «Спасброски Лов +5». Характеристика — ключ
+/// `AbilityScores` (`dexterity`), а не русская подпись: подпись живёт одним
+/// местом во фронте (`ABILITY_LABELS`), и второй копии в данных ей не надо.
+/// Значение ключа стережёт проба `saving_throw_abilities_are_known_keys`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonsterSavingThrow {
+    pub ability: String,
+    pub bonus: i32,
+}
+
+/// Навык из шапки: «Навыки Восприятие +3». Имя навыка — русское, из того же
+/// списка `ALL_SKILLS`, которым пользуется лист персонажа; сверяет проба
+/// `bestiary.data.test.ts`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonsterSkill {
+    pub skill: String,
+    pub bonus: i32,
+}
+
+/// Чувство с дальностью: «тёмное зрение 60 футов». Дальность отдельным числом,
+/// а не внутри строки, — чтобы показ склеивал её сам и одинаково у всех.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MonsterSense {
+    pub name: String,
+    pub range_feet: i32,
+}
+
+/// Запись существа — полный стат-блок SRD 5.1.
+///
+/// **Необязательные поля отсутствуют, а не пусты.** У волка нет ни языков, ни
+/// легендарных действий, и `null`/`[]` в их клетках показались бы игроку
+/// потерянными данными. Отсюда `Option<...>` со `skip_serializing_if`: чего у
+/// существа нет, того нет и в JSON, и во фронт оно не доедет. Тот же приём,
+/// что у `monsterIds`/`spellIds` в строках таблиц событий
+/// (`src/ui/eventTables/types.ts`).
+///
+/// `abilities` и `passive_perception` обязательны: они стоят в КАЖДОМ
+/// стат-блоке SRD (проверено по всем 315 блокам издания CC BY 4.0), и
+/// отсутствие их означало бы не «существу не положено», а незаполненную запись.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonsterTemplate {
@@ -28,8 +70,30 @@ pub struct MonsterTemplate {
     pub creature_type: String,
     pub size: String,
     pub description: String,
+    pub abilities: AbilityScores,
+    pub passive_perception: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub saving_throws: Option<Vec<MonsterSavingThrow>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skills: Option<Vec<MonsterSkill>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub damage_vulnerabilities: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub damage_resistances: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub damage_immunities: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub condition_immunities: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub senses: Option<Vec<MonsterSense>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub languages: Option<Vec<String>>,
     pub traits: Vec<String>,
     pub actions: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reactions: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legendary_actions: Option<Vec<String>>,
     pub image_asset: Option<String>,
 }
 
@@ -702,6 +766,116 @@ pub fn monster_auto_turn(state: &mut CombatState) -> Result<String, String> {
     Ok(message)
 }
 
+/// Схема записи существа живёт в двух местах — здесь и в
+/// `src/state/types.ts`. Разъехаться им нельзя: фронт читает то, что отдал
+/// Rust, и молча потерянное поле выглядит как «у существа этого нет», а не как
+/// дефект. Эти пробы сверяют набор полей и стерегут значения, которые show
+/// и будущий добор бестиария принимают на веру.
+#[cfg(test)]
+mod bestiary_schema_tests {
+    use super::{MonsterSavingThrow, MonsterSense, MonsterSkill, MonsterTemplate};
+    use crate::model::AbilityScores;
+
+    /// Образец, у которого ЗАПОЛНЕНЫ все необязательные поля: со
+    /// `skip_serializing_if` пустое поле не попало бы в JSON, и сверка ниже
+    /// проглядела бы его отсутствие во фронте.
+    fn fully_populated() -> MonsterTemplate {
+        MonsterTemplate {
+            id: "sample".into(),
+            name: "Образец".into(),
+            max_hp: 1,
+            armor_class: 1,
+            speed_feet: 1,
+            attack_bonus: 1,
+            damage_dice: "1d1".into(),
+            challenge_rating: "0".into(),
+            creature_type: "зверь".into(),
+            size: "Средний".into(),
+            description: String::new(),
+            abilities: AbilityScores::default(),
+            passive_perception: 10,
+            saving_throws: Some(vec![MonsterSavingThrow {
+                ability: "dexterity".into(),
+                bonus: 1,
+            }]),
+            skills: Some(vec![MonsterSkill {
+                skill: "Восприятие".into(),
+                bonus: 1,
+            }]),
+            damage_vulnerabilities: Some(vec!["огонь".into()]),
+            damage_resistances: Some(vec!["холод".into()]),
+            damage_immunities: Some(vec!["яд".into()]),
+            condition_immunities: Some(vec!["Отравленное".into()]),
+            senses: Some(vec![MonsterSense {
+                name: "тёмное зрение".into(),
+                range_feet: 60,
+            }]),
+            languages: Some(vec!["Общий".into()]),
+            traits: vec![],
+            actions: vec![],
+            reactions: Some(vec![]),
+            legendary_actions: Some(vec![]),
+            image_asset: Some("images/sample.jpg".into()),
+        }
+    }
+
+    /// Поля `export interface MonsterTemplate` из типов фронта.
+    fn frontend_fields() -> Vec<String> {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("src")
+            .join("state")
+            .join("types.ts");
+        let src = std::fs::read_to_string(&path).expect("прочитать src/state/types.ts");
+        let start = src
+            .find("export interface MonsterTemplate {")
+            .expect("в types.ts нет interface MonsterTemplate");
+        let body = &src[start..];
+        let end = body.find("\n}").expect("не закрыт interface MonsterTemplate");
+
+        body[..end]
+            .lines()
+            .skip(1)
+            .filter_map(|line| {
+                let line = line.trim();
+                // Строки комментариев внутри интерфейса тоже содержат двоеточие.
+                if line.starts_with('*') || line.starts_with("//") || line.starts_with('/') {
+                    return None;
+                }
+                let name = line.split(':').next()?.trim();
+                let name = name.strip_suffix('?').unwrap_or(name);
+                if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric()) {
+                    return None;
+                }
+                Some(name.to_string())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn monster_template_matches_frontend_type() {
+        let json = serde_json::to_value(fully_populated()).expect("сериализовать образец");
+        let mut rust: Vec<String> = json
+            .as_object()
+            .expect("объект")
+            .keys()
+            .map(|k| k.to_string())
+            .collect();
+        let mut front = frontend_fields();
+        rust.sort();
+        front.sort();
+
+        let only_rust: Vec<&String> = rust.iter().filter(|k| !front.contains(k)).collect();
+        let only_front: Vec<&String> = front.iter().filter(|k| !rust.contains(k)).collect();
+
+        assert!(
+            only_rust.is_empty() && only_front.is_empty(),
+            "схема существа разъехалась: только в Rust {only_rust:?}, \
+             только в src/state/types.ts {only_front:?}"
+        );
+    }
+}
+
 #[cfg(test)]
 mod bestiary_data_tests {
     use super::MonsterTemplate;
@@ -734,6 +908,94 @@ mod bestiary_data_tests {
                     "у {} указана картинка {asset:?}, но файла нет на диске — прогони fetch-images.sh",
                     m.name
                 );
+            }
+        }
+    }
+
+    /// Ключ характеристики в спасбросках — это имя поля `AbilityScores`, по
+    /// нему показ берёт русскую подпись. Опечатка в данных не упала бы сама:
+    /// поле разбирается как обычная строка, а в карточке вышло бы пустое место.
+    #[test]
+    fn saving_throw_abilities_are_known_keys() {
+        const KEYS: [&str; 6] = [
+            "strength",
+            "dexterity",
+            "constitution",
+            "intelligence",
+            "wisdom",
+            "charisma",
+        ];
+        for m in load_bundled() {
+            for st in m.saving_throws.iter().flatten() {
+                assert!(
+                    KEYS.contains(&st.ability.as_str()),
+                    "у {} спасбросок по неизвестной характеристике {:?}",
+                    m.name,
+                    st.ability
+                );
+            }
+        }
+    }
+
+    /// Пассивная внимательность хранится числом, как её печатает стат-блок, —
+    /// и потому у неё есть второй, выводимый источник: 10 + бонус Восприятия
+    /// (а без навыка — 10 + модификатор Мудрости). Проба держит их вместе,
+    /// чтобы хранимое число не разошлось с характеристиками при добивке
+    /// бестиария. Инвариант проверен по всем 315 стат-блокам издания SRD 5.1
+    /// CC BY 4.0 — расхождений там нет.
+    #[test]
+    fn passive_perception_matches_perception_skill() {
+        for m in load_bundled() {
+            let perception = m
+                .skills
+                .iter()
+                .flatten()
+                .find(|s| s.skill == "Восприятие")
+                .map(|s| s.bonus)
+                .unwrap_or_else(|| (m.abilities.wisdom - 10).div_euclid(2));
+            assert_eq!(
+                m.passive_perception,
+                10 + perception,
+                "у {} пассивная внимательность {}, а из Восприятия выходит {}",
+                m.name,
+                m.passive_perception,
+                10 + perception
+            );
+        }
+    }
+
+    /// Необязательное поле обязано ОТСУТСТВОВАТЬ, а не стоять пустым списком:
+    /// пустой массив доедет до карточки и напечатает подпись без значения —
+    /// ровно то, что карточка `bestiary-record-full-stat-block` запрещает.
+    #[test]
+    fn optional_statblock_fields_are_absent_not_empty() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("bestiary")
+            .join("bestiary.json");
+        let raw = std::fs::read_to_string(&path).expect("прочитать bestiary.json");
+        let records: Vec<serde_json::Value> = serde_json::from_str(&raw).expect("разобрать");
+        const OPTIONAL: [&str; 10] = [
+            "savingThrows",
+            "skills",
+            "damageVulnerabilities",
+            "damageResistances",
+            "damageImmunities",
+            "conditionImmunities",
+            "senses",
+            "languages",
+            "reactions",
+            "legendaryActions",
+        ];
+        for rec in records {
+            let name = rec["name"].as_str().unwrap_or("?").to_string();
+            for key in OPTIONAL {
+                match rec.get(key) {
+                    None => {}
+                    Some(serde_json::Value::Array(items)) if !items.is_empty() => {}
+                    Some(other) => panic!(
+                        "у {name} поле {key} не отсутствует, а стоит пустым: {other}"
+                    ),
+                }
             }
         }
     }
@@ -1070,8 +1332,27 @@ mod tests {
             creature_type: "зверь".into(),
             size: "Средний".into(),
             description: String::new(),
+            abilities: AbilityScores {
+                strength: 12,
+                dexterity: 15,
+                constitution: 12,
+                intelligence: 3,
+                wisdom: 12,
+                charisma: 6,
+            },
+            passive_perception: 13,
+            saving_throws: None,
+            skills: None,
+            damage_vulnerabilities: None,
+            damage_resistances: None,
+            damage_immunities: None,
+            condition_immunities: None,
+            senses: None,
+            languages: None,
             traits: vec![],
             actions: vec![],
+            reactions: None,
+            legendary_actions: None,
             image_asset: None,
         }
     }

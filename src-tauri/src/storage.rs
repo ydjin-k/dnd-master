@@ -493,6 +493,57 @@ mod tests {
         assert_eq!(wizard.spellbook.len(), 6, "книга волшебника должна остаться целой");
     }
 
+    /// bestiary-record-full-stat-block — кампания с боем, НАЧАТЫМ ДО
+    /// расширения записи существа, обязана открыться без потерь.
+    ///
+    /// Почему проба нужна, хотя в сохранении нет ни одного нового поля: это и
+    /// есть проверяемое утверждение. Боец (`Combatant`) — плоский снимок
+    /// (хиты, КД, бонус атаки, кости урона), а не ссылка на `MonsterTemplate`
+    /// и не его копия, поэтому расширение стат-блока сохранений не касается.
+    /// Проба сторожит именно эту развязку: если кто-нибудь однажды положит
+    /// шаблон существа внутрь боя, старые бои перестанут читаться, и красной
+    /// станет эта строка, а не жалоба игрока.
+    ///
+    /// Отрицательная проба: добавить в `Combatant` поле без `#[serde(default)]`
+    /// — фикстура перестанет разбираться, и краснеет именно она.
+    #[test]
+    fn legacy_campaign_with_combat_in_progress_opens_after_stat_block_grew() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("legacy-campaign-combat-in-progress.json");
+        let raw = fs::read_to_string(&fixture).expect("прочитать сохранение с боем");
+
+        let base = temp_dir("legacy-combat-in-progress");
+        let id = "18d2261063107fb4-b886b8a7";
+        fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let state = load_active_in(&base).unwrap().expect("кампания должна открыться");
+        let combat = state.combat.expect("бой должен уцелеть, а не обнулиться");
+
+        assert_eq!(combat.round, 2);
+        assert_eq!(combat.current_turn_index, 1);
+        assert_eq!(combat.combatants.len(), 3);
+        assert_eq!(combat.turn_order.len(), 3);
+        assert_eq!(combat.log.len(), 3);
+        assert!(!combat.finished);
+
+        // Раненый волк — именно то, что теряется молча: хиты бойца это
+        // состояние боя, а не число из шаблона существа.
+        let wounded = combat
+            .combatants
+            .iter()
+            .find(|c| c.id == "monster-wolf-0")
+            .expect("раненый волк на месте");
+        assert_eq!(wounded.name, "Волк");
+        assert!(wounded.is_monster);
+        assert_eq!((wounded.current_hp, wounded.max_hp), (4, 11));
+        assert_eq!(wounded.armor_class, 13);
+        assert_eq!(wounded.damage_dice, "2d4+2");
+        assert_eq!(wounded.initiative, 17);
+    }
+
     /// engine-wipe-adventure-and-oracle — ГЛАВНАЯ проба карточки, и она идёт по
     /// тому же НАСТОЯЩЕМУ сохранению «Vox Machina», записанному приложением до
     /// сноса: в файле лежат `currentSceneId`, `adventureLog` из 17 записей и

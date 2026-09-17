@@ -1,8 +1,45 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { MonsterTemplate } from "../../state/types";
+import type { AbilityScores, MonsterTemplate } from "../../state/types";
+import { ABILITY_LABELS, abilityMod, fmtMod } from "../characterCreationData";
 import { EmphasizedText } from "../EmphasizedText";
 import "./BestiaryPage.css";
+
+// Русские подписи характеристик и счёт модификатора берутся у листа персонажа
+// (characterCreationData), а не пишутся здесь заново: подпись «Ловкость» и
+// формула (score - 10) / 2 — один факт на всё приложение.
+const ABILITY_LABEL: Record<keyof AbilityScores, string> = Object.fromEntries(
+  ABILITY_LABELS,
+) as Record<keyof AbilityScores, string>;
+
+/**
+ * Строки шапки стат-блока, которых у существа может не быть.
+ *
+ * Собираются списком, а не десятком условий прямо в разметке, ради одного
+ * правила на все: поле, которого у существа нет, не даёт СТРОКИ вовсе. Пустая
+ * клетка на месте иммунитетов волка читалась бы как потерянные данные —
+ * карточка `bestiary-record-full-stat-block` требует ровно обратного.
+ */
+function optionalStatRows(m: MonsterTemplate): [string, string][] {
+  const rows: [string, string][] = [];
+  const add = (label: string, value: string | null) => {
+    if (value) rows.push([label, value]);
+  };
+  const list = (items: string[] | undefined) => (items?.length ? items.join(", ") : null);
+
+  add(
+    "Спасброски",
+    list(m.savingThrows?.map((s) => `${ABILITY_LABEL[s.ability]} ${fmtMod(s.bonus)}`)),
+  );
+  add("Навыки", list(m.skills?.map((s) => `${s.skill} ${fmtMod(s.bonus)}`)));
+  add("Уязвимость к урону", list(m.damageVulnerabilities));
+  add("Сопротивление урону", list(m.damageResistances));
+  add("Иммунитет к урону", list(m.damageImmunities));
+  add("Иммунитет к состояниям", list(m.conditionImmunities));
+  add("Чувства", list(m.senses?.map((s) => `${s.name} ${s.rangeFeet} футов`)));
+  add("Языки", list(m.languages));
+  return rows;
+}
 
 function MonsterThumb({
   monster,
@@ -203,6 +240,28 @@ export function BestiaryPage() {
               <dd>{selected.maxHp}</dd>
               <dt>Скорость</dt>
               <dd>{selected.speedFeet} футов</dd>
+            </dl>
+
+            <dl className="bestiary-statblock__abilities">
+              {ABILITY_LABELS.map(([key, label]) => (
+                <div key={key} className="bestiary-statblock__ability">
+                  <dt>{label}</dt>
+                  <dd>
+                    {selected.abilities[key]} ({fmtMod(abilityMod(selected.abilities[key]))})
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <dl className="bestiary-statblock__stats">
+              {optionalStatRows(selected).map(([label, value]) => (
+                <Fragment key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </Fragment>
+              ))}
+              <dt>Пассивная внимательность</dt>
+              <dd>{selected.passivePerception}</dd>
               <dt>Опасность</dt>
               <dd>{selected.challengeRating}</dd>
             </dl>
@@ -220,6 +279,24 @@ export function BestiaryPage() {
               <section>
                 <h3>Действия</h3>
                 {selected.actions.map((a, i) => (
+                  <p key={i}><EmphasizedText>{a}</EmphasizedText></p>
+                ))}
+              </section>
+            )}
+
+            {selected.reactions && selected.reactions.length > 0 && (
+              <section>
+                <h3>Реакции</h3>
+                {selected.reactions.map((r, i) => (
+                  <p key={i}><EmphasizedText>{r}</EmphasizedText></p>
+                ))}
+              </section>
+            )}
+
+            {selected.legendaryActions && selected.legendaryActions.length > 0 && (
+              <section>
+                <h3>Легендарные действия</h3>
+                {selected.legendaryActions.map((a, i) => (
                   <p key={i}><EmphasizedText>{a}</EmphasizedText></p>
                 ))}
               </section>

@@ -169,6 +169,33 @@ export interface CombatState {
   finished: boolean;
 }
 
+/** Спасбросок из шапки стат-блока. `ability` — ключ `AbilityScores`, русскую
+ *  подпись к нему даёт `ABILITY_LABELS`, а не вторая копия в данных. */
+export interface MonsterSavingThrow {
+  ability: keyof AbilityScores;
+  bonus: number;
+}
+
+/** Навык из шапки стат-блока; `skill` — имя из `ALL_SKILLS`. */
+export interface MonsterSkill {
+  skill: string;
+  bonus: number;
+}
+
+/** Чувство с дальностью: «тёмное зрение», 60. */
+export interface MonsterSense {
+  name: string;
+  rangeFeet: number;
+}
+
+/**
+ * Запись существа — полный стат-блок SRD 5.1.
+ *
+ * Необязательные поля ОТСУТСТВУЮТ у существа, которому они не положены, а не
+ * стоят пустыми: пустая строка в карточке читается как потерянные данные.
+ * Зеркало этой схемы — `MonsterTemplate` в `src-tauri/src/combat.rs`;
+ * расхождение ловит проба `monster_template_matches_frontend_type`.
+ */
 export interface MonsterTemplate {
   id: string;
   name: string;
@@ -181,8 +208,20 @@ export interface MonsterTemplate {
   creatureType: string;
   size: string;
   description: string;
+  abilities: AbilityScores;
+  passivePerception: number;
+  savingThrows?: MonsterSavingThrow[];
+  skills?: MonsterSkill[];
+  damageVulnerabilities?: string[];
+  damageResistances?: string[];
+  damageImmunities?: string[];
+  conditionImmunities?: string[];
+  senses?: MonsterSense[];
+  languages?: string[];
   traits: string[];
   actions: string[];
+  reactions?: string[];
+  legendaryActions?: string[];
   imageAsset: string | null;
 }
 

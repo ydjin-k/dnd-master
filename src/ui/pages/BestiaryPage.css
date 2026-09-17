@@ -143,6 +143,29 @@
   margin: 0;
 }
 
+/* Шесть характеристик строкой, как в самом стат-блоке. auto-fit, а не жёсткие
+   шесть колонок: в узком окне карточка съезжает в две-три, а не выдавливает
+   содержимое за край. */
+.bestiary-statblock__abilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.4em 0.75em;
+  margin: 1em 0;
+  padding: 0.6em 0;
+  border-top: 1px solid var(--dm-border);
+  border-bottom: 1px solid var(--dm-border);
+  text-align: center;
+}
+
+.bestiary-statblock__ability dt {
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.bestiary-statblock__ability dd {
+  margin: 0;
+}
+
 .bestiary-statblock__attribution {
   margin-top: 2em;
   padding-top: 1em;
