@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
+import { JOURNAL_ENTRY_MAX_LENGTH } from "../journalEntryText";
 import "./JournalPage.css";
 
-export const JOURNAL_ENTRY_MAX_LENGTH = 100;
+/** Предел переехал в `journalEntryText.ts` и проверяется в `addJournalEntry`:
+ *  раньше он был атрибутом ЭТОЙ формы, и всякий, кто писал мимо неё, его не
+ *  видел. Здесь остаётся ре-экспорт, чтобы не ломать чужие импорты, и
+ *  `maxLength` ниже — как подсказка глазу, а не как правило. */
+export { JOURNAL_ENTRY_MAX_LENGTH } from "../journalEntryText";
+
+/** Записей на разворот: левая страница и правая. */
+export const ENTRIES_PER_SPREAD = 2;
 
 /** Записи, переехавшие из снесённого журнала приключения, времени не имели
  *  никогда, и в них `timestamp` пуст (см. `storage::migrate_legacy_adventure_log`).
@@ -20,9 +28,22 @@ export function JournalPage() {
   const quillAudioRef = useRef<HTMLAudioElement | null>(null);
   const pageFlipAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  /**
+   * Разворот держит ДВЕ записи: левая страница и правая, по одной на каждую.
+   *
+   * Решение владельца 17.09.2026. Раньше было шесть — две колонки по три, —
+   * и запись любого размера в такую ячейку не влезала: стили обрезали её
+   * молча по `overflow: hidden`. Теперь блок это целая страница, и в него
+   * помещается столько, сколько страница держит (`JOURNAL_ENTRY_MAX_LENGTH`).
+   * Перелистнуть можно, когда обе страницы заняты, — то есть когда записей
+   * больше двух.
+   */
   const entries = [...state.journal].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const spreadCount = Math.max(1, Math.ceil(entries.length / 6));
-  const visibleEntries = entries.slice(spreadIndex * 6, spreadIndex * 6 + 6);
+  const spreadCount = Math.max(1, Math.ceil(entries.length / ENTRIES_PER_SPREAD));
+  const visibleEntries = entries.slice(
+    spreadIndex * ENTRIES_PER_SPREAD,
+    spreadIndex * ENTRIES_PER_SPREAD + ENTRIES_PER_SPREAD,
+  );
 
   useEffect(() => {
     setSpreadIndex((current) => Math.min(current, spreadCount - 1));
@@ -58,7 +79,7 @@ export function JournalPage() {
 
       <div className="journal-page">
         <div className="journal-page__list">
-          {[visibleEntries.slice(0, 3), visibleEntries.slice(3, 6)].map((column, columnIndex) => (
+          {[visibleEntries.slice(0, 1), visibleEntries.slice(1, 2)].map((column, columnIndex) => (
             <ul className="journal-page__column" key={columnIndex}>
               {column.map((entry) => (
                 <li key={entry.id} className="journal-entry">
@@ -84,7 +105,7 @@ export function JournalPage() {
           )}
         </div>
 
-        {entries.length >= 6 && (
+        {entries.length > ENTRIES_PER_SPREAD && (
           <nav className="journal-page__pagination" aria-label="Листание дневника">
             <button
               type="button"

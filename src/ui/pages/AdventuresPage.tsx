@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { playDiceRollSound } from "../../audio/uiSounds";
 import { useCampaign } from "../../state/CampaignContext";
+import { JOURNAL_ENTRY_MAX_LENGTH, clampToLength, rowGist } from "../journalEntryText";
 import type { RollResult } from "../../state/types";
 import {
   EVENT_TABLES,
@@ -32,11 +33,25 @@ interface Outcome {
 /**
  * Текст записи дневника. Рождается здесь и только здесь: и кнопка «В дневник»,
  * и проба берут его отсюда, поэтому формат не разъезжается между ними.
- * Бросок в записи назван числом — за столом важно, что выпало, а не только что
+ * Бросок в записи назван числом — за столом важно, что выпало, а не что
  * приложение показало.
+ *
+ * В дневник едет строка ЦЕЛИКОМ, а не её обрывок. Так стало можно после
+ * того, как владелец 17.09.2026 переделал дневник: блок теперь не ячейка на
+ * шесть записей в развороте, а целая страница, и строка в неё помещается —
+ * у столкновений местности это 310-573 символа при страничном пределе 550.
+ *
+ * Обрезка остаётся только для того, что на страницу не влезет никогда:
+ * зацепки приключений доходят до 3043 символов. Там берётся суть — заголовок
+ * строки, если он есть, иначе первое предложение, — и если и она длиннее
+ * страницы, режется по границе слова с многоточием. Многоточие обязательно:
+ * молчаливое обрезание стилями было тем самым дефектом, который здесь чинят.
  */
 export function journalTextFor({ table, roll, row }: Outcome): string {
-  return `${table.name} (d${table.die}), выпало ${roll}: ${row.text}`;
+  const prefix = `${table.name} (d${table.die}), выпало ${roll}: `;
+  const room = JOURNAL_ENTRY_MAX_LENGTH - prefix.length;
+  const body = row.text.length <= room ? row.text : rowGist(row.text);
+  return prefix + clampToLength(body, room);
 }
 
 export function AdventuresPage() {

@@ -111,8 +111,11 @@
 }
 
 .journal-entry__text {
-  max-height: 20rem;
-  overflow: hidden;
+  /* Запись занимает страницу целиком. Прежние `max-height: 20rem` и
+     `overflow: hidden` обрезали длинный текст МОЛЧА — без многоточия и без
+     возможности прочитать остаток; это и был дефект, пойманный владельцем
+     17.09.2026. Теперь длина ограничена в данных (`JOURNAL_ENTRY_MAX_LENGTH`),
+     обрезанное помечено многоточием, и прятать здесь больше нечего. */
   overflow-wrap: anywhere;
   color: var(--journal-ink);
   font-family: "Caveat", cursive;

@@ -73,12 +73,16 @@ describe("JournalPage", () => {
     expect(removeJournalEntry).toHaveBeenCalledWith("entry-to-remove");
   });
 
-  it("paginates six entries per spread regardless of text length", () => {
-    mockState = createStateWithEntries(7, 1_000);
+  // Разворот держит ДВЕ записи — левую страницу и правую (решение владельца
+  // 17.09.2026). Длина текста на раскладку не влияет: запись занимает страницу
+  // целиком, а не ячейку, и прятать её перестали. Проба нарочно берёт длинный
+  // текст — раньше он молча обрезался стилями.
+  it("разворот держит две записи: левая страница и правая", () => {
+    mockState = createStateWithEntries(3, 500);
     render(<JournalPage />);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(6);
-    expect(screen.getByText(/Запись 7/)).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByText(/Запись 3/)).toBeInTheDocument();
     expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
     expect(screen.queryByText(/Запись 1/)).not.toBeInTheDocument();
 
@@ -98,13 +102,15 @@ describe("JournalPage", () => {
     expect(audioPlayMock).toHaveBeenCalledTimes(1);
   });
 
-  it("shows disabled pagination when the first spread is exactly full", () => {
-    mockState = createStateWithEntries(6);
+  // Перелистнуть можно, только когда обе страницы заняты И есть что показать
+  // дальше: ровно две записи — это полный разворот без продолжения.
+  it("на полном развороте без продолжения листать некуда", () => {
+    mockState = createStateWithEntries(2);
     render(<JournalPage />);
 
-    expect(screen.getByRole("button", { name: "Предыдущий разворот" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Следующий разворот" })).toBeDisabled();
-    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Предыдущий разворот" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Следующий разворот" })).not.toBeInTheDocument();
   });
 
   it("limits a new entry and displays the limit beside the field", () => {
@@ -117,7 +123,7 @@ describe("JournalPage", () => {
   });
 
   it("stays on the current spread after adding an entry", async () => {
-    mockState = createStateWithEntries(8, 120);
+    mockState = createStateWithEntries(4, 120);
     render(<JournalPage />);
     fireEvent.click(screen.getByRole("button", { name: "Следующий разворот" }));
     expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
@@ -127,8 +133,8 @@ describe("JournalPage", () => {
     fireEvent.click(screen.getByText("Записать"));
 
     await waitFor(() => expect(addJournalEntry).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("2 / 2")).toBeInTheDocument();
-    expect(screen.queryByText(/Запись 8/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Запись 2/)).toBeInTheDocument();
+    expect(screen.queryByText(/Запись 4/)).not.toBeInTheDocument();
   });
 
   // engine-wipe-adventure-and-oracle: записи, переехавшие из снесённого журнала

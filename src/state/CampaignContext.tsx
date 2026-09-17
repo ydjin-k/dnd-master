@@ -13,6 +13,7 @@ import {
   type JournalEntry,
   emptyCampaignState,
 } from "./types";
+import { JOURNAL_ENTRY_MAX_LENGTH, clampToLength } from "../ui/journalEntryText";
 
 interface CampaignContextValue {
   state: CampaignState;
@@ -84,9 +85,19 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [state, persist],
   );
 
+  /**
+   * Предел длины проверяется ЗДЕСЬ, а не в форме дневника.
+   *
+   * Раньше он жил атрибутом `maxLength` у поля ввода на «Дневнике», то есть
+   * был свойством одной формы. Кнопка «В дневник» на «Приключениях» пишет
+   * мимо этой формы и предела не видела — в кампанию уезжали записи до 3043
+   * символов при пределе 100, а стили их молча обрезали. Теперь правило
+   * принадлежит данным: кто бы ни писал, длина одна и та же.
+   */
   const addJournalEntry = useCallback(
     async (entry: JournalEntry) => {
-      await persist({ ...state, journal: [...state.journal, entry] });
+      const text = clampToLength(entry.text, JOURNAL_ENTRY_MAX_LENGTH);
+      await persist({ ...state, journal: [...state.journal, { ...entry, text }] });
     },
     [state, persist],
   );
