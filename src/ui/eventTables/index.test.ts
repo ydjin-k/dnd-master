@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import bundledSpells from "../../../src-tauri/rules/spells.json";
 import {
   EVENT_TABLES,
   TABLE_GROUPS,
@@ -47,6 +48,17 @@ describe("таблицы генератора событий", () => {
     }
   });
 
+  it("строка, ссылающаяся на заклинание, называет существующий id spells.json", () => {
+    const known = new Set(bundledSpells.map((spell) => spell.id));
+    for (const table of EVENT_TABLES) {
+      for (const row of table.rows) {
+        for (const id of row.spellIds ?? []) {
+          expect(known.has(id), `${table.id} → ${row.from}: заклинание "${id}"`).toBe(true);
+        }
+      }
+    }
+  });
+
   // ── отрицательные пробы: страж обязан краснеть, а не молчать ──────────────
 
   it("дыра в диапазонах краснеет и называет таблицу и незакрытое число", () => {
@@ -59,6 +71,21 @@ describe("таблицы генератора событий", () => {
     expect(gap).toContain("Метки фей");
     expect(gap).toContain("5");
     expect(gap).toContain("d8");
+  });
+
+  it("дыра в слитой таблице грибов краснеет на числе из влитой части", () => {
+    // Слияние тринадцати грибов Подземья в d100 первой волны сдвинуло кость до
+    // d113. Дыру пробиваем в ВЛИТОЙ части: там ошибка нумерации и вероятна.
+    const table = findTable("magic-mushrooms")!;
+    expect(table.die).toBe(113);
+    const holed = withRows(
+      table,
+      table.rows.filter((row) => row.from !== 107),
+    );
+    const gap = findCoverageGap(holed);
+    expect(gap).toContain("Волшебные грибы");
+    expect(gap).toContain("107");
+    expect(gap).toContain("d113");
   });
 
   it("нахлёст диапазонов краснеет и называет таблицу и число", () => {
