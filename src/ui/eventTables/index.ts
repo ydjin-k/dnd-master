@@ -20,6 +20,7 @@ import { TABLES as thievesGuildQuests } from "./thievesGuildQuests";
 import { TABLES as trapsAndPuzzles } from "./trapsAndPuzzles";
 import { TABLES as travelEvents } from "./travelEvents";
 import { TABLES as underdarkEvents } from "./underdarkEvents";
+import { TABLES as underdarkTerrainEncounters } from "./underdarkTerrainEncounters";
 import { TABLES as underwaterEvents } from "./underwaterEvents";
 import { TABLES as waterEvents } from "./waterEvents";
 import { TABLES as weaponRunes } from "./weaponRunes";
@@ -44,8 +45,9 @@ export const EVENT_TABLES: readonly EventTable[] = [
   ...magicMushrooms, ...plotTwists, ...pocketTrinkets, ...questHooks,
   ...randomEvents, ...resurrectionSideEffects, ...riddles, ...roadEncounters,
   ...secretSocieties, ...settlementEvents, ...thievesGuildQuests,
-  ...trapsAndPuzzles, ...travelEvents, ...underdarkEvents, ...underwaterEvents,
-  ...waterEvents, ...weaponRunes,
+  ...trapsAndPuzzles, ...travelEvents, ...underdarkEvents,
+  ...underdarkTerrainEncounters, ...underwaterEvents, ...waterEvents,
+  ...weaponRunes,
 ].sort(
   (a, b) =>
     TABLE_GROUPS.indexOf(a.group as (typeof TABLE_GROUPS)[number]) -
