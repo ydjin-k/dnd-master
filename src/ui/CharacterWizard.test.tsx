@@ -53,7 +53,7 @@ const topics: RuleTopic[] = [
   },
 ];
 
-function makeSpell(id: string, name: string, level: 0 | 1, classes: string[]): Spell {
+function makeSpell(id: string, name: string, level: number, classes: string[]): Spell {
   return {
     id,
     name,
@@ -90,6 +90,13 @@ const spells: Spell[] = [
   makeSpell("cleric-cantrip-2", "Заговор Жреца 2", 0, ["classes-cleric"]),
   makeSpell("cleric-cantrip-3", "Заговор Жреца 3", 0, ["classes-cleric"]),
   makeSpell("cleric-spell-1", "Заклинание Жреца 1", 1, ["classes-cleric"]),
+  // Три заклинания эльфа бездны — под теми же id, что в spells.json: мастер
+  // показывает их названия ссылкой по id, а не своей копией строк. Список
+  // классов пуст намеренно: раса даёт их сама, и в выборе заклинаний класса им
+  // делать нечего (иначе они сдвинули бы нормы в пробах на волшебника).
+  makeSpell("dancing-lights", "Пляшущие огоньки", 0, []),
+  makeSpell("faerie-fire", "Огонь фей", 1, []),
+  makeSpell("darkness", "Тьма", 2, []),
 ];
 
 const abilityRolls: AbilityScoreRoll[] = [
@@ -1603,5 +1610,78 @@ describe("CharacterWizard", () => {
     expect(character.subclass).toBe("Домен войны");
     expect(character.armorProficiencies).toEqual(expect.arrayContaining(["light", "medium", "shields", "heavy"]));
     expect(character.weaponProficiencies).toEqual(expect.arrayContaining(["simple", "martial"]));
+  });
+
+  /**
+   * Отрицательная проба на саму расу: `topics` в этом файле её НЕ содержат —
+   * девять рас приезжают из справочника, а Эльф бездны добавляется
+   * `playableRaces` (abyssElfRace.ts). Убери его оттуда — и проба покраснеет
+   * именно на названии расы, а не на общем снимке экрана.
+   */
+  it("Эльф бездны выбирается наравне с девятью и доносит до персонажа свои бонусы, заговор и счётчик «Зова бездны»", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Эльф бездны"));
+    // Воин — не заклинатель: заговор здесь может приехать только от расы.
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее")); // характеристики: база 10 везде
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее")); // снаряжение: по умолчанию
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Ксарнет" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.race).toBe("Эльф бездны");
+    // Наши числа: Ловкость +2, Мудрость +1 от базовых 10.
+    expect(character.abilities.dexterity).toBe(12);
+    expect(character.abilities.wisdom).toBe(11);
+    expect(character.speedFeet).toBe(30);
+    expect(character.languages).toEqual(expect.arrayContaining(["Общий", "Эльфийский", "Подземный"]));
+    expect(character.knownCantrips).toEqual(["dancing-lights"]);
+    expect(character.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 1 });
+  });
+
+  it("шаг «Итог» показывает особенности эльфа бездны, называет цену числом и берёт названия заклинаний из справочника", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Эльф бездны"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее")); // характеристики: база 10 везде
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее")); // снаряжение: по умолчанию
+
+    const traits = await screen.findByText("Расовые особенности:");
+    const list = traits.closest("li") as HTMLElement;
+    expect(within(list).getByText("Превосходное тёмное зрение")).toBeInTheDocument();
+    expect(within(list).getByText("Дар бездны")).toBeInTheDocument();
+    // Цена названа числом: Мудрость 11 (+0) без владения Восприятием -> 10,
+    // под прямым солнцем помеха -5 -> 5.
+    expect(within(list).getByText(/Пассивная внимательность там же — 5 вместо 10/)).toBeInTheDocument();
+    expect(
+      within(list).getByText(/Пляшущие огоньки.*Огонь фей.*Тьма/),
+    ).toBeInTheDocument();
   });
 });

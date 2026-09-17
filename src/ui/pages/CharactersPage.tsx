@@ -22,6 +22,7 @@ import {
   inventoryWeightLb,
   OVERLOAD_WARNING,
   RACE_HP_BONUS,
+  RACE_TRAITS,
   SKILL_ABILITY,
   ARMOR_PROFICIENCY_LABELS,
   UNPROFICIENT_ARMOR_HINT,
@@ -52,6 +53,7 @@ import {
   type AbilityKey,
   type ArmorProficiency,
   type ClassLevelFeature,
+  type RaceTrait,
   type SubclassChoice,
   type SubclassResourceOption,
 } from "../characterCreationData";
@@ -86,6 +88,7 @@ import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
 import { CoinIcon } from "../CoinIcon";
 import { characterPortraitUrl } from "../characterPortraits";
+import { abyssElfSpellLine, playableRaces, raceResources, withSunlitPassive } from "../abyssElfRace";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
@@ -203,12 +206,58 @@ export function classFeaturesBlockHasContent(args: {
   );
 }
 
+/**
+ * Строка ограниченного ресурса: счётчик, обе кнопки и подпись «что даёт и чем
+ * платится» (см. 4e480b2). Одна на классовые ресурсы и на расовые — форма у
+ * них одна (`ClassResource`), и разметка, написанная дважды, разошлась бы
+ * первой же правкой. Откуда ресурс пришёл, решает вызывающий блок, а не строка.
+ */
+function ResourceRow({
+  resource,
+  current,
+  max,
+  onSpend,
+  onRestore,
+}: {
+  resource: ClassResource;
+  current: number;
+  max: number;
+  onSpend: () => void;
+  onRestore: () => void;
+}) {
+  return (
+    <li className="character-card__item dm-list-row">
+      <strong>{resource.name}</strong>{" "}
+      <span className="character-card__resource-count">
+        {current}/{max} {resource.unit}
+      </span>
+      <button
+        type="button"
+        title={`Потратить: ${resource.name}`}
+        aria-disabled={current === 0}
+        className={current === 0 ? "character-card__danger" : undefined}
+        onClick={onSpend}
+      >
+        Потратить
+      </button>
+      <button type="button" disabled={current >= max} onClick={onRestore}>
+        Восстановить
+      </button>
+      <span className="character-card__hint">
+        {resource.description} Восстановление:{" "}
+        {resource.recharge === "short" ? "короткий или длинный отдых" : "длинный отдых"}.
+      </span>
+    </li>
+  );
+}
+
 function CharacterCard({
   character: c,
   spells,
   conditionEffects,
   classHitDiceByTitle,
   raceHpBonusByTitle,
+  raceTraitsByTitle,
   turnKey,
   onRemove,
   onUpdate,
@@ -218,6 +267,7 @@ function CharacterCard({
   conditionEffects: Record<string, string[]>;
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
+  raceTraitsByTitle: Record<string, RaceTrait[]>;
   /** Ключ текущего хода боя или null вне боя — им ограничивается «не чаще раза за ход» у Дикого всплеска. */
   turnKey: string | null;
   onRemove: () => void;
@@ -604,8 +654,17 @@ function CharacterCard({
     // Архетип, действующий после этого левел-апа: ресурсы, владения и
     // заклинания домена считаются уже по нему, а не по прежнему пустому.
     const subclassName = subclassNameAfterLevelUp(newLevel, chosenSubclassName);
-    const newResources = characterResources(dice?.id, subclassName, newLevel);
-    const oldResources = characterResources(dice?.id, c.subclass, c.level);
+    // Расовый ресурс идёт в тот же пересчёт, что классовый: `featureUses` ниже
+    // собирается списком заново, и не попавший в него счётчик исчез бы с
+    // первым же левел-апом. Лесенка у расы своя — оттого и уровень отдельно.
+    const newResources = [
+      ...characterResources(dice?.id, subclassName, newLevel),
+      ...raceResources(c.race, newLevel),
+    ];
+    const oldResources = [
+      ...characterResources(dice?.id, c.subclass, c.level),
+      ...raceResources(c.race, c.level),
+    ];
     onUpdate((ch) => {
       // Полный набор выбора внутри архетипа: то, что уже было сохранено,
       // плюс выбор, сделанный этим же левел-апом (если был).
@@ -814,6 +873,15 @@ function CharacterCard({
     spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.castableSpells.length) : 0;
   // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
   const classResources = characterResources(classId, c.subclass, c.level);
+  /**
+   * Расовое — отдельным блоком и отдельными списками, а не подмешанное в
+   * классовое: «Особенности класса» ниже подписаны классом, и счётчик расы,
+   * попавший под эту подпись, врал бы об источнике. Счётчик при этом общий,
+   * `Character.featureUses` по id, — и тратится теми же кнопками.
+   */
+  const raceTraits = withSunlitPassive(raceTraitsByTitle[c.race] ?? [], c.race, c.passivePerception);
+  const raceResourceList = raceResources(c.race, c.level);
+  const raceSpellLine = abyssElfSpellLine(c.race, (id) => spells.find((sp) => sp.id === id)?.name ?? id);
   const classScaling = progression?.scaling ?? [];
   const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level, c.subclassChoices).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
@@ -1235,6 +1303,33 @@ function CharacterCard({
           <p className="character-card__prof">Инструменты: {toolProficiencies.join(", ")}</p>
         )}
       </details>
+      {raceTraits.length > 0 && (
+        <details className="character-card__race-features" open>
+          <summary>Расовые особенности ({raceTraits.length})</summary>
+          {raceResourceList.length > 0 && (
+            <ul className="character-card__resource-list">
+              {raceResourceList.map((resource) => (
+                <ResourceRow
+                  key={resource.id}
+                  resource={resource}
+                  current={resourceCurrent(resource)}
+                  max={resourceMax(resource, c.abilities)}
+                  onSpend={() => spendResource(resource)}
+                  onRestore={() => restoreResource(resource)}
+                />
+              ))}
+            </ul>
+          )}
+          <ul className="character-card__traits">
+            {raceTraits.map((trait) => (
+              <li key={trait.name} className="typography-term-line">
+                <strong>{trait.name}</strong> — {trait.description}
+              </li>
+            ))}
+          </ul>
+          {raceSpellLine && <p className="character-card__hint">{raceSpellLine}</p>}
+        </details>
+      )}
       {classFeaturesBlockHasContent({
         classFeatures,
         classResources,
@@ -1250,34 +1345,16 @@ function CharacterCard({
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
           {classResources.length > 0 && (
             <ul className="character-card__resource-list">
-              {classResources.map((resource) => {
-                const max = resourceMax(resource, c.abilities);
-                const current = resourceCurrent(resource);
-                return (
-                  <li key={resource.id} className="character-card__item dm-list-row">
-                    <strong>{resource.name}</strong>{" "}
-                    <span className="character-card__resource-count">
-                      {current}/{max} {resource.unit}
-                    </span>
-                    <button
-                      type="button"
-                      title={`Потратить: ${resource.name}`}
-                      aria-disabled={current === 0}
-                      className={current === 0 ? "character-card__danger" : undefined}
-                      onClick={() => spendResource(resource)}
-                    >
-                      Потратить
-                    </button>
-                    <button type="button" disabled={current >= max} onClick={() => restoreResource(resource)}>
-                      Восстановить
-                    </button>
-                    <span className="character-card__hint">
-                      {resource.description} Восстановление:{" "}
-                      {resource.recharge === "short" ? "короткий или длинный отдых" : "длинный отдых"}.
-                    </span>
-                  </li>
-                );
-              })}
+              {classResources.map((resource) => (
+                <ResourceRow
+                  key={resource.id}
+                  resource={resource}
+                  current={resourceCurrent(resource)}
+                  max={resourceMax(resource, c.abilities)}
+                  onSpend={() => spendResource(resource)}
+                  onRestore={() => restoreResource(resource)}
+                />
+              ))}
             </ul>
           )}
           {subclassOptions.length > 0 && (
@@ -1904,6 +1981,21 @@ function extractRaceHpBonus(topics: RuleTopic[]): Record<string, number> {
   return result;
 }
 
+/**
+ * Особенности расы по её названию (`Character.race` хранит текст, не id) — тем
+ * же приёмом, что и `extractRaceHpBonus` выше. Список рас берётся у
+ * `playableRaces`: девять из справочника SRD плюс наша десятая, и лист не
+ * знает, какая из них откуда, — ему нужно только название и особенности.
+ */
+function extractRaceTraits(topics: RuleTopic[]): Record<string, RaceTrait[]> {
+  const result: Record<string, RaceTrait[]> = {};
+  for (const topic of playableRaces(topics)) {
+    const traits = RACE_TRAITS[topic.id];
+    if (traits && traits.length > 0) result[topic.title] = traits;
+  }
+  return result;
+}
+
 export function CharactersPage() {
   const { state, addCharacter, removeCharacter, updateCharacter } = useCampaign();
   const [panel, setPanel] = useState<Panel>("none");
@@ -1912,6 +2004,7 @@ export function CharactersPage() {
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
   const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
+  const [raceTraitsByTitle, setRaceTraitsByTitle] = useState<Record<string, RaceTrait[]>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1928,6 +2021,7 @@ export function CharactersPage() {
         setConditionEffects(extractConditionEffects(topics));
         setClassHitDiceByTitle(extractClassHitDice(topics));
         setRaceHpBonusByTitle(extractRaceHpBonus(topics));
+        setRaceTraitsByTitle(extractRaceTraits(topics));
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -1960,6 +2054,7 @@ export function CharactersPage() {
             conditionEffects={conditionEffects}
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
+            raceTraitsByTitle={raceTraitsByTitle}
             turnKey={wildMagicTurnKey(state.combat)}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {

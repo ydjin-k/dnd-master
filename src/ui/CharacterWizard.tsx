@@ -66,6 +66,16 @@ import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spel
 import { preparedSpellsMax } from "./preparedSpells";
 import { hasSpellbook, spellbookMax } from "./spellbook";
 import { CHARACTER_PORTRAIT_VARIANTS, characterPortraitUrl } from "./characterPortraits";
+import {
+  ABYSS_ELF_ABILITY_BONUS,
+  ABYSS_ELF_ID,
+  ABYSS_ELF_SPEED_FEET,
+  abyssElfSpellLine,
+  playableRaces,
+  raceGrantedCantrips,
+  raceResources,
+  withSunlitPassive,
+} from "./abyssElfRace";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -111,6 +121,9 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   "races-half-orc": { fixed: { strength: 2, constitution: 1 } },
   "races-half-elf": { fixed: { charisma: 2 }, choice: { count: 2, amount: 1 } },
   "races-tiefling": { fixed: { intelligence: 1, charisma: 2 } },
+  // Десятая раса — наша, и числа у неё наши: сверять их не с чем, владелец
+  // строки — abyssElfRace.ts, здесь только ссылка на него.
+  [ABYSS_ELF_ID]: { fixed: ABYSS_ELF_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -125,6 +138,7 @@ const RACE_SPEED_FEET: Record<string, number> = {
   "races-half-orc": 30,
   "races-half-elf": 30,
   "races-tiefling": 30,
+  [ABYSS_ELF_ID]: ABYSS_ELF_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.
@@ -202,10 +216,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       .catch((e) => setLoadError(String(e)));
   }, []);
 
-  const races = useMemo(
-    () => topics.filter((t) => t.category === "races" && t.id !== "races-traits"),
-    [topics],
-  );
+  // Девять рас справочника плюс наша десятая — список собирает playableRaces
+  // (abyssElfRace.ts), и он же единственный владелец факта «кем можно играть».
+  // Дальше мастер не различает, откуда раса приехала: форма у всех одна.
+  const races = useMemo(() => playableRaces(topics), [topics]);
   const classes = useMemo(() => topics.filter((t) => t.category === "classes"), [topics]);
   const race = races.find((r) => r.id === raceId);
   const klass = classes.find((c) => c.id === classId);
@@ -537,6 +551,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     10 +
     abilityMod(totalAbilities.wisdom) +
     (allSkillProficiencies.includes("Восприятие") ? PROFICIENCY_BONUS_LEVEL_1 : 0);
+  /**
+   * Те же особенности, но с посчитанной ценой «Чувствительности к солнечному
+   * свету»: на шаге «Итог» характеристики уже выбраны, значит пассивную
+   * внимательность под солнцем есть из чего посчитать. На шаге «Раса» её ещё
+   * нет — там показывается тот же список без числа, а не с нулём.
+   */
+  const summaryRaceTraits = withSunlitPassive(displayedRaceTraits, race?.title, passivePerception);
+  /** Заговор, который даёт сама раса, — сверх нормы класса и без выбора игрока. */
+  const raceCantrips = raceGrantedCantrips(race?.title);
+  /** Заклинания расы по именам из `spells.json`: ссылка по id, а не вторая копия названий. */
+  const raceSpellLine = abyssElfSpellLine(race?.title, (id) => spells.find((sp) => sp.id === id)?.name ?? id);
 
   function resolveEquipmentItem(slotIndex: number, itemIndex: number, item: string): string[] {
     const choice = equipmentChoiceFor(item);
@@ -633,7 +658,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
         ]),
       ],
       fightingStyle: finalFightingStyle,
-      knownCantrips: spellAbility ? knownCantrips : [],
+      // Заговор расы приходит и не-заклинателю: «Пляшущие огоньки» эльфа бездны
+      // ячейки не требуют, норму класса не занимают и на листе лежат в общих
+      // заговорах — там же, где их ищет `cast_spell_action` в Rust.
+      knownCantrips: [...new Set([...(spellAbility ? knownCantrips : []), ...raceCantrips])],
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму
       // класса — добавляются поверх выбранных игроком (SRD, «Заклинания домена»).
       castableSpells: spellAbility ? [...new Set([...castableSpells, ...level1SubclassSpells])] : [],
@@ -646,7 +674,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       spellSlotsCurrent: [...level1SpellSlots],
       // Классовые ресурсы 1 уровня (Второе дыхание воина, Вдохновение барда,
       // Наложение рук паладина) плюс собственные ресурсы архетипа — сразу полными.
-      featureUses: characterResources(classId, level1Subclass?.name, 1).map((resource) => ({
+      featureUses: [
+        ...characterResources(classId, level1Subclass?.name, 1),
+        ...raceResources(race?.title, 1),
+      ].map((resource) => ({
         featureId: resource.id,
         usesCurrent: resourceMax(resource, totalAbilities),
       })),
@@ -864,7 +895,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
               </>
             ) : (
-              <p className="wizard__hint">Выбери расу слева — здесь появятся её особенности из SRD.</p>
+              // «из SRD» из подсказки убрано, когда в список встала десятая раса:
+              // девять приезжают из справочника SRD, а Эльф бездны — наш
+              // (abyssElfRace.ts), и обещать источник за весь список больше нельзя.
+              <p className="wizard__hint">Выбери расу слева — здесь появятся её особенности.</p>
             )}
           </div>
         </div>
@@ -1561,16 +1595,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                   ))
                 : "—"}
             </li>
-            {displayedRaceTraits.length > 0 && (
+            {summaryRaceTraits.length > 0 && (
               <li>
                 Расовые особенности:
                 <ul className="wizard__traits">
-                  {displayedRaceTraits.map((t) => (
+                  {summaryRaceTraits.map((t) => (
                     <li key={t.name}>
                       <strong>{t.name}</strong> — {t.description}
                     </li>
                   ))}
                 </ul>
+                {raceSpellLine && <p className="wizard__hint">{raceSpellLine}</p>}
               </li>
             )}
             {fighterFightingStyles.length > 0 && (
