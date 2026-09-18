@@ -152,8 +152,10 @@ export interface Combatant {
   maxHp: number;
   currentHp: number;
   armorClass: number;
-  attackBonus: number;
-  damageDice: string;
+  /** Нет вовсе, если у существа нет ни одной атаки в стат-блоке SRD:
+   *  такой боец стоит на поле и получает урон, но атаковать ему нечем. */
+  attackBonus?: number;
+  damageDice?: string;
   initiative: number;
   feetMovedThisTurn: number;
 }
@@ -200,10 +202,14 @@ export interface MonsterTemplate {
   id: string;
   name: string;
   maxHp: number;
+  /** Кости хитов из той же строки, что и `maxHp`: «58 (9d8 + 18)» → «9d8+18».
+   *  Запись как у `damageDice`. Обязательное: кости есть в каждом стат-блоке
+   *  SRD 5.1, у которого есть опасность. */
+  hitDice: string;
   armorClass: number;
   speedFeet: number;
-  attackBonus: number;
-  damageDice: string;
+  attackBonus?: number;
+  damageDice?: string;
   challengeRating: string;
   creatureType: string;
   size: string;

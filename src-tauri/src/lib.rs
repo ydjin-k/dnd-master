@@ -293,8 +293,8 @@ mod tests {
             max_hp: 10,
             current_hp: 10,
             armor_class: 10,
-            attack_bonus: 3,
-            damage_dice: "1d6".into(),
+            attack_bonus: Some(3),
+            damage_dice: Some("1d6".into()),
             initiative: 0,
             feet_moved_this_turn: 0,
         }

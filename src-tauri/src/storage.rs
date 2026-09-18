@@ -540,7 +540,7 @@ mod tests {
         assert!(wounded.is_monster);
         assert_eq!((wounded.current_hp, wounded.max_hp), (4, 11));
         assert_eq!(wounded.armor_class, 13);
-        assert_eq!(wounded.damage_dice, "2d4+2");
+        assert_eq!(wounded.damage_dice.as_deref(), Some("2d4+2"));
         assert_eq!(wounded.initiative, 17);
     }
 

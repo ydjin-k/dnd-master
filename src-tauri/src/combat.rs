@@ -62,10 +62,30 @@ pub struct MonsterTemplate {
     pub id: String,
     pub name: String,
     pub max_hp: i32,
+    /// Кости хитов из той же строки стат-блока, что и `max_hp`:
+    /// «Hit Points 58 (9d8 + 18)» — «9d8+18». Запись та же, что у
+    /// `damage_dice`: латинская `d`, без пробелов.
+    ///
+    /// Обязательное, по тому же признаку, что `abilities` и
+    /// `passive_perception`: кости стоят в КАЖДОМ из 317 стат-блоков SRD 5.1,
+    /// у которых есть опасность. Единственное место во всём документе, где их
+    /// нет, — «Avatar of Death» (хиты равны половине максимума призвавшего), и
+    /// у него нет опасности, то есть записью существа он и не является.
+    ///
+    /// Среднее по костям обязано сходиться с `max_hp` — стережёт проба
+    /// `hit_dice_average_matches_max_hp`.
+    pub hit_dice: String,
     pub armor_class: i32,
     pub speed_feet: i32,
-    pub attack_bonus: i32,
-    pub damage_dice: String,
+    /// Атака есть не у всех: у Визгуна, Лягушки и Морского конька стат-блок
+    /// SRD 5.1 не содержит ни одной атаки («A frog has no effective attacks»).
+    /// Ставить им +0 и «1к1» значило бы вписать в данные два выдуманных числа,
+    /// поэтому поля необязательные — и отсутствуют, как и прочие
+    /// необязательные. Отказ от броска выносит `resolve_attack`, а не показ.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attack_bonus: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub damage_dice: Option<String>,
     pub challenge_rating: String,
     pub creature_type: String,
     pub size: String,
@@ -391,8 +411,8 @@ pub fn start_combat(
             max_hp: ch.max_hp,
             current_hp: ch.current_hp,
             armor_class: ch.armor_class,
-            attack_bonus: PLAYER_ATTACK_BONUS_PLACEHOLDER,
-            damage_dice: PLAYER_DAMAGE_DICE_PLACEHOLDER.into(),
+            attack_bonus: Some(PLAYER_ATTACK_BONUS_PLACEHOLDER),
+            damage_dice: Some(PLAYER_DAMAGE_DICE_PLACEHOLDER.into()),
             initiative,
             feet_moved_this_turn: 0,
         });
@@ -474,6 +494,9 @@ fn resolve_attack(
             return Err("атакующий повержен".into());
         }
         (a.name.clone(), a.attack_bonus, a.damage_dice.clone())
+    };
+    let (Some(attack_bonus), Some(damage_dice)) = (attack_bonus, damage_dice) else {
+        return Err(format!("у {attacker_name} нет атаки в стат-блоке — бросать нечего"));
     };
     let (target_name, target_ac) = {
         let t = state
@@ -784,10 +807,11 @@ mod bestiary_schema_tests {
             id: "sample".into(),
             name: "Образец".into(),
             max_hp: 1,
+            hit_dice: "1d1".into(),
             armor_class: 1,
             speed_feet: 1,
-            attack_bonus: 1,
-            damage_dice: "1d1".into(),
+            attack_bonus: Some(1),
+            damage_dice: Some("1d1".into()),
             challenge_rating: "0".into(),
             creature_type: "зверь".into(),
             size: "Средний".into(),
@@ -960,6 +984,35 @@ mod bestiary_data_tests {
                 m.name,
                 m.passive_perception,
                 10 + perception
+            );
+        }
+    }
+
+    /// Кости хитов и `max_hp` — два источника одного факта, и они обязаны
+    /// сходиться: среднее по костям это и есть записанное число хитов
+    /// (SRD печатает их рядом — «58 (9d8 + 18)»). Проба ловит и опечатку в
+    /// костях, и опечатку в хитах, потому что мимо неё не проходит ни одна.
+    #[test]
+    fn hit_dice_average_matches_max_hp() {
+        for m in load_bundled() {
+            let (count, rest) = m
+                .hit_dice
+                .split_once('d')
+                .unwrap_or_else(|| panic!("у {} кости хитов {:?} без 'd'", m.name, m.hit_dice));
+            let split = rest.find(['+', '-']).unwrap_or(rest.len());
+            let (sides, modifier) = rest.split_at(split);
+            let count: i32 = count.parse().expect("число костей");
+            let sides: i32 = sides.parse().expect("число граней");
+            let modifier: i32 = if modifier.is_empty() {
+                0
+            } else {
+                modifier.parse().expect("модификатор")
+            };
+            let average = count * (sides + 1) / 2 + modifier;
+            assert_eq!(
+                average, m.max_hp,
+                "у {} кости {} дают в среднем {average}, а хитов записано {}",
+                m.name, m.hit_dice, m.max_hp
             );
         }
     }
@@ -1324,10 +1377,11 @@ mod tests {
             id: id.into(),
             name: id.into(),
             max_hp: 11,
+            hit_dice: "2d8+2".into(),
             armor_class: 13,
             speed_feet: 40,
-            attack_bonus: 4,
-            damage_dice: "2d4+2".into(),
+            attack_bonus: Some(4),
+            damage_dice: Some("2d4+2".into()),
             challenge_rating: "1/4".into(),
             creature_type: "зверь".into(),
             size: "Средний".into(),
@@ -1368,8 +1422,8 @@ mod tests {
             max_hp: hp,
             current_hp: hp,
             armor_class: 10,
-            attack_bonus: 5,
-            damage_dice: "1d6".into(),
+            attack_bonus: Some(5),
+            damage_dice: Some("1d6".into()),
             initiative: 0,
             feet_moved_this_turn: 0,
         }

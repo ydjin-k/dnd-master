@@ -8,6 +8,7 @@ const bestiary: MonsterTemplate[] = [
     id: "wolf",
     name: "Волк",
     maxHp: 11,
+    hitDice: "2d8+2",
     armorClass: 13,
     speedFeet: 40,
     attackBonus: 4,

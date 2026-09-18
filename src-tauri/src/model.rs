@@ -245,8 +245,13 @@ pub struct Combatant {
     /// и владения в модели персонажа пока нет). Игрок может вместо `attack`
     /// бросить свою настоящую атаку на вкладке «Кубики» и применить урон
     /// через apply_damage — движок это не запрещает.
-    pub attack_bonus: i32,
-    pub damage_dice: String,
+    /// Ничего, если атаки нет вовсе (существо из бестиария без единой атаки в
+    /// стат-блоке SRD). Такой боец стоит на поле, ходит и получает урон, но
+    /// `attack` по нему честно отказывает вместо броска по выдуманным числам.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attack_bonus: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub damage_dice: Option<String>,
     pub initiative: i32,
     pub feet_moved_this_turn: i32,
 }
