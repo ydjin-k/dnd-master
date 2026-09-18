@@ -479,6 +479,15 @@ pub fn move_combatant(state: &mut CombatState, id: &str, x: i32, y: i32) -> Resu
     Ok(())
 }
 
+/// Записать строку в журнал боя и проверить, не кончился ли бой. Вынесено,
+/// чтобы попадание без урона уходило в журнал ТЕМ ЖЕ путём, что и обычное, —
+/// иначе у строки журнала завелось бы два владельца.
+fn log_line(state: &mut CombatState, message: String) -> String {
+    state.log.push(message.clone());
+    check_side_defeated(state);
+    message
+}
+
 fn resolve_attack(
     state: &mut CombatState,
     attacker_id: &str,
@@ -495,7 +504,13 @@ fn resolve_attack(
         }
         (a.name.clone(), a.attack_bonus, a.damage_dice.clone())
     };
-    let (Some(attack_bonus), Some(damage_dice)) = (attack_bonus, damage_dice) else {
+    // Две РАЗНЫЕ вещи, и путать их нельзя. Атаки нет вовсе — у Визгуна,
+    // Лягушки и Морского конька, и тогда бросать нечего. Атака есть, а урона
+    // при попадании нет — «Душащий ковёр»: единственный такой блок во всём
+    // SRD 5.1 («Hit: The creature is grappled»), его 2к6+3 капают в начале
+    // хода схваченной жертвы, а не от попадания. Ковёр обязан бросать и
+    // попадать; вписать ему урон атаки значило бы соврать про правило.
+    let Some(attack_bonus) = attack_bonus else {
         return Err(format!("у {attacker_name} нет атаки в стат-блоке — бросать нечего"));
     };
     let (target_name, target_ac) = {
@@ -509,7 +524,15 @@ fn resolve_attack(
 
     let to_hit = dice::roll_expression("1d20")?.total + attack_bonus;
     let message = if to_hit >= target_ac {
-        let dmg = dice::roll_expression(&damage_dice)?;
+        let Some(damage_dice) = &damage_dice else {
+            return Ok(log_line(
+                state,
+                format!(
+                    "{attacker_name} атакует {target_name}: бросок {to_hit} против КД {target_ac} — попадание, урона при попадании нет."
+                ),
+            ));
+        };
+        let dmg = dice::roll_expression(damage_dice)?;
         let target = state
             .combatants
             .iter_mut()
@@ -531,9 +554,7 @@ fn resolve_attack(
         )
     };
 
-    state.log.push(message.clone());
-    check_side_defeated(state);
-    Ok(message)
+    Ok(log_line(state, message))
 }
 
 fn require_ongoing(state: &CombatState) -> Result<(), String> {
@@ -1528,6 +1549,38 @@ mod tests {
             assert!(target.current_hp >= 0 && target.current_hp <= target.max_hp);
             assert!(!state.log.is_empty());
         }
+    }
+
+    /// «Душащий ковёр»: бонус атаки есть, костей урона нет. Такая атака обязана
+    /// БРОСАТЬСЯ и попадать, но хиты цели не трогать — её 2к6+3 в SRD капают в
+    /// начале хода схваченной жертвы, а не от попадания. Проба краснеет и если
+    /// снять различение (тогда ковёр вовсе не сможет атаковать), и если
+    /// подставить ему чужой урон (тогда у цели убудут хиты).
+    #[test]
+    fn attack_without_hit_damage_lands_but_leaves_hit_points_alone() {
+        let mut landed = 0;
+        for _ in 0..60 {
+            let mut attacker = combatant("rug", true, 0, 0, 10, 33);
+            attacker.damage_dice = None;
+            let mut state = state_with(vec![attacker, combatant("target", false, 0, 1, 30, 10)]);
+
+            attack(&mut state, "rug", "target").expect("атака с бонусом обязана бросаться");
+            let target = state.combatants.iter().find(|c| c.id == "target").unwrap();
+            assert_eq!(
+                target.current_hp, target.max_hp,
+                "хиты цели не должны меняться: урона при попадании у этой атаки нет"
+            );
+            let last = state.log.last().expect("строка журнала");
+            assert!(last.contains("бросок"), "в журнале должен остаться бросок: {last}");
+            if last.contains("попадание") {
+                landed += 1;
+                assert!(
+                    last.contains("урона при попадании нет"),
+                    "попадание без урона обязано так и называться: {last}"
+                );
+            }
+        }
+        assert!(landed > 0, "за 60 бросков +5 против КД 10 хотя бы одно попадание обязано случиться");
     }
 
     #[test]
