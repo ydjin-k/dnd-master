@@ -211,7 +211,7 @@ export function BestiaryPage() {
                   src={listImageFor(m)}
                 />
                 <span className="bestiary-page__list-name">{m.name}</span>
-                <span className="bestiary-page__list-cr dm-chip">СЛ {m.challengeRating}</span>
+                <span className="bestiary-page__list-cr dm-chip">Опасность {m.challengeRating}</span>
               </button>
             </li>
           ))}
