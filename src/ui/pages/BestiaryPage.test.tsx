@@ -10,6 +10,7 @@ const monsters: MonsterTemplate[] = [
   {
     id: "wolf",
     name: "Волк",
+    origin: "srd",
     maxHp: 11,
     hitDice: "2d8+2",
     armorClass: 13,
@@ -33,6 +34,7 @@ const monsters: MonsterTemplate[] = [
   {
     id: "bandit",
     name: "Разбойник",
+    origin: "srd",
     maxHp: 11,
     hitDice: "2d8+2",
     armorClass: 12,
@@ -53,6 +55,7 @@ const monsters: MonsterTemplate[] = [
   {
     id: "bat",
     name: "Летучая мышь",
+    origin: "srd",
     maxHp: 1,
     hitDice: "1d4-1",
     armorClass: 12,
@@ -77,6 +80,7 @@ const monsters: MonsterTemplate[] = [
   {
     id: "test-dummy",
     name: "Пробное чудище",
+    origin: "srd",
     maxHp: 40,
     hitDice: "9d8",
     armorClass: 15,
@@ -104,6 +108,29 @@ const monsters: MonsterTemplate[] = [
     actions: ["Пробная атака."],
     reactions: ["Пробная реакция."],
     legendaryActions: ["Пробное легендарное действие."],
+    imageAsset: null,
+  },
+  // Наше собственное существо: в приложение оно приезжает тем же
+  // `get_bestiary`, стоит в том же списке и находится тем же поиском —
+  // отличает его ровно `origin`, и подпись обязана идти за ним.
+  {
+    id: "own-beast",
+    name: "Наша тварь",
+    origin: "own",
+    maxHp: 22,
+    hitDice: "4d8+4",
+    armorClass: 13,
+    speedFeet: 30,
+    attackBonus: 4,
+    damageDice: "1d6+2",
+    challengeRating: "1",
+    creatureType: "монстр",
+    size: "Средний",
+    description: "Средний монстр, нейтральный.",
+    abilities: { strength: 14, dexterity: 14, constitution: 12, intelligence: 6, wisdom: 11, charisma: 8 },
+    passivePerception: 10,
+    traits: [],
+    actions: ["Удар."],
     imageAsset: null,
   },
 ];
@@ -352,5 +379,34 @@ describe("BestiaryPage", () => {
       "слепое зрение 60 футов",
     );
     expect(within(batCard).queryByText("Языки")).not.toBeInTheDocument();
+  });
+
+  // Подвал вкладки раньше подписывал переводом SRD 5.1 всё, что во вкладке
+  // видно. С появлением наших собственных существ это стало ложью об
+  // источнике, и подпись поехала за показанным существом.
+  it("attributes each shown creature to its own source, not the whole tab to the SRD", async () => {
+    render(<BestiaryPage />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
+
+    const attribution = () => screen.getByRole("contentinfo").textContent ?? "";
+    expect(attribution()).toMatch(/перевод официального System Reference Document 5\.1/);
+    expect(attribution()).toMatch(/CC BY 4\.0/);
+
+    fireEvent.click(screen.getByText("Наша тварь"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Наша тварь" })).toBeInTheDocument(),
+    );
+
+    // Про наше существо подпись не смеет сказать, что это перевод SRD под CC BY.
+    expect(attribution()).toMatch(/не входит в System Reference Document 5\.1/);
+    expect(attribution()).not.toMatch(/перевод официального System Reference Document/);
+    expect(attribution()).toMatch(/CC BY 4\.0 на него не распространяется/);
+
+    // И обратно: у SRD-существа подпись прежняя.
+    fireEvent.click(screen.getByText("Разбойник"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Разбойник" })).toBeInTheDocument(),
+    );
+    expect(attribution()).toMatch(/перевод официального System Reference Document 5\.1/);
   });
 });

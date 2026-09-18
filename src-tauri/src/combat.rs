@@ -44,7 +44,30 @@ pub struct MonsterSense {
     pub range_feet: i32,
 }
 
-/// Запись существа — полный стат-блок SRD 5.1.
+/// Чей это контент — и, следовательно, какой подписью он подписывается.
+///
+/// **Происхождение НЕ читается из записи.** Оно проставляется загрузчиком по
+/// тому, из какого файла запись приехала (`load_bestiary`), и потому
+/// `skip_deserializing`: `"origin"`, вписанный в JSON руками, молча
+/// игнорируется. Причина — правило одного владельца факта. Полем в записи
+/// происхождением владела бы аккуратность заполняющего: забытое поле у нового
+/// существа тихо подписало бы его переводом SRD, то есть соврало бы игроку об
+/// источнике ровно там, где врать нельзя. Файлом же владеет загрузчик, и
+/// соврать запись не может: в `bestiary.json` лежит только SRD 5.1 под CC BY,
+/// в `own-creatures.json` — только наше, и это граница, проверяемая `git
+/// diff`, а не памятью.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MonsterOrigin {
+    /// Перевод System Reference Document 5.1, CC BY 4.0.
+    #[default]
+    Srd,
+    /// Наше собственное существо: числа взяты из книги владельца, текст и имя
+    /// написаны нами.
+    Own,
+}
+
+/// Запись существа — полный стат-блок.
 ///
 /// **Необязательные поля отсутствуют, а не пусты.** У волка нет ни языков, ни
 /// легендарных действий, и `null`/`[]` в их клетках показались бы игроку
@@ -61,6 +84,9 @@ pub struct MonsterSense {
 pub struct MonsterTemplate {
     pub id: String,
     pub name: String,
+    /// Проставляется загрузчиком по файлу-источнику, см. `MonsterOrigin`.
+    #[serde(skip_deserializing)]
+    pub origin: MonsterOrigin,
     pub max_hp: i32,
     /// Кости хитов из той же строки стат-блока, что и `max_hp`:
     /// «Hit Points 58 (9d8 + 18)» — «9d8+18». Запись та же, что у
@@ -117,29 +143,66 @@ pub struct MonsterTemplate {
     pub image_asset: Option<String>,
 }
 
-/// Бестиарий — из bundle.resources в сборке, из src-tauri/bestiary в dev
-/// (тот же приём, что и для rules.json/spells.json). Наполнение —
-/// `bestiary-full-database-and-tab`, содержимое переведено с официального
-/// SRD 5.1 PDF (см. rules/RulesPage для атрибуции источника).
-fn bestiary_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+/// Файл с переводом SRD 5.1. Лежит под CC BY 4.0 и содержит ТОЛЬКО SRD —
+/// именно на этом держится подпись вкладки «Бестиарий».
+pub const SRD_BESTIARY_FILE: &str = "bestiary.json";
+
+/// Файл наших собственных существ: числа взяты из книги владельца, имена и
+/// текст написаны нами. Отдельным файлом, а не полем в общем, по той же
+/// причине, по какой «Эльф бездны» не лежит в `rules.json` (`abyssElfRace.ts`):
+/// граница «всё, что приехало из `bestiary.json`, — это SRD» должна
+/// проверяться содержимым файла, а не памятью того, кто дописывал запись.
+///
+/// Почему при этом второй ФАЙЛ, а не второй модуль во фронте, как у расы:
+/// существо, в отличие от расы, нужно и Rust-стороне — `start_combat` ищет
+/// `monster_ids` в том, что вернул `load_bestiary`, и по id же на существ
+/// ссылаются таблицы событий. Живущее только во фронте существо было бы видно
+/// в бестиарии и невозможно в бою.
+pub const OWN_BESTIARY_FILE: &str = "own-creatures.json";
+
+/// Каталог данных бестиария — из bundle.resources в сборке, из
+/// src-tauri/bestiary в dev (тот же приём, что и для rules.json/spells.json).
+fn bestiary_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
     if cfg!(debug_assertions) {
-        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("bestiary")
-            .join("bestiary.json"));
+        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bestiary"));
     }
     let resource_dir = app
         .path()
         .resource_dir()
         .map_err(|e| format!("не найден каталог ресурсов приложения: {e}"))?;
-    Ok(resource_dir.join("bestiary").join("bestiary.json"))
+    Ok(resource_dir.join("bestiary"))
+}
+
+/// Разбирает содержимое файла существ и ставит КАЖДОЙ записи происхождение
+/// этого файла. Единственное место во всём приложении, где происхождение
+/// назначается, — и оно не смотрит в запись.
+pub fn parse_monsters(raw: &str, origin: MonsterOrigin) -> Result<Vec<MonsterTemplate>, String> {
+    let mut monsters: Vec<MonsterTemplate> =
+        serde_json::from_str(raw).map_err(|e| format!("повреждены данные существ: {e}"))?;
+    for monster in &mut monsters {
+        monster.origin = origin;
+    }
+    Ok(monsters)
+}
+
+pub fn read_monster_file(
+    path: &std::path::Path,
+    origin: MonsterOrigin,
+) -> Result<Vec<MonsterTemplate>, String> {
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
+    parse_monsters(&raw, origin).map_err(|e| format!("{path:?}: {e}"))
 }
 
 pub fn load_bestiary(app: &tauri::AppHandle) -> Result<Vec<MonsterTemplate>, String> {
-    let path = bestiary_path(app)?;
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("не удалось прочитать {path:?}: {e}"))?;
-    serde_json::from_str(&raw).map_err(|e| format!("повреждён {path:?}: {e}"))
+    let dir = bestiary_dir(app)?;
+    let mut monsters = read_monster_file(&dir.join(SRD_BESTIARY_FILE), MonsterOrigin::Srd)?;
+    monsters.extend(read_monster_file(
+        &dir.join(OWN_BESTIARY_FILE),
+        MonsterOrigin::Own,
+    )?);
+    Ok(monsters)
 }
 
 /// Каталог картинок существ — забандлен рядом с bestiary.json (см.
@@ -147,17 +210,7 @@ pub fn load_bestiary(app: &tauri::AppHandle) -> Result<Vec<MonsterTemplate>, Str
 /// его нигде нет), а читается и кодируется в data-URL: команда получает путь,
 /// отдаёт готовые для <img src> байты.
 fn bestiary_images_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    use tauri::Manager;
-    if cfg!(debug_assertions) {
-        return Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("bestiary")
-            .join("images"));
-    }
-    let resource_dir = app
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("не найден каталог ресурсов приложения: {e}"))?;
-    Ok(resource_dir.join("bestiary").join("images"))
+    Ok(bestiary_dir(app)?.join("images"))
 }
 
 /// Ядро без Tauri — так уменьшение можно проверить юнит-тестом на реальном
@@ -827,6 +880,7 @@ mod bestiary_schema_tests {
         MonsterTemplate {
             id: "sample".into(),
             name: "Образец".into(),
+            origin: super::MonsterOrigin::Srd,
             max_hp: 1,
             hit_dice: "1d1".into(),
             armor_class: 1,
@@ -923,20 +977,105 @@ mod bestiary_schema_tests {
 
 #[cfg(test)]
 mod bestiary_data_tests {
-    use super::MonsterTemplate;
+    use super::{MonsterOrigin, MonsterTemplate, OWN_BESTIARY_FILE, SRD_BESTIARY_FILE};
 
+    fn bestiary_dir() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bestiary")
+    }
+
+    /// Оба файла существ вместе — ровно то, что увидит игрок. Сторожа ниже
+    /// ходят по этому списку, а не по одному SRD: наши существа приезжают в ту
+    /// же вкладку и в тот же бой, и поблажки на «это не SRD» у них нет.
     fn load_bundled() -> Vec<MonsterTemplate> {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("bestiary")
-            .join("bestiary.json");
-        let raw = std::fs::read_to_string(&path).expect("прочитать bestiary/bestiary.json");
-        serde_json::from_str(&raw).expect("распарсить bestiary.json")
+        let dir = bestiary_dir();
+        let mut all = super::read_monster_file(&dir.join(SRD_BESTIARY_FILE), MonsterOrigin::Srd)
+            .expect("прочитать bestiary/bestiary.json");
+        all.extend(
+            super::read_monster_file(&dir.join(OWN_BESTIARY_FILE), MonsterOrigin::Own)
+                .expect("прочитать bestiary/own-creatures.json"),
+        );
+        all
     }
 
     #[test]
     fn bundled_bestiary_json_parses_and_is_not_empty() {
         let bestiary = load_bundled();
         assert!(!bestiary.is_empty(), "bestiary.json не должен быть пустым");
+    }
+
+    /// Происхождение записи — факт ЗАГРУЗЧИКА, а не данных, и проба ставит это
+    /// ребром: обе записи ниже сами объявляют себе происхождение, и обе обязаны
+    /// получить то, которое назначено их файлу.
+    ///
+    /// Краснеет на снятии любой из двух половин починки: уберите цикл в
+    /// `parse_monsters` — самозванец, назвавшийся SRD, подпишется переводом
+    /// SRD; уберите `skip_deserializing` — своё происхождение доедет до поля в
+    /// обход загрузчика.
+    #[test]
+    fn origin_comes_from_the_file_not_from_the_record() {
+        fn liar(id: &str, claimed: &str) -> String {
+            format!(
+                r#"{{
+                "id": "{id}", "name": "Самозванец {id}", "origin": "{claimed}",
+                "maxHp": 4, "hitDice": "1d8", "armorClass": 10, "speedFeet": 30,
+                "challengeRating": "0", "creatureType": "зверь", "size": "Средний",
+                "description": "", "passivePerception": 10,
+                "abilities": {{"strength": 10, "dexterity": 10, "constitution": 10,
+                               "intelligence": 10, "wisdom": 10, "charisma": 10}},
+                "traits": [], "actions": [], "imageAsset": null
+            }}"#
+            )
+        }
+        let liars = format!("[{}, {}]", liar("a", "own"), liar("b", "srd"));
+
+        for origin in [MonsterOrigin::Srd, MonsterOrigin::Own] {
+            for m in super::parse_monsters(&liars, origin).expect("разобрать") {
+                assert_eq!(
+                    m.origin, origin,
+                    "{} перебил происхождение своего файла — подпись вкладки \
+                     перестала быть проверяемой",
+                    m.name
+                );
+            }
+        }
+
+        // И в обход загрузчика — тоже: происхождение не разбирается из JSON
+        // вовсе, «own» в записи не даёт записи ничего, кроме умолчания.
+        let bypassed: Vec<MonsterTemplate> = serde_json::from_str(&liars).expect("разобрать");
+        assert!(
+            bypassed.iter().all(|m| m.origin == MonsterOrigin::Srd),
+            "происхождение приехало из самой записи, минуя загрузчика"
+        );
+
+        let dir = bestiary_dir();
+        let own = super::read_monster_file(&dir.join(OWN_BESTIARY_FILE), MonsterOrigin::Own)
+            .expect("прочитать own-creatures.json");
+        assert!(!own.is_empty(), "own-creatures.json не должен быть пустым");
+        assert!(own.iter().all(|m| m.origin == MonsterOrigin::Own));
+
+        let srd = super::read_monster_file(&dir.join(SRD_BESTIARY_FILE), MonsterOrigin::Srd)
+            .expect("прочитать bestiary.json");
+        assert!(srd.iter().all(|m| m.origin == MonsterOrigin::Srd));
+    }
+
+    /// Граница лицензии в одну строку: в файле SRD не должно оказаться наших
+    /// существ. Id наших существ — транслитерация русского имени, id SRD —
+    /// от английского; пересечение означало бы, что кто-то дописал своё
+    /// существо туда, где подпись обещает перевод SRD.
+    #[test]
+    fn own_creatures_do_not_live_in_the_srd_file() {
+        let dir = bestiary_dir();
+        let srd = super::read_monster_file(&dir.join(SRD_BESTIARY_FILE), MonsterOrigin::Srd)
+            .expect("прочитать bestiary.json");
+        let own = super::read_monster_file(&dir.join(OWN_BESTIARY_FILE), MonsterOrigin::Own)
+            .expect("прочитать own-creatures.json");
+        for m in &own {
+            assert!(
+                !srd.iter().any(|s| s.id == m.id || s.name == m.name),
+                "{} есть и в bestiary.json — там лежит только SRD 5.1",
+                m.name
+            );
+        }
     }
 
     #[test]
@@ -1043,11 +1182,14 @@ mod bestiary_data_tests {
     /// ровно то, что карточка `bestiary-record-full-stat-block` запрещает.
     #[test]
     fn optional_statblock_fields_are_absent_not_empty() {
-        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("bestiary")
-            .join("bestiary.json");
-        let raw = std::fs::read_to_string(&path).expect("прочитать bestiary.json");
-        let records: Vec<serde_json::Value> = serde_json::from_str(&raw).expect("разобрать");
+        let records: Vec<serde_json::Value> = [SRD_BESTIARY_FILE, OWN_BESTIARY_FILE]
+            .iter()
+            .flat_map(|file| {
+                let raw = std::fs::read_to_string(bestiary_dir().join(file))
+                    .unwrap_or_else(|e| panic!("прочитать {file}: {e}"));
+                serde_json::from_str::<Vec<serde_json::Value>>(&raw).expect("разобрать")
+            })
+            .collect();
         const OPTIONAL: [&str; 10] = [
             "savingThrows",
             "skills",
@@ -1397,6 +1539,7 @@ mod tests {
         MonsterTemplate {
             id: id.into(),
             name: id.into(),
+            origin: MonsterOrigin::Srd,
             max_hp: 11,
             hit_dice: "2d8+2".into(),
             armor_class: 13,

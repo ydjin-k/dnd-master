@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import bundledBestiary from "../../src-tauri/bestiary/bestiary.json";
+import bundledOwnCreatures from "../../src-tauri/bestiary/own-creatures.json";
 import type { MonsterTemplate } from "../state/types";
 import { ABILITY_LABELS, ALL_SKILLS } from "./characterCreationData";
 
@@ -12,10 +13,15 @@ import { ABILITY_LABELS, ALL_SKILLS } from "./characterCreationData";
  * фронте, и опечатка в данных не уронит разбор — она тихо напечатает в
  * карточке строку без значения.
  *
- * Пробы идут по НАСТОЯЩЕМУ `bestiary.json`, а не по фикстуре: беречь надо
- * привозимые данные, и следующая карточка привезёт их ещё на ~250 существ.
+ * Пробы идут по НАСТОЯЩИМ файлам данных, а не по фикстуре: беречь надо
+ * привозимые данные.
+ *
+ * Файлов два, и берутся оба: `bestiary.json` — перевод SRD 5.1,
+ * `own-creatures.json` — наши собственные твари. Поблажки «это не SRD» у наших
+ * нет: они приезжают в ту же вкладку и в тот же бой, и опечатка в имени навыка
+ * напечатает пустую строку одинаково у тех и у других.
  */
-const bestiary = bundledBestiary as MonsterTemplate[];
+const bestiary = [...bundledBestiary, ...bundledOwnCreatures] as MonsterTemplate[];
 const ABILITY_KEYS = ABILITY_LABELS.map(([key]) => key);
 
 describe("данные бестиария", () => {

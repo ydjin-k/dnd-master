@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AbilityScores, MonsterTemplate } from "../../state/types";
+import type { AbilityScores, MonsterOrigin, MonsterTemplate } from "../../state/types";
 import { ABILITY_LABELS, abilityMod, fmtMod } from "../characterCreationData";
 import { EmphasizedText } from "../EmphasizedText";
 import "./BestiaryPage.css";
@@ -11,6 +11,33 @@ import "./BestiaryPage.css";
 const ABILITY_LABEL: Record<keyof AbilityScores, string> = Object.fromEntries(
   ABILITY_LABELS,
 ) as Record<keyof AbilityScores, string>;
+
+/**
+ * Подпись об источнике — ОДНА НА ПОКАЗАННОЕ СУЩЕСТВО, а не одна на вкладку.
+ *
+ * Раньше подвал стоял под списком и подписывал переводом SRD 5.1 всё, что во
+ * вкладке видно. Пока в бестиарии лежал только SRD, это было правдой; с
+ * появлением наших собственных существ (`bestiary/own-creatures.json`) тот же
+ * подвал стал бы врать об источнике — ровно та ошибка, ради которой «Эльф
+ * бездны» не лежит в `rules.json` (см. `abyssElfRace.ts`).
+ *
+ * Разведено по показанному существу, а не по двум спискам, потому что искать
+ * существо игрок хочет по одному списку: наши твари стоят в бестиарии вперемешку
+ * с SRD, находятся тем же поиском и уходят в тот же бой. Единственное, что
+ * обязано различаться, — чей это контент; поэтому различается ровно подпись.
+ *
+ * Происхождение берётся у записи, а запись получает его от загрузчика по
+ * файлу-источнику (`combat.rs`, `MonsterOrigin`) — показ его не выводит и не
+ * угадывает. Текст подписи живёт здесь и только здесь.
+ */
+const ATTRIBUTION: Record<MonsterOrigin, string> = {
+  srd:
+    "Стат-блок — перевод официального System Reference Document 5.1 от Wizards of the Coast, " +
+    "распространяется по лицензии CC BY 4.0.",
+  own:
+    "Существо не входит в System Reference Document 5.1: имя, описание, особые свойства и " +
+    "действия написаны для D&D Master, лицензия CC BY 4.0 на него не распространяется.",
+};
 
 /**
  * Строки шапки стат-блока, которых у существа может не быть.
@@ -316,10 +343,9 @@ export function BestiaryPage() {
           </article>
         )}
 
-        <footer className="bestiary-page__attribution">
-          Стат-блоки — перевод официального System Reference Document 5.1 от Wizards of the Coast,
-          распространяются по лицензии CC BY 4.0.
-        </footer>
+        {selected && (
+          <footer className="bestiary-page__attribution">{ATTRIBUTION[selected.origin]}</footer>
+        )}
       </div>
     </div>
   );
