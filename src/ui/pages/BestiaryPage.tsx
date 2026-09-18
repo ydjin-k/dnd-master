@@ -20,6 +20,16 @@ const ABILITY_LABEL: Record<keyof AbilityScores, string> = Object.fromEntries(
  * клетка на месте иммунитетов волка читалась бы как потерянные данные —
  * карточка `bestiary-record-full-stat-block` требует ровно обратного.
  */
+/**
+ * Кости хитов хранятся латиницей, одной записью с `damageDice` («9d8+18»), —
+ * так их отдаёт разборщик SRD и так их читает Rust. На экран они идут
+ * кириллицей и с пробелами вокруг знака, как напечатано в книге: «9к8 + 18».
+ * Запись без модификатора («3d8») остаётся без пробелов — их там неоткуда взять.
+ */
+export function formatHitDice(hitDice: string): string {
+  return hitDice.replace("d", "к").replace(/([+-])/, " $1 ");
+}
+
 function optionalStatRows(m: MonsterTemplate): [string, string][] {
   const rows: [string, string][] = [];
   const add = (label: string, value: string | null) => {
@@ -237,7 +247,9 @@ export function BestiaryPage() {
               <dt>Класс доспеха</dt>
               <dd>{selected.armorClass}</dd>
               <dt>Хиты</dt>
-              <dd>{selected.maxHp}</dd>
+              <dd>
+                {selected.maxHp} ({formatHitDice(selected.hitDice)})
+              </dd>
               <dt>Скорость</dt>
               <dd>{selected.speedFeet} футов</dd>
             </dl>

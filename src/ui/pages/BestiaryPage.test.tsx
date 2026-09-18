@@ -294,6 +294,26 @@ describe("BestiaryPage", () => {
     expect(within(card).getByText(/Пробное легендарное действие/)).toBeInTheDocument();
   });
 
+  // Хиты в книге стоят дважды — числом и костями («Хиты 58 (9к8 + 18)»), и
+  // кости нужны мастеру, который бросает их вместо среднего, чтобы два волка в
+  // одной стычке не были одинаковыми. Храним их латиницей, одной записью с
+  // damageDice, а показываем кириллицей — как всё остальное оружие в игре.
+  it("shows hit dice next to hit points, in the book's notation", async () => {
+    render(<BestiaryPage />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
+
+    const hits = () => within(screen.getByRole("article")).getByText("Хиты").nextSibling?.textContent;
+
+    expect(hits()).toBe("11 (2к8 + 2)");
+
+    fireEvent.click(screen.getByText("Летучая мышь"));
+    await waitFor(() => expect(hits()).toBe("1 (1к4 - 1)"));
+
+    // Без модификатора пробелам взяться неоткуда — «9к8», а не «9к8 + 0».
+    fireEvent.click(screen.getByText("Пробное чудище"));
+    await waitFor(() => expect(hits()).toBe("40 (9к8)"));
+  });
+
   it("leaves no empty row where a creature simply has no such field", async () => {
     render(<BestiaryPage />);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Волк" })).toBeInTheDocument());
