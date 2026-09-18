@@ -1058,6 +1058,30 @@ mod bestiary_data_tests {
         assert!(srd.iter().all(|m| m.origin == MonsterOrigin::Srd));
     }
 
+    /// У нашего существа картинка ОБЯЗАТЕЛЬНА, в отличие от существа SRD.
+    /// Причина простая: наши существа заведены под уже нарисованный арт — он и
+    /// есть повод их завести, — и запись без картинки означает не «этому не
+    /// положено», а потерянный файл или опечатку в имени. Соседняя проба
+    /// `every_monster_with_an_image_has_a_downloadable_file_on_disk` стережёт
+    /// обратное: что названный файл есть на диске.
+    #[test]
+    fn every_own_creature_has_an_image() {
+        let own = super::read_monster_file(
+            &bestiary_dir().join(OWN_BESTIARY_FILE),
+            MonsterOrigin::Own,
+        )
+        .expect("прочитать own-creatures.json");
+        let without: Vec<&str> = own
+            .iter()
+            .filter(|m| m.image_asset.is_none())
+            .map(|m| m.name.as_str())
+            .collect();
+        assert!(
+            without.is_empty(),
+            "у наших существ картинка обязательна, а её нет у: {without:?}"
+        );
+    }
+
     /// Граница лицензии в одну строку: в файле SRD не должно оказаться наших
     /// существ. Id наших существ — транслитерация русского имени, id SRD —
     /// от английского; пересечение означало бы, что кто-то дописал своё
