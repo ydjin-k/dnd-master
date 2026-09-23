@@ -11,6 +11,23 @@
 # размер следующей волны.
 
 set -euo pipefail
+
+# ── ИМЯ ИНТЕРПРЕТАТОРА РАЗРЕШАЕТСЯ ПО РАБОТОСПОСОБНОСТИ, А НЕ ПО НАЛИЧИЮ ──────
+# `command -v python3` здесь не годится: в Windows лежит заглушка из Microsoft
+# Store по пути WindowsApps/python3 — она НАХОДИТСЯ, печатает «Python» и выходит
+# с кодом 49, ничего не исполнив. Прибор при этом не падает, а молча печатает
+# мусор: 23.09.2026 usage-snapshot.sh выдал одно слово «Python» вместо снимка
+# лимитов, и три прибора студии на этой машине не работали вовсе.
+# Поэтому кандидаты ПРОБУЮТСЯ: годен тот, кто реально исполнил пустую программу.
+PY=""
+for _c in python3 python py; do
+  if command -v "$_c" >/dev/null 2>&1 && "$_c" -c "" >/dev/null 2>&1; then PY="$_c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "не нашёл работающий python (пробовал python3, python, py)" >&2
+  exit 2
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LEDGER="$ROOT/.studio/usage.jsonl"
 mkdir -p "$ROOT/.studio"
@@ -32,7 +49,7 @@ WAIT_CAP_SEC="${WAIT_CAP_SEC:-90}"
 # провайдеру отдельно, и несвежие помечаются порогом 210 с.
 # Вывод гарантированно непустой — иначе `[ "" -gt N ]` роняет test внутри while.
 age_of() {
-  orca account list --json 2>/dev/null | python3 -c '
+  orca account list --json 2>/dev/null | "$PY" -c '
 import json,sys,time
 try: d=json.load(sys.stdin)
 except Exception: print(99999); raise SystemExit
@@ -66,7 +83,7 @@ RUNNING="$(orca orchestration task-list --brief 2>/dev/null | sed -n 's/^\(task_
 DONE="$(orca orchestration task-list --brief 2>/dev/null | grep -c '\[completed\]' || true)"
 
 LIMITS="$LIMITS" WORKERS="$WORKERS" RUNNING="$RUNNING" DONE="$DONE" \
-LEDGER="$LEDGER" MODE="$MODE" python3 - <<'PY'
+LEDGER="$LEDGER" MODE="$MODE" "$PY" - <<'PY'
 import json, os, time, datetime
 
 ledger = os.environ["LEDGER"]

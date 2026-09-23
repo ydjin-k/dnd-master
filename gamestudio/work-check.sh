@@ -18,8 +18,25 @@
 #   gamestudio/work-check.sh            # все дочерние worktree рядом с этим
 set -uo pipefail
 
+# ── ИМЯ ИНТЕРПРЕТАТОРА РАЗРЕШАЕТСЯ ПО РАБОТОСПОСОБНОСТИ, А НЕ ПО НАЛИЧИЮ ──────
+# `command -v python3` здесь не годится: в Windows лежит заглушка из Microsoft
+# Store по пути WindowsApps/python3 — она НАХОДИТСЯ, печатает «Python» и выходит
+# с кодом 49, ничего не исполнив. Прибор при этом не падает, а молча печатает
+# мусор: 23.09.2026 usage-snapshot.sh выдал одно слово «Python» вместо снимка
+# лимитов, и три прибора студии на этой машине не работали вовсе.
+# Поэтому кандидаты ПРОБУЮТСЯ: годен тот, кто реально исполнил пустую программу.
+PY=""
+for _c in python3 python py; do
+  if command -v "$_c" >/dev/null 2>&1 && "$_c" -c "" >/dev/null 2>&1; then PY="$_c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "не нашёл работающий python (пробовал python3, python, py)" >&2
+  exit 2
+fi
+
+
 classify() {
-  python3 -c '
+  "$PY" -c '
 import subprocess, sys, os
 
 # Расширения продакшн-кода: из профиля проекта, иначе умолчание для web/TS.

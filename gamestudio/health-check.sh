@@ -20,6 +20,23 @@
 # `etimes` на macOS МОЛЧА выпадает из вывода `ps` — колонки съезжают, и скрипт
 # врёт, не падая. Поэтому берём `etime` и разбираем формат [[dd-]hh:]mm:ss сами.
 set -u
+
+# ── ИМЯ ИНТЕРПРЕТАТОРА РАЗРЕШАЕТСЯ ПО РАБОТОСПОСОБНОСТИ, А НЕ ПО НАЛИЧИЮ ──────
+# `command -v python3` здесь не годится: в Windows лежит заглушка из Microsoft
+# Store по пути WindowsApps/python3 — она НАХОДИТСЯ, печатает «Python» и выходит
+# с кодом 49, ничего не исполнив. Прибор при этом не падает, а молча печатает
+# мусор: 23.09.2026 usage-snapshot.sh выдал одно слово «Python» вместо снимка
+# лимитов, и три прибора студии на этой машине не работали вовсе.
+# Поэтому кандидаты ПРОБУЮТСЯ: годен тот, кто реально исполнил пустую программу.
+PY=""
+for _c in python3 python py; do
+  if command -v "$_c" >/dev/null 2>&1 && "$_c" -c "" >/dev/null 2>&1; then PY="$_c"; break; fi
+done
+if [ -z "$PY" ]; then
+  echo "не нашёл работающий python (пробовал python3, python, py)" >&2
+  exit 2
+fi
+
 cd "$(dirname "$0")/.." || exit 1
 
 problems=0
@@ -172,7 +189,7 @@ fi
 # этого M5-20). Отличить слитую ветку от свежей по одному git невозможно: у обеих
 # вершина лежит в истории ствола. Спрашиваем оркестратор, кто занят.
 echo
-live_wt=$(orca orchestration worker-list --json 2>/dev/null | python3 -c "
+live_wt=$(orca orchestration worker-list --json 2>/dev/null | "$PY" -c "
 import json,sys
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
@@ -238,7 +255,7 @@ echo
 stalled=""
 finished=""
 if command -v orca >/dev/null 2>&1; then
-  for h in $(orca orchestration worker-list --json 2>/dev/null | python3 -c "
+  for h in $(orca orchestration worker-list --json 2>/dev/null | "$PY" -c "
 import json,sys
 try:
     for w in json.load(sys.stdin)['result']['workers']:
@@ -332,7 +349,7 @@ echo
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 WORK_AREA="${WORKTREES_DIR:-.worktrees}"
 export PROJECT_ROOT WORK_AREA
-live_branches=" $(git worktree list --porcelain 2>/dev/null | python3 -c "
+live_branches=" $(git worktree list --porcelain 2>/dev/null | "$PY" -c "
 import os, sys
 root = os.environ.get('PROJECT_ROOT', '')
 area = os.environ.get('WORK_AREA', '.worktrees').strip('/')
@@ -347,7 +364,7 @@ for line in sys.stdin:
         if path and in_work_area(path):
             print(line[18:])
 " | tr '\n' ' ') "
-parked=$(git worktree list --porcelain 2>/dev/null | python3 -c "
+parked=$(git worktree list --porcelain 2>/dev/null | "$PY" -c "
 import os, sys
 root = os.environ.get('PROJECT_ROOT', '')
 area = os.environ.get('WORK_AREA', '.worktrees').strip('/')
