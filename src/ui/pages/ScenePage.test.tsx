@@ -15,6 +15,10 @@ let mockState: CampaignState;
 vi.mock("../../state/CampaignContext", () => ({
   useCampaign: () => ({
     state: mockState,
+    // Отладочная панель живёт на этом же экране и читает последний ответ
+    // движка. Здесь его нет: панель по умолчанию свёрнута, и проверяют её
+    // свои пробы (`DebugPanel.test.tsx`).
+    lastResult: null,
     gmCreateScene,
     gmEndScene,
     gmCreateFact,

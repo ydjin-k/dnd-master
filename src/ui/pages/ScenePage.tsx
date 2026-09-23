@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import { adventureLogText, outcomeLabel } from "../gm/adventureLog";
+import { DebugPanel } from "../gm/DebugPanel";
 import { factSourceLabel, factText, factValueLabel } from "../gm/facts";
 import type { SceneOutcome } from "../../state/types";
 import "./ScenePage.css";
@@ -50,6 +51,7 @@ export function ScenePage() {
       <OracleForm />
       <ActivePanel />
       <AdventureLog />
+      <DebugPanel />
     </section>
   );
 

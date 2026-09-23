@@ -23,6 +23,16 @@ interface CampaignContextValue {
   state: CampaignState;
   loading: boolean;
   error: string | null;
+  /**
+   * Последний ответ движка (§33) — для отладочного экрана §38.
+   *
+   * Живёт в памяти вкладки и НЕ попадает в состояние кампании: `trace`
+   * рассказывает об одном вызове, владельца в документе у него нет (ADR
+   * раздел 3). Владелец здесь один — этот провайдер, потому что ответ
+   * рождается ровно тут, на границе `invoke`. Экран его только читает и ничему
+   * не учит: своего `useState` на эти данные он не заводит.
+   */
+  lastResult: ResultObject | null;
   addCharacter: (character: Character) => Promise<void>;
   removeCharacter: (id: string) => Promise<void>;
   updateCharacter: (id: string, updater: (character: Character) => Character) => Promise<void>;
@@ -61,6 +71,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CampaignState>(emptyCampaignState());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<ResultObject | null>(null);
 
   /**
    * Свежее состояние для тех, кто не может ждать перерисовки.
@@ -249,14 +260,17 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
    * снимка не передаёт — передавать нечего, поэтому устаревшим снимком он
    * ничего затереть не может (ADR 0001, раздел 8).
    *
-   * `ResultObject` возвращается вызывающему и НИГДЕ не оседает: это рассказ об
-   * одном вызове, у него нет владельца в состоянии.
+   * `ResultObject` в состояние кампании НЕ попадает: это рассказ об одном
+   * вызове, и владельца в документе у него нет. Последний ответ запоминается
+   * здесь, в памяти вкладки, — его показывает отладочный экран (§38), и
+   * умирает он вместе с окном, как и положено рассказу об одном вызове.
    */
   const runGmAction = useCallback(
     async (command: string, args: Record<string, unknown>) => {
       try {
         const response = await invoke<GmResponse>(command, args);
         commit(response.state);
+        setLastResult(response.result);
         setError(null);
         return response.result;
       } catch (e) {
@@ -340,6 +354,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         state,
         loading,
         error,
+        lastResult,
         addCharacter,
         removeCharacter,
         updateCharacter,
