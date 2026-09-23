@@ -42,9 +42,17 @@ fn delete_campaign(app: AppHandle, id: String) -> Result<(), String> {
     storage::delete_campaign(&app, &id)
 }
 
+/// Запись с фронта — и только тех полей, которыми фронт владеет.
+///
+/// Аргумент назван `state` и не переименован специально: фронт шлёт документ
+/// целиком (`persist(next)`), и ломать вызов ради имени незачем. Важно
+/// другое — тип аргумента больше не `CampaignState`: `FrontOwnedFields`
+/// физически некуда положить `combat` или `engine`, поэтому устаревший снимок
+/// чужого поля не доезжает до диска даже теоретически. Список владений и
+/// обоснование — в `storage::FrontOwnedFields`.
 #[tauri::command]
-fn save_campaign(app: AppHandle, state: CampaignState) -> Result<(), String> {
-    storage::save_campaign(&app, &state)
+fn save_campaign(app: AppHandle, state: storage::FrontOwnedFields) -> Result<(), String> {
+    storage::save_front_owned(&app, state)
 }
 
 #[tauri::command]

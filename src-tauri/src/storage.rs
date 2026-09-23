@@ -7,7 +7,34 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::model::{CampaignState, JournalEntry};
+use crate::model::{CampaignState, Character, JournalEntry};
+
+/// Поля документа кампании, которыми владеет ФРОНТ, — и весь список сразу.
+///
+/// Это единственное место, где он записан: добавляешь поле, которым правит
+/// интерфейс, — добавляешь сюда, и больше никуда. Всё, чего здесь нет,
+/// принадлежит Rust и приезжает с диска, а не из полезной нагрузки.
+///
+/// Почему список именно такой: эти три поля меняются ТОЛЬКО с фронта и
+/// нигде больше — имя кампании правится в шапке (`AppShell`), ростер — на
+/// вкладке «Персонажи», дневник — на вкладке «Дневник». `combat` пишет
+/// `combat.rs`, `engine` будет писать `gm/mutate.rs`; у фронта нет пути
+/// изменить ни то, ни другое, а значит и присылать их незачем.
+///
+/// **Чужое поле в полезной нагрузке тихо игнорируется, а не даёт ошибку** —
+/// и это не снисходительность, а следствие формы типа: serde просто не
+/// видит, куда положить `combat`. Ошибку выбрать было нельзя: фронт сегодня
+/// шлёт документ ЦЕЛИКОМ (`persist(next)` в `CampaignContext.tsx`), то есть
+/// `combat` приезжает в каждом сохранении. Отказ сломал бы каждую запись
+/// дневника во время боя. Чужие поля в нагрузке — не требование записать их,
+/// а эхо прочитанного снимка, и правильный ответ на эхо — молчание.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontOwnedFields {
+    pub campaign_name: String,
+    pub characters: Vec<Character>,
+    pub journal: Vec<JournalEntry>,
+}
 
 /// Tauri-команды выполняются на разных потоках, и без этого две почти
 /// одновременных загрузки (например, двойной вызов эффекта у React
@@ -282,6 +309,26 @@ where
     Ok(state)
 }
 
+/// Запись с фронта: документ читается с диска, и из присланного берутся
+/// ТОЛЬКО поля `FrontOwnedFields`. Всё остальное — `combat`, а с движком и
+/// `engine` — остаётся таким, каким лежало на диске.
+///
+/// Раньше здесь писался целый присланный документ, и любая запись с фронта
+/// несла с собой его снимок чужих полей: игрок нажимал «В дневник» со
+/// снимком, снятым до начала боя, — и бой пропадал. Это запись 136 в
+/// `tasks/DONE.md`, только в масштабе документа, а не одного персонажа.
+///
+/// Второго пути записи не заводится: это тот же `with_active_locked_in`,
+/// которым ходят команды боя.
+fn save_front_owned_in(base: &Path, fields: FrontOwnedFields) -> Result<CampaignState, String> {
+    with_active_locked_in(base, |state| {
+        state.campaign_name = fields.campaign_name;
+        state.characters = fields.characters;
+        state.journal = fields.journal;
+        Ok(())
+    })
+}
+
 // ── тонкие обёртки для Tauri-команд ──────────────────────────────────────────
 
 pub fn load_active(app: &AppHandle) -> Result<Option<CampaignState>, String> {
@@ -290,6 +337,10 @@ pub fn load_active(app: &AppHandle) -> Result<Option<CampaignState>, String> {
 
 pub fn save_campaign(app: &AppHandle, state: &CampaignState) -> Result<(), String> {
     save_campaign_locked(&app_data_dir(app)?, state)
+}
+
+pub fn save_front_owned(app: &AppHandle, fields: FrontOwnedFields) -> Result<(), String> {
+    save_front_owned_in(&app_data_dir(app)?, fields).map(|_| ())
 }
 
 pub fn list_campaigns(app: &AppHandle) -> Result<Vec<CampaignSummary>, String> {
@@ -318,7 +369,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Character;
+    use crate::model::{Character, CombatState, Combatant};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dnd-master-storage-test-{name}-{}", generate_id()));
@@ -768,5 +819,97 @@ mod tests {
             1,
             "гонка не должна была породить вторую, пустую кампанию"
         );
+    }
+
+    /// Бой в разгаре — ровно то состояние, которым фронт не владеет и о
+    /// котором в его снимке может не быть ни слова.
+    fn combat_in_progress() -> CombatState {
+        CombatState {
+            grid_width: 12,
+            grid_height: 10,
+            turn_order: vec!["monster-wolf-0".into()],
+            combatants: vec![Combatant {
+                id: "monster-wolf-0".into(),
+                name: "Волк".into(),
+                is_monster: true,
+                current_hp: 4,
+                max_hp: 11,
+                armor_class: 13,
+                initiative: 17,
+                ..Default::default()
+            }],
+            current_turn_index: 0,
+            round: 3,
+            log: vec!["Волк ранен".into()],
+            finished: false,
+        }
+    }
+
+    /// engine-save-campaign-stops-writing-others — ГЛАВНАЯ проба карточки.
+    ///
+    /// Сценарий целиком из жизни: бой начат командой бэкенда, игрок уходит на
+    /// вкладку «Дневник» и добавляет запись. Фронт шлёт документ, собранный из
+    /// снимка своего рендера, и боя в этом снимке нет вовсе.
+    ///
+    /// Отрицательная проба: вернуть `save_campaign` записью целого присланного
+    /// документа (`save_campaign_in(base, &state)` вместо
+    /// `save_front_owned_in`) — и строка `бой обязан уцелеть` краснеет:
+    /// `state.combat` приходит `None` и ложится на диск поверх живого боя.
+    #[test]
+    fn front_save_with_a_stale_snapshot_cannot_wipe_the_combat_it_never_owned() {
+        let base = temp_dir("front-owned-combat");
+        let created = create_campaign_in(&base, "Поход".into()).unwrap();
+
+        let mut with_combat = created.clone();
+        with_combat.combat = Some(combat_in_progress());
+        save_campaign_in(&base, &with_combat).unwrap();
+
+        // Снимок фронта: имя, персонажи, дневник — и ничего о бое.
+        save_front_owned_in(
+            &base,
+            FrontOwnedFields {
+                campaign_name: "Поход".into(),
+                characters: vec![Character {
+                    id: "hero".into(),
+                    name: "Герой".into(),
+                    ..Default::default()
+                }],
+                journal: vec![JournalEntry {
+                    id: "note".into(),
+                    timestamp: "2026-09-23T10:00:00Z".into(),
+                    text: "Записал у костра".into(),
+                }],
+            },
+        )
+        .unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let combat = after.combat.expect("бой обязан уцелеть: фронт им не владеет");
+        assert_eq!(combat.round, 3, "ход боя не должен откатиться");
+        assert_eq!(combat.combatants[0].current_hp, 4, "хиты раненого волка не должны воскреснуть");
+
+        // И ровно то, чем фронт владеет, записаться обязано — иначе сужение
+        // превратилось бы в отказ от записи.
+        assert_eq!(after.journal.len(), 1);
+        assert_eq!(after.journal[0].text, "Записал у костра");
+        assert_eq!(after.characters.len(), 1);
+    }
+
+    /// Ответ на вопрос «что будет, если фронт прислал чужое поле»: оно тихо
+    /// игнорируется, и это свойство ТИПА, а не проверка в теле команды —
+    /// `FrontOwnedFields` некуда положить `combat`, и serde его пропускает.
+    #[test]
+    fn payload_field_the_front_does_not_own_is_ignored_and_not_an_error() {
+        let raw = r#"{
+            "id": "campaign-1",
+            "campaignName": "Поход",
+            "characters": [],
+            "journal": [],
+            "combat": {"gridWidth": 12, "gridHeight": 10, "combatants": [], "turnOrder": [],
+                       "currentTurnIndex": 0, "round": 7, "log": [], "finished": false}
+        }"#;
+        let fields: FrontOwnedFields =
+            serde_json::from_str(raw).expect("чужое поле не должно быть ошибкой разбора");
+        assert_eq!(fields.campaign_name, "Поход");
     }
 }
