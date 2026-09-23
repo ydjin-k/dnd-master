@@ -277,6 +277,12 @@ pub struct CampaignState {
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
     pub combat: Option<CombatState>,
+    /// Состояние движка мастера (ADR 0001) — ПОЛЕ этого документа, а не второй
+    /// файл: два документа разъезжаются при первой же правке. Сохранения,
+    /// записанные до движка, читаются как `None` структурным `#[serde(default)]`
+    /// у самого `CampaignState` — тем же приёмом, которым уже пережиты
+    /// переименование полей и снос целого движка приключения.
+    pub engine: Option<crate::gm::state::EngineState>,
 }
 
 #[cfg(test)]

@@ -16,6 +16,7 @@ const initialState: CampaignState = {
     { id: "remove", timestamp: "2026-01-02T10:00:00Z", text: "Удалить" },
   ],
   combat: null,
+  engine: null,
 };
 
 describe("CampaignContext journal persistence", () => {
@@ -156,5 +157,91 @@ describe("CampaignContext: две записи в персонажа подря�
       "Ослеплённое",
       "Безумие (ур. 1, к100 7, 1к10 6)",
     ]);
+  });
+});
+
+/**
+ * Команды движка. Здесь проверяется ровно то, на чём стоит решение ADR 0001:
+ * фронт отправляет намерение, кладёт вернувшееся состояние и НЕ пишет документ
+ * сам. Если когда-нибудь рядом с `gm_*` появится `save_campaign`, у состояния
+ * движка окажется второй владелец — и это поймает вторая проба.
+ */
+type CampaignApi = ReturnType<typeof useCampaign>;
+
+describe("CampaignContext и команды движка", () => {
+  const stateWithScene: CampaignState = {
+    ...initialState,
+    engine: {
+      scene: {
+        id: "scene-1",
+        status: "active",
+        location: "Подземный зал",
+        objective: "Найти выход",
+        tension: 3,
+        participants: [],
+        activeThreats: [],
+        sceneTags: [],
+        startedAtTurn: 1,
+        resolvedConditions: [],
+      },
+      adventureLog: [],
+      history: [],
+      turn: 1,
+    },
+  };
+
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockImplementation((command) => {
+      if (command === "load_active_campaign") return Promise.resolve(initialState);
+      if (command === "gm_create_scene") {
+        return Promise.resolve({
+          state: stateWithScene,
+          result: {
+            success: true,
+            resultType: "SCENE_CREATED",
+            summaryKey: "scene.started",
+            rolls: [],
+            stateChanges: [],
+            generatedEvents: [],
+            choices: [],
+            trace: ["Scene Manager → CREATE_SCENE"],
+          },
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("отправляет намерение, кладёт ответ и не пишет документ сам", async () => {
+    let campaign: CampaignApi | undefined;
+    function Consumer() {
+      campaign = useCampaign();
+      return null;
+    }
+
+    render(
+      <CampaignProvider>
+        <Consumer />
+      </CampaignProvider>,
+    );
+    await waitFor(() => expect(campaign?.loading).toBe(false));
+
+    let result: Awaited<ReturnType<CampaignApi["gmCreateScene"]>> | undefined;
+    await act(async () => {
+      result = await campaign!.gmCreateScene("Подземный зал", "Найти выход", [], ["dark"]);
+    });
+
+    expect(invoke).toHaveBeenCalledWith("gm_create_scene", {
+      location: "Подземный зал",
+      objective: "Найти выход",
+      participants: [],
+      tags: ["dark"],
+    });
+    expect(campaign!.state.engine?.scene?.location).toBe("Подземный зал");
+    expect(result?.trace).toEqual(["Scene Manager → CREATE_SCENE"]);
+
+    const saves = vi.mocked(invoke).mock.calls.filter(([command]) => command === "save_campaign");
+    expect(saves).toHaveLength(0);
   });
 });

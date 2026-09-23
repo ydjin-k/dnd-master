@@ -244,12 +244,116 @@ export interface MonsterTemplate {
   imageAsset: string | null;
 }
 
+/**
+ * Как закончилась сцена (§7.2). Зеркало `SceneOutcome` в
+ * `src-tauri/src/gm/scene.rs`.
+ */
+export type SceneOutcome = "calmer" | "unchanged" | "worse";
+
+export type SceneStatus = "active" | "resolved";
+
+/** Состояние сцены (§4.2). Читается, но не собирается на фронте: сцену
+ *  создаёт и меняет движок, интерфейс её только показывает. */
+export interface SceneState {
+  id: string;
+  status: SceneStatus;
+  location: string;
+  objective: string;
+  tension: number;
+  participants: string[];
+  activeThreats: string[];
+  sceneTags: string[];
+  startedAtTurn: number;
+  resolvedConditions: string[];
+}
+
+/**
+ * Строка лога приключения — КЛЮЧ И ЧИСЛА, а не готовая фраза.
+ *
+ * Владелец текста один, и это интерфейс (`src/ui/gm/adventureLog.ts`): движок
+ * владеет тем, что произошло, интерфейс — тем, как это звучит по-русски.
+ * Иначе одна и та же фраза жила бы в Rust и в TS сразу.
+ */
+export type LogLine =
+  | { kind: "sceneStarted"; location: string; objective: string; tension: number }
+  | {
+      kind: "sceneEnded";
+      location: string;
+      objective: string;
+      outcome: SceneOutcome;
+      tensionBefore: number;
+      tensionAfter: number;
+    };
+
+export interface LogEntry {
+  id: string;
+  turn: number;
+  line: LogLine;
+}
+
+/** Типизированное изменение состояния (§33 без строковых путей). */
+export type Mutation =
+  | ({ kind: "sceneCreated" } & SceneState)
+  | { kind: "sceneEnded"; outcome: SceneOutcome; tension: number }
+  | { kind: "logged"; id: string; turn: number; line: LogLine };
+
+export interface Transaction {
+  id: number;
+  turn: number;
+  action: string;
+  mutations: Mutation[];
+}
+
+export interface RollTrace {
+  die: string;
+  value: number;
+  modifier: number;
+  total: number;
+  target: number | null;
+}
+
+/** Ответ команды движка (§33). `trace` живёт один ответ и в состояние не
+ *  попадает — его заполняет тот, кто принял решение. */
+export interface ResultObject {
+  success: boolean;
+  resultType: string;
+  summaryKey: string;
+  rolls: RollTrace[];
+  stateChanges: Mutation[];
+  generatedEvents: string[];
+  choices: string[];
+  trace: string[];
+}
+
+/**
+ * Состояние движка мастера. Поля приватны на стороне Rust и меняются только
+ * через `mutate::apply` — здесь они только читаются. Своего `useState` на эти
+ * данные заводить нельзя: это признак опровержения решения ADR 0001
+ * (раздел 4, признак 2).
+ */
+export interface EngineState {
+  scene: SceneState | null;
+  /** Лог приключения — игроку. Дневник кампании движок не трогает вовсе. */
+  adventureLog: LogEntry[];
+  /** Журнал транзакций — движку, наружу не показывается (§29.2). */
+  history: Transaction[];
+  turn: number;
+}
+
+/** Что возвращает команда движка: состояние для показа и ответ для объяснения. */
+export interface GmResponse {
+  state: CampaignState;
+  result: ResultObject;
+}
+
 export interface CampaignState {
   id: string;
   campaignName: string;
   characters: Character[];
   journal: JournalEntry[];
   combat: CombatState | null;
+  /** Состояние движка мастера. `null` у кампаний, созданных до него. */
+  engine: EngineState | null;
 }
 
 export interface CampaignSummary {
@@ -328,4 +432,5 @@ export const emptyCampaignState = (): CampaignState => ({
   characters: [],
   journal: [],
   combat: null,
+  engine: null,
 });

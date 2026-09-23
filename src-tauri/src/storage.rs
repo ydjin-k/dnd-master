@@ -912,4 +912,48 @@ mod tests {
             serde_json::from_str(raw).expect("чужое поле не должно быть ошибкой разбора");
         assert_eq!(fields.campaign_name, "Поход");
     }
+
+    /// Вторая половина DoD карточки `save_campaign`: «когда появится `engine` —
+    /// и его». Появился — и запись с фронта его не видит точно так же, как не
+    /// видит боя.
+    ///
+    /// Отрицательная проба та же, что у боя: вернуть запись целого присланного
+    /// документа — и строка «движок обязан уцелеть» краснеет.
+    #[test]
+    fn front_save_with_a_stale_snapshot_cannot_wipe_the_engine_either() {
+        let base = temp_dir("front-owned-engine");
+        let created = create_campaign_in(&base, "Поход".into()).unwrap();
+
+        let mut with_engine = created.clone();
+        crate::gm::scene::create_scene(
+            &mut with_engine,
+            "Подземный зал".into(),
+            "Найти выход".into(),
+            vec![],
+            vec![],
+        )
+        .unwrap();
+        save_campaign_in(&base, &with_engine).unwrap();
+
+        save_front_owned_in(
+            &base,
+            FrontOwnedFields {
+                campaign_name: "Поход".into(),
+                characters: vec![],
+                journal: vec![JournalEntry {
+                    id: "note".into(),
+                    timestamp: "2026-09-23T10:00:00Z".into(),
+                    text: "Записал у костра".into(),
+                }],
+            },
+        )
+        .unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let engine = after.engine.expect("движок обязан уцелеть: фронт им не владеет");
+        assert_eq!(engine.scene().expect("сцена на месте").location, "Подземный зал");
+        assert_eq!(engine.adventure_log().len(), 1, "лог приключения не должен обнулиться");
+        assert_eq!(engine.history().len(), 1);
+        assert_eq!(after.journal.len(), 1, "а дневник, которым фронт владеет, записан");
+    }
 }

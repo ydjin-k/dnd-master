@@ -13,15 +13,19 @@ import {
   type EventTable,
   type EventTableRow,
 } from "../eventTables";
+import { ScenePage } from "./ScenePage";
 import "./AdventuresPage.css";
 
 /**
- * Раздел приключений. Задуман из двух входов: «Начать приключение» (движок
- * владельца, работа по нему на паузе) и «Сгенерировать события». Место под
- * первый оставлено раскладкой, но кнопки нет: неактивных заглушек и «скоро
- * будет» в разделе не держим.
+ * Раздел приключений из двух входов: «Вести сцену» (движок мастера, ADR 0001)
+ * и «Сгенерировать события» (таблицы к100). Первый вход был оставлен
+ * раскладкой и появился здесь вместе с ядром движка.
+ *
+ * Два входа — не два владельца: таблицы к100 дают описательную строку, которую
+ * мастер читает за столом, движок — решение с машинными последствиями. Сливать
+ * их нельзя (ADR раздел 9, пункт 14).
  */
-type View = "menu" | "generator";
+type View = "menu" | "generator" | "scene";
 
 /** Что показано игроку после броска. Держится до следующего броска. */
 interface Outcome {
@@ -65,6 +69,16 @@ export function AdventuresPage() {
           <button
             type="button"
             className="adventures-page__entry dm-button--primary"
+            onClick={() => setView("scene")}
+          >
+            <span className="adventures-page__entry-title">Вести сцену</span>
+            <span className="adventures-page__entry-hint">
+              Место, цель и напряжение сцены, лог приключения
+            </span>
+          </button>
+          <button
+            type="button"
+            className="adventures-page__entry dm-button--primary"
             onClick={() => setView("generator")}
           >
             <span className="adventures-page__entry-title">Сгенерировать события</span>
@@ -73,6 +87,17 @@ export function AdventuresPage() {
             </span>
           </button>
         </div>
+      </section>
+    );
+  }
+
+  if (view === "scene") {
+    return (
+      <section className="adventures-page">
+        <button type="button" onClick={() => setView("menu")}>
+          ← К приключениям
+        </button>
+        <ScenePage />
       </section>
     );
   }

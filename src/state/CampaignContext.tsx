@@ -11,7 +11,10 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   type CampaignState,
   type Character,
+  type GmResponse,
   type JournalEntry,
+  type ResultObject,
+  type SceneOutcome,
   emptyCampaignState,
 } from "./types";
 import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
@@ -34,6 +37,13 @@ interface CampaignContextValue {
   endTurn: () => Promise<void>;
   monsterAutoTurn: () => Promise<void>;
   endCombat: () => Promise<void>;
+  gmCreateScene: (
+    location: string,
+    objective: string,
+    participants: string[],
+    tags: string[],
+  ) => Promise<ResultObject | null>;
+  gmEndScene: (outcome: SceneOutcome) => Promise<ResultObject | null>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -224,6 +234,40 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
+  /**
+   * Команда движка: намерение уезжает аргументами, состояние приезжает в
+   * ответе и кладётся существующим `commit`. Фронт не вычисляет ничего и
+   * снимка не передаёт — передавать нечего, поэтому устаревшим снимком он
+   * ничего затереть не может (ADR 0001, раздел 8).
+   *
+   * `ResultObject` возвращается вызывающему и НИГДЕ не оседает: это рассказ об
+   * одном вызове, у него нет владельца в состоянии.
+   */
+  const runGmAction = useCallback(
+    async (command: string, args: Record<string, unknown>) => {
+      try {
+        const response = await invoke<GmResponse>(command, args);
+        commit(response.state);
+        setError(null);
+        return response.result;
+      } catch (e) {
+        setError(String(e));
+        return null;
+      }
+    },
+    [commit],
+  );
+
+  const gmCreateScene = useCallback(
+    (location: string, objective: string, participants: string[], tags: string[]) =>
+      runGmAction("gm_create_scene", { location, objective, participants, tags }),
+    [runGmAction],
+  );
+  const gmEndScene = useCallback(
+    (outcome: SceneOutcome) => runGmAction("gm_end_scene", { outcome }),
+    [runGmAction],
+  );
+
   const startCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
       runServerAction("start_combat", { monsterIds, characterIds }),
@@ -275,6 +319,8 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         endTurn,
         monsterAutoTurn,
         endCombat,
+        gmCreateScene,
+        gmEndScene,
       }}
     >
       {children}

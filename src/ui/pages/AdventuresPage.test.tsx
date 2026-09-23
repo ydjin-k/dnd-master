@@ -29,7 +29,7 @@ function rollsAlways(total: number) {
 }
 
 function emptyState(): CampaignState {
-  return { id: "c1", campaignName: "Тест", characters: [], journal: [], combat: null };
+  return { id: "c1", campaignName: "Тест", characters: [], journal: [], combat: null, engine: null };
 }
 
 async function openGenerator() {

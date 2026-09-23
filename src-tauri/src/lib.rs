@@ -1,12 +1,15 @@
 mod characters;
 mod combat;
 mod dice;
+mod gm;
 mod model;
 mod rules;
 mod spells;
 mod storage;
 
 use combat::MonsterTemplate;
+use gm::result::GmResponse;
+use gm::scene::SceneOutcome;
 use model::{CampaignState, Character};
 use rules::RuleTopic;
 use spells::Spell;
@@ -252,6 +255,50 @@ fn combat_cast_spell(
     })
 }
 
+// ── движок мастера ───────────────────────────────────────────────────────────
+//
+// Одна команда на действие, и тело каждой — ОДИН вызов
+// `storage::with_active_locked`: чтение с диска, решение, запись — под одним
+// удержанием замка, без окна между ними. Команда получает НАМЕРЕНИЕ, а не
+// состояние: устаревшего снимка у фронта нет, потому что он снимка не
+// передаёт вовсе (ADR раздел 8, пункты 1 и 2).
+
+/// Общая обвязка двух команд ниже: ответ модуля движка нужно вынести наружу
+/// из замыкания, а состояние приходит от самого `with_active_locked` — уже
+/// сохранённым. Без неё пришлось бы писать это дважды слово в слово.
+fn gm_command<F>(app: &AppHandle, decide: F) -> Result<GmResponse, String>
+where
+    F: FnOnce(&mut CampaignState) -> Result<gm::result::ResultObject, String>,
+{
+    let mut result = None;
+    let state = storage::with_active_locked(app, |campaign| {
+        result = Some(decide(campaign)?);
+        Ok(())
+    })?;
+    Ok(GmResponse {
+        state,
+        result: result.expect("решение принято — иначе команда вернула бы ошибку"),
+    })
+}
+
+#[tauri::command]
+fn gm_create_scene(
+    app: AppHandle,
+    location: String,
+    objective: String,
+    participants: Vec<String>,
+    tags: Vec<String>,
+) -> Result<GmResponse, String> {
+    gm_command(&app, |campaign| {
+        gm::scene::create_scene(campaign, location, objective, participants, tags)
+    })
+}
+
+#[tauri::command]
+fn gm_end_scene(app: AppHandle, outcome: SceneOutcome) -> Result<GmResponse, String> {
+    gm_command(&app, |campaign| gm::scene::end_scene(campaign, outcome))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -279,7 +326,9 @@ pub fn run() {
             apply_damage,
             end_turn,
             monster_auto_turn,
-            end_combat
+            end_combat,
+            gm_create_scene,
+            gm_end_scene
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
