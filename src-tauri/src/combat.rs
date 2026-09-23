@@ -309,8 +309,17 @@ pub fn default_resize_concurrency() -> usize {
 
 /// Каталог кэша сгенерированных превью — в `app_data_dir` (пишем всегда, в
 /// отличие от `resource_dir` бандла, который в собранном приложении может
-/// быть недоступен на запись), не рядом с оригиналами. Инвалидация не
-/// нужна — картинки бестиария статичны и бандлятся с приложением.
+/// быть недоступен на запись), не рядом с оригиналами.
+///
+/// Раньше здесь было записано «инвалидация не нужна — картинки бестиария
+/// статичны и бандлятся с приложением». Это предположение сломалось
+/// 17.09.2026, когда владелец перепаковал весь каталог арта (коммит
+/// `d54b378`): каталог кэша переживает подмену оригиналов, имя файла при
+/// перепаковке не меняется, и приложение сутки показывало превью от 10
+/// сентября — 67 файлов кэша из 75 оказались старше своего исходника,
+/// затронуты все 50 существ. Кэш здесь живёт дольше картинок, поэтому
+/// годность записи проверяется на каждый запрос — см.
+/// `discard_stale_cache_entry`.
 fn thumbnail_cache_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = crate::storage::app_data_dir(app)?.join("bestiary-thumbnails");
     std::fs::create_dir_all(&dir).map_err(|e| format!("не удалось создать {dir:?}: {e}"))?;
@@ -326,6 +335,45 @@ fn cache_file_name(source_file_name: &std::ffi::OsStr, max_size: u32) -> String 
         .and_then(|s| s.to_str())
         .unwrap_or("thumb");
     format!("{stem}-{max_size}.jpg")
+}
+
+/// Единственный владелец вопроса «годится ли лежащая в кэше запись под
+/// нынешний исходник». Ответ — «нет», если оригинал правился позже, чем была
+/// записана запись кэша; тогда запись удаляется, и `load_cached_or_compute`
+/// ниже посчитает превью заново под тем же именем.
+///
+/// Цена выбранного способа — пара `metadata` (оригинал и запись кэша) на
+/// каждый запрос картинки, то есть лишний `stat` там, где раньше было одно
+/// чтение. Взамен каталог кэша не копит мусор: ключ не меняется, свежее
+/// превью ложится поверх протухшего. Альтернатива — вписать время правки и
+/// размер оригинала в само имя файла кэша — того же `stat` не избегает (ключ
+/// без него не построить), зато оставляет в `%APPDATA%` по файлу на каждую
+/// прошлую редакцию картинки, которые удалять уже некому.
+///
+/// Чего так узнать нельзя: подмену оригинала файлом с БОЛЕЕ старым временем
+/// правки (восстановление из архива с сохранением времён). Перепаковка,
+/// пересохранение и любой `git checkout` ставят время «сейчас» и ловятся.
+/// Ключ по хэшу содержимого закрыл бы и этот случай, но стоил бы чтения
+/// полутора-трёх мегабайт оригинала на каждое превью — ровно та работа, ради
+/// ухода от которой кэш и заведён.
+fn discard_stale_cache_entry(cache_path: &std::path::Path, source_path: &std::path::Path) {
+    let (Ok(cached_meta), Ok(source_meta)) = (
+        std::fs::metadata(cache_path),
+        std::fs::metadata(source_path),
+    ) else {
+        // Нет записи кэша (обычный промах) или нет оригинала (об этом скажет
+        // сам ресайз внятной ошибкой) — инвалидировать нечего.
+        return;
+    };
+    let (Ok(cached_at), Ok(source_at)) = (cached_meta.modified(), source_meta.modified()) else {
+        // Файловая система без времени правки — оставляем кэш как есть:
+        // отдать старое превью лучше, чем пересчитывать все 50 на каждый показ.
+        return;
+    };
+
+    if source_at > cached_at {
+        let _ = std::fs::remove_file(cache_path);
+    }
 }
 
 /// Ядро кэш+семафор без Tauri/файловой системы оригиналов — так его можно
@@ -353,6 +401,21 @@ fn load_cached_or_compute(
     Ok(jpeg_bytes_to_data_url(&bytes))
 }
 
+/// Полный путь запроса превью: сперва выбросить протухшую запись, потом
+/// обычный кэш+семафор. Отдельной функцией, а не двумя строками в
+/// `load_bestiary_image`, чтобы проба на подмену оригинала звала ровно то же,
+/// что и приложение, — иначе проверялся бы её собственный порядок вызовов, а
+/// не production-путь.
+fn load_cached_or_compute_for_source(
+    cache_path: &std::path::Path,
+    source_path: &std::path::Path,
+    semaphore: &ResizeSemaphore,
+    compute: impl FnOnce() -> Result<Vec<u8>, String>,
+) -> Result<String, String> {
+    discard_stale_cache_entry(cache_path, source_path);
+    load_cached_or_compute(cache_path, semaphore, compute)
+}
+
 pub fn load_bestiary_image(
     app: &tauri::AppHandle,
     image_asset: &str,
@@ -367,7 +430,7 @@ pub fn load_bestiary_image(
 
     let cache_path = thumbnail_cache_dir(app)?.join(cache_file_name(file_name, max_size));
 
-    load_cached_or_compute(&cache_path, semaphore, || {
+    load_cached_or_compute_for_source(&cache_path, &source_path, semaphore, || {
         resize_image_to_jpeg_bytes(&source_path, max_size)
     })
 }
@@ -1435,7 +1498,10 @@ mod bestiary_cache_tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 
-    use super::{cache_file_name, load_cached_or_compute, resize_image_to_jpeg_bytes, ResizeSemaphore};
+    use super::{
+        cache_file_name, jpeg_bytes_to_data_url, load_cached_or_compute,
+        load_cached_or_compute_for_source, resize_image_to_jpeg_bytes, ResizeSemaphore,
+    };
 
     fn unique_temp_dir(tag: &str) -> PathBuf {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -1469,6 +1535,63 @@ mod bestiary_cache_tests {
             1,
             "после первой записи в кэш `compute` не должен вызываться повторно"
         );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Отрицательная проба на дефект карточки
+    /// `bug-bestiary-thumbnail-cache-never-invalidates`: владелец 17.09.2026
+    /// заменил каталог арта, а приложение показывало превью от 10 сентября —
+    /// оборотня чужой работы вместо лежащего в репозитории. Повторяет
+    /// сценарий целиком: посчитали превью, подменили исходник, попросили
+    /// снова — должны прийти байты НОВОГО.
+    ///
+    /// Снять починку = убрать `discard_stale_cache_entry` из
+    /// `load_cached_or_compute_for_source`; проба краснеет на втором запросе,
+    /// возвращая data-URL старых байт.
+    #[test]
+    fn replacing_the_source_image_invalidates_its_cached_thumbnail() {
+        const OLD_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'o', b'l', b'd'];
+        const NEW_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'n', b'e', b'w'];
+
+        let dir = unique_temp_dir("stale-source");
+        let source_path = dir.join("werewolf.jpg");
+        let cache_path = dir.join(cache_file_name(std::ffi::OsStr::new("werewolf.jpg"), 480));
+        let semaphore = ResizeSemaphore::new(4);
+
+        std::fs::write(&source_path, b"art of september 10th").expect("записать исходник");
+        let first = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(OLD_THUMB.to_vec())
+        })
+        .expect("первый запрос должен посчитать превью");
+        assert_eq!(first, jpeg_bytes_to_data_url(OLD_THUMB));
+        assert!(cache_path.exists(), "первый запрос обязан записать кэш");
+
+        // Тик системных часов Windows — ~15.6 мс; без паузы подмена попадает в
+        // то же значение времени правки, что и запись кэша, и проба перестаёт
+        // отличать починку от дефекта.
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        std::fs::write(&source_path, b"repacked art, another creature entirely")
+            .expect("подменить исходник");
+
+        let second = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(NEW_THUMB.to_vec())
+        })
+        .expect("второй запрос не должен падать");
+
+        assert_eq!(
+            second,
+            jpeg_bytes_to_data_url(NEW_THUMB),
+            "исходник подменён, а пришли байты старого превью — кэш не заметил подмены"
+        );
+
+        // И новое превью само стало кэшем: третий запрос за неизменным
+        // исходником пересчёта не требует.
+        let third = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            panic!("третий запрос за тем же исходником не должен пересчитывать превью")
+        })
+        .expect("третий запрос должен отдаться из кэша");
+        assert_eq!(third, jpeg_bytes_to_data_url(NEW_THUMB));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
