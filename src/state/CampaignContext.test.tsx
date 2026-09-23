@@ -3,7 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { CampaignProvider, useCampaign } from "./CampaignContext";
-import type { CampaignState } from "./types";
+import type { CampaignState, Character } from "./types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -47,5 +47,114 @@ describe("CampaignContext journal persistence", () => {
     expect(invoke).toHaveBeenCalledWith("save_campaign", {
       state: expect.objectContaining({ journal: [initialState.journal[0]] }),
     });
+  });
+});
+
+/** Персонаж-заготовка: пробам ниже важны только `id` и `conditions`. */
+function hero(conditions: string[]): Character {
+  return {
+    id: "hero",
+    name: "Герой",
+    race: "Человек",
+    class: "Воин",
+    subclass: "",
+    background: "",
+    personalityTraits: "",
+    ideals: "",
+    bonds: "",
+    flaws: "",
+    alignment: "",
+    gender: "",
+    portraitVariant: 0,
+    age: 0,
+    height: "",
+    weight: "",
+    eyes: "",
+    skin: "",
+    hair: "",
+    appearance: "",
+    backstory: "",
+    allies: "",
+    treasures: "",
+    languages: [],
+    favoredEnemy: "",
+    knownTerrain: "",
+    level: 1,
+    experiencePoints: 0,
+    abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+    maxHp: 10,
+    currentHp: 10,
+    armorClass: 10,
+    speedFeet: 30,
+    initiative: 0,
+    passivePerception: 10,
+    conditions,
+    inventory: [],
+    coins: { copper: 0, silver: 0, electrum: 0, gold: 0, platinum: 0 },
+    savingThrowProficiencies: [],
+    armorProficiencies: [],
+    weaponProficiencies: [],
+    toolProficiencies: [],
+    fightingStyle: "",
+    skillProficiencies: [],
+    knownCantrips: [],
+    castableSpells: [],
+    spellbook: [],
+    spellSlotsMax: [0, 0, 0, 0, 0],
+    spellSlotsCurrent: [0, 0, 0, 0, 0],
+    featureUses: [],
+    subclassChoices: {},
+  };
+}
+
+/**
+ * Отрицательная проба на потерю записи: лист персонажа пишет в `conditions`
+ * двумя разными путями (кнопка состояния и «Безумие +1»), и обе записи могут
+ * лечь ДО перерисовки. Мутатор, считающий новое состояние от снимка своего
+ * рендера, вторую записывает поверх первой — и состояние, добавленное между
+ * ними, исчезает с листа молча.
+ */
+describe("CampaignContext: две записи в персонажа подряд", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockImplementation((command) =>
+      Promise.resolve(
+        command === "load_active_campaign" ? { ...initialState, characters: [hero([])] } : undefined,
+      ),
+    );
+  });
+
+  it("вторая запись не затирает первую: оба состояния доезжают до сохранения", async () => {
+    let update: ((id: string, updater: (c: Character) => Character) => Promise<void>) | undefined;
+    function Consumer() {
+      const campaign = useCampaign();
+      useEffect(() => {
+        if (!campaign.loading) update = campaign.updateCharacter;
+      }, [campaign]);
+      return null;
+    }
+
+    render(
+      <CampaignProvider>
+        <Consumer />
+      </CampaignProvider>,
+    );
+    await waitFor(() => expect(update).toBeTypeOf("function"));
+
+    // Обе записи исходят из ОДНОГО рендера — как два нажатия подряд на листе.
+    const write = update!;
+    await act(async () => {
+      await Promise.all([
+        write("hero", (c) => ({ ...c, conditions: [...c.conditions, "Ослеплённое"] })),
+        write("hero", (c) => ({ ...c, conditions: [...c.conditions, "Безумие (ур. 1, к100 7, 1к10 6)"] })),
+      ]);
+    });
+
+    const saves = vi.mocked(invoke).mock.calls.filter(([command]) => command === "save_campaign");
+    const last = saves[saves.length - 1][1] as { state: CampaignState };
+    expect(last.state.characters[0].conditions).toEqual([
+      "Ослеплённое",
+      "Безумие (ур. 1, к100 7, 1к10 6)",
+    ]);
   });
 });

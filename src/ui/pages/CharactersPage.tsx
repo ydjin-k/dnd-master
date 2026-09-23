@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
 import {
@@ -326,6 +326,11 @@ function CharacterCard({
   // а не в персонаже, — в сейв уходит только выпавшее, подписью состояния.
   const [madnessRolling, setMadnessRolling] = useState(false);
   const [madnessError, setMadnessError] = useState<string | null>(null);
+  // Сторож повторного входа — ref, а не состояние: состояние к следующему
+  // нажатию ещё не перерисовалось бы, и второе нажатие прошло бы следом за
+  // первым, подняв лестницу на две ступени за один жест. Кнопка с `disabled`
+  // от этого не спасает по той же причине.
+  const madnessRollingRef = useRef(false);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -430,11 +435,12 @@ function CharacterCard({
    * таблица, и переносить в неё выпавшее на краткосрочной было бы подлогом.
    */
   async function raiseMadness() {
-    if (!madness || madnessRolling) return;
+    if (!madness || madnessRollingRef.current) return;
     const level = nextMadnessLevel(c.conditions);
     if (level === null) return;
     const table = madnessTable(madness, level);
     if (!table) return;
+    madnessRollingRef.current = true;
     setMadnessRolling(true);
     setMadnessError(null);
     try {
@@ -447,6 +453,7 @@ function CharacterCard({
     } catch (e) {
       setMadnessError(String(e));
     } finally {
+      madnessRollingRef.current = false;
       setMadnessRolling(false);
     }
   }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import bundledSpells from "../../../src-tauri/rules/spells.json";
 import bundledRules from "../../../src-tauri/rules/rules.json";
-import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
@@ -2781,6 +2781,9 @@ describe("CharactersPage", () => {
 
     /** Движок бросает к100 и к10; проба подменяет только выпавшее. */
     function rollingD100(d100: number, d10: number) {
+      // `beforeEach` файла чистит только счётчики кампании, но не invoke —
+      // без этого в счёт бросков попали бы чужие вызовы прошлых проб.
+      vi.mocked(invoke).mockClear();
       vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
         if (cmd === "get_rules") return [MADNESS_TOPIC, CONDITIONS_TOPIC];
         if (cmd === "roll_dice") {
@@ -2858,6 +2861,49 @@ describe("CharactersPage", () => {
       fireEvent.click(within(item).getByText("✕"));
       const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
       expect(updater(char).conditions).toEqual([]);
+    });
+
+    it("два нажатия подряд, до конца первого броска, поднимают лестницу на ОДНУ ступень", async () => {
+      // Отрицательная проба на «уровень перепрыгнул выше нажатого»: сторож
+      // повторного входа держится на ref, а не на состоянии React, — состояние
+      // к моменту второго нажатия ещё не перерисовалось бы, и второй бросок
+      // прошёл бы следом за первым.
+      rollingD100(7, 6);
+      const char = characterWithInventory();
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      const button = await screen.findByRole("button", { name: "Безумие +1" });
+
+      // Оба нажатия — в ОДНОМ проходе act: иначе React успевает перерисовать
+      // карточку между ними, и второе нажатие видит уже поднятый флаг. В живом
+      // окне такой передышки нет, и проба должна проверять именно этот случай.
+      await act(async () => {
+        button.click();
+        button.click();
+      });
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+
+      const rolls = vi.mocked(invoke).mock.calls.filter(([command]) => command === "roll_dice");
+      expect(rolls).toHaveLength(2); // к100 и к10 — ровно один подъём
+      expect(updateCharacter).toHaveBeenCalledTimes(1);
+      const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(updater(char).conditions).toEqual(["Безумие (ур. 1, к100 7, 1к10 6)"]);
+    });
+
+    it("повышение не трогает прочие состояния: они остаются на листе рядом с безумием", async () => {
+      rollingD100(7, 6);
+      const char = { ...characterWithInventory(), conditions: ["Ослеплённое", "Отравленное"] };
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Безумие +1" }));
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+
+      const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(updater(char).conditions).toEqual([
+        "Ослеплённое",
+        "Отравленное",
+        "Безумие (ур. 1, к100 7, 1к10 6)",
+      ]);
     });
 
     it("старое сохранение без безумия открывается как раньше: уровень 0, прочие состояния целы", async () => {

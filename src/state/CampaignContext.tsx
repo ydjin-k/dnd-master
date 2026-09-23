@@ -127,14 +127,22 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [state, persist],
   );
 
+  /**
+   * Через `persistWith`, а не `persist`: лист персонажа пишет в одного и того
+   * же героя двумя путями — кнопкой состояния и «Безумие +1», — и обе записи
+   * ложатся до перерисовки. Со снимком рендера вторая затирала первую вместе с
+   * состоянием, добавленным между ними: наложенное безумие сносило с листа
+   * «Ослеплённое». Остальные мутаторы по-прежнему ходят со снимком — их перевод
+   * остаётся за своей карточкой, здесь переведён только этот.
+   */
   const updateCharacter = useCallback(
     async (id: string, updater: (character: Character) => Character) => {
-      await persist({
-        ...state,
-        characters: state.characters.map((c) => (c.id === id ? updater(c) : c)),
-      });
+      await persistWith((current) => ({
+        ...current,
+        characters: current.characters.map((c) => (c.id === id ? updater(c) : c)),
+      }));
     },
-    [state, persist],
+    [persistWith],
   );
 
   /**
