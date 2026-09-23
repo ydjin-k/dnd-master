@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::facts::{Fact, FactSource};
 use super::history;
 use super::rng::RngCursor;
 use super::scene::{SceneOutcome, SceneState, SceneStatus, TENSION_MAX, TENSION_MIN};
@@ -45,6 +46,16 @@ pub enum Mutation {
     /// которое бросало: иначе съеденные числа остались бы в состоянии после
     /// отклонённой очереди, и кампания перестала бы повторяться с того же сида.
     RngAdvanced(RngCursor),
+    /// Новый подтверждённый факт мира (§4.6).
+    FactCreated(Fact),
+    /// Изменение известного факта (§4.6). Адресуется по `id`, потому что пара
+    /// «субъект + предикат» у него уже есть и меняться не может: сменить пару —
+    /// это другой факт, а не тот же самый.
+    FactUpdated {
+        id: String,
+        value: bool,
+        source: FactSource,
+    },
 }
 
 /// Транзакция (§35): что за действие, на каком ходу и чем оно изменило
@@ -119,6 +130,27 @@ pub fn validate(state: &EngineState, mutation: &Mutation) -> Result<(), String> 
         // имеет: её содержимое — типизированный `LogLine`, а не свободный
         // текст, проверять в нём нечего.
         Mutation::Logged(_) => Ok(()),
+        Mutation::FactCreated(fact) => {
+            if fact.subject.trim().is_empty() || fact.predicate.trim().is_empty() {
+                return Err("у факта должны быть субъект и предикат (§4.6)".into());
+            }
+            // Пара «субъект + предикат» — личность факта, и двух ответов на
+            // один вопрос в состоянии быть не может (§6.3). Изменение — это
+            // `FactUpdated`, отдельное намерение, а не второе создание.
+            if super::facts::find(state, &fact.subject, &fact.predicate).is_some() {
+                return Err(format!(
+                    "факт {}.{} уже есть — его меняет update_fact, а не второе создание (§4.6)",
+                    fact.subject, fact.predicate
+                ));
+            }
+            Ok(())
+        }
+        Mutation::FactUpdated { id, .. } => {
+            if !state.facts().iter().any(|fact| &fact.id == id) {
+                return Err(format!("факта {id} нет — изменять нечего"));
+            }
+            Ok(())
+        }
         // Поток ГСЧ идёт только вперёд. Откат означал бы, что уже выданные
         // числа будут выданы второй раз, — то же противоречие игроку, от
         // которого §6.3 запрещает переспрашивать Оракула.
@@ -172,6 +204,14 @@ pub fn apply(
             }
             Mutation::Logged(entry) => draft.push_log(&permit, entry.clone()),
             Mutation::RngAdvanced(cursor) => draft.advance_rng(&permit, *cursor),
+            Mutation::FactCreated(fact) => draft.push_fact(&permit, fact.clone()),
+            Mutation::FactUpdated { id, value, source } => {
+                let fact = draft
+                    .fact_mut(&permit, id)
+                    .expect("валидатор уже проверил, что факт есть");
+                fact.value = *value;
+                fact.source = *source;
+            }
         }
     }
 

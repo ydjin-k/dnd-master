@@ -3,14 +3,16 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ScenePage } from "./ScenePage";
 import type { CampaignState, EngineState } from "../../state/types";
 
-const { gmCreateScene, gmEndScene } = vi.hoisted(() => ({
+const { gmCreateScene, gmEndScene, gmCreateFact, gmUpdateFact } = vi.hoisted(() => ({
   gmCreateScene: vi.fn(),
   gmEndScene: vi.fn(),
+  gmCreateFact: vi.fn(),
+  gmUpdateFact: vi.fn(),
 }));
 
 let mockState: CampaignState;
 vi.mock("../../state/CampaignContext", () => ({
-  useCampaign: () => ({ state: mockState, gmCreateScene, gmEndScene }),
+  useCampaign: () => ({ state: mockState, gmCreateScene, gmEndScene, gmCreateFact, gmUpdateFact }),
 }));
 
 function stateWith(engine: EngineState | null): CampaignState {
@@ -52,6 +54,7 @@ function activeEngine(): EngineState {
     ],
     history: [],
     turn: 1,
+    facts: [],
     seed: "481922",
     rngState: "481922",
     rngDraws: "0",
@@ -61,6 +64,8 @@ function activeEngine(): EngineState {
 beforeEach(() => {
   gmCreateScene.mockReset();
   gmEndScene.mockReset();
+  gmCreateFact.mockReset();
+  gmUpdateFact.mockReset();
   mockState = stateWith(null);
 });
 
@@ -131,5 +136,63 @@ describe("экран сцены", () => {
 
     expect(screen.getByRole("button", { name: "Начать сцену" })).toBeDisabled();
     expect(screen.getByText(/Пока пусто/)).toBeInTheDocument();
+  });
+});
+
+describe("панель «Активно»", () => {
+  function withFacts(): EngineState {
+    const engine = activeEngine();
+    engine.facts = [
+      {
+        id: "fact-1",
+        subject: "door_03",
+        predicate: "locked",
+        value: true,
+        source: "oracle",
+        certainty: "confirmed",
+      },
+    ];
+    return engine;
+  }
+
+  it("показывает факт строкой и называет его источник", () => {
+    mockState = stateWith(withFacts());
+    render(<ScenePage />);
+
+    expect(screen.getByText("door_03.locked = да")).toBeInTheDocument();
+    expect(screen.getByText("(Оракул)")).toBeInTheDocument();
+  });
+
+  it("пустая панель говорит, что фактов нет, а не молчит", () => {
+    mockState = stateWith(activeEngine());
+    render(<ScenePage />);
+
+    expect(screen.getByText(/Фактов пока нет/)).toBeInTheDocument();
+  });
+
+  /**
+   * Заявление факта — намерение: субъект, предикат и значение. Источника в
+   * аргументах НЕТ, и это проверяется здесь: происхождение факта назначает
+   * команда движка, фронт им не владеет.
+   */
+  it("форма заявляет факт намерением, без источника и без id", () => {
+    mockState = stateWith(activeEngine());
+    render(<ScenePage />);
+
+    fireEvent.change(screen.getByLabelText("Субъект"), { target: { value: "door_03" } });
+    fireEvent.change(screen.getByLabelText("Предикат"), { target: { value: "locked" } });
+    fireEvent.click(screen.getByRole("button", { name: "Заявить факт" }));
+
+    expect(gmCreateFact).toHaveBeenCalledWith("door_03", "locked", true);
+  });
+
+  it("изменение факта идёт отдельной командой и с противоположным значением", () => {
+    mockState = stateWith(withFacts());
+    render(<ScenePage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Изменить на «нет»" }));
+
+    expect(gmUpdateFact).toHaveBeenCalledWith("door_03", "locked", false);
+    expect(gmCreateFact).not.toHaveBeenCalled();
   });
 });

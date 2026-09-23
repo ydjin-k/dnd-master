@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCampaign } from "../../state/CampaignContext";
 import { adventureLogText, outcomeLabel } from "../gm/adventureLog";
+import { factSourceLabel, factText, factValueLabel } from "../gm/facts";
 import type { SceneOutcome } from "../../state/types";
 import "./ScenePage.css";
 
@@ -19,7 +20,7 @@ import "./ScenePage.css";
 const OUTCOMES: SceneOutcome[] = ["calmer", "unchanged", "worse"];
 
 export function ScenePage() {
-  const { state, gmEndScene } = useCampaign();
+  const { state, gmEndScene, gmUpdateFact } = useCampaign();
   const engine = state.engine;
   const scene = engine?.scene ?? null;
   const active = scene !== null && scene.status === "active";
@@ -28,9 +29,40 @@ export function ScenePage() {
     <section className="scene-page">
       <h2>Сцена</h2>
       {active ? <ActiveScene /> : <NewSceneForm />}
+      <ActivePanel />
       <AdventureLog />
     </section>
   );
+
+  /** Панель «Активно» (§29.1). В v0.1 в ней живут только факты: акторов,
+   *  угроз и сюжетных линий в состоянии ещё нет — их карточки впереди. */
+  function ActivePanel() {
+    const facts = engine?.facts ?? [];
+    return (
+      <div className="scene-page__active" data-panel="active">
+        <h3>Активно</h3>
+        {facts.length === 0 ? (
+          <p className="dm-hint">Фактов пока нет — здесь появится то, что о мире уже решено.</p>
+        ) : (
+          <ul className="scene-page__facts-list">
+            {facts.map((fact) => (
+              <li key={fact.id} data-fact={`${fact.subject}.${fact.predicate}`}>
+                <span className="scene-page__fact-text">{factText(fact)}</span>
+                <span className="scene-page__fact-source">({factSourceLabel(fact.source)})</span>
+                <button
+                  type="button"
+                  onClick={() => gmUpdateFact(fact.subject, fact.predicate, !fact.value)}
+                >
+                  Изменить на «{factValueLabel(!fact.value)}»
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <NewFactForm />
+      </div>
+    );
+  }
 
   function ActiveScene() {
     if (scene === null) return null;
@@ -86,6 +118,63 @@ export function ScenePage() {
   function nameOf(id: string): string {
     return state.characters.find((c) => c.id === id)?.name ?? id;
   }
+}
+
+/**
+ * Заявить факт руками (§4.6, источник `master`).
+ *
+ * Субъект и предикат — машинные ключи, и мастер вводит их как есть: приведение
+ * к нижнему регистру и отказ от дубля живут в движке (`gm/facts.rs`), а не
+ * здесь. Экран не проверяет, свободна ли пара, и не догадывается о причине
+ * отказа — причину выдаёт тот, кто выносит решение.
+ */
+function NewFactForm() {
+  const { gmCreateFact } = useCampaign();
+  const [subject, setSubject] = useState("");
+  const [predicate, setPredicate] = useState("");
+  const [value, setValue] = useState(true);
+
+  return (
+    <form
+      className="scene-page__fact-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        gmCreateFact(subject, predicate, value);
+        setSubject("");
+        setPredicate("");
+      }}
+    >
+      <label>
+        Субъект
+        <input
+          value={subject}
+          placeholder="door_03"
+          onChange={(e) => setSubject(e.currentTarget.value)}
+        />
+      </label>
+      <label>
+        Предикат
+        <input
+          value={predicate}
+          placeholder="locked"
+          onChange={(e) => setPredicate(e.currentTarget.value)}
+        />
+      </label>
+      <label>
+        Значение
+        <select
+          value={value ? "yes" : "no"}
+          onChange={(e) => setValue(e.currentTarget.value === "yes")}
+        >
+          <option value="yes">да</option>
+          <option value="no">нет</option>
+        </select>
+      </label>
+      <button type="submit" disabled={subject.trim() === "" || predicate.trim() === ""}>
+        Заявить факт
+      </button>
+    </form>
+  );
 }
 
 /** Форма намерения: из неё уезжают аргументы команды, а не состояние. */

@@ -44,6 +44,8 @@ interface CampaignContextValue {
     tags: string[],
   ) => Promise<ResultObject | null>;
   gmEndScene: (outcome: SceneOutcome) => Promise<ResultObject | null>;
+  gmCreateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
+  gmUpdateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -267,6 +269,19 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     (outcome: SceneOutcome) => runGmAction("gm_end_scene", { outcome }),
     [runGmAction],
   );
+  // Источник факта (§4.6) аргументом НЕ уезжает: его назначает команда, потому
+  // что сама команда и есть утверждение мастера. Фронт происхождением фактов не
+  // владеет — иначе у `source` появился бы второй владелец.
+  const gmCreateFact = useCallback(
+    (subject: string, predicate: string, value: boolean) =>
+      runGmAction("gm_create_fact", { subject, predicate, value }),
+    [runGmAction],
+  );
+  const gmUpdateFact = useCallback(
+    (subject: string, predicate: string, value: boolean) =>
+      runGmAction("gm_update_fact", { subject, predicate, value }),
+    [runGmAction],
+  );
 
   const startCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
@@ -321,6 +336,8 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         endCombat,
         gmCreateScene,
         gmEndScene,
+        gmCreateFact,
+        gmUpdateFact,
       }}
     >
       {children}

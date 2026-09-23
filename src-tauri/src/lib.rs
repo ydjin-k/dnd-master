@@ -8,6 +8,7 @@ mod spells;
 mod storage;
 
 use combat::MonsterTemplate;
+use gm::facts::FactSource;
 use gm::result::GmResponse;
 use gm::scene::SceneOutcome;
 use model::{CampaignState, Character};
@@ -299,6 +300,40 @@ fn gm_end_scene(app: AppHandle, outcome: SceneOutcome) -> Result<GmResponse, Str
     gm_command(&app, |campaign| gm::scene::end_scene(campaign, outcome))
 }
 
+/// Факт, который утверждает мастер (§4.6).
+///
+/// `source` НЕ приходит аргументом, и это не экономия: происхождение факта
+/// определяет тот, кто его заявил, а заявляет здесь мастер — сама команда и
+/// есть его утверждение. Оракул свой факт создаёт у себя и с источником
+/// `oracle`, событие — с `event`. Пришли бы источники аргументом, у этого поля
+/// оказался бы второй владелец — фронт.
+#[tauri::command]
+fn gm_create_fact(
+    app: AppHandle,
+    subject: String,
+    predicate: String,
+    value: bool,
+) -> Result<GmResponse, String> {
+    gm_command(&app, |campaign| {
+        gm::facts::create_fact(campaign, subject, predicate, value, FactSource::Master)
+    })
+}
+
+/// Изменить факт, который мастер уже заявлял (§4.6: факт не перепроверяется,
+/// пока состояние не изменят явно). Создать этим нельзя — неизвестный факт
+/// команда отклоняет, потому что второго пути создания быть не должно.
+#[tauri::command]
+fn gm_update_fact(
+    app: AppHandle,
+    subject: String,
+    predicate: String,
+    value: bool,
+) -> Result<GmResponse, String> {
+    gm_command(&app, |campaign| {
+        gm::facts::update_fact(campaign, subject, predicate, value, FactSource::Master)
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -328,7 +363,9 @@ pub fn run() {
             monster_auto_turn,
             end_combat,
             gm_create_scene,
-            gm_end_scene
+            gm_end_scene,
+            gm_create_fact,
+            gm_update_fact
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

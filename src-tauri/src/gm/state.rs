@@ -8,6 +8,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use super::facts::Fact;
 use super::mutate::{Transaction, WritePermit};
 use super::rng::{self, RngCursor};
 use super::scene::{SceneOutcome, SceneState};
@@ -85,6 +86,9 @@ pub struct EngineState {
     history: Vec<Transaction>,
     /// Ход растёт на единицу за транзакцию действия.
     turn: u32,
+    /// Подтверждённые факты мира (§4.6) — ПОЛЕ состояния, отдельного
+    /// хранилища нет. Пишет только `gm/facts.rs` через `mutate::apply`.
+    facts: Vec<Fact>,
     /// Сид кампании (§22). Ставится один раз в `Default` ниже и НЕ меняется
     /// ничем: сеттера у него нет вовсе, и это проверяет компилятор.
     #[serde(with = "u64_text")]
@@ -115,6 +119,7 @@ impl Default for EngineState {
             adventure_log: Vec::new(),
             history: Vec::new(),
             turn: 0,
+            facts: Vec::new(),
             seed,
             rng_state: seed,
             rng_draws: 0,
@@ -143,6 +148,11 @@ impl EngineState {
 
     pub fn turn(&self) -> u32 {
         self.turn
+    }
+
+    /// Факты мира. Читает их кто угодно — панель «Активно» и Оракул (§6.3).
+    pub fn facts(&self) -> &[Fact] {
+        &self.facts
     }
 
     /// Сид кампании. Только чтение — и парного сеттера здесь нет НИ ОДНОГО,
@@ -177,6 +187,19 @@ impl EngineState {
 
     pub fn push_log(&mut self, _permit: &WritePermit, entry: LogEntry) {
         self.adventure_log.push(entry);
+    }
+
+    /// Новый факт в конец списка. Проверку «такой пары ещё нет» делает
+    /// валидатор `mutate::validate`, а не этот метод: сторож инварианта один и
+    /// стоит на общем пути записи.
+    pub fn push_fact(&mut self, _permit: &WritePermit, fact: Fact) {
+        self.facts.push(fact);
+    }
+
+    /// Изменить известный факт. `None`, если факта с таким id нет, — но до сюда
+    /// такой вызов не доходит: его отклоняет валидатор.
+    pub fn fact_mut(&mut self, _permit: &WritePermit, id: &str) -> Option<&mut Fact> {
+        self.facts.iter_mut().find(|fact| fact.id == id)
     }
 
     /// Продвинуть поток ГСЧ. Сид этим не трогается — у него и поле другое:
@@ -235,6 +258,7 @@ mod tests {
             "adventureLog",
             "history",
             "turn",
+            "facts",
             "seed",
             "rngState",
             "rngDraws",

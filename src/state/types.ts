@@ -291,6 +291,28 @@ export interface LogEntry {
   line: LogLine;
 }
 
+/** Откуда факт взялся (§4.6). Зеркало `FactSource` в `src-tauri/src/gm/facts.rs`. */
+export type FactSource = "oracle" | "exploration" | "event" | "master";
+
+/** Достоверность (§4.6). Шкалы в v0.1 нет намеренно — одно значение. */
+export type Certainty = "confirmed";
+
+/**
+ * Подтверждённый факт мира (§4.6).
+ *
+ * Пара «субъект + предикат» — личность факта: двух фактов с одной парой в
+ * состоянии не бывает, второе создание движок отклоняет (§6.3). Собирать факт
+ * на фронте нельзя — его создаёт команда движка.
+ */
+export interface Fact {
+  id: string;
+  subject: string;
+  predicate: string;
+  value: boolean;
+  source: FactSource;
+  certainty: Certainty;
+}
+
 /**
  * Курсор потока ГСЧ кампании (§22).
  *
@@ -309,7 +331,9 @@ export type Mutation =
   | ({ kind: "sceneCreated" } & SceneState)
   | { kind: "sceneEnded"; outcome: SceneOutcome; tension: number }
   | { kind: "logged"; id: string; turn: number; line: LogLine }
-  | ({ kind: "rngAdvanced" } & RngCursor);
+  | ({ kind: "rngAdvanced" } & RngCursor)
+  | ({ kind: "factCreated" } & Fact)
+  | { kind: "factUpdated"; id: string; value: boolean; source: FactSource };
 
 export interface Transaction {
   id: number;
@@ -352,6 +376,8 @@ export interface EngineState {
   /** Журнал транзакций — движку, наружу не показывается (§29.2). */
   history: Transaction[];
   turn: number;
+  /** Подтверждённые факты мира (§4.6) — показываются в панели «Активно». */
+  facts: Fact[];
   /** Сид кампании (§22). Ставится один раз при рождении движка и не меняется
    *  ничем; показывается на отладочном экране. Строкой — см. `RngCursor`. */
   seed: string;

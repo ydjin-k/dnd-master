@@ -8,6 +8,7 @@
 //! приватны, и единственный путь записи — `mutate::apply`. Это проверяет
 //! компилятор, а не ревью (ADR раздел 8, пункт 3).
 
+pub mod facts;
 pub mod history;
 pub mod mutate;
 pub mod result;
