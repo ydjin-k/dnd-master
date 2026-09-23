@@ -1,18 +1,19 @@
 import { describe, it, expect } from "vitest";
-import bundledSpells from "../../src-tauri/rules/spells.json";
 import { CLASS_SUBCLASSES } from "./characterCreationData";
+import { findCoverageGap, type EventTable } from "./eventTables/index";
 import {
   attemptWildMagicSurge,
   isWildMagicSorcerer,
   NO_WILD_MAGIC_TURN,
   rollWildMagicSurge,
+  WILD_MAGIC_DIE,
   WILD_MAGIC_PAYBACK_FEATURE,
   WILD_MAGIC_SUBCLASS_NAME,
   WILD_MAGIC_TABLE,
   WILD_MAGIC_TABLE_SIZE,
   WILD_MAGIC_TRIGGER_MAX,
   wildMagicTurnKey,
-  type WildMagicTone,
+  type WildMagicRow,
 } from "./wildMagicSurges";
 import type { CombatState } from "../state/types";
 
@@ -25,59 +26,83 @@ function fakeRandom(...values: number[]): () => number {
 /** Значение random(), дающее ровно этот результат к20 (d20 = floor(r × 20) + 1). */
 const d20Value = (d20: number) => (d20 - 1) / 20 + 0.001;
 
-/** Значение random(), дающее ровно эту строку таблицы (index = floor(r × 50)). */
-const rowValue = (roll: number) => (roll - 1) / WILD_MAGIC_TABLE_SIZE + 0.001;
+/** Значение random(), дающее ровно эту строку таблицы (roll = floor(r × 100) + 1). */
+const rowValue = (roll: number) => (roll - 1) / WILD_MAGIC_DIE + 0.001;
+
+/**
+ * Взгляд на таблицу дикой магии как на таблицу событий — чтобы покрытие кости
+ * проверял тот же `findCoverageGap`, а не вторая его копия здесь. Номер строки
+ * у нас не хранится (он и есть позиция плюс единица), поэтому диапазон строки
+ * строится из позиции.
+ */
+function asEventTable(rows: readonly WildMagicRow[]): EventTable {
+  return {
+    id: "wild-magic-surges",
+    name: "Всплески дикой магии",
+    group: "Магия",
+    die: WILD_MAGIC_DIE,
+    source: "Документ владельца, 23.09.2026",
+    rows: rows.map((row, i) => ({ from: i + 1, to: i + 1, text: row.text })),
+  };
+}
 
 describe("таблица дикой магии", () => {
-  it("ровно 50 строк, и все тексты разные", () => {
-    expect(WILD_MAGIC_TABLE_SIZE).toBe(50);
-    expect(new Set(WILD_MAGIC_TABLE.map((row) => row.text)).size).toBe(50);
+  it("кость d100, ровно 100 строк, и все тексты разные", () => {
+    expect(WILD_MAGIC_DIE).toBe(100);
+    expect(WILD_MAGIC_TABLE_SIZE).toBe(100);
+    expect(new Set(WILD_MAGIC_TABLE.map((row) => row.text)).size).toBe(100);
   });
 
-  it("распределение названо числом: 12 благоприятных, 18 вредных, 20 нейтральных", () => {
-    const count = (tone: WildMagicTone) => WILD_MAGIC_TABLE.filter((row) => row.tone === tone).length;
-    expect(count("boon")).toBe(12);
-    expect(count("bane")).toBe(18);
-    expect(count("neutral")).toBe(20);
-    expect(count("boon") + count("bane") + count("neutral")).toBe(WILD_MAGIC_TABLE_SIZE);
+  it("таблица закрывает свою кость без дыр и нахлёстов", () => {
+    expect(findCoverageGap(asEventTable(WILD_MAGIC_TABLE))).toBeNull();
   });
 
-  /** Сторож карточки: строка ссылается на заклинание по id, и этот id обязан существовать у нас. */
-  it("каждый id заклинания из таблицы есть в бандле spells.json", () => {
-    const ids = new Set(bundledSpells.map((s) => s.id));
-    const referenced = WILD_MAGIC_TABLE.map((row) => row.spellId).filter((id): id is string => !!id);
-    expect(referenced.length).toBe(11);
-    for (const id of referenced) {
-      expect(ids.has(id), `заклинание "${id}" отсутствует в spells.json`).toBe(true);
-    }
-  });
-
-  it("каждая строка — одно предложение и заканчивается точкой", () => {
+  it("каждая строка непустая, заканчивается точкой и короче 200 знаков", () => {
+    // Самая длинная строка документа владельца — 179 знаков (№87), запас 21.
     for (const row of WILD_MAGIC_TABLE) {
+      expect(row.text.length, row.text).toBeGreaterThan(0);
       expect(row.text.endsWith("."), row.text).toBe(true);
       expect(row.text.length, row.text).toBeLessThan(200);
     }
   });
+
+  // ── отрицательные пробы: страж покрытия обязан краснеть, а не молчать ─────
+
+  it("снятая строка краснеет и называет непокрытое число и кость", () => {
+    // Номер строки — это её позиция, поэтому снятие ЛЮБОЙ строки сдвигает
+    // хвост вверх, и непокрытым остаётся последнее число кости.
+    const short = WILD_MAGIC_TABLE.filter((_, i) => i !== 41);
+    expect(short.length).toBe(99);
+    const gap = findCoverageGap(asEventTable(short));
+    expect(gap).toContain("Всплески дикой магии");
+    expect(gap).toContain("100");
+    expect(gap).toContain("d100");
+  });
+
+  it("лишняя сто первая строка краснеет как вышедшая за кость", () => {
+    const long = [...WILD_MAGIC_TABLE, { text: "строка, которой на кости нет." }];
+    expect(findCoverageGap(asEventTable(long))).toContain("101");
+  });
 });
 
 describe("бросок по таблице", () => {
-  it("результат всегда в границах таблицы, даже на краях случайности", () => {
+  it("результат всегда в границах кости, даже на краях случайности", () => {
     expect(rollWildMagicSurge(fakeRandom(0)).roll).toBe(1);
-    expect(rollWildMagicSurge(fakeRandom(0.999999)).roll).toBe(WILD_MAGIC_TABLE_SIZE);
-    // random(), вернувшая ровно 1, за таблицу не выводит.
-    expect(rollWildMagicSurge(fakeRandom(1)).roll).toBe(WILD_MAGIC_TABLE_SIZE);
+    expect(rollWildMagicSurge(fakeRandom(0.999999)).roll).toBe(WILD_MAGIC_DIE);
+    // random(), вернувшая ровно 1, за кость не выводит.
+    expect(rollWildMagicSurge(fakeRandom(1)).roll).toBe(WILD_MAGIC_DIE);
     expect(rollWildMagicSurge(fakeRandom(-0.5)).roll).toBe(1);
   });
 
-  it("достижимы все 50 строк, и номер совпадает со строкой таблицы", () => {
+  it("достижимы все 100 строк, и номер совпадает со строкой таблицы", () => {
     const seen = new Set<number>();
-    for (let roll = 1; roll <= WILD_MAGIC_TABLE_SIZE; roll++) {
+    for (let roll = 1; roll <= WILD_MAGIC_DIE; roll++) {
       const surge = rollWildMagicSurge(fakeRandom(rowValue(roll)));
       expect(surge.roll).toBe(roll);
       expect(surge.text).toBe(WILD_MAGIC_TABLE[roll - 1].text);
       seen.add(surge.roll);
     }
-    expect(seen.size).toBe(WILD_MAGIC_TABLE_SIZE);
+    expect(seen.size).toBe(WILD_MAGIC_DIE);
   });
 });
 
@@ -168,10 +193,10 @@ describe("триггер всплеска", () => {
       circle: 1,
       turnKey: "3:3",
       turnState: first.turnState,
-      random: fakeRandom(d20Value(2), rowValue(50)),
+      random: fakeRandom(d20Value(2), rowValue(100)),
     });
     expect(nextTurn.attempt.kind).toBe("surge");
-    if (nextTurn.attempt.kind === "surge") expect(nextTurn.attempt.surge.roll).toBe(50);
+    if (nextTurn.attempt.kind === "surge") expect(nextTurn.attempt.surge.roll).toBe(100);
   });
 
   it("вне боя ходов нет, и бросок идёт на каждое заклинание", () => {

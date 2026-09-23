@@ -72,9 +72,9 @@ import {
   attemptWildMagicSurge,
   isWildMagicSorcerer,
   NO_WILD_MAGIC_TURN,
+  WILD_MAGIC_DIE,
   WILD_MAGIC_PAYBACK_FEATURE,
   WILD_MAGIC_PAYBACK_RESOURCE_ID,
-  WILD_MAGIC_TABLE_SIZE,
   wildMagicTurnKey,
   type WildMagicSurge,
   type WildMagicTurnState,
@@ -1759,7 +1759,7 @@ function CharacterCard({
           {lastSurge && (
             <p className="character-card__spell-group">
               <strong>
-                Дикий всплеск ({lastSurge.surge.roll}/{WILD_MAGIC_TABLE_SIZE}):
+                Дикий всплеск ({lastSurge.surge.roll}/{WILD_MAGIC_DIE}):
               </strong>{" "}
               <span className="character-card__spell-info">{lastSurge.surge.text}</span>
               {lastSurge.payback > 0 && (

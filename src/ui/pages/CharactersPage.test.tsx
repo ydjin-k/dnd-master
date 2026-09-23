@@ -5,7 +5,7 @@ import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testi
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
-import { WILD_MAGIC_TABLE, WILD_MAGIC_TABLE_SIZE } from "../wildMagicSurges";
+import { WILD_MAGIC_DIE, WILD_MAGIC_TABLE } from "../wildMagicSurges";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => []) }));
@@ -1665,7 +1665,7 @@ describe("CharactersPage", () => {
         const char = wildSorcerer({ featureUses: [{ featureId: "sorcery-points", usesCurrent: 1 }] });
         await castWith(char);
 
-        expect(screen.getByText(`Дикий всплеск (1/${WILD_MAGIC_TABLE_SIZE}):`)).toBeInTheDocument();
+        expect(screen.getByText(`Дикий всплеск (1/${WILD_MAGIC_DIE}):`)).toBeInTheDocument();
         expect(screen.getByText(WILD_MAGIC_TABLE[0].text)).toBeInTheDocument();
         // Половина уровня чародея округляя вверх: 6 → 3.
         expect(screen.getByText(/Расплата за всплеск: \+3 к очкам чар/)).toBeInTheDocument();
