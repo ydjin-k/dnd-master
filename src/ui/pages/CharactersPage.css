@@ -591,3 +591,10 @@
 .characters-page__error {
   color: var(--dm-danger);
 }
+
+/* Отказ движка в броске безумия: раскладку ряда держит .character-card__add-row. */
+.character-card__madness-error {
+  flex-basis: 100%;
+  color: var(--dm-danger);
+  font-size: 0.85em;
+}

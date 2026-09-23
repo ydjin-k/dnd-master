@@ -79,10 +79,22 @@ import {
   type WildMagicSurge,
   type WildMagicTurnState,
 } from "../wildMagicSurges";
+import {
+  MADNESS_MAX_LEVEL,
+  MADNESS_ROLL_EXPRESSION,
+  madnessEffectLines,
+  madnessLevelOf,
+  madnessTable,
+  nextMadnessLevel,
+  parseMadnessCondition,
+  readMadnessRules,
+  withMadness,
+  type MadnessRules,
+} from "../madness";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
-import type { AbilityScores, Character, Coins, RuleTopic, Spell } from "../../state/types";
+import type { AbilityScores, Character, Coins, RollResult, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
@@ -255,6 +267,7 @@ function CharacterCard({
   character: c,
   spells,
   conditionEffects,
+  madness,
   classHitDiceByTitle,
   raceHpBonusByTitle,
   raceTraitsByTitle,
@@ -265,6 +278,8 @@ function CharacterCard({
   character: Character;
   spells: Spell[];
   conditionEffects: Record<string, string[]>;
+  /** Раздел «Безумие» из rules.json; null — справочник не загрузился, тогда безумие просто не предлагается. */
+  madness: MadnessRules | null;
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
   raceTraitsByTitle: Record<string, RaceTrait[]>;
@@ -307,6 +322,10 @@ function CharacterCard({
   // пишется: это намерение перед нажатием, а не состояние персонажа. Предел
   // считает не оно, а spellSlots.ts — здесь лежит только набранное.
   const [slotsToRestore, setSlotsToRestore] = useState<Record<number, string>>({});
+  // Безумие: бросок идёт в движок и может не вернуться. Оба поля живут в листе,
+  // а не в персонаже, — в сейв уходит только выпавшее, подписью состояния.
+  const [madnessRolling, setMadnessRolling] = useState(false);
+  const [madnessError, setMadnessError] = useState<string | null>(null);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -399,6 +418,48 @@ function CharacterCard({
 
   function removeCondition(condition: string) {
     onUpdate((ch) => ({ ...ch, conditions: ch.conditions.filter((cond) => cond !== condition) }));
+  }
+
+  /**
+   * «Уровень безумия +1»: поднимает персонажа на следующую ступень нашей
+   * лестницы и бросает по ТОЙ таблице SRD, которая этой ступени отвечает.
+   * Бросок идёт кубиком движка (`roll_dice`), а не своим генератором, — как
+   * и бросок по таблицам событий.
+   *
+   * Повышение перебрасывает эффект заново: у долгосрочного безумия своя
+   * таблица, и переносить в неё выпавшее на краткосрочной было бы подлогом.
+   */
+  async function raiseMadness() {
+    if (!madness || madnessRolling) return;
+    const level = nextMadnessLevel(c.conditions);
+    if (level === null) return;
+    const table = madnessTable(madness, level);
+    if (!table) return;
+    setMadnessRolling(true);
+    setMadnessError(null);
+    try {
+      const effect = await invoke<RollResult>("roll_dice", { expression: MADNESS_ROLL_EXPRESSION });
+      const duration = table.duration
+        ? await invoke<RollResult>("roll_dice", { expression: table.duration.expression })
+        : null;
+      const rolled = { level, roll: effect.total, durationRoll: duration?.total ?? null };
+      onUpdate((ch) => ({ ...ch, conditions: withMadness(ch.conditions, rolled) }));
+    } catch (e) {
+      setMadnessError(String(e));
+    } finally {
+      setMadnessRolling(false);
+    }
+  }
+
+  /**
+   * Строки под состоянием. У безумия они собираются по выпавшим числам из
+   * подписи, у всех прочих состояний — берутся из готовой карты SRD: текст
+   * безумия зависит от броска, и заранее разложить его по именам нельзя.
+   */
+  function conditionEffectLinesFor(condition: string): string[] | undefined {
+    const rolled = parseMadnessCondition(condition);
+    if (rolled) return madness ? madnessEffectLines(madness, rolled) : undefined;
+    return conditionEffects[condition];
   }
 
   function spellName(id: string): string {
@@ -1629,23 +1690,26 @@ function CharacterCard({
         <div className="character-card__conditions-hint">{CONDITIONS_GENERAL_HINT}</div>
         {c.conditions.length > 0 && (
           <ul className="character-card__condition-list">
-            {c.conditions.map((condition) => (
-              <li key={condition}>
-                <div className="character-card__condition-row">
-                  <span className="dm-pill dm-pill--important">{condition}</span>{" "}
-                  <button type="button" onClick={() => removeCondition(condition)}>
-                    ✕
-                  </button>
-                </div>
-                {conditionEffects[condition] && (
-                  <ul className="character-card__condition-effect">
-                    {conditionEffects[condition].map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
+            {c.conditions.map((condition) => {
+              const effectLines = conditionEffectLinesFor(condition);
+              return (
+                <li key={condition}>
+                  <div className="character-card__condition-row">
+                    <span className="dm-pill dm-pill--important">{condition}</span>{" "}
+                    <button type="button" onClick={() => removeCondition(condition)}>
+                      ✕
+                    </button>
+                  </div>
+                  {effectLines && (
+                    <ul className="character-card__condition-effect">
+                      {effectLines.map((line, i) => (
+                        <li key={i}>{line}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         <div className="character-card__add-row">
@@ -1665,6 +1729,21 @@ function CharacterCard({
             Добавить
           </button>
         </div>
+        {madness && (
+          <div className="character-card__add-row">
+            <button
+              type="button"
+              onClick={raiseMadness}
+              disabled={madnessRolling || nextMadnessLevel(c.conditions) === null}
+            >
+              Безумие +1
+            </button>
+            <span className="character-card__hint">
+              Уровень безумия: {madnessLevelOf(c.conditions)} из {MADNESS_MAX_LEVEL}. {madness.resistance}
+            </span>
+            {madnessError && <span className="character-card__madness-error">Бросок не удался: {madnessError}</span>}
+          </div>
+        )}
       </details>
 
       {isSpellcaster && (
@@ -2002,6 +2081,7 @@ export function CharactersPage() {
   const [spells, setSpells] = useState<Spell[]>([]);
   const [presets, setPresets] = useState<CharacterPreset[]>([]);
   const [conditionEffects, setConditionEffects] = useState<Record<string, string[]>>({});
+  const [madness, setMadness] = useState<MadnessRules | null>(null);
   const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
   const [raceTraitsByTitle, setRaceTraitsByTitle] = useState<Record<string, RaceTrait[]>>({});
@@ -2019,6 +2099,7 @@ export function CharactersPage() {
         // Все три extract* обходят список — пустой список здесь честнее взрыва.
         const topics = loaded ?? [];
         setConditionEffects(extractConditionEffects(topics));
+        setMadness(readMadnessRules(topics));
         setClassHitDiceByTitle(extractClassHitDice(topics));
         setRaceHpBonusByTitle(extractRaceHpBonus(topics));
         setRaceTraitsByTitle(extractRaceTraits(topics));
@@ -2052,6 +2133,7 @@ export function CharactersPage() {
             character={c}
             spells={spells}
             conditionEffects={conditionEffects}
+            madness={madness}
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
             raceTraitsByTitle={raceTraitsByTitle}

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import bundledSpells from "../../../src-tauri/rules/spells.json";
+import bundledRules from "../../../src-tauri/rules/rules.json";
 import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
@@ -2767,6 +2768,108 @@ describe("CharactersPage", () => {
 
       await screen.findByText("Герой");
       expect(screen.queryByText(/Расовые особенности/)).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Безумие: наша лестница 1-2-3 поверх трёх таблиц SRD. Раздел справочника
+   * берётся НАСТОЯЩИЙ (rules.json → additional-rules-madness), а не выдуманный
+   * под пробу: иначе проба скармливала бы себе проверяемое.
+   */
+  describe("безумие на листе", () => {
+    const MADNESS_TOPIC = (bundledRules as RuleTopic[]).find((t) => t.id === "additional-rules-madness") as RuleTopic;
+
+    /** Движок бросает к100 и к10; проба подменяет только выпавшее. */
+    function rollingD100(d100: number, d10: number) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown, args?: unknown) => {
+        if (cmd === "get_rules") return [MADNESS_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "roll_dice") {
+          const expression = (args as { expression: string }).expression;
+          return { expression, rolls: [], modifier: 0, total: expression === "1d100" ? d100 : d10, dropped: null };
+        }
+        return [];
+      });
+    }
+
+    async function raise(char: Character): Promise<Character> {
+      // Каждая ступень поднимается со свежего листа: два рендера подряд в одном
+      // документе оставили бы на экране обе карточки и проба сверяла бы не то.
+      cleanup();
+      updateCharacter.mockClear();
+      mockState = baseState({ characters: [char] });
+      const { rerender } = render(<CharactersPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Безумие +1" }));
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+      const calls = updateCharacter.mock.calls;
+      const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+      const next = updater(char);
+      mockState = baseState({ characters: [next] });
+      rerender(<CharactersPage />);
+      return next;
+    }
+
+    it("«Безумие +1» бросает к100 движком и вешает состояние с эффектом SRD и длительностью в минутах", async () => {
+      rollingD100(7, 6);
+      const after = await raise(characterWithInventory());
+
+      // 7 попадает в верхний диапазон 01-20 краткосрочной таблицы — то самое
+      // место, где к100 с диапазонами отличается от плоской кости.
+      expect(after.conditions).toEqual(["Безумие (ур. 1, к100 7, 1к10 6)"]);
+      expect(invoke).toHaveBeenCalledWith("roll_dice", { expression: "1d100" });
+      expect(invoke).toHaveBeenCalledWith("roll_dice", { expression: "1d10" });
+      expect(await screen.findByText(/уходит в себя и становится парализованным/)).toBeInTheDocument();
+      expect(screen.getByText("Краткосрочное безумие, бросок к100: 7 (диапазон 1–20).")).toBeInTheDocument();
+      expect(screen.getByText("Длительность: 6 минут (1к10: 6).")).toBeInTheDocument();
+      expect(screen.getByText(/Лечение:.*Умиротворение/)).toBeInTheDocument();
+    });
+
+    it("повышение до второй ступени перебрасывает по долгосрочной таблице, а длительность становится часами", async () => {
+      rollingD100(7, 6);
+      const first = await raise(characterWithInventory());
+      rollingD100(57, 9);
+      const second = await raise(first);
+
+      expect(second.conditions).toEqual(["Безумие (ур. 2, к100 57, 1к10 9)"]);
+      expect(await screen.findByText(/Долгосрочное безумие, бросок к100: 57/)).toBeInTheDocument();
+      expect(screen.getByText("Длительность: 90 часов (1к10: 9 × 10).")).toBeInTheDocument();
+      // Эффект перебросился по СВОЕЙ таблице, а не переехал с краткосрочной.
+      expect(screen.queryByText(/уходит в себя и становится парализованным/)).not.toBeInTheDocument();
+    });
+
+    it("выше третьей ступени лестница не идёт: кнопка не жмётся, длительности у бессрочного нет", async () => {
+      rollingD100(100, 1);
+      const char = { ...characterWithInventory(), conditions: ["Безумие (ур. 3, к100 100)"] };
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      expect(await screen.findByRole("button", { name: "Безумие +1" })).toBeDisabled();
+      expect(screen.getByText(/Уровень безумия: 3 из 3/)).toBeInTheDocument();
+      expect(screen.getByText("Длительность: до тех пор, пока безумие не будет излечено.")).toBeInTheDocument();
+    });
+
+    it("состояние снимается той же кнопкой, что и прочие, — таймера у него нет", async () => {
+      rollingD100(7, 6);
+      const char = { ...characterWithInventory(), conditions: ["Безумие (ур. 1, к100 7, 1к10 6)"] };
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/уходит в себя/);
+
+      const item = screen.getByText("Безумие (ур. 1, к100 7, 1к10 6)").closest("li") as HTMLElement;
+      fireEvent.click(within(item).getByText("✕"));
+      const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+      expect(updater(char).conditions).toEqual([]);
+    });
+
+    it("старое сохранение без безумия открывается как раньше: уровень 0, прочие состояния целы", async () => {
+      rollingD100(7, 6);
+      const char = { ...characterWithInventory(), conditions: ["Ослеплённое", "Истощение (ур. 3)"] };
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+
+      expect(await screen.findByText(/не может видеть/)).toBeInTheDocument();
+      expect(screen.getByText("Помеха на проверки характеристик.")).toBeInTheDocument();
+      expect(screen.getByText(/Уровень безумия: 0 из 3/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Безумие +1" })).toBeEnabled();
     });
   });
 });
