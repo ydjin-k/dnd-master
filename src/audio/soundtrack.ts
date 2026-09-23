@@ -92,6 +92,9 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["village.mp3", "Деревня"],
     ["city.mp3", "Звуки города"],
     ["thunderclap.mp3", "Раскат грома"],
+    ["underwater.mp3", "Под водой"],
+    ["bell.mp3", "Звук колокола"],
+    ["war-horn.mp3", "Боевой рог"],
   ]],
   ["horrors", "Ужасы", [
     ["ghost-scare.mp3", "Призрак пугает"],
