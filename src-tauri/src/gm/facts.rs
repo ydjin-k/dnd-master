@@ -64,7 +64,7 @@ pub struct Fact {
 /// `Door_03.Locked` стали бы двумя фактами об одном и том же, то есть ровно тем
 /// противоречием, от которого §6.3 и написан. Правило живёт здесь одно, и
 /// поиск, и создание зовут его.
-fn key(text: &str) -> String {
+pub(super) fn key(text: &str) -> String {
     text.trim().to_lowercase()
 }
 

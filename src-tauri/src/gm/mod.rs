@@ -11,6 +11,7 @@
 pub mod facts;
 pub mod history;
 pub mod mutate;
+pub mod oracle;
 pub mod result;
 pub mod rng;
 pub mod scene;

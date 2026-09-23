@@ -334,6 +334,27 @@ fn gm_update_fact(
     })
 }
 
+/// Спросить Оракула (§6).
+///
+/// `question` — текст для журнала, и в решении он не участвует: §29.2 прямо
+/// запрещает зависеть от его разбора. Вопрос адресуется парой «субъект +
+/// предикат» — той же, которой адресуется факт, потому что Оракул именно факт
+/// и разрешает. Вероятность выбирает мастер из шкалы §6.1 (§30 ASSISTED GM);
+/// считать её по тегам — это §31/§43 и версия 0.3.
+#[tauri::command]
+fn gm_ask_oracle(
+    app: AppHandle,
+    question: String,
+    subject: String,
+    predicate: String,
+    probability: u8,
+    modifier: i8,
+) -> Result<GmResponse, String> {
+    gm_command(&app, |campaign| {
+        gm::oracle::ask(campaign, question, subject, predicate, probability, modifier)
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -365,7 +386,8 @@ pub fn run() {
             gm_create_scene,
             gm_end_scene,
             gm_create_fact,
-            gm_update_fact
+            gm_update_fact,
+            gm_ask_oracle
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

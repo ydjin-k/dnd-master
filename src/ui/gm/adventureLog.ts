@@ -1,4 +1,4 @@
-import type { LogLine, SceneOutcome } from "../../state/types";
+import type { LogLine, OracleOutcome, SceneOutcome } from "../../state/types";
 
 /**
  * Русская строка лога приключения по записи движка.
@@ -19,6 +19,18 @@ const OUTCOME_TEXT: Record<SceneOutcome, string> = {
   worse: "Положение ухудшилось",
 };
 
+const ORACLE_OUTCOME_TEXT: Record<OracleOutcome, string> = {
+  strongYes: "ДА, и более того",
+  yes: "ДА",
+  no: "НЕТ",
+  strongNo: "НЕТ, и хуже того",
+};
+
+/** Подпись исхода Оракула — из того же места, что и строка лога. */
+export function oracleOutcomeLabel(outcome: OracleOutcome): string {
+  return ORACLE_OUTCOME_TEXT[outcome];
+}
+
 export function adventureLogText(line: LogLine): string {
   switch (line.kind) {
     case "sceneStarted":
@@ -32,6 +44,18 @@ export function adventureLogText(line: LogLine): string {
         `${OUTCOME_TEXT[line.outcome]}. ` +
         `Напряжение ${line.tensionBefore} → ${line.tensionAfter}.`
       );
+    case "oracleAnswered": {
+      // Броска не было — говорим об этом прямо. Признак приходит из движка
+      // (`roll === null`), а не выводится здесь из чего-то косвенного.
+      const how =
+        line.roll === null
+          ? "ответ из уже известного факта, бросок не выполнялся"
+          : `бросок ${line.roll} при вероятности ${line.probability}`;
+      return (
+        `Оракул: «${line.question}» → ${oracleOutcomeLabel(line.outcome)}. ` +
+        `${line.subject}.${line.predicate} = ${line.value ? "да" : "нет"} (${how}).`
+      );
+    }
   }
 }
 

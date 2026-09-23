@@ -3,16 +3,24 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ScenePage } from "./ScenePage";
 import type { CampaignState, EngineState } from "../../state/types";
 
-const { gmCreateScene, gmEndScene, gmCreateFact, gmUpdateFact } = vi.hoisted(() => ({
+const { gmCreateScene, gmEndScene, gmCreateFact, gmUpdateFact, gmAskOracle } = vi.hoisted(() => ({
   gmCreateScene: vi.fn(),
   gmEndScene: vi.fn(),
   gmCreateFact: vi.fn(),
   gmUpdateFact: vi.fn(),
+  gmAskOracle: vi.fn(),
 }));
 
 let mockState: CampaignState;
 vi.mock("../../state/CampaignContext", () => ({
-  useCampaign: () => ({ state: mockState, gmCreateScene, gmEndScene, gmCreateFact, gmUpdateFact }),
+  useCampaign: () => ({
+    state: mockState,
+    gmCreateScene,
+    gmEndScene,
+    gmCreateFact,
+    gmUpdateFact,
+    gmAskOracle,
+  }),
 }));
 
 function stateWith(engine: EngineState | null): CampaignState {
@@ -66,6 +74,7 @@ beforeEach(() => {
   gmEndScene.mockReset();
   gmCreateFact.mockReset();
   gmUpdateFact.mockReset();
+  gmAskOracle.mockReset();
   mockState = stateWith(null);
 });
 
@@ -194,5 +203,63 @@ describe("панель «Активно»", () => {
 
     expect(gmUpdateFact).toHaveBeenCalledWith("door_03", "locked", false);
     expect(gmCreateFact).not.toHaveBeenCalled();
+  });
+});
+
+describe("форма Оракула", () => {
+  /**
+   * Вопрос уезжает намерением: текст, пара «субъект + предикат», вероятность
+   * из шкалы §6.1 и модификатор §6.4. Ни исхода, ни броска, ни вероятности,
+   * посчитанной на фронте, в аргументах нет — решает движок.
+   */
+  it("отправляет текст, пару, вероятность и модификатор", () => {
+    mockState = stateWith(activeEngine());
+    render(<ScenePage />);
+
+    fireEvent.change(screen.getByLabelText("Вопрос"), { target: { value: "Дверь заперта?" } });
+    fireEvent.change(screen.getByLabelText("Субъект вопроса"), { target: { value: "door_03" } });
+    fireEvent.change(screen.getByLabelText("Предикат вопроса"), { target: { value: "locked" } });
+    fireEvent.click(screen.getByLabelText("70 — вероятно"));
+    fireEvent.change(screen.getByLabelText("Модификатор"), { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+
+    expect(gmAskOracle).toHaveBeenCalledWith("Дверь заперта?", "door_03", "locked", 70, 1);
+  });
+
+  it("предлагает ровно пять вероятностей шкалы §6.1 и пять модификаторов §6.4", () => {
+    mockState = stateWith(activeEngine());
+    render(<ScenePage />);
+
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    for (const percent of [10, 30, 50, 70, 90]) {
+      expect(screen.getByRole("radio", { name: new RegExp(`^${percent} — `) })).toBeInTheDocument();
+    }
+    const modifiers = screen.getByLabelText("Модификатор") as HTMLSelectElement;
+    expect(modifiers.options).toHaveLength(5);
+    expect(modifiers.value).toBe("0");
+  });
+
+  it("показывает ответ Оракула строкой лога, а не своим состоянием", () => {
+    const engine = activeEngine();
+    engine.adventureLog = [
+      {
+        id: "log-oracle",
+        turn: 2,
+        line: {
+          kind: "oracleAnswered",
+          question: "Дверь заперта?",
+          subject: "door_03",
+          predicate: "locked",
+          probability: 70,
+          roll: null,
+          outcome: "yes",
+          value: true,
+        },
+      },
+    ];
+    mockState = stateWith(engine);
+    render(<ScenePage />);
+
+    expect(screen.getByText(/бросок не выполнялся/)).toBeInTheDocument();
   });
 });

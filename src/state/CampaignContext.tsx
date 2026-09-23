@@ -46,6 +46,13 @@ interface CampaignContextValue {
   gmEndScene: (outcome: SceneOutcome) => Promise<ResultObject | null>;
   gmCreateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
   gmUpdateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
+  gmAskOracle: (
+    question: string,
+    subject: string,
+    predicate: string,
+    probability: number,
+    modifier: number,
+  ) => Promise<ResultObject | null>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -282,6 +289,19 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       runGmAction("gm_update_fact", { subject, predicate, value }),
     [runGmAction],
   );
+  // Вопрос уезжает ТЕКСТОМ и парой «субъект + предикат». Текст — для человека,
+  // решает пара: §29.2 запрещает зависеть от разбора формулировки, и фронт её
+  // тоже не разбирает — он её просто везёт.
+  const gmAskOracle = useCallback(
+    (
+      question: string,
+      subject: string,
+      predicate: string,
+      probability: number,
+      modifier: number,
+    ) => runGmAction("gm_ask_oracle", { question, subject, predicate, probability, modifier }),
+    [runGmAction],
+  );
 
   const startCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
@@ -338,6 +358,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         gmEndScene,
         gmCreateFact,
         gmUpdateFact,
+        gmAskOracle,
       }}
     >
       {children}

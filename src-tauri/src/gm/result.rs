@@ -9,10 +9,9 @@ use crate::model::CampaignState;
 
 use super::mutate::Mutation;
 
-/// Один бросок в объяснении ответа (§33). В этой карточке список всегда пуст:
-/// ни создание, ни завершение сцены не бросают кубик, а ГСЧ движка приезжает
-/// своей карточкой (`gm/rng.rs`). Поле заведено сразу, чтобы форма ответа была
-/// одна на все команды, а не «почти одна».
+/// Один бросок в объяснении ответа (§33). Заполняет его тот, кто бросал:
+/// у сцены список пуст, у Оракула — один бросок `1d100`, а у ответа из факта
+/// он пуст СНОВА, и это утверждение, а не пропуск (§6.3).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RollTrace {
@@ -60,6 +59,13 @@ impl ResultObject {
 
     pub fn with_changes(mut self, changes: Vec<Mutation>) -> Self {
         self.state_changes = changes;
+        self
+    }
+
+    /// Броски, которыми объясняется ответ. Пустой список — не «забыли
+    /// заполнить», а утверждение: бросков не было (§6.3).
+    pub fn with_rolls(mut self, rolls: Vec<RollTrace>) -> Self {
+        self.rolls = rolls;
         self
     }
 

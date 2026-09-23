@@ -274,6 +274,9 @@ export interface SceneState {
  * владеет тем, что произошло, интерфейс — тем, как это звучит по-русски.
  * Иначе одна и та же фраза жила бы в Rust и в TS сразу.
  */
+/** Четыре исхода Оракула (§6.2). Зеркало `Outcome` в `src-tauri/src/gm/oracle.rs`. */
+export type OracleOutcome = "strongYes" | "yes" | "no" | "strongNo";
+
 export type LogLine =
   | { kind: "sceneStarted"; location: string; objective: string; tension: number }
   | {
@@ -283,6 +286,19 @@ export type LogLine =
       outcome: SceneOutcome;
       tensionBefore: number;
       tensionAfter: number;
+    }
+  | {
+      kind: "oracleAnswered";
+      /** Текст мастера. Хранится для человека, в решении не участвует (§29.2). */
+      question: string;
+      subject: string;
+      predicate: string;
+      /** Итоговая вероятность после модификатора (§6.4). */
+      probability: number;
+      /** `null` — броска НЕ БЫЛО, ответ пришёл из факта (§6.3). */
+      roll: number | null;
+      outcome: OracleOutcome;
+      value: boolean;
     };
 
 export interface LogEntry {

@@ -19,6 +19,24 @@ import "./ScenePage.css";
 
 const OUTCOMES: SceneOutcome[] = ["calmer", "unchanged", "worse"];
 
+/** Шкала §6.1 целиком — мастер выбирает из неё, а не называет свой процент. */
+const PROBABILITIES = [
+  { percent: 10, label: "почти невозможно" },
+  { percent: 30, label: "маловероятно" },
+  { percent: 50, label: "равные шансы" },
+  { percent: 70, label: "вероятно" },
+  { percent: 90, label: "почти наверняка" },
+];
+
+/** Модификаторы §6.4. Шаг двигает категорию, а не прибавляет проценты. */
+const MODIFIERS = [
+  { steps: -2, label: "сильно против" },
+  { steps: -1, label: "против" },
+  { steps: 0, label: "нейтрально" },
+  { steps: 1, label: "в пользу" },
+  { steps: 2, label: "сильно в пользу" },
+];
+
 export function ScenePage() {
   const { state, gmEndScene, gmUpdateFact } = useCampaign();
   const engine = state.engine;
@@ -29,6 +47,7 @@ export function ScenePage() {
     <section className="scene-page">
       <h2>Сцена</h2>
       {active ? <ActiveScene /> : <NewSceneForm />}
+      <OracleForm />
       <ActivePanel />
       <AdventureLog />
     </section>
@@ -118,6 +137,103 @@ export function ScenePage() {
   function nameOf(id: string): string {
     return state.characters.find((c) => c.id === id)?.name ?? id;
   }
+}
+
+/**
+ * Спросить Оракула (§29.2).
+ *
+ * Вероятность выбирает мастер из шкалы §6.1 — приложение её не угадывает
+ * (§30 ASSISTED GM; §31 Confidence и §43 AUTO GM — это v0.3). Текст вопроса
+ * уезжает как есть и в решении не участвует: ни один символ его здесь не
+ * разбирается, а вопрос адресуется парой «субъект + предикат».
+ *
+ * Ответ показывать этой форме нечем и незачем: он приходит строкой в лог
+ * приключения ниже, а вся арифметика — на отладочном экране (§38).
+ */
+function OracleForm() {
+  const { gmAskOracle } = useCampaign();
+  const [question, setQuestion] = useState("");
+  const [subject, setSubject] = useState("");
+  const [predicate, setPredicate] = useState("");
+  const [probability, setProbability] = useState(50);
+  const [modifier, setModifier] = useState(0);
+
+  return (
+    <form
+      className="scene-page__oracle"
+      onSubmit={(e) => {
+        e.preventDefault();
+        gmAskOracle(question, subject, predicate, probability, modifier);
+        setQuestion("");
+      }}
+    >
+      <h3>Спросить Оракула</h3>
+      <label>
+        Вопрос
+        <input
+          value={question}
+          placeholder="Дверь заперта?"
+          onChange={(e) => setQuestion(e.currentTarget.value)}
+        />
+      </label>
+      <p className="dm-hint">
+        Текст — для журнала: движок решает по паре «субъект + предикат», а не по
+        формулировке (§29.2).
+      </p>
+      <label>
+        Субъект вопроса
+        <input
+          value={subject}
+          placeholder="door_03"
+          onChange={(e) => setSubject(e.currentTarget.value)}
+        />
+      </label>
+      <label>
+        Предикат вопроса
+        <input
+          value={predicate}
+          placeholder="locked"
+          onChange={(e) => setPredicate(e.currentTarget.value)}
+        />
+      </label>
+      <fieldset className="scene-page__probability">
+        <legend>Вероятность</legend>
+        {PROBABILITIES.map(({ percent, label }) => (
+          <label key={percent}>
+            <input
+              type="radio"
+              name="oracle-probability"
+              value={percent}
+              checked={probability === percent}
+              onChange={() => setProbability(percent)}
+            />
+            {percent} — {label}
+          </label>
+        ))}
+      </fieldset>
+      <label>
+        Модификатор
+        <select
+          value={modifier}
+          onChange={(e) => setModifier(Number(e.currentTarget.value))}
+        >
+          {MODIFIERS.map(({ steps, label }) => (
+            <option key={steps} value={steps}>
+              {steps > 0 ? `+${steps}` : steps} — {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="dm-hint">Шаг двигает категорию на одну позицию, а не проценты (§6.4).</p>
+      <button
+        type="submit"
+        className="dm-button--primary"
+        disabled={subject.trim() === "" || predicate.trim() === ""}
+      >
+        Бросить
+      </button>
+    </form>
+  );
 }
 
 /**

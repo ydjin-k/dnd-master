@@ -10,6 +10,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::facts::Fact;
 use super::mutate::{Transaction, WritePermit};
+use super::oracle::Outcome;
 use super::rng::{self, RngCursor};
 use super::scene::{SceneOutcome, SceneState};
 
@@ -58,6 +59,23 @@ pub enum LogLine {
         outcome: SceneOutcome,
         tension_before: u8,
         tension_after: u8,
+    },
+    /// Ответ Оракула (§6, §29.2).
+    ///
+    /// `question` — текст мастера, он тут только хранится: логика от него не
+    /// зависит (§29.2), и решает пара «субъект + предикат».
+    ///
+    /// `roll: None` — **броска не было, ответ пришёл из факта (§6.3)**. Второго
+    /// поля вроде `from_fact` намеренно нет: один факт — один владелец, а два
+    /// поля об одном и том же однажды разойдутся.
+    OracleAnswered {
+        question: String,
+        subject: String,
+        predicate: String,
+        probability: u8,
+        roll: Option<u8>,
+        outcome: Outcome,
+        value: bool,
     },
 }
 

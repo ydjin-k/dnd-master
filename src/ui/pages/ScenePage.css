@@ -81,3 +81,22 @@
   align-items: flex-end;
   gap: 0.5rem;
 }
+
+.scene-page__oracle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.scene-page__probability {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.scene-page__probability label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+}
