@@ -52,6 +52,9 @@ function activeEngine(): EngineState {
     ],
     history: [],
     turn: 1,
+    seed: "481922",
+    rngState: "481922",
+    rngDraws: "0",
   };
 }
 

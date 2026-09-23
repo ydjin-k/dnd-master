@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::history;
+use super::rng::RngCursor;
 use super::scene::{SceneOutcome, SceneState, SceneStatus, TENSION_MAX, TENSION_MIN};
 use super::state::{EngineState, LogEntry};
 
@@ -40,6 +41,10 @@ pub enum Mutation {
     /// Строка лога приключения. Едет той же очередью, что и решение, — иначе
     /// лог разойдётся с состоянием, которое описывает (§29.2).
     Logged(LogEntry),
+    /// Продвижение потока ГСЧ (§22). Едет той же очередью, что и решение,
+    /// которое бросало: иначе съеденные числа остались бы в состоянии после
+    /// отклонённой очереди, и кампания перестала бы повторяться с того же сида.
+    RngAdvanced(RngCursor),
 }
 
 /// Транзакция (§35): что за действие, на каком ходу и чем оно изменило
@@ -114,6 +119,19 @@ pub fn validate(state: &EngineState, mutation: &Mutation) -> Result<(), String> 
         // имеет: её содержимое — типизированный `LogLine`, а не свободный
         // текст, проверять в нём нечего.
         Mutation::Logged(_) => Ok(()),
+        // Поток ГСЧ идёт только вперёд. Откат означал бы, что уже выданные
+        // числа будут выданы второй раз, — то же противоречие игроку, от
+        // которого §6.3 запрещает переспрашивать Оракула.
+        Mutation::RngAdvanced(cursor) => {
+            let current = state.rng_cursor();
+            if cursor.draws <= current.draws {
+                return Err(format!(
+                    "поток ГСЧ идёт только вперёд: обращений {} → {} (§22)",
+                    current.draws, cursor.draws
+                ));
+            }
+            Ok(())
+        }
     }
 }
 
@@ -153,6 +171,7 @@ pub fn apply(
                 scene.tension = *tension;
             }
             Mutation::Logged(entry) => draft.push_log(&permit, entry.clone()),
+            Mutation::RngAdvanced(cursor) => draft.advance_rng(&permit, *cursor),
         }
     }
 

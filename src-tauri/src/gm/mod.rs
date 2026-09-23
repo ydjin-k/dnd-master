@@ -11,6 +11,7 @@
 pub mod history;
 pub mod mutate;
 pub mod result;
+pub mod rng;
 pub mod scene;
 pub mod state;
 

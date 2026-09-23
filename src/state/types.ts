@@ -291,11 +291,25 @@ export interface LogEntry {
   line: LogLine;
 }
 
+/**
+ * Курсор потока ГСЧ кампании (§22).
+ *
+ * Числа СТРОКАМИ, и это не небрежность: `u64` в Rust больше, чем точное целое
+ * в JavaScript, и число в JSON потеряло бы младшие разряды — то есть отладочный
+ * экран показал бы не то состояние, с которым бросал движок. Считать их здесь
+ * нечем и не нужно: они только показываются.
+ */
+export interface RngCursor {
+  state: string;
+  draws: string;
+}
+
 /** Типизированное изменение состояния (§33 без строковых путей). */
 export type Mutation =
   | ({ kind: "sceneCreated" } & SceneState)
   | { kind: "sceneEnded"; outcome: SceneOutcome; tension: number }
-  | { kind: "logged"; id: string; turn: number; line: LogLine };
+  | { kind: "logged"; id: string; turn: number; line: LogLine }
+  | ({ kind: "rngAdvanced" } & RngCursor);
 
 export interface Transaction {
   id: number;
@@ -338,6 +352,13 @@ export interface EngineState {
   /** Журнал транзакций — движку, наружу не показывается (§29.2). */
   history: Transaction[];
   turn: number;
+  /** Сид кампании (§22). Ставится один раз при рождении движка и не меняется
+   *  ничем; показывается на отладочном экране. Строкой — см. `RngCursor`. */
+  seed: string;
+  /** Состояние потока ГСЧ. Двигает только `gm/rng.rs`. */
+  rngState: string;
+  /** Сколько обращений к ГСЧ уже было — «обращение №14» на отладке. */
+  rngDraws: string;
 }
 
 /** Что возвращает команда движка: состояние для показа и ответ для объяснения. */

@@ -187,6 +187,9 @@ describe("CampaignContext и команды движка", () => {
       adventureLog: [],
       history: [],
       turn: 1,
+      seed: "481922",
+      rngState: "481922",
+      rngDraws: "0",
     },
   };
 

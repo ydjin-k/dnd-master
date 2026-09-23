@@ -85,9 +85,22 @@ fn parse(expr: &str) -> Result<ParsedExpr, String> {
     })
 }
 
-fn roll_set(count: i32, sides: i32) -> Vec<i32> {
-    let mut rng = rand::thread_rng();
+/// Набор кубиков с ВНЕШНИМ источником случайности.
+///
+/// Разведение появилось ради §22: движку мастера нужен ГСЧ кампании
+/// (`gm/rng.rs`), а грамматика выражения обязана остаться одна и живёт здесь.
+/// Поэтому наружу вынесен не разбор, а сам источник: владелец грамматики —
+/// по-прежнему этот файл, владелец случайности — тот, кто передал `rng`.
+fn roll_set_with<R: Rng + ?Sized>(count: i32, sides: i32, rng: &mut R) -> Vec<i32> {
     (0..count).map(|_| rng.gen_range(1..=sides)).collect()
+}
+
+/// Броски приложения — вкладка «Кубики», характеристики, бой — как и раньше на
+/// `thread_rng`. На ГСЧ кампании они НЕ переводятся: граница названа в ADR 0001
+/// (раздел 6, «про размер карточки 3»), и следствие признано честно — «тот же
+/// сид — тот же результат» не покрывает боевую часть.
+fn roll_set(count: i32, sides: i32) -> Vec<i32> {
+    roll_set_with(count, sides, &mut rand::thread_rng())
 }
 
 /// Классический метод генерации характеристик: 4к6, отбросить наименьший
@@ -123,13 +136,27 @@ pub fn roll_ability_scores() -> Vec<AbilityScoreRoll> {
 }
 
 pub fn roll_expression(expr: &str) -> Result<RollResult, String> {
+    roll_expression_with(expr, &mut rand::thread_rng())
+}
+
+/// То же выражение и тот же разбор, но случайность приходит снаружи.
+///
+/// Это единственная дверь, через которую бросает движок мастера (`gm/rng.rs`):
+/// второй грамматики выражения в проекте нет и быть не должно — `parse`
+/// остаётся приватной, а `roll_expression` выше зовёт ровно это тело со своим
+/// `thread_rng`. Владельцев два, и они разные: грамматика — здесь, случайность —
+/// у вызывающего.
+pub fn roll_expression_with<R: Rng + ?Sized>(
+    expr: &str,
+    rng: &mut R,
+) -> Result<RollResult, String> {
     let parsed = parse(expr)?;
 
     let (rolls, dropped) = match parsed.mode {
-        RollMode::Normal => (roll_set(parsed.count, parsed.sides), None),
+        RollMode::Normal => (roll_set_with(parsed.count, parsed.sides, rng), None),
         RollMode::Advantage | RollMode::Disadvantage => {
-            let a = roll_set(parsed.count, parsed.sides);
-            let b = roll_set(parsed.count, parsed.sides);
+            let a = roll_set_with(parsed.count, parsed.sides, rng);
+            let b = roll_set_with(parsed.count, parsed.sides, rng);
             let sum_a: i32 = a.iter().sum();
             let sum_b: i32 = b.iter().sum();
             let take_a = match parsed.mode {
