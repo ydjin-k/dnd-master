@@ -270,11 +270,6 @@ fn load_active_locked(base: &Path) -> Result<Option<CampaignState>, String> {
     load_active_in(base)
 }
 
-fn save_campaign_locked(base: &Path, state: &CampaignState) -> Result<(), String> {
-    let _guard = STORAGE_LOCK.lock().unwrap();
-    save_campaign_in(base, state)
-}
-
 fn list_campaigns_locked(base: &Path) -> Result<Vec<CampaignSummary>, String> {
     let _guard = STORAGE_LOCK.lock().unwrap();
     list_campaigns_in(base)
@@ -335,9 +330,13 @@ pub fn load_active(app: &AppHandle) -> Result<Option<CampaignState>, String> {
     load_active_locked(&app_data_dir(app)?)
 }
 
-pub fn save_campaign(app: &AppHandle, state: &CampaignState) -> Result<(), String> {
-    save_campaign_locked(&app_data_dir(app)?, state)
-}
+// Записи целого документа наружу из `storage` больше нет: обёртки
+// `save_campaign` (`AppHandle`) и `save_campaign_locked` сняты вместе с
+// последним вызовом — боевые команды ушли на `with_active_locked`. Целый
+// документ пишет только `save_campaign_in` внутри этого файла, и только там,
+// где терять нечего: миграция старого файла (`migrate_legacy_if_needed`),
+// создание новой кампании (`create_campaign_in`) и сам
+// `with_active_locked_in` под удержанием замка.
 
 pub fn save_front_owned(app: &AppHandle, fields: FrontOwnedFields) -> Result<(), String> {
     save_front_owned_in(&app_data_dir(app)?, fields).map(|_| ())
@@ -956,4 +955,122 @@ mod tests {
         assert_eq!(engine.history().len(), 1);
         assert_eq!(after.journal.len(), 1, "а дневник, которым фронт владеет, записан");
     }
+
+    /// engine-combat-commands-read-write-window — ГЛАВНАЯ проба карточки.
+    ///
+    /// Сценарий целиком из жизни: в окне идёт бой, мастер параллельно создаёт
+    /// сцену движком. Боевая команда успела прочитать документ ДО сцены —
+    /// и её запись не имеет права положить свой снимок поверх.
+    ///
+    /// Проба стоит на уровне `storage`, а не команд: тело команды требует
+    /// `AppHandle`, которого в тестах нет, поэтому здесь воспроизведена ровно
+    /// та последовательность вызовов, которой ходит команда — сначала прежняя
+    /// (два захвата), потом нынешняя (`with_active_locked_in`).
+    ///
+    /// Отрицательная половина выполняется здесь же, а не описана словами:
+    /// первый блок — это прежняя форма боевой команды, и он ТЕРЯЕТ сцену.
+    /// Если он однажды перестанет её терять, значит окна нет и в двух захватах
+    /// — и проба перестала проверять то, ради чего написана.
+    #[test]
+    fn engine_write_inside_the_window_is_lost_by_two_locks_and_survives_under_one() {
+        let scene = |state: &mut CampaignState| {
+            crate::gm::scene::create_scene(
+                state,
+                "Подземный зал".into(),
+                "Найти выход".into(),
+                vec![],
+                vec![],
+            )
+            .map(|_| ())
+        };
+
+        // ── отрицательная половина: прежняя форма, два захвата с окном ──
+        let base = temp_dir("combat-two-locks");
+        let created = create_campaign_in(&base, "Поход".into()).unwrap();
+        let mut with_combat = created.clone();
+        with_combat.combat = Some(combat_in_progress());
+        save_campaign_in(&base, &with_combat).unwrap();
+
+        let mut snapshot = load_active_in(&base).unwrap().unwrap(); // ← чтение боя
+        with_active_locked_in(&base, scene).unwrap(); //              ← движок в окне
+        crate::combat::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-0", 1).unwrap();
+        save_campaign_in(&base, &snapshot).unwrap(); //               ← запись боя целым документом
+
+        let after = load_active_in(&base).unwrap().unwrap();
+        assert!(
+            after.engine.is_none(),
+            "два захвата обязаны терять сцену — иначе эта проба ничего не проверяет"
+        );
+
+        // ── нынешняя форма: чтение, мутация и запись под одним удержанием ──
+        let base = temp_dir("combat-one-lock");
+        let created = create_campaign_in(&base, "Поход".into()).unwrap();
+        let mut with_combat = created.clone();
+        with_combat.combat = Some(combat_in_progress());
+        save_campaign_in(&base, &with_combat).unwrap();
+
+        with_active_locked_in(&base, scene).unwrap();
+        with_active_locked_in(&base, |state| {
+            let combat = state.combat.as_mut().ok_or("бой не начат")?;
+            crate::combat::apply_damage(combat, "monster-wolf-0", 1)
+        })
+        .unwrap();
+
+        let after = load_active_in(&base).unwrap().unwrap();
+        let engine = after.engine.expect("сцена движка обязана уцелеть: бой ей не владеет");
+        assert_eq!(engine.scene().expect("сцена на месте").location, "Подземный зал");
+        assert_eq!(engine.history().len(), 1, "история движка не должна откатиться");
+        // И ровно то, чем владеет бой, записано — иначе окно закрыли отказом
+        // от записи.
+        let combat = after.combat.expect("бой обязан уцелеть");
+        assert_eq!(combat.combatants[0].current_hp, 3, "урон боя должен лечь на диск");
+        assert_eq!(combat.round, 3, "ход боя не должен откатиться");
+    }
+
+    /// Та же пара, но в двух потоках: наблюдаемое поведение из критериев
+    /// тестирования — после хода боя сцена на месте, после создания сцены бой
+    /// не откатился, в каком бы порядке замок их ни пропустил.
+    #[test]
+    fn combat_and_engine_writes_in_parallel_both_survive() {
+        let base = temp_dir("combat-engine-parallel");
+        let created = create_campaign_in(&base, "Поход".into()).unwrap();
+        let mut with_combat = created.clone();
+        with_combat.combat = Some(combat_in_progress());
+        save_campaign_in(&base, &with_combat).unwrap();
+
+        let base_combat = base.clone();
+        let base_engine = base.clone();
+        let combat_thread = std::thread::spawn(move || {
+            with_active_locked_in(&base_combat, |state| {
+                let combat = state.combat.as_mut().ok_or("бой не начат")?;
+                crate::combat::apply_damage(combat, "monster-wolf-0", 1)
+            })
+        });
+        let engine_thread = std::thread::spawn(move || {
+            with_active_locked_in(&base_engine, |state| {
+                crate::gm::scene::create_scene(
+                    state,
+                    "Подземный зал".into(),
+                    "Найти выход".into(),
+                    vec![],
+                    vec![],
+                )
+                .map(|_| ())
+            })
+        });
+        combat_thread.join().unwrap().unwrap();
+        engine_thread.join().unwrap().unwrap();
+
+        let after = load_active_in(&base).unwrap().unwrap();
+        assert_eq!(
+            after.engine.expect("сцена обязана уцелеть").scene().unwrap().location,
+            "Подземный зал"
+        );
+        assert_eq!(
+            after.combat.expect("бой обязан уцелеть").combatants[0].current_hp,
+            3,
+            "урон боя не должен быть затёрт записью движка"
+        );
+    }
+
 }
