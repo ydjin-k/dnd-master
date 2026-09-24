@@ -17,10 +17,6 @@ use spells::Spell;
 use storage::CampaignSummary;
 use tauri::AppHandle;
 
-fn active(app: &AppHandle) -> Result<CampaignState, String> {
-    storage::load_active(app)?.ok_or_else(|| "нет активной кампании".to_string())
-}
-
 #[tauri::command]
 fn load_active_campaign(app: AppHandle) -> Result<Option<CampaignState>, String> {
     storage::load_active(&app)
@@ -102,14 +98,28 @@ fn get_character_presets(app: AppHandle) -> Result<Vec<Character>, String> {
     characters::load_character_presets(&app)
 }
 
+// ── боевые команды ───────────────────────────────────────────────────────────
+//
+// Владелец записи боевого состояния — сама боевая команда, и тело каждой из
+// них ходит ОДНИМ вызовом `storage::with_active_locked`: чтение с диска,
+// мутация и запись под одним удержанием замка.
+//
+// Раньше здесь было два захвата — `active(&app)` на чтение и
+// `storage::save_campaign(&app, &state)` на запись целого документа, — и между
+// ними оставалось окно. Команда движка, попавшая внутрь окна, записывала свой
+// `engine`, а идущая за ней запись боя ложилась поверх снимком, снятым ДО неё,
+// и работа движка исчезала. Это тот же класс, что запись 136 в `tasks/DONE.md`
+// и карточка 138, только последний путь, где он оставался.
+
 #[tauri::command]
 fn start_combat(
     app: AppHandle,
     monster_ids: Vec<String>,
     character_ids: Vec<String>,
 ) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-
+    // Бестиарий — ресурс приложения, а не кампании: читается ДО взятия замка,
+    // тем же порядком, что заклинания в `combat_cast_spell`. Под замком
+    // остаётся только работа с документом кампании.
     let bestiary = combat::load_bestiary(&app)?;
     let monsters: Vec<MonsterTemplate> = monster_ids
         .iter()
@@ -121,74 +131,72 @@ fn start_combat(
                 .ok_or_else(|| format!("монстр {id:?} не найден в бестиарии"))
         })
         .collect::<Result<_, String>>()?;
-    let characters: Vec<model::Character> = character_ids
-        .iter()
-        .map(|id| {
-            state
-                .characters
-                .iter()
-                .find(|c| &c.id == id)
-                .cloned()
-                .ok_or_else(|| format!("персонаж {id:?} не найден"))
-        })
-        .collect::<Result<_, String>>()?;
 
-    state.combat = Some(combat::start_combat(&monsters, &characters)?);
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let characters: Vec<model::Character> = character_ids
+            .iter()
+            .map(|id| {
+                state
+                    .characters
+                    .iter()
+                    .find(|c| &c.id == id)
+                    .cloned()
+                    .ok_or_else(|| format!("персонаж {id:?} не найден"))
+            })
+            .collect::<Result<_, String>>()?;
+
+        state.combat = Some(combat::start_combat(&monsters, &characters)?);
+        Ok(())
+    })
 }
 
 #[tauri::command]
 fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::move_combatant(combat_state, &combatant_id, x, y)?;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+        combat::move_combatant(combat_state, &combatant_id, x, y)
+    })
 }
 
 #[tauri::command]
 fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::attack(combat_state, &attacker_id, &target_id)?;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+        combat::attack(combat_state, &attacker_id, &target_id)
+    })
 }
 
 #[tauri::command]
 fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::apply_damage(combat_state, &target_id, delta)?;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+        combat::apply_damage(combat_state, &target_id, delta)
+    })
 }
 
 #[tauri::command]
 fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::end_turn(combat_state)?;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+        combat::end_turn(combat_state)
+    })
 }
 
 #[tauri::command]
 fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::monster_auto_turn(combat_state)?;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
+        combat::monster_auto_turn(combat_state)?;
+        Ok(())
+    })
 }
 
 #[tauri::command]
 fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
-    let mut state = active(&app)?;
-    state.combat = None;
-    storage::save_campaign(&app, &state)?;
-    Ok(state)
+    storage::with_active_locked(&app, |state| {
+        state.combat = None;
+        Ok(())
+    })
 }
 
 /// Владелец списания ячейки заклинания: `combat::cast_spell` не видит `Character`
