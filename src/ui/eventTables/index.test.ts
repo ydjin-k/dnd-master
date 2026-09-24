@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
+import bundledBestiary from "../../../src-tauri/bestiary/bestiary.json";
+import bundledOwnCreatures from "../../../src-tauri/bestiary/own-creatures.json";
 import bundledSpells from "../../../src-tauri/rules/spells.json";
 import {
   EVENT_TABLES,
   TABLE_GROUPS,
   findCoverageGap,
   findTable,
+  nextTables,
   rollExpression,
   rowForRoll,
   type EventTable,
@@ -57,6 +60,89 @@ describe("таблицы генератора событий", () => {
         }
       }
     }
+  });
+
+  // ── ссылки на бестиарий ───────────────────────────────────────────────────
+
+  /**
+   * Существа, на которые строка вправе сослаться: оба файла бестиария.
+   *
+   * Берутся настоящие файлы, а не фикстура. Ссылка со строки — это обещание
+   * поднять с неё настоящий бой, и проверять его по выдуманному списку значило
+   * бы проверять не то: ломается оно ровно тогда, когда из бестиария уезжает
+   * существо, а строка про это не знает.
+   */
+  const KNOWN_MONSTERS = new Set(
+    [...bundledBestiary, ...bundledOwnCreatures].map((monster) => monster.id),
+  );
+
+  /** Первая ссылка таблицы на несуществующее существо, иначе null. */
+  function findUnknownMonster(table: EventTable): string | null {
+    for (const row of table.rows) {
+      for (const id of row.monsterIds ?? []) {
+        if (!KNOWN_MONSTERS.has(id)) {
+          return `${table.id} → строка ${row.from}: существа «${id}» в бестиарии нет`;
+        }
+      }
+    }
+    return null;
+  }
+
+  it("строка, ставящая существо на стол, называет существующий id бестиария", () => {
+    const broken = EVENT_TABLES.map(findUnknownMonster).filter((hit) => hit !== null);
+    expect(broken).toEqual([]);
+  });
+
+  it("ссылка на несуществующее существо краснеет и называет место", () => {
+    // Отрицательная проба: без неё зелёный цвет предыдущей ничего не значит.
+    const table = findTable("underdark-traders")!;
+    const broken = withRows(
+      table,
+      table.rows.map((row) =>
+        row.from === 4 ? { ...row, monsterIds: ["rybolyud-kotorogo-net"] } : row,
+      ),
+    );
+    const hit = findUnknownMonster(broken);
+    expect(hit).toContain("строка 4");
+    expect(hit).toContain("rybolyud-kotorogo-net");
+  });
+
+  // ── распределитель: строка, посылающая бросок дальше ──────────────────────
+
+  it("строка посылает бросок только в существующую таблицу", () => {
+    for (const table of EVENT_TABLES) {
+      for (const row of table.rows) {
+        for (const id of row.rollTableIds ?? []) {
+          expect(findTable(id), `${table.id} → строка ${row.from}: таблица "${id}"`).toBeDefined();
+        }
+        // Круг замкнул бы цепочку броска на себе и подвесил генератор.
+        expect(row.rollTableIds ?? []).not.toContain(table.id);
+      }
+    }
+  });
+
+  it("распределитель Подземья шлёт в обе таблицы, и порядок звеньев — его", () => {
+    const check = findTable("underdark-encounter-check")!;
+    expect(check.die).toBe(20);
+    expect(nextTables(rowForRoll(check, 1)!)).toEqual([]);
+    expect(nextTables(rowForRoll(check, 14)!).map((t) => t.id)).toEqual([
+      "underdark-terrain-encounters",
+    ]);
+    expect(nextTables(rowForRoll(check, 16)!).map((t) => t.id)).toEqual([
+      "underdark-creature-encounters",
+    ]);
+    // «И то, и другое» — ДВА результата, местность первой: один смешанный
+    // соврал бы про исходник, где столкновения тоже два.
+    expect(nextTables(rowForRoll(check, 18)!).map((t) => t.id)).toEqual([
+      "underdark-terrain-encounters",
+      "underdark-creature-encounters",
+    ]);
+  });
+
+  it("правило двух проверок в день видно игроку, а не спрятано в комментарии", () => {
+    const check = findTable("underdark-encounter-check")!;
+    expect(check.sourceNote).toContain("ДВЕ проверки");
+    expect(check.sourceNote).toContain("привал");
   });
 
   // ── отрицательные пробы: страж обязан краснеть, а не молчать ──────────────

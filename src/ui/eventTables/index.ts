@@ -19,6 +19,7 @@ import { TABLES as settlementEvents } from "./settlementEvents";
 import { TABLES as thievesGuildQuests } from "./thievesGuildQuests";
 import { TABLES as trapsAndPuzzles } from "./trapsAndPuzzles";
 import { TABLES as travelEvents } from "./travelEvents";
+import { TABLES as underdarkCreatureEncounters } from "./underdarkCreatureEncounters";
 import { TABLES as underdarkEvents } from "./underdarkEvents";
 import { TABLES as underdarkTerrainEncounters } from "./underdarkTerrainEncounters";
 import { TABLES as underwaterEvents } from "./underwaterEvents";
@@ -45,8 +46,9 @@ export const EVENT_TABLES: readonly EventTable[] = [
   ...magicMushrooms, ...plotTwists, ...pocketTrinkets, ...questHooks,
   ...randomEvents, ...resurrectionSideEffects, ...riddles, ...roadEncounters,
   ...secretSocieties, ...settlementEvents, ...thievesGuildQuests,
-  ...trapsAndPuzzles, ...travelEvents, ...underdarkEvents,
-  ...underdarkTerrainEncounters, ...underwaterEvents, ...waterEvents,
+  ...trapsAndPuzzles, ...travelEvents, ...underdarkCreatureEncounters,
+  ...underdarkEvents, ...underdarkTerrainEncounters, ...underwaterEvents,
+  ...waterEvents,
   ...weaponRunes,
 ].sort(
   (a, b) =>
@@ -57,6 +59,23 @@ export const EVENT_TABLES: readonly EventTable[] = [
 
 export function findTable(id: string): EventTable | undefined {
   return EVENT_TABLES.find((table) => table.id === id);
+}
+
+/**
+ * Таблицы, в которые строка посылает бросок дальше, в порядке строки.
+ *
+ * Неизвестный `id` сюда не попадёт: его ловит проба «строка не посылает в
+ * несуществующую таблицу». Молча пропускать его здесь — значит превратить
+ * опечатку в тихо исчезнувший результат, поэтому владелец решения один и
+ * он — проба, а не эта функция.
+ */
+export function nextTables(row: EventTableRow): readonly EventTable[] {
+  const found: EventTable[] = [];
+  for (const id of row.rollTableIds ?? []) {
+    const table = findTable(id);
+    if (table) found.push(table);
+  }
+  return found;
 }
 
 /** Выражение броска для `roll_dice`: кость берётся у таблицы, а не у кода. */
