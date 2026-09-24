@@ -598,3 +598,18 @@
   color: var(--dm-danger);
   font-size: 0.85em;
 }
+
+/*
+ * Поле текущих хитов в плитке HP: единственное место, где игрок правит хиты
+ * руками (combat-damage-reaches-character-sheet). Ширина — под три цифры,
+ * чтобы плитка осталась плиткой; высота 44px не трогается, она тут общая
+ * норма нажимаемой цели, и соседние плитки тянутся до неё вместе с этой.
+ */
+.character-card__hp-input {
+  width: 3.6em;
+  padding: 0.2em 0.35em;
+  font-family: var(--dm-font-display);
+  font-size: 1em;
+  font-weight: 700;
+  text-align: center;
+}

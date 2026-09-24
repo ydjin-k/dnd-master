@@ -1850,6 +1850,51 @@ mod bestiary_cache_tests {
     }
 }
 
+/// Готовый стат-блок для проб. Живёт на уровне модуля, а не внутри `mod
+/// tests`: тем же волком пользуются пробы `lib.rs` — там проверяется, что бой
+/// не пишет в лист персонажа, и заводить второй такой же литерал значило бы
+/// развести два шаблона, которые обязаны совпадать.
+#[cfg(test)]
+pub(crate) fn test_monster_template(id: &str) -> MonsterTemplate {
+    MonsterTemplate {
+        id: id.into(),
+        name: id.into(),
+        origin: MonsterOrigin::Srd,
+        max_hp: 11,
+        hit_dice: "2d8+2".into(),
+        armor_class: 13,
+        speed_feet: 40,
+        attack_bonus: Some(4),
+        damage_dice: Some("2d4+2".into()),
+        challenge_rating: "1/4".into(),
+        creature_type: "зверь".into(),
+        size: "Средний".into(),
+        description: String::new(),
+        abilities: AbilityScores {
+            strength: 12,
+            dexterity: 15,
+            constitution: 12,
+            intelligence: 3,
+            wisdom: 12,
+            charisma: 6,
+        },
+        passive_perception: 13,
+        saving_throws: None,
+        skills: None,
+        damage_vulnerabilities: None,
+        damage_resistances: None,
+        damage_immunities: None,
+        condition_immunities: None,
+        senses: None,
+        languages: None,
+        traits: vec![],
+        actions: vec![],
+        reactions: None,
+        legendary_actions: None,
+        image_asset: None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1863,46 +1908,6 @@ mod tests {
             current_hp: hp,
             armor_class: ac,
             ..Default::default()
-        }
-    }
-
-    fn monster_template(id: &str) -> MonsterTemplate {
-        MonsterTemplate {
-            id: id.into(),
-            name: id.into(),
-            origin: MonsterOrigin::Srd,
-            max_hp: 11,
-            hit_dice: "2d8+2".into(),
-            armor_class: 13,
-            speed_feet: 40,
-            attack_bonus: Some(4),
-            damage_dice: Some("2d4+2".into()),
-            challenge_rating: "1/4".into(),
-            creature_type: "зверь".into(),
-            size: "Средний".into(),
-            description: String::new(),
-            abilities: AbilityScores {
-                strength: 12,
-                dexterity: 15,
-                constitution: 12,
-                intelligence: 3,
-                wisdom: 12,
-                charisma: 6,
-            },
-            passive_perception: 13,
-            saving_throws: None,
-            skills: None,
-            damage_vulnerabilities: None,
-            damage_resistances: None,
-            damage_immunities: None,
-            condition_immunities: None,
-            senses: None,
-            languages: None,
-            traits: vec![],
-            actions: vec![],
-            reactions: None,
-            legendary_actions: None,
-            image_asset: None,
         }
     }
 
@@ -1967,7 +1972,7 @@ mod tests {
 
     #[test]
     fn start_combat_rolls_initiative_for_everyone() {
-        let monsters = vec![monster_template("wolf")];
+        let monsters = vec![test_monster_template("wolf")];
         let characters = vec![character("pc1", 20, 15)];
 
         let state = start_combat(&monsters, &characters).unwrap();
@@ -1981,7 +1986,7 @@ mod tests {
     #[test]
     fn start_combat_requires_both_sides() {
         assert!(start_combat(&[], &[character("pc1", 10, 10)]).is_err());
-        assert!(start_combat(&[monster_template("wolf")], &[]).is_err());
+        assert!(start_combat(&[test_monster_template("wolf")], &[]).is_err());
     }
 
     #[test]
