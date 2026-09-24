@@ -3,7 +3,7 @@ import bundledSpells from "../../../src-tauri/rules/spells.json";
 import bundledRules from "../../../src-tauri/rules/rules.json";
 import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { CharactersPage, truncateDescription, classFeaturesBlockHasContent } from "./CharactersPage";
+import { CharactersPage, truncateDescription, classFeaturesBlockHasContent, clampCurrentHp } from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
 import { WILD_MAGIC_DIE, WILD_MAGIC_TABLE } from "../wildMagicSurges";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
@@ -383,6 +383,98 @@ describe("CharactersPage", () => {
     expect(within(stats).getAllByRole("definition")).toHaveLength(6);
     expect(within(card).queryByText(/Инвентарь/)).not.toBeInTheDocument();
     expect(within(card).queryByText(/Классовые особенности/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Ручная правка хитов на листе (combat-damage-reaches-character-sheet).
+   * Владелец `currentHp` один и это игрок: бой в лист не пишет, хиты игрок
+   * уменьшает сам — прямой правкой числа в плитке HP.
+   */
+  describe("текущие хиты правит игрок руками", () => {
+    /** Поле хитов и то, что в персонаже после последней правки. */
+    function hpField() {
+      return screen.getByLabelText("Текущие хиты: Герой") as HTMLInputElement;
+    }
+
+    function lastUpdate(start: Character): Character {
+      const calls = updateCharacter.mock.calls;
+      const updater = calls[calls.length - 1][1] as (c: Character) => Character;
+      return updater(start);
+    }
+
+    it("игрок уменьшает хиты прямой правкой числа, и правка уезжает в персонажа сразу", () => {
+      const hero = characterWithInventory(); // maxHp 10, currentHp 10
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+
+      expect(hpField().value).toBe("10");
+      fireEvent.change(hpField(), { target: { value: "3" } });
+
+      // Сразу, без отдельного «Применить»: у соседних полей листа его нет.
+      expect(updateCharacter).toHaveBeenCalledTimes(1);
+      expect(updateCharacter.mock.calls[0][0]).toBe("hero");
+      expect(lastUpdate(hero).currentHp).toBe(3);
+    });
+
+    it("ниже нуля хиты не уходят: набранное «-4» становится нулём", () => {
+      const hero = characterWithInventory();
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+
+      fireEvent.change(hpField(), { target: { value: "-4" } });
+
+      expect(lastUpdate(hero).currentHp).toBe(0);
+      // Показанное не расходится с записанным.
+      expect(hpField().value).toBe("0");
+    });
+
+    it("выше максимума хиты не уходят: набранное «99» становится maxHp", () => {
+      const hero = characterWithInventory();
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+
+      fireEvent.change(hpField(), { target: { value: "99" } });
+
+      expect(lastUpdate(hero).currentHp).toBe(10);
+      expect(hpField().value).toBe("10");
+    });
+
+    it("пустое поле в персонажа не пишется, а уход из него возвращает прежнее число", () => {
+      const hero = characterWithInventory();
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+
+      fireEvent.change(hpField(), { target: { value: "" } });
+
+      // Стереть число, чтобы набрать новое, — не то же самое, что «ноль хитов».
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(hpField().value).toBe("");
+
+      fireEvent.blur(hpField());
+      expect(hpField().value).toBe("10");
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("хиты на листе переживают перезапуск: правка уходит в сохраняемого персонажа целиком", () => {
+      const hero = characterWithInventory();
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+
+      fireEvent.change(hpField(), { target: { value: "4" } });
+      const saved = lastUpdate(hero);
+
+      // Ровно этот объект уезжает в `save_campaign` через updateCharacter —
+      // тронут только currentHp, остальной лист цел.
+      expect(saved.currentHp).toBe(4);
+      expect(saved.maxHp).toBe(10);
+      expect(saved.inventory).toEqual(hero.inventory);
+
+      // Перезапуск = загрузка сохранённого персонажа заново.
+      mockState = baseState({ characters: [saved] });
+      cleanup();
+      render(<CharactersPage />);
+      expect(hpField().value).toBe("4");
+    });
   });
 
   it("spending 3 of 5 torches updates the tracked quantity, not just removes one", async () => {
@@ -2995,5 +3087,29 @@ describe("classFeaturesBlockHasContent", () => {
 
   it("an empty damageResistances array still counts as nothing granted", () => {
     expect(classFeaturesBlockHasContent({ ...empty, damageResistances: [] })).toBe(false);
+  });
+});
+
+describe("clampCurrentHp", () => {
+  it("оставляет число внутри предела как есть", () => {
+    expect(clampCurrentHp(7, 12)).toBe(7);
+  });
+
+  it("не пускает хиты ниже нуля, и ноль — разрешённое значение", () => {
+    expect(clampCurrentHp(-4, 12)).toBe(0);
+    expect(clampCurrentHp(0, 12)).toBe(0);
+  });
+
+  it("не пускает хиты выше максимума", () => {
+    expect(clampCurrentHp(99, 12)).toBe(12);
+    expect(clampCurrentHp(12, 12)).toBe(12);
+  });
+
+  it("хиты целые: дробное отбрасывается к меньшему по модулю", () => {
+    expect(clampCurrentHp(5.7, 12)).toBe(5);
+  });
+
+  it("неразобранное число не роняет лист, а читается как ноль", () => {
+    expect(clampCurrentHp(Number.NaN, 12)).toBe(0);
   });
 });

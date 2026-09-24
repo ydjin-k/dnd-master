@@ -191,12 +191,24 @@ fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
     })
 }
 
+/// Завершение боя: боевое состояние выбрасывается целиком — и ничего из него
+/// НЕ переезжает в листы персонажей.
+///
+/// `Combatant.current_hp` — рабочая копия на время боя, а владелец
+/// `Character.current_hp` один, и это игрок: урон, полученный в бою, он
+/// переносит на лист сам, когда сочтёт нужным (решение владельца 24.09.2026,
+/// карточка `combat-damage-reaches-character-sheet`). Раньше тут напрашивался
+/// автоматический перенос — он отменён, и вернуть его молча нельзя: тело
+/// команды вынесено сюда отдельной функцией ровно затем, чтобы проба
+/// `combat_damage_never_reaches_the_character_sheet` держала его за руку.
+fn end_combat_action(state: &mut CampaignState) -> Result<(), String> {
+    state.combat = None;
+    Ok(())
+}
+
 #[tauri::command]
 fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        state.combat = None;
-        Ok(())
-    })
+    storage::with_active_locked(&app, end_combat_action)
 }
 
 /// Владелец списания ячейки заклинания: `combat::cast_spell` не видит `Character`
@@ -522,5 +534,91 @@ mod tests {
         cast_spell_action(&mut state, "pc", &spell, None).unwrap();
 
         assert_eq!(state.characters[0].spell_slots_current[0], 1);
+    }
+
+    /// ОТРИЦАТЕЛЬНАЯ проба: бой ранил персонажа и кончился — на листе те же
+    /// хиты, с какими персонаж в бой вошёл.
+    ///
+    /// Это ожидаемый исход, а не дефект: владелец 24.09.2026 решил, что хиты
+    /// на листе уменьшает сам игрок, вручную (карточка
+    /// `combat-damage-reaches-character-sheet`). Проба стоит сторожем на этом
+    /// решении — она обязана покраснеть, если кто-нибудь когда-нибудь вернёт
+    /// автоматический перенос хитов из боя в лист.
+    #[test]
+    fn combat_damage_never_reaches_the_character_sheet() {
+        let mut state = CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "Герой".into(),
+                max_hp: 12,
+                current_hp: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let monsters = vec![combat::test_monster_template("wolf")];
+
+        state.combat = Some(combat::start_combat(&monsters, &state.characters).unwrap());
+        combat::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
+
+        // В бою урон дошёл — рабочая копия бойца его получила.
+        let in_combat = state
+            .combat
+            .as_ref()
+            .unwrap()
+            .combatants
+            .iter()
+            .find(|c| c.id == "pc")
+            .unwrap();
+        assert_eq!(in_combat.current_hp, 5, "боец в бою обязан получить урон");
+
+        end_combat_action(&mut state).unwrap();
+
+        assert!(state.combat.is_none(), "бой закончился — боевого состояния нет");
+        assert_eq!(
+            state.characters[0].current_hp, 12,
+            "лист персонажа бой НЕ правит: хиты уменьшает сам игрок, вручную"
+        );
+        assert_eq!(state.characters[0].max_hp, 12);
+    }
+
+    /// Обратное направление той же границы: урон, нанесённый монстру, боя не
+    /// переживает, а шаблон бестиария не трогается вовсе — монстр в бестиарии
+    /// запись-образец, а не существо со своей судьбой.
+    #[test]
+    fn monster_damage_dies_with_the_combat_and_never_touches_the_bestiary_template() {
+        let mut state = CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "Герой".into(),
+                max_hp: 12,
+                current_hp: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let monsters = vec![combat::test_monster_template("wolf")];
+        let template_hp_before = monsters[0].max_hp;
+
+        state.combat = Some(combat::start_combat(&monsters, &state.characters).unwrap());
+        let monster_id = state
+            .combat
+            .as_ref()
+            .unwrap()
+            .combatants
+            .iter()
+            .find(|c| c.is_monster)
+            .unwrap()
+            .id
+            .clone();
+        combat::apply_damage(state.combat.as_mut().unwrap(), &monster_id, 4).unwrap();
+
+        end_combat_action(&mut state).unwrap();
+
+        assert!(state.combat.is_none(), "раненого волка после боя больше нет нигде");
+        assert_eq!(
+            monsters[0].max_hp, template_hp_before,
+            "шаблон бестиария урон не запоминает"
+        );
     }
 }

@@ -186,6 +186,22 @@ export function truncateDescription(text: string, max = 90): string {
 }
 
 /**
+ * Предел текущих хитов, набранных игроком вручную: ниже нуля и выше максимума
+ * они не уходят. Ноль разрешён и означает ровно «ноль хитов» — спасбросков от
+ * смерти в приложении пока нет, и эта карточка их не заводит
+ * (combat-damage-reaches-character-sheet).
+ *
+ * Дробное число поле ввода пропустить может («5.7» набирается посимвольно),
+ * а хиты целые — отсюда `Math.trunc`. Неразобранное значение сюда не доходит:
+ * его отсеивает вызывающий, потому что «поле пусто» и «хитов ноль» — разные
+ * вещи, и пустое поле в персонажа писать нечем.
+ */
+export function clampCurrentHp(value: number, maxHp: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(maxHp, Math.trunc(value)));
+}
+
+/**
  * Блок «Особенности класса» обязан открыться, если ЛЮБОЙ из этих грантов есть
  * что показать — не только текстовые `classFeatures`/`classResources`/
  * `classScaling`. Раньше условие проверяло только эти три, и архетип, дающий
@@ -291,6 +307,13 @@ function CharacterCard({
   const [newItemName, setNewItemName] = useState("");
   const [newCondition, setNewCondition] = useState("");
   const [xpInput, setXpInput] = useState("");
+  // Черновик поля текущих хитов. `null` — поле показывает то, что в персонаже;
+  // строка — игрок набирает прямо сейчас. Нужен ровно ради одного мгновения:
+  // чтобы стереть «10» и набрать «3», поле должно побыть пустым, а в персонаже
+  // пустоты нет — писать туда «ничего» нечем, и без черновика очистка поля
+  // уехала бы в сейв нулём. В сохранение не идёт: это набираемое, а не
+  // состояние персонажа, — тем же правилом, что `slotsToRestore` ниже.
+  const [hpDraft, setHpDraft] = useState<string | null>(null);
   const [asiPanelOpen, setAsiPanelOpen] = useState(false);
   const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
@@ -412,6 +435,26 @@ function CharacterCard({
     if (!Number.isFinite(amount) || amount <= 0) return;
     onUpdate((ch) => ({ ...ch, experiencePoints: ch.experiencePoints + amount }));
     setXpInput("");
+  }
+
+  /**
+   * Текущие хиты правит САМ ИГРОК и пишет их прямо числом — бой в лист не
+   * пишет вовсе (combat-damage-reaches-character-sheet, решение владельца
+   * 24.09.2026). Записывается сразу, как остальной лист: `updateCharacter`
+   * сохраняет кампанию каждым вызовом, отдельного «Применить» у соседних
+   * полей листа (внешность, предыстория) нет — нет и здесь.
+   *
+   * Разобранное число считается ДО `onUpdate` и кладётся в переменную:
+   * читать поле события внутри отложенного updater'а нельзя.
+   */
+  function editCurrentHp(raw: string) {
+    setHpDraft(raw);
+    const parsed = Number(raw);
+    if (raw.trim() === "" || !Number.isFinite(parsed)) return;
+    // Показанное не может разойтись с записанным: набранные «99» при максимуме
+    // 12 в тот же миг становятся «12» и в поле, и в персонаже.
+    setHpDraft(String(clampCurrentHp(parsed, c.maxHp)));
+    onUpdate((ch) => ({ ...ch, currentHp: clampCurrentHp(parsed, ch.maxHp) }));
   }
 
   function addCondition() {
@@ -1126,7 +1169,22 @@ function CharacterCard({
           <dl className="character-card__hp" aria-label="Характеристики персонажа">
             <div className="character-card__stat">
               <dt>HP</dt>
-              <dd>{c.currentHp}/{c.maxHp}</dd>
+              <dd>
+                <input
+                  className="character-card__hp-input"
+                  type="number"
+                  min={0}
+                  max={c.maxHp}
+                  step={1}
+                  aria-label={`Текущие хиты: ${c.name}`}
+                  value={hpDraft ?? String(c.currentHp)}
+                  onChange={(e) => editCurrentHp(e.currentTarget.value)}
+                  // Уход из поля снимает черновик: оставленное пустым поле
+                  // возвращается к тому, что в персонаже, а не обнуляет хиты.
+                  onBlur={() => setHpDraft(null)}
+                />
+                /{c.maxHp}
+              </dd>
             </div>
             <div className="character-card__stat">
               <dt>КД</dt>
