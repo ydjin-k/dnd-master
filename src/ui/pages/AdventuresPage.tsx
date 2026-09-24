@@ -8,6 +8,7 @@ import {
   EVENT_TABLES,
   TABLE_GROUPS,
   findTable,
+  nextTables,
   rollExpression,
   rowForRoll,
   type EventTable,
@@ -51,11 +52,34 @@ interface Outcome {
  * страницы, режется по границе слова с многоточием. Многоточие обязательно:
  * молчаливое обрезание стилями было тем самым дефектом, который здесь чинят.
  */
-export function journalTextFor({ table, roll, row }: Outcome): string {
+function journalTextWithin({ table, roll, row }: Outcome, limit: number): string {
   const prefix = `${table.name} (d${table.die}), выпало ${roll}: `;
-  const room = JOURNAL_ENTRY_MAX_LENGTH - prefix.length;
+  const room = limit - prefix.length;
   const body = row.text.length <= room ? row.text : rowGist(row.text);
   return prefix + clampToLength(body, room);
+}
+
+export function journalTextFor(outcome: Outcome): string {
+  return journalTextWithin(outcome, JOURNAL_ENTRY_MAX_LENGTH);
+}
+
+/**
+ * Запись дневника для цепочки результатов — распределитель Подземья на «и то,
+ * и другое» даёт их два.
+ *
+ * Страница дневника одна на всю цепочку, поэтому бюджет делится поровну между
+ * её звеньями, а не отдаётся первому целиком: иначе второе столкновение
+ * приезжало бы в дневник обрубком или не приезжало вовсе. Одно звено — тот же
+ * текст, что и раньше, до символа: цепочка из одного и есть обычный бросок.
+ */
+export function journalTextForChain(chain: readonly Outcome[]): string {
+  if (chain.length === 0) return "";
+  if (chain.length === 1) return journalTextFor(chain[0]);
+  const separator = "\n";
+  const room = Math.floor(
+    (JOURNAL_ENTRY_MAX_LENGTH - separator.length * (chain.length - 1)) / chain.length,
+  );
+  return chain.map((outcome) => journalTextWithin(outcome, room)).join(separator);
 }
 
 export function AdventuresPage() {
@@ -106,13 +130,20 @@ export function AdventuresPage() {
 }
 
 function EventGenerator({ onBack }: { onBack: () => void }) {
-  const { state, addJournalEntry } = useCampaign();
+  const { state, addJournalEntry, startCombat } = useCampaign();
   const [tableId, setTableId] = useState(EVENT_TABLES[0].id);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  /**
+   * Цепочка выпавшего: обычная таблица даёт одно звено, распределитель
+   * Подземья на «и то, и другое» — три (он сам, местность, существа). Звенья
+   * показаны по отдельности и не сливаются в один результат.
+   */
+  const [chain, setChain] = useState<readonly Outcome[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   /** id записи, которую только что положили в дневник, — для подписи под ней. */
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
+  /** Поднят ли бой с этого броска — для подписи под кнопкой. */
+  const [combatRaised, setCombatRaised] = useState(false);
 
   const table = findTable(tableId) ?? EVENT_TABLES[0];
   const savedNow = savedEntryId !== null && state.journal.some((e) => e.id === savedEntryId);
@@ -122,22 +153,34 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
     setIsRolling(true);
     setError(null);
     setSavedEntryId(null);
-    const expression = rollExpression(table);
+    setCombatRaised(false);
     try {
-      const result = await invoke<RollResult>("roll_dice", { expression });
-      const row = rowForRoll(table, result.total);
-      if (!row) {
-        // Дыру в диапазонах стережёт проба на покрытие кости; если она всё же
-        // добралась до игрока — честнее сказать, чем показать пустоту.
-        setError(`Таблица «${table.name}» не покрывает число ${result.total}`);
-        setOutcome(null);
-      } else {
-        setOutcome({ table, roll: result.total, row });
+      const found: Outcome[] = [];
+      // Очередь, а не рекурсия: строка может послать сразу в две таблицы, и
+      // порядок звеньев на экране должен повторять порядок в строке. Круга
+      // здесь быть не может — его стережёт проба на ссылки между таблицами.
+      const pending: EventTable[] = [table];
+      while (pending.length > 0) {
+        const next = pending.shift()!;
+        const result = await invoke<RollResult>("roll_dice", {
+          expression: rollExpression(next),
+        });
+        const row = rowForRoll(next, result.total);
+        if (!row) {
+          // Дыру в диапазонах стережёт проба на покрытие кости; если она всё же
+          // добралась до игрока — честнее сказать, чем показать пустоту.
+          setError(`Таблица «${next.name}» не покрывает число ${result.total}`);
+          setChain([]);
+          return;
+        }
+        found.push({ table: next, roll: result.total, row });
+        pending.push(...nextTables(row));
       }
+      setChain(found);
       playDiceRollSound();
     } catch (e) {
       setError(String(e));
-      setOutcome(null);
+      setChain([]);
     } finally {
       setIsRolling(false);
     }
@@ -146,14 +189,31 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
   /** Записывает только по нажатию: неудачный бросок игрок перебрасывает, не
    *  засоряя историю кампании. Автоматически не пишется ничего. */
   async function saveToJournal() {
-    if (!outcome) return;
+    if (chain.length === 0) return;
     const id = crypto.randomUUID();
     await addJournalEntry({
       id,
       timestamp: new Date().toISOString(),
-      text: journalTextFor(outcome),
+      text: journalTextForChain(chain),
     });
     setSavedEntryId(id);
+  }
+
+  /**
+   * Поднимает бой прямо со строки — то, ради чего у строк вообще есть
+   * `monsterIds`. Противники берутся у строки и только у неё: выдумывать за
+   * таблицу, кто ещё вышел из темноты, приложение не вправе. Со стороны отряда
+   * выходят все персонажи кампании — кого оставить в стороне, решают за столом,
+   * состав боя правится на вкладке «Бой».
+   */
+  async function raiseCombat(monsterIds: readonly string[]) {
+    setError(null);
+    try {
+      await startCombat([...monsterIds], state.characters.map((c) => c.id));
+      setCombatRaised(true);
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   return (
@@ -173,9 +233,10 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
             value={tableId}
             onChange={(e) => {
               setTableId(e.currentTarget.value);
-              setOutcome(null);
+              setChain([]);
               setError(null);
               setSavedEntryId(null);
+              setCombatRaised(false);
             }}
           >
             {TABLE_GROUPS.map((group) => (
@@ -205,18 +266,49 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
 
         {error && <p className="adventures-page__error">{error}</p>}
 
-        {outcome && (
-          <article className="adventures-page__outcome">
+        {chain.map((outcome, index) => (
+          <article className="adventures-page__outcome" key={`${outcome.table.id}-${index}`}>
             <p className="adventures-page__outcome-roll">
               <span className="adventures-page__outcome-number">{outcome.roll}</span>
               <span className="adventures-page__outcome-of">из d{outcome.table.die}</span>
+              {/* Имя таблицы у первого звена уже стоит в подписи выбора; у
+                  остальных без него не понять, что именно бросили. */}
+              {index > 0 && (
+                <span className="adventures-page__outcome-table">{outcome.table.name}</span>
+              )}
             </p>
             <p className="adventures-page__outcome-text">{outcome.row.text}</p>
+            {outcome.row.monsterIds && outcome.row.monsterIds.length > 0 && (
+              <button
+                type="button"
+                className="adventures-page__fight"
+                disabled={state.characters.length === 0}
+                onClick={() => raiseCombat(outcome.row.monsterIds!)}
+              >
+                Поднять бой
+              </button>
+            )}
+          </article>
+        ))}
+
+        {chain.length > 0 && (
+          <div className="adventures-page__outcome-actions">
             <button type="button" className="adventures-page__save" onClick={saveToJournal}>
               В дневник
             </button>
             {savedNow && <span className="adventures-page__saved">Записано в дневник</span>}
-          </article>
+            {combatRaised && (
+              <span className="adventures-page__fight-started">
+                Бой начат — откройте вкладку «Бой»
+              </span>
+            )}
+            {state.characters.length === 0 &&
+              chain.some((o) => (o.row.monsterIds?.length ?? 0) > 0) && (
+                <span className="adventures-page__fight-hint">
+                  Бой поднимать некем: добавьте персонажей на вкладке «Персонажи».
+                </span>
+              )}
+          </div>
         )}
 
         {table.sourceNote && <p className="adventures-page__source">{table.sourceNote}</p>}

@@ -149,6 +149,51 @@
   text-align: left;
 }
 
+/* Имя таблицы у второго и следующих звеньев цепочки: первое звено подписано
+   выбором таблицы, а посланные им — ничем, и без имени непонятно, что бросили. */
+.adventures-page__outcome-table {
+  color: var(--dm-text-muted);
+  font-size: 0.95rem;
+}
+
+/* Действия относятся ко всей цепочке сразу, поэтому стоят под ней, а не внутри
+   звена: в дневник едет весь бросок целиком, а не одно его звено. */
+.adventures-page__outcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.adventures-page__fight {
+  padding: 0.45rem 1.4rem;
+  border: 1px solid var(--dm-border-bright);
+  border-radius: var(--dm-radius-control);
+  background: transparent;
+  color: var(--dm-gold);
+  cursor: pointer;
+}
+
+.adventures-page__fight:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dm-gold) 14%, transparent);
+}
+
+.adventures-page__fight:disabled {
+  color: var(--dm-text-muted);
+  cursor: default;
+}
+
+.adventures-page__fight-started {
+  color: var(--dm-status-done);
+  font-size: 0.85rem;
+}
+
+.adventures-page__fight-hint {
+  color: var(--dm-text-muted);
+  font-size: 0.85rem;
+}
+
 .adventures-page__save {
   padding: 0.45rem 1.4rem;
   border: 1px solid var(--dm-border-bright);
