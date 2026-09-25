@@ -1440,6 +1440,88 @@ mod bestiary_data_tests {
         }
     }
 
+    /// Шестеро пачки B (`bestiary-pack-dungeon-vermin`) — та же проба, что у
+    /// трёх соседних пачек, и по той же причине: записи заведены одной
+    /// карточкой из одного источника, и пустая графа у любой доедет до
+    /// карточки существа.
+    ///
+    /// Обязательное здесь ШИРЕ, чем у пачки A: в книге у всех шести есть и
+    /// чувства, и хотя бы одна особенность, так что `senses` и `traits`
+    /// требуются наравне с остальным. А `languages` не требуются: у
+    /// Ползающего падальщика и Пронзателя в стат-блоке стоит «Языки —», и
+    /// спрашивать с них язык значило бы требовать его выдумать.
+    ///
+    /// Скорость среди обязательного НЕТ, и это тоже факт книги, а не
+    /// послабление: у Водной аномалии «Скорость 0 фт., плавая 60 фт.» —
+    /// элементаль привязан к своему сосуду и по суше не ходит вовсе. Такая же
+    /// нулевая скорость уже стоит у Спорогнили. Требовать `speed_feet > 0`,
+    /// как требует проба пачки A, значило бы покрасить верную запись.
+    ///
+    /// Картинка среди обязательного ЕСТЬ, как у пачки A: подпись на всех
+    /// шести холстах прочитана глазами и оказалась нашей — «Ползающий
+    /// падальщик», «ПРОНЗАТЕЛЬ», «Крюкастый ужас», «Ползающая рука»,
+    /// «ШЛЕМОНОСНЫЙ УЖАС», «Водная аномалия». Поэтому все шесть переименованы
+    /// под `id`, `imageAsset` проставлен, и в `AWAITING_REDRAWN_ART` пачка не
+    /// вносит никого — список как был пустым, так и остался.
+    #[test]
+    fn pack_b_dungeon_vermin_have_a_full_stat_block() {
+        const SIX: [&str; 6] = [
+            "polzayushchiy-padalshchik",
+            "pronzatel",
+            "kryukasty-uzhas",
+            "polzayushchaya-ruka",
+            "shlemonosny-uzhas",
+            "vodnaya-anomaliya",
+        ];
+        let own = super::read_monster_file(
+            &bestiary_dir().join(OWN_BESTIARY_FILE),
+            MonsterOrigin::Own,
+        )
+        .expect("прочитать own-creatures.json");
+        for id in SIX {
+            let m = own
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} нет в own-creatures.json"));
+            assert!(!m.name.is_empty(), "{id}: пустое имя");
+            assert!(!m.description.is_empty(), "{id}: пустое описание");
+            assert!(!m.creature_type.is_empty(), "{id}: пустой тип");
+            assert!(!m.size.is_empty(), "{id}: пустой размер");
+            assert!(!m.challenge_rating.is_empty(), "{id}: пустая опасность");
+            assert!(
+                m.max_hp > 0 && m.armor_class > 0,
+                "{id}: хиты или КД не заполнены"
+            );
+            assert!(!m.hit_dice.is_empty(), "{id}: пустые кости хитов");
+            assert!(
+                m.attack_bonus.is_some() && m.damage_dice.is_some(),
+                "{id}: у всех шести в книге есть атака — бонус и кости обязаны стоять"
+            );
+            for (label, score) in [
+                ("Сила", m.abilities.strength),
+                ("Ловкость", m.abilities.dexterity),
+                ("Телосложение", m.abilities.constitution),
+                ("Интеллект", m.abilities.intelligence),
+                ("Мудрость", m.abilities.wisdom),
+                ("Харизма", m.abilities.charisma),
+            ] {
+                assert!(score > 0, "{id}: не заполнена характеристика {label}");
+            }
+            assert!(
+                m.senses.as_ref().is_some_and(|s| !s.is_empty()),
+                "{id}: все шестеро — жители подземелья, чувства обязаны стоять"
+            );
+            assert!(!m.traits.is_empty(), "{id}: пустые особенности");
+            assert!(!m.actions.is_empty(), "{id}: пустые действия");
+            assert!(
+                m.image_asset.as_deref() == Some(&format!("images/{id}.jpg")[..]),
+                "{id}: имя файла картинки обязано совпадать с id — все шесть холстов \
+                 подписаны нашим словом, см. bestiary/images/README.md; сейчас стоит {:?}",
+                m.image_asset
+            );
+        }
+    }
+
     /// Граница лицензии в одну строку: в файле SRD не должно оказаться наших
     /// существ. Id наших существ — транслитерация русского имени, id SRD —
     /// от английского; пересечение означало бы, что кто-то дописал своё
