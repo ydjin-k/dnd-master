@@ -1207,21 +1207,7 @@ mod bestiary_data_tests {
     /// `imageAsset`, и проба сама проследит, что вычеркнули не зря.
     #[test]
     fn every_own_creature_has_an_image() {
-        const AWAITING_REDRAWN_ART: [&str; 13] = [
-            "Синий Грабер",
-            "Красный Грабер",
-            "Зелёный Грабер",
-            "Серый Грабер",
-            "Грабер смерти",
-            "Головастик Грабера",
-            "Чистокровный серпент",
-            "Полукровный серпент",
-            "Отродье серпента",
-            "Верховный жрец рыболюдов",
-            "Бич рыболюдов",
-            "Зомби Злого глаза",
-            "Глаз-тиран",
-        ];
+        const AWAITING_REDRAWN_ART: [&str; 0] = [];
         let own = super::read_monster_file(
             &bestiary_dir().join(OWN_BESTIARY_FILE),
             MonsterOrigin::Own,
