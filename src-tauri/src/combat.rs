@@ -337,43 +337,85 @@ fn cache_file_name(source_file_name: &std::ffi::OsStr, max_size: u32) -> String 
     format!("{stem}-{max_size}.jpg")
 }
 
-/// Единственный владелец вопроса «годится ли лежащая в кэше запись под
-/// нынешний исходник». Ответ — «нет», если оригинал правился позже, чем была
-/// записана запись кэша; тогда запись удаляется, и `load_cached_or_compute`
-/// ниже посчитает превью заново под тем же именем.
+/// Путь к отпечатку исходника, по которому посчитана лежащая рядом запись
+/// кэша: `quipper-480.jpg` → `quipper-480.src`. Расширение, а не суффикс имени,
+/// — чтобы отпечаток всегда ходил парой со своим превью и удалялся тем же
+/// ключом.
+fn cache_stamp_path(cache_path: &std::path::Path) -> std::path::PathBuf {
+    cache_path.with_extension("src")
+}
+
+/// Отпечаток исходника: время правки (в наносекундах от эпохи) и размер в
+/// байтах. `None` — если файла нет или файловая система не хранит время правки.
 ///
-/// Цена выбранного способа — пара `metadata` (оригинал и запись кэша) на
-/// каждый запрос картинки, то есть лишний `stat` там, где раньше было одно
-/// чтение. Взамен каталог кэша не копит мусор: ключ не меняется, свежее
-/// превью ложится поверх протухшего. Альтернатива — вписать время правки и
-/// размер оригинала в само имя файла кэша — того же `stat` не избегает (ключ
-/// без него не построить), зато оставляет в `%APPDATA%` по файлу на каждую
+/// Почему не хэш содержимого: он закрыл бы и подмену байт при совпадении обоих
+/// полей, но стоил бы чтения полутора-трёх мегабайт оригинала на каждое
+/// превью — ровно та работа, ради ухода от которой кэш и заведён.
+fn source_stamp(source_path: &std::path::Path) -> Option<String> {
+    let meta = std::fs::metadata(source_path).ok()?;
+    let modified = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
+    Some(format!("{} {}", modified.as_nanos(), meta.len()))
+}
+
+/// Единственный владелец вопроса «годится ли лежащая в кэше запись под
+/// нынешний исходник». Ответ — «да» только если исходник СОВПАДАЕТ с тем, по
+/// которому запись посчитана: рядом с превью лежит отпечаток (время правки +
+/// размер), и сравнивается он на РАВЕНСТВО. Не совпало или отпечатка нет —
+/// запись и отпечаток удаляются, и `load_cached_or_compute` ниже посчитает
+/// превью заново под тем же именем.
+///
+/// **Почему не «оригинал новее».** Ровно так здесь и было до 25.09.2026, и в
+/// этой же шапке стояло, что случай «подмена файлом с БОЛЕЕ старым временем
+/// правки» недостижим, потому что «перепаковка, пересохранение и любой
+/// `git checkout` ставят время „сейчас“». Довод оказался неверен для того
+/// способа, которым мы сами чиним картинки: 23.09.2026 двум файлам поменяли
+/// содержимое, сохранив времена правки (`fef61a3`), у `quipper.jpg` осталось
+/// 17.09 00:37 — старше обеих записей кэша, и `source_at > cached_at` не
+/// сработало ни разу. Владелец увидел под Квиппером ездовую лошадь дважды, и
+/// второй раз запись кэша пришлось удалять руками. Сравнение на несовпадение
+/// ловит и более старое время, и одинаковое время при другом размере.
+///
+/// **Цена.** Те же два `stat` на запрос плюс чтение отпечатка — десятки байт.
+/// Каталог кэша мусора не копит: у отпечатка тот же ключ, что у превью, и
+/// свежий ложится поверх прежнего. Вписать отпечаток в само ИМЯ файла кэша
+/// нельзя по той же причине, что и раньше: `stat` это не отменяет (ключ без
+/// него не построить), зато оставило бы в `%APPDATA%` по файлу на каждую
 /// прошлую редакцию картинки, которые удалять уже некому.
 ///
-/// Чего так узнать нельзя: подмену оригинала файлом с БОЛЕЕ старым временем
-/// правки (восстановление из архива с сохранением времён). Перепаковка,
-/// пересохранение и любой `git checkout` ставят время «сейчас» и ловятся.
-/// Ключ по хэшу содержимого закрыл бы и этот случай, но стоил бы чтения
-/// полутора-трёх мегабайт оригинала на каждое превью — ровно та работа, ради
-/// ухода от которой кэш и заведён.
+/// **Что ловится теперь и что по-прежнему нет.** Ловится любое расхождение
+/// времени правки (в обе стороны) и любое расхождение размера. Не ловится
+/// подмена байт, при которой И время правки, И размер совпали до наносекунды
+/// — это закрыл бы только хэш содержимого, см. `source_stamp`.
+///
+/// **Записи, сделанные до этой правки, отпечатка не имеют и считаются
+/// негодными** — доказать, что они посчитаны по нынешнему исходнику, нечем.
+/// Каждая из них пересчитается ОДИН раз, когда её впервые попросят, и получит
+/// отпечаток. Это не чистка кэша на старте (её карточка запрещает: 509 записей
+/// разом — те самые зависания вкладки), а разовый промах, размазанный по тому,
+/// что владелец действительно открывает, и ограниченный тем же семафором.
 fn discard_stale_cache_entry(cache_path: &std::path::Path, source_path: &std::path::Path) {
-    let (Ok(cached_meta), Ok(source_meta)) = (
-        std::fs::metadata(cache_path),
-        std::fs::metadata(source_path),
-    ) else {
-        // Нет записи кэша (обычный промах) или нет оригинала (об этом скажет
-        // сам ресайз внятной ошибкой) — инвалидировать нечего.
+    if !cache_path.exists() {
+        // Обычный промах кэша — инвалидировать нечего.
         return;
-    };
-    let (Ok(cached_at), Ok(source_at)) = (cached_meta.modified(), source_meta.modified()) else {
-        // Файловая система без времени правки — оставляем кэш как есть:
-        // отдать старое превью лучше, чем пересчитывать все 50 на каждый показ.
+    }
+    let Some(current) = source_stamp(source_path) else {
+        // Нет оригинала (об этом скажет сам ресайз внятной ошибкой) или ФС без
+        // времени правки — оставляем кэш как есть: отдать старое превью лучше,
+        // чем пересчитывать всё на каждый показ.
         return;
     };
 
-    if source_at > cached_at {
-        let _ = std::fs::remove_file(cache_path);
+    let recorded = std::fs::read_to_string(cache_stamp_path(cache_path));
+    if recorded.as_deref().map(str::trim).ok() == Some(current.as_str()) {
+        return;
     }
+
+    let _ = std::fs::remove_file(cache_path);
+    let _ = std::fs::remove_file(cache_stamp_path(cache_path));
 }
 
 /// Ядро кэш+семафор без Tauri/файловой системы оригиналов — так его можно
@@ -406,6 +448,12 @@ fn load_cached_or_compute(
 /// `load_bestiary_image`, чтобы проба на подмену оригинала звала ровно то же,
 /// что и приложение, — иначе проверялся бы её собственный порядок вызовов, а
 /// не production-путь.
+///
+/// Отпечаток снимается ДО `compute` и пишется после него — намеренно в таком
+/// порядке. Если исходник подменят ровно в это окно, записанным окажется
+/// отпечаток прежнего файла, и следующий запрос сочтёт запись негодной и
+/// пересчитает её. Ошибка в сторону лишнего пересчёта, а не в сторону показа
+/// чужой картинки, — а дороже ошибаться можно только во второй.
 fn load_cached_or_compute_for_source(
     cache_path: &std::path::Path,
     source_path: &std::path::Path,
@@ -413,7 +461,17 @@ fn load_cached_or_compute_for_source(
     compute: impl FnOnce() -> Result<Vec<u8>, String>,
 ) -> Result<String, String> {
     discard_stale_cache_entry(cache_path, source_path);
-    load_cached_or_compute(cache_path, semaphore, compute)
+    let stamp = source_stamp(source_path);
+    load_cached_or_compute(cache_path, semaphore, || {
+        let bytes = compute()?;
+        // Запись отпечатка — best effort, как и запись самого превью: сбой
+        // диска не должен ронять уже посчитанное. Без отпечатка запись просто
+        // окажется негодной на следующем запросе и пересчитается.
+        if let Some(stamp) = stamp {
+            let _ = std::fs::write(cache_stamp_path(cache_path), stamp);
+        }
+        Ok(bytes)
+    })
 }
 
 pub fn load_bestiary_image(
@@ -1613,9 +1671,28 @@ mod bestiary_cache_tests {
     use std::sync::Arc;
 
     use super::{
-        cache_file_name, jpeg_bytes_to_data_url, load_cached_or_compute,
+        cache_file_name, cache_stamp_path, jpeg_bytes_to_data_url, load_cached_or_compute,
         load_cached_or_compute_for_source, resize_image_to_jpeg_bytes, ResizeSemaphore,
     };
+
+    /// Поставить файлу время правки в прошлом. Именно так выглядит подмена,
+    /// которую прежний код не ловил: содержимое новое, время — старое. На
+    /// Windows для этого файл обязан быть открыт на запись.
+    fn set_modified(path: &std::path::Path, when: std::time::SystemTime) {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .expect("открыть файл на запись, чтобы сдвинуть время правки");
+        file.set_times(std::fs::FileTimes::new().set_modified(when))
+            .expect("сдвинуть время правки");
+    }
+
+    fn modified_at(path: &std::path::Path) -> std::time::SystemTime {
+        std::fs::metadata(path)
+            .expect("метаданные файла")
+            .modified()
+            .expect("время правки")
+    }
 
     fn unique_temp_dir(tag: &str) -> PathBuf {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -1706,6 +1783,177 @@ mod bestiary_cache_tests {
         })
         .expect("третий запрос должен отдаться из кэша");
         assert_eq!(third, jpeg_bytes_to_data_url(NEW_THUMB));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Отрицательная проба на долг `debt-thumbnail-cache-ignores-older-source`.
+    /// Владелец 23.09.2026 увидел под Квиппером ездовую лошадь, файлы поменяли
+    /// содержимым (`fef61a3`) — и 25.09.2026 он увидел её СНОВА. Обмен сохранил
+    /// времена правки: у `quipper.jpg` осталось 17.09 00:37, старше обеих
+    /// записей кэша, и прежнее условие `source_at > cached_at` не сработало ни
+    /// разу.
+    ///
+    /// Здесь подменяется содержимое ТОЙ ЖЕ ДЛИНЫ, а время правки ставится
+    /// заведомо СТАРШЕ записи кэша: размер тут не помощник, ловит подмену
+    /// только сравнение времени на несовпадение.
+    ///
+    /// Снять починку = вернуть в `discard_stale_cache_entry` прежнее
+    /// `if source_at > cached_at`; проба краснеет на втором запросе, возвращая
+    /// data-URL лошади.
+    #[test]
+    fn replacing_the_source_with_an_older_modification_time_invalidates_its_cached_thumbnail() {
+        const HORSE_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'h', b'o', b'r', b's', b'e'];
+        const QUIPPER_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'q', b'u', b'i', b'p', b'p'];
+        // Длины намеренно равны — иначе подмену поймал бы размер, и проба
+        // перестала бы проверять именно тот случай, из-за которого заведена.
+        const HORSE: &[u8] = b"riding horse, 18 september";
+        const QUIPPER: &[u8] = b"quipper the fish, 23 sept.";
+
+        assert_eq!(
+            HORSE.len(),
+            QUIPPER.len(),
+            "проба теряет смысл, если длины исходников разошлись"
+        );
+
+        let dir = unique_temp_dir("older-source");
+        let source_path = dir.join("quipper.jpg");
+        let cache_path = dir.join(cache_file_name(std::ffi::OsStr::new("quipper.jpg"), 480));
+        let semaphore = ResizeSemaphore::new(4);
+
+        std::fs::write(&source_path, HORSE).expect("записать исходник");
+        let first = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(HORSE_THUMB.to_vec())
+        })
+        .expect("первый запрос должен посчитать превью");
+        assert_eq!(first, jpeg_bytes_to_data_url(HORSE_THUMB));
+        assert!(cache_path.exists(), "первый запрос обязан записать кэш");
+        assert!(
+            cache_stamp_path(&cache_path).exists(),
+            "рядом с превью обязан лечь отпечаток исходника"
+        );
+
+        // Обмен содержимым С СОХРАНЕНИЕМ ВРЕМЕНИ, как 23.09.2026: время правки
+        // отводится на неделю назад, то есть становится старше записи кэша.
+        std::fs::write(&source_path, QUIPPER).expect("подменить исходник");
+        set_modified(
+            &source_path,
+            std::time::SystemTime::now() - std::time::Duration::from_secs(7 * 24 * 60 * 60),
+        );
+        assert!(
+            modified_at(&source_path) < modified_at(&cache_path),
+            "подготовка пробы: исходник обязан оказаться СТАРШЕ записи кэша"
+        );
+
+        let second = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(QUIPPER_THUMB.to_vec())
+        })
+        .expect("второй запрос не должен падать");
+        assert_eq!(
+            second,
+            jpeg_bytes_to_data_url(QUIPPER_THUMB),
+            "исходник подменён файлом с более СТАРЫМ временем правки, \
+             а пришли байты прежнего превью — кэш не заметил подмены"
+        );
+
+        // И новое превью само стало кэшем: третий запрос за неизменным
+        // исходником пересчёта не требует.
+        let third = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            panic!("третий запрос за тем же исходником не должен пересчитывать превью")
+        })
+        .expect("третий запрос должен отдаться из кэша");
+        assert_eq!(third, jpeg_bytes_to_data_url(QUIPPER_THUMB));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Вторая половина того же долга: время правки не изменилось ВОВСЕ, а
+    /// содержимое другое. Такое даёт восстановление из архива, сохраняющего
+    /// времена. Ловит это уже не время, а размер — ради него отпечаток и
+    /// состоит из двух полей, а не из одного.
+    ///
+    /// Снять починку = вернуть `if source_at > cached_at`; проба краснеет на
+    /// втором запросе.
+    #[test]
+    fn replacing_the_source_with_a_different_size_at_an_unchanged_time_invalidates_the_thumbnail() {
+        const OLD_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'o', b'l', b'd'];
+        const NEW_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'n', b'e', b'w'];
+
+        let dir = unique_temp_dir("same-time-other-size");
+        let source_path = dir.join("werewolf.jpg");
+        let cache_path = dir.join(cache_file_name(std::ffi::OsStr::new("werewolf.jpg"), 160));
+        let semaphore = ResizeSemaphore::new(4);
+
+        std::fs::write(&source_path, b"art from the archive").expect("записать исходник");
+        let original_time = modified_at(&source_path);
+
+        let first = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(OLD_THUMB.to_vec())
+        })
+        .expect("первый запрос должен посчитать превью");
+        assert_eq!(first, jpeg_bytes_to_data_url(OLD_THUMB));
+
+        // Другое содержимое другой длины, время правки возвращено прежнее.
+        std::fs::write(&source_path, b"another creature entirely, restored from a backup")
+            .expect("подменить исходник");
+        set_modified(&source_path, original_time);
+        assert_eq!(
+            modified_at(&source_path),
+            original_time,
+            "подготовка пробы: время правки обязано остаться прежним"
+        );
+
+        let second = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(NEW_THUMB.to_vec())
+        })
+        .expect("второй запрос не должен падать");
+        assert_eq!(
+            second,
+            jpeg_bytes_to_data_url(NEW_THUMB),
+            "исходник подменён при неизменном времени правки, а пришли байты прежнего превью"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Запись кэша, сделанная до появления отпечатков, доказать свою годность
+    /// не может — и считается негодной. Проверяется ровно то, что описано в
+    /// шапке `discard_stale_cache_entry`: такая запись пересчитывается ОДИН
+    /// раз, получает отпечаток и дальше отдаётся из кэша как обычно.
+    #[test]
+    fn a_cache_entry_left_without_a_stamp_is_recomputed_once_and_then_reused() {
+        const STALE_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'p', b'r', b'e', b'v'];
+        const FRESH_THUMB: &[u8] = &[0xFF, 0xD8, 0xFF, b'n', b'o', b'w'];
+
+        let dir = unique_temp_dir("stampless");
+        let source_path = dir.join("wolf.jpg");
+        let cache_path = dir.join(cache_file_name(std::ffi::OsStr::new("wolf.jpg"), 160));
+        let semaphore = ResizeSemaphore::new(4);
+
+        std::fs::write(&source_path, b"wolf art").expect("записать исходник");
+        // Запись кэша прежнего формата: превью есть, отпечатка рядом нет.
+        std::fs::write(&cache_path, STALE_THUMB).expect("записать запись кэша без отпечатка");
+        assert!(!cache_stamp_path(&cache_path).exists());
+
+        let first = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            Ok(FRESH_THUMB.to_vec())
+        })
+        .expect("первый запрос не должен падать");
+        assert_eq!(
+            first,
+            jpeg_bytes_to_data_url(FRESH_THUMB),
+            "запись без отпечатка негодна — её нельзя отдавать как есть"
+        );
+        assert!(
+            cache_stamp_path(&cache_path).exists(),
+            "пересчитанная запись обязана получить отпечаток"
+        );
+
+        let second = load_cached_or_compute_for_source(&cache_path, &source_path, &semaphore, || {
+            panic!("пересчёт обязан быть разовым: второй запрос идёт из кэша")
+        })
+        .expect("второй запрос должен отдаться из кэша");
+        assert_eq!(second, jpeg_bytes_to_data_url(FRESH_THUMB));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
