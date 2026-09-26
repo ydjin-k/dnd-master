@@ -634,6 +634,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       abilities: totalAbilities,
       maxHp,
       currentHp: maxHp,
+      // Новый персонаж костей ещё не тратил; максимум — его уровень, и потому не хранится.
+      hitDiceSpent: 0,
       armorClass,
       speedFeet,
       initiative,

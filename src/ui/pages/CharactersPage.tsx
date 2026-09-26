@@ -65,6 +65,7 @@ import {
   isAsiLevel,
   progressionAt,
   resourceMax,
+  slotRechargeOf,
   spellSlotsForLevel,
   type ClassResource,
 } from "../classProgression";
@@ -93,8 +94,9 @@ import {
 } from "../madness";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
+import { hitDiceLeft, spendHitDie } from "../hitDice";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
-import type { AbilityScores, Character, Coins, RollResult, RuleTopic, Spell } from "../../state/types";
+import type { AbilityScores, Character, Coins, FeatureUses, RollResult, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
 import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
@@ -127,6 +129,26 @@ const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
 /** Дословно из rules.json → appendices-conditions, абзац после таблицы «Истощение». */
 const EXHAUSTION_RECOVERY =
   "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.";
+
+/**
+ * Правило траты Костей Хитов — словами, а не машиной состояний. По SRD кости
+ * тратятся в конце короткого отдыха, по одной, с правом остановиться после
+ * каждого броска. Состояния «идёт отдых» в приложении нет намеренно: час
+ * простоя объявляет Мастер за столом, и поддельная машина состояний врала бы о
+ * том, чего приложение не знает, — поэтому кнопка тратит ровно одну кость за
+ * нажатие, а правило стоит здесь текстом.
+ */
+const HIT_DICE_HINT =
+  "Кости Хитов тратятся в конце короткого отдыха — по одной, останавливаясь после каждого броска, и не больше, чем костей по уровню. Час отдыха объявляет Мастер: приложение время не считает.";
+
+/**
+ * Что возвращает короткий отдых — правило SRD словами; числа за кнопкой.
+ * Ячейки названы Магией договора, а не Колдуном: факт «чьи ячейки возвращает
+ * короткий отдых» живёт полем данных (`slotRecharge` в classProgression.ts), и
+ * подпись пересказывает правило, а не подменяет владельца.
+ */
+const SHORT_REST_HINT =
+  "Короткий отдых (не меньше часа) возвращает то, что помечено «короткий или длинный отдых», и ячейки Магии договора. Сам по себе хиты он не поднимает — их растит только потраченная Кость Хитов.";
 
 /** Общий принцип снятия состояний (rules.json → appendices-conditions, абзац перед таблицей). */
 const CONDITIONS_GENERAL_HINT =
@@ -354,6 +376,14 @@ function CharacterCard({
   // первым, подняв лестницу на две ступени за один жест. Кнопка с `disabled`
   // от этого не спасает по той же причине.
   const madnessRollingRef = useRef(false);
+  // Итог последнего отдыха или броска Кости Хитов — одна строка для игрока.
+  // Живёт в листе, а не в персонаже: в сейв уходит только результат (хиты,
+  // счётчик костей, ячейки), как и у броска безумия выше.
+  const [restNote, setRestNote] = useState<string | null>(null);
+  // Сторож повторного входа в бросок Кости Хитов — ref по той же причине, что
+  // и у безумия: состояние ко второму нажатию ещё не перерисовалось бы, и
+  // одна кость ушла бы за два броска.
+  const hitDieRollingRef = useRef(false);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -662,6 +692,115 @@ function CharacterCard({
 
   function restoreResource(resource: ClassResource) {
     setResourceCurrent(resource, resourceMax(resource, c.abilities));
+  }
+
+  /**
+   * Трата одной Кости Хитов. Бросок делает движок (`roll_dice`), как и у
+   * безумия, — своего `Math.random` на листе нет; модификатор Телосложения
+   * уходит в само выражение (`1d10+2`), поэтому сумму считает тот же владелец,
+   * что и бросок, а лист только показывает выпавшее.
+   *
+   * Кнопка НЕ заперта состоянием «идёт отдых»: его в приложении нет (см.
+   * HIT_DICE_HINT). Предел остатка — за `hitDice.ts`, звук предела — здесь,
+   * тем же правилом, что у `spendResource`.
+   */
+  async function spendHitDieRoll() {
+    if (hitDieRollingRef.current) return;
+    const die = classHitDiceByTitle[c.class]?.max;
+    // Пустой запас и неизвестная кость (справочник не загрузился) — звук
+    // предела, а не молчание: кнопка помечена aria-disabled, но не disabled.
+    if (!die || hitDiceLeft(c.hitDiceSpent, c.level) === 0) {
+      playLimitSound();
+      return;
+    }
+    hitDieRollingRef.current = true;
+    setRestNote(null);
+    const conMod = abilityMod(c.abilities.constitution);
+    try {
+      const roll = await invoke<RollResult>("roll_dice", { expression: `1d${die}${fmtMod(conMod)}` });
+      // Отрицательное Телосложение хитов не отнимает: кость лечит минимум 0.
+      const healed = Math.max(0, roll.total);
+      onUpdate((ch) => ({
+        ...ch,
+        // Выше максимума и ниже нуля не уйдёт — предел уже есть у clampCurrentHp.
+        currentHp: clampCurrentHp(ch.currentHp + healed, ch.maxHp),
+        hitDiceSpent: spendHitDie(ch.hitDiceSpent, ch.level),
+      }));
+      setRestNote(
+        `Кость Хитов 1к${die}: выпало ${roll.rolls.join(", ")}, Телосложение ${fmtMod(conMod)} — хитов +${healed}.`,
+      );
+    } catch (e) {
+      setRestNote(String(e));
+    } finally {
+      hitDieRollingRef.current = false;
+    }
+  }
+
+  /**
+   * Ограниченные ресурсы, которые возвращает короткий отдых, — классовые с
+   * архетипом и расовые вместе, отобранные по ПОЛЮ `recharge`, а не по списку
+   * id. Поэтому расовый «Зов бездны» Эльфа бездны, помеченный `long`, на
+   * коротком отдыхе не вернётся, а помеченное `short` вернётся у любого класса,
+   * который появится в таблице позже.
+   */
+  function resourcesBackAfterShortRest(): ClassResource[] {
+    return [...classResources, ...raceResourceList].filter((r) => r.recharge === "short");
+  }
+
+  /**
+   * Счётчики после отдыха: перечисленные ресурсы полны, остальные не тронуты.
+   * Максимум считает `resourceMax` — тот же владелец, что и у строки ресурса,
+   * второго предела отдых не заводит. Характеристики берутся из `ch`, а не из
+   * снимка рендера: updater выполняется отложенно.
+   */
+  function refilledFeatureUses(ch: Character, resources: ClassResource[]): FeatureUses[] {
+    const ids = new Set(resources.map((r) => r.id));
+    return [
+      ...ch.featureUses.filter((u) => !ids.has(u.featureId)),
+      ...resources.map((r) => ({ featureId: r.id, usesCurrent: resourceMax(r, ch.abilities) })),
+    ];
+  }
+
+  /** Одна строка-итог отдыха: что именно вернулось. Пусто — так и сказано. */
+  function restSummary(title: string, parts: string[]): string {
+    return parts.length > 0 ? `${title}: ${parts.join(", ")}.` : `${title}: возвращать было нечего.`;
+  }
+
+  /**
+   * Короткий отдых возвращает РОВНО то, что помечено `recharge: "short"` у
+   * класса, архетипа и расы, плюс ячейки — только тому классу, у которого
+   * `slotRecharge: "short"` (Магия договора Колдуна). Проверки id класса здесь
+   * нет: владелец факта — поле данных, а кнопка его читает.
+   *
+   * Хиты короткий отдых не поднимает: их растит только потраченная Кость Хитов.
+   * Числа для подписи считаются ДО `onUpdate` — читать что-либо внутри
+   * отложенного updater'а нельзя.
+   */
+  function takeShortRest() {
+    const resources = resourcesBackAfterShortRest();
+    const refilled = resources.filter((r) => resourceCurrent(r) < resourceMax(r, c.abilities));
+    const slotsBack = shortRestReturnsSlots ? spentSlotsTotal() : 0;
+    onUpdate((ch) => ({
+      ...ch,
+      featureUses: refilledFeatureUses(ch, resources),
+      spellSlotsCurrent: shortRestReturnsSlots
+        ? restoreAllSlots(ch.spellSlotsCurrent, ch.spellSlotsMax)
+        : ch.spellSlotsCurrent,
+    }));
+    setRestNote(
+      restSummary("Короткий отдых", [
+        ...refilled.map((r) => r.name),
+        ...(slotsBack > 0 ? [`ячеек возвращено ${slotsBack}`] : []),
+      ]),
+    );
+  }
+
+  /** Сколько ячеек потрачено во всех кругах — для строки-итога отдыха; предел считает spellSlots.ts. */
+  function spentSlotsTotal(): number {
+    return c.spellSlotsMax.reduce(
+      (sum, _max, i) => sum + spentSlots(c.spellSlotsCurrent, c.spellSlotsMax, i + 1),
+      0,
+    );
   }
 
   /**
@@ -993,6 +1132,15 @@ function CharacterCard({
   const raceTraits = withSunlitPassive(raceTraitsByTitle[c.race] ?? [], c.race, c.passivePerception);
   const raceResourceList = raceResources(c.race, c.level);
   const raceSpellLine = abyssElfSpellLine(c.race, (id) => spells.find((sp) => sp.id === id)?.name ?? id);
+  /**
+   * Кости Хитов: лицо кости приходит тем же `classHitDiceByTitle`, что и
+   * левел-ап (второго источника не заводим), остаток считает `hitDice.ts`, а
+   * максимум — это уровень, и потому нигде не хранится.
+   */
+  const hitDie = classHitDiceByTitle[c.class]?.max;
+  const hitDiceRemaining = hitDiceLeft(c.hitDiceSpent, c.level);
+  /** Возвращает ли короткий отдых ячейки — ПОЛЕ данных класса, а не сверка его id. */
+  const shortRestReturnsSlots = slotRechargeOf(classId) === "short";
   const classScaling = progression?.scaling ?? [];
   const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level, c.subclassChoices).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
@@ -1218,6 +1366,33 @@ function CharacterCard({
           ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effectiveSpeedFeet} фт (было {c.speedFeet} фт)
         </div>
       )}
+      <details className="character-card__rest" open>
+        <summary>Отдых</summary>
+        <ul className="character-card__resource-list">
+          <li className="character-card__item dm-list-row">
+            <strong>Кости Хитов</strong>{" "}
+            <span className="character-card__resource-count">
+              {hitDiceRemaining}/{c.level}
+              {hitDie ? ` (1к${hitDie})` : ""}
+            </span>
+            <button
+              type="button"
+              title={`Потратить Кость Хитов: бросок 1к${hitDie ?? "?"} + модификатор Телосложения`}
+              aria-disabled={hitDiceRemaining === 0 || !hitDie}
+              className={hitDiceRemaining === 0 || !hitDie ? "character-card__danger" : undefined}
+              onClick={spendHitDieRoll}
+            >
+              Потратить кость
+            </button>
+            <button type="button" onClick={takeShortRest}>
+              Короткий отдых
+            </button>
+            <span className="character-card__hint">{HIT_DICE_HINT}</span>
+            <span className="character-card__hint">{SHORT_REST_HINT}</span>
+          </li>
+        </ul>
+        {restNote && <p className="character-card__hint">{restNote}</p>}
+      </details>
       <div className="character-card__level">
         Уровень {c.level}{" "}
         <button

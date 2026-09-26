@@ -66,6 +66,18 @@ export interface ClassLevelProgression {
 
 export interface ClassProgression {
   spellsKnownKind: SpellsKnownKind;
+  /**
+   * На каком отдыхе возвращаются ячейки заклинаний. SRD: ячейки Магии договора
+   * Колдуна восстанавливаются после КОРОТКОГО отдыха, у всех прочих
+   * заклинателей — только после длинного. Поле обязательное у каждого класса
+   * намеренно: новый класс не пройдёт проверку типов, не объявив свой отдых, —
+   * тогда как `classId === "classes-warlock"` внутри кнопки отдыха был бы тем
+   * же хардкодом, только спрятанным, и молчал бы о забытом классе.
+   *
+   * У не-заклинателя поле бессмысленно, но безвредно: ячеек у него нет вовсе,
+   * и возвращать отдыху нечего.
+   */
+  slotRecharge: "short" | "long";
   byLevel: Record<number, ClassLevelProgression>;
 }
 
@@ -196,6 +208,7 @@ const BARDIC_INSPIRATION: ClassResource = {
 export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   "classes-bard": {
     spellsKnownKind: "known",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
@@ -213,6 +226,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-barbarian": {
     spellsKnownKind: "none",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
@@ -233,6 +247,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-fighter": {
     spellsKnownKind: "none",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
@@ -275,6 +290,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-wizard": {
     spellsKnownKind: "prepared",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 3], [4, 4], [10, 5]]),
@@ -293,6 +309,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-druid": {
     spellsKnownKind: "prepared",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
@@ -323,6 +340,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-cleric": {
     spellsKnownKind: "prepared",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 3], [4, 4], [10, 5]]),
@@ -353,6 +371,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-warlock": {
     spellsKnownKind: "known",
+    slotRecharge: "short",
     byLevel: levels((level) => ({
       spellSlots: PACT_MAGIC_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 2], [4, 3], [10, 4]]),
@@ -390,6 +409,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-monk": {
     spellsKnownKind: "none",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
@@ -422,6 +442,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-paladin": {
     spellsKnownKind: "prepared",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: HALF_CASTER_SLOTS[level],
       cantripsKnown: 0,
@@ -451,6 +472,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-rogue": {
     spellsKnownKind: "none",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: NO_SLOTS,
       cantripsKnown: 0,
@@ -462,6 +484,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-ranger": {
     spellsKnownKind: "known",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: HALF_CASTER_SLOTS[level],
       cantripsKnown: 0,
@@ -470,6 +493,7 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
   },
   "classes-sorcerer": {
     spellsKnownKind: "known",
+    slotRecharge: "long",
     byLevel: levels((level) => ({
       spellSlots: FULL_CASTER_SLOTS[level],
       cantripsKnown: byStep(level, [[1, 4], [4, 5], [10, 6]]),
@@ -521,6 +545,17 @@ export function asiLevels(classId: string | null | undefined): number[] {
  */
 export function isAsiLevel(classId: string | null | undefined, level: number): boolean {
   return asiLevels(classId).includes(level);
+}
+
+/**
+ * На каком отдыхе класс возвращает ячейки заклинаний — читается ПОЛЕ данных
+ * (`slotRecharge`), а не сверяется id класса. Единственный владелец факта: и
+ * кнопка короткого отдыха, и кнопка длинного спрашивают отсюда. Неизвестный
+ * класс — «длинный»: это правило всех заклинателей, кроме Колдуна, и ошибиться
+ * им безопаснее, чем возвращать ячейки чаще, чем позволяет SRD.
+ */
+export function slotRechargeOf(classId: string | null | undefined): "short" | "long" {
+  return (classId && CLASS_PROGRESSION[classId]?.slotRecharge) || "long";
 }
 
 /** Строка таблицы прогрессии класса на уровне `level`; `undefined` для неизвестного класса или уровня вне 1-12. */

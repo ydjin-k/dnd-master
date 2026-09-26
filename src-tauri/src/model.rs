@@ -110,6 +110,16 @@ pub struct Character {
     pub abilities: AbilityScores,
     pub max_hp: i32,
     pub current_hp: i32,
+    /// Сколько Костей Хитов потрачено. Хранится ПОТРАЧЕНО, а не ОСТАЛОСЬ:
+    /// старые сохранения получают 0 через структурный `#[serde(default)]` — тем
+    /// же приёмом, что `portrait_variant` и `experience_points` выше, — и ноль
+    /// обязан значить «запас полон». «Осталось» сделало бы ноль неотличимым от
+    /// пустого запаса, а миграции пришлось бы знать уровень персонажа.
+    ///
+    /// Максимум здесь не хранится: по SRD костей ровно столько, каков уровень,
+    /// и остаток считает UI (`src/ui/hitDice.ts` — единственный владелец
+    /// предела), как и максимумы ресурсов из таблицы прогрессии.
+    pub hit_dice_spent: u32,
     pub armor_class: i32,
     pub speed_feet: i32,
     pub initiative: i32,
@@ -321,10 +331,41 @@ mod tests {
         assert!(character.spell_slots_current.is_empty());
         assert!(character.feature_uses.is_empty());
         assert_eq!(character.experience_points, 0);
+        // characters-hit-dice-and-short-rest: 0 = ничего не потрачено = запас полон.
+        assert_eq!(character.hit_dice_spent, 0);
         // characters-subclass-features-have-no-mechanical-effect
         assert!(character.armor_proficiencies.is_empty());
         assert!(character.weapon_proficiencies.is_empty());
         assert_eq!(character.fighting_style, "");
+    }
+
+    /// characters-hit-dice-and-short-rest: поле хранит ПОТРАЧЕНО, поэтому
+    /// миграции не нужно ничего считать — отсутствие поля и есть полный запас.
+    /// Проба сторожит ИМЯ поля в файле сохранения (`hitDiceSpent`, camelCase):
+    /// разъехавшееся имя молча прочиталось бы нулём, то есть возвращало бы
+    /// игроку все кости при каждой загрузке.
+    #[test]
+    fn hit_dice_spent_reads_zero_from_old_save_and_keeps_written_value() {
+        let old_json = r#"{
+            "id": "abc", "name": "Монах", "race": "Человек", "class": "Монах", "level": 5,
+            "abilities": {
+                "strength": 10, "dexterity": 14, "constitution": 14,
+                "intelligence": 10, "wisdom": 16, "charisma": 10
+            },
+            "maxHp": 35, "currentHp": 20, "armorClass": 15,
+            "conditions": [], "inventory": []
+        }"#;
+        let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert_eq!(character.hit_dice_spent, 0, "нет поля — значит ничего не потрачено");
+
+        let saved: Character =
+            serde_json::from_str(&old_json.replace(r#""maxHp": 35"#, r#""hitDiceSpent": 3, "maxHp": 35"#))
+                .expect("сохранение с полем должно читаться");
+        assert_eq!(saved.hit_dice_spent, 3, "записанное число костей должно пережить загрузку");
+
+        let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
+            .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.hit_dice_spent, 3);
     }
 
     /// characters-class-feature-progression-1-5: сохранение с ячейками только

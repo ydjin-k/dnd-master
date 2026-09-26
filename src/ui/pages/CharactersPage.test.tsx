@@ -170,6 +170,7 @@ describe("CharactersPage", () => {
       abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
       maxHp: 10,
       currentHp: 10,
+      hitDiceSpent: 0,
       armorClass: 10,
       speedFeet: 30,
       initiative: 0,
@@ -271,6 +272,7 @@ describe("CharactersPage", () => {
           abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
           maxHp: 10,
           currentHp: 10,
+          hitDiceSpent: 0,
           armorClass: 10,
           speedFeet: 30,
           initiative: 0,
@@ -3011,6 +3013,176 @@ describe("CharactersPage", () => {
       expect(screen.getByRole("button", { name: "Безумие +1" })).toBeEnabled();
     });
   });
+
+  /**
+   * Отдых: Кости Хитов и короткий отдых (characters-hit-dice-and-short-rest).
+   * Предел остатка проверяется в hitDice.test.ts — здесь наблюдаемое поведение
+   * листа: бросок идёт в движок, счётчик считается от уровня, а короткий отдых
+   * возвращает ровно помеченное `recharge: "short"` и ячейки только тому, у
+   * кого `slotRecharge: "short"`.
+   */
+  describe("Отдых: Кости Хитов и короткий отдых", () => {
+    const WIZARD_TOPIC = classTopic("classes-wizard", "Волшебник", "6", "4");
+
+    /**
+     * Лист с загруженным справочником класса: та же загрузка `get_rules`, что
+     * наполняет `classHitDiceByTitle`, поэтому ожидание идёт по лицу кости в
+     * счётчике Костей Хитов — до загрузки его нет.
+     */
+    async function renderSheet(
+      char: Character,
+      options: { topic?: RuleTopic; roll?: { rolls: number[]; modifier: number; total: number } } = {},
+    ) {
+      const topic = options.topic ?? FIGHTER_TOPIC;
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [topic, CONDITIONS_TOPIC];
+        if (cmd === "roll_dice") {
+          const roll = options.roll ?? { rolls: [1], modifier: 0, total: 1 };
+          return { expression: "", dropped: null, ...roll };
+        }
+        return [];
+      });
+      mockState = baseState({ characters: [char] });
+      render(<CharactersPage />);
+      await screen.findByText(/\(1к\d+\)/);
+    }
+
+    /** Персонаж после последнего обновления листа. */
+    function applied(char: Character): Character {
+      const calls = updateCharacter.mock.calls;
+      return (calls[calls.length - 1][1] as (c: Character) => Character)(char);
+    }
+
+    it("трата кости лечит на выпавшее с модификатором Телосложения и уменьшает счётчик", async () => {
+      const hero: Character = {
+        ...characterWithInventory(),
+        abilities: { ...characterWithInventory().abilities, constitution: 14 }, // +2
+        level: 3,
+        maxHp: 20,
+        currentHp: 5,
+      };
+      await renderSheet(hero, { roll: { rolls: [7], modifier: 2, total: 9 } });
+
+      fireEvent.click(screen.getByText("Потратить кость"));
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+
+      // Бросок сделал движок, а не свой Math.random: кость классовая, модификатор в выражении.
+      expect(invoke).toHaveBeenCalledWith("roll_dice", { expression: "1d10+2" });
+      const after = applied(hero);
+      expect(after.currentHp).toBe(14);
+      expect(after.hitDiceSpent).toBe(1);
+      expect(screen.getByText(/Кость Хитов 1к10: выпало 7, Телосложение \+2 — хитов \+9\./)).toBeInTheDocument();
+    });
+
+    it("выше максимума хитов кость не поднимает, а отрицательное Телосложение их не отнимает", async () => {
+      const tough: Character = { ...characterWithInventory(), level: 2, maxHp: 16, currentHp: 12 };
+      await renderSheet(tough, { roll: { rolls: [9], modifier: 0, total: 9 } });
+      fireEvent.click(screen.getByText("Потратить кость"));
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+      expect(applied(tough).currentHp).toBe(16);
+
+      cleanup();
+      updateCharacter.mockClear();
+      const frail: Character = {
+        ...characterWithInventory(),
+        abilities: { ...characterWithInventory().abilities, constitution: 6 }, // -2
+        level: 2,
+        maxHp: 8,
+        currentHp: 3,
+      };
+      await renderSheet(frail, { roll: { rolls: [1], modifier: -2, total: -1 } });
+      fireEvent.click(screen.getByText("Потратить кость"));
+      await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+      const after = applied(frail);
+      // Лечение минимум 0: отрицательный модификатор хиты не отнимает, а кость всё равно потрачена.
+      expect(after.currentHp).toBe(3);
+      expect(after.hitDiceSpent).toBe(1);
+    });
+
+    it("пустой запас костей не тратится, помечен aria-disabled и звучит пределом", async () => {
+      const spent: Character = { ...characterWithInventory(), level: 2, hitDiceSpent: 2, maxHp: 16, currentHp: 4 };
+      await renderSheet(spent);
+
+      const button = screen.getByText("Потратить кость");
+      expect(button).toHaveAttribute("aria-disabled", "true");
+      expect(button).toBeEnabled(); // не `disabled`: тогда звука предела не было бы
+      fireEvent.click(button);
+
+      expect(sounds.playLimitSound).toHaveBeenCalled();
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("максимум костей — это уровень: левел-ап даёт кость, потраченные обратно не приходят", async () => {
+      const spentTwo = { ...characterWithInventory(), maxHp: 30, currentHp: 30, hitDiceSpent: 2 };
+      await renderSheet({ ...spentTwo, level: 5 });
+      expect(screen.getByText("3/5 (1к10)")).toBeInTheDocument();
+
+      cleanup();
+      // То же хранимое «потрачено 2», уровень выше — костей больше, а потраченные так и потрачены.
+      await renderSheet({ ...spentTwo, level: 6 });
+      expect(screen.getByText("4/6 (1к10)")).toBeInTheDocument();
+    });
+
+    it("короткий отдых возвращает только помеченное short: расовый «Зов бездны» остаётся потраченным", async () => {
+      const elf: Character = {
+        ...characterWithInventory(),
+        race: "Эльф бездны",
+        level: 2,
+        maxHp: 16,
+        currentHp: 4,
+        hitDiceSpent: 1,
+        featureUses: [
+          { featureId: "second-wind", usesCurrent: 0 },
+          { featureId: "action-surge", usesCurrent: 0 },
+          { featureId: "abyss-call", usesCurrent: 0 },
+        ],
+      };
+      await renderSheet(elf);
+
+      fireEvent.click(screen.getByText("Короткий отдых"));
+      const after = applied(elf);
+
+      expect(after.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
+      expect(after.featureUses).toContainEqual({ featureId: "action-surge", usesCurrent: 1 });
+      // Расовый ресурс помечен `long` — чтение идёт по полю данных, а не по списку id.
+      expect(after.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 0 });
+      // Хиты и кости короткий отдых сам не возвращает.
+      expect(after.currentHp).toBe(4);
+      expect(after.hitDiceSpent).toBe(1);
+      expect(screen.getByText("Короткий отдых: Второе дыхание, Всплеск действий.")).toBeInTheDocument();
+    });
+
+    it("ячейки на коротком отдыхе возвращаются только по полю slotRecharge: у Колдуна да, у Волшебника нет", async () => {
+      const warlock: Character = {
+        ...characterWithInventory(),
+        class: "Колдун",
+        subclass: "Архифея",
+        level: 3,
+        maxHp: 18,
+        currentHp: 18,
+        spellSlotsMax: [0, 2, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      };
+      await renderSheet(warlock, { topic: WARLOCK_TOPIC });
+      fireEvent.click(screen.getByText("Короткий отдых"));
+      expect(applied(warlock).spellSlotsCurrent).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
+      expect(screen.getByText(/ячеек возвращено 2/)).toBeInTheDocument();
+
+      cleanup();
+      updateCharacter.mockClear();
+      const wizard: Character = {
+        ...warlock,
+        class: "Волшебник",
+        subclass: "Школа воплощения",
+        spellSlotsMax: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [1, 0, 0, 0, 0, 0, 0, 0, 0],
+      };
+      await renderSheet(wizard, { topic: WIZARD_TOPIC });
+      fireEvent.click(screen.getByText("Короткий отдых"));
+      expect(applied(wizard).spellSlotsCurrent).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0]);
+    });
+  });
+
 });
 
 describe("truncateDescription", () => {
