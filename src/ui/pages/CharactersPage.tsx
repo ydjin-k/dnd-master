@@ -94,7 +94,7 @@ import {
 } from "../madness";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
-import { hitDiceLeft, spendHitDie } from "../hitDice";
+import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, FeatureUses, RollResult, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
@@ -115,6 +115,9 @@ type Panel = "none" | "wizard" | "presets";
  * не пустит персонажа на уровень, строки которого в таблице нет.
  */
 const MAX_LEVEL = PROGRESSION_MAX_LEVEL;
+
+/** Ступеней истощения в таблице SRD ровно шесть — и столько же строк в CONDITIONS (characterCreationData.ts). */
+const EXHAUSTION_MAX_LEVEL = 6;
 
 /** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
 const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
@@ -150,12 +153,68 @@ const HIT_DICE_HINT =
 const SHORT_REST_HINT =
   "Короткий отдых (не меньше часа) возвращает то, что помечено «короткий или длинный отдых», и ячейки Магии договора. Сам по себе хиты он не поднимает — их растит только потраченная Кость Хитов.";
 
+/**
+ * Что возвращает длинный отдых и чего от него ждать словами. Два правила SRD
+ * стоят здесь по разным причинам: «не больше одного длинного отдыха за 24 часа»
+ * — текстом, потому что времени в состоянии кампании нет вовсе и заводить часы
+ * эта карточка не должна, а «хотя бы 1 хит на входе» — кодом (см. takeLongRest),
+ * потому что хиты приложение знает и проверить может.
+ */
+const LONG_REST_HINT =
+  "Длинный отдых (не меньше 8 часов) возвращает все хиты, половину Костей Хитов (минимум одну), все ячейки, использования особенностей и снимает один уровень истощения. Нужен хотя бы 1 хит на входе: без сознания отдых не начинается. Больше одного длинного отдыха за 24 часа SRD не разрешает — этот счёт за Мастером, приложение время не считает.";
+
+/**
+ * Сколько Костей Хитов возвращает длинный отдых: половина МАКСИМУМА, то есть
+ * половина уровня, а не половина остатка («если у персонажа восемь Костей
+ * Хитов, он восстанавливает четыре» — gameplay-rest). Минимум одна обязателен:
+ * на 1 уровне максимум равен единице, и половина дала бы ноль — кость не
+ * вернулась бы никогда. Больше потраченного из этого числа не вернётся, и
+ * считает это `hitDice.ts`, а не здесь.
+ */
+function longRestHitDiceBack(level: number): number {
+  return Math.max(1, Math.floor(level / 2));
+}
+
 /** Общий принцип снятия состояний (rules.json → appendices-conditions, абзац перед таблицей). */
 const CONDITIONS_GENERAL_HINT =
   "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.";
 
 function exhaustionLevelName(level: number): string {
   return `Истощение (ур. ${level})`;
+}
+
+/**
+ * Наивысший уровень истощения в состояниях или 0, если его нет. Читается ТЕМ ЖЕ
+ * владельцем формата строки, что и пишется (`exhaustionLevelName`): своего
+ * разбора регэкспом здесь нет намеренно — разъехавшись с форматом, он молча
+ * перестал бы видеть истощение вовсе.
+ */
+function exhaustionLevelOf(conditions: string[]): number {
+  let level = 0;
+  for (let l = 1; l <= EXHAUSTION_MAX_LEVEL; l++) {
+    if (conditions.includes(exhaustionLevelName(l))) level = l;
+  }
+  return level;
+}
+
+/**
+ * Одна ступень истощения вниз — правило длинного отдыха SRD (EXHAUSTION_RECOVERY
+ * выше). Первый уровень снимается совсем, остальные заменяются строкой уровнем
+ * ниже — тем же `exhaustionLevelName`, что их и написал.
+ *
+ * Снижается ступень у ВЫСШЕГО уровня: несколько строк истощения разом
+ * появляются только если игрок наставил их руками, и снимать по одной у каждой
+ * значило бы вылечить его вдвое-втрое быстрее правила. Шестой уровень — смерть
+ * по таблице SRD, но исключения правило не делает: до пятого отдых снижает и
+ * его, и прятать это не наше дело.
+ */
+export function withExhaustionReduced(conditions: string[]): string[] {
+  const level = exhaustionLevelOf(conditions);
+  if (level === 0) return conditions;
+  const current = exhaustionLevelName(level);
+  if (level === 1) return conditions.filter((cond) => cond !== current);
+  // Set — если игрок уже держал и строку уровнем ниже: двух одинаковых состояний не бывает.
+  return [...new Set(conditions.map((cond) => (cond === current ? exhaustionLevelName(level - 1) : cond)))];
 }
 
 /** Эффекты истощения накопительные: уровень N включает эффекты уровней 1..N, плюс как снять. */
@@ -186,7 +245,7 @@ function extractConditionEffects(topics: RuleTopic[]): Record<string, string[]> 
       if (next?.type === "list") effects[block.text] = next.items;
     }
   }
-  for (let level = 1; level <= 6; level++) {
+  for (let level = 1; level <= EXHAUSTION_MAX_LEVEL; level++) {
     effects[exhaustionLevelName(level)] = exhaustionEffectLines(level);
   }
   return effects;
@@ -737,14 +796,19 @@ function CharacterCard({
   }
 
   /**
-   * Ограниченные ресурсы, которые возвращает короткий отдых, — классовые с
-   * архетипом и расовые вместе, отобранные по ПОЛЮ `recharge`, а не по списку
-   * id. Поэтому расовый «Зов бездны» Эльфа бездны, помеченный `long`, на
-   * коротком отдыхе не вернётся, а помеченное `short` вернётся у любого класса,
-   * который появится в таблице позже.
+   * Ограниченные ресурсы, которые возвращает отдых, — классовые с архетипом и
+   * расовые вместе, отобранные по ПОЛЮ `recharge`, а не по списку id. Поэтому
+   * расовый «Зов бездны» Эльфа бездны, помеченный `long`, на коротком отдыхе не
+   * вернётся, а помеченное `short` вернётся у любого класса, который появится в
+   * таблице позже.
+   *
+   * Длинный отдых берёт И `"long"`, И `"short"`: `"short"` в SRD значит
+   * «короткий ИЛИ длинный», и подпись на листе так и напечатана — «короткий или
+   * длинный отдых» (см. ResourceRow). Это не небрежность отбора, а само правило.
    */
-  function resourcesBackAfterShortRest(): ClassResource[] {
-    return [...classResources, ...raceResourceList].filter((r) => r.recharge === "short");
+  function resourcesBackAfterRest(rest: "short" | "long"): ClassResource[] {
+    const all = [...classResources, ...raceResourceList];
+    return rest === "long" ? all : all.filter((r) => r.recharge === "short");
   }
 
   /**
@@ -777,7 +841,7 @@ function CharacterCard({
    * отложенного updater'а нельзя.
    */
   function takeShortRest() {
-    const resources = resourcesBackAfterShortRest();
+    const resources = resourcesBackAfterRest("short");
     const refilled = resources.filter((r) => resourceCurrent(r) < resourceMax(r, c.abilities));
     const slotsBack = shortRestReturnsSlots ? spentSlotsTotal() : 0;
     onUpdate((ch) => ({
@@ -791,6 +855,62 @@ function CharacterCard({
       restSummary("Короткий отдых", [
         ...refilled.map((r) => r.name),
         ...(slotsBack > 0 ? [`ячеек возвращено ${slotsBack}`] : []),
+      ]),
+    );
+  }
+
+  /**
+   * Длинный отдых, одним нажатием и без промежуточных состояний: все хиты,
+   * половина максимума Костей Хитов (минимум одна), все ячейки, ресурсы ОБОИХ
+   * видов отдыха и одна ступень истощения вниз.
+   *
+   * «Хотя бы 1 хит на входе» — правило SRD, которое приложению проверяемо, и
+   * потому стоит кодом: на нуле кнопка не срабатывает, звучит предел, а причина
+   * названа в подписи. Заодно поэтому длинному отдыху нечего обнулять в
+   * спасбросках от смерти: на нуле его не нажать.
+   * «Не больше одного за 24 часа» осталось текстом (LONG_REST_HINT): времени в
+   * состоянии кампании нет, и заводить его эта карточка не должна.
+   *
+   * Подготовленные заклинания отдых НЕ трогает намеренно: лист и так позволяет
+   * готовить и снимать в любой момент (`preparedSpells.ts`), так что права после
+   * отдыха не прибавляется, а сбросить подготовленное кнопкой значило бы отнять
+   * у игрока его выбор без просьбы. Текст SRD о подготовке заново на листе стоит
+   * и остаётся верным.
+   *
+   * Все числа для подписи считаются ДО `onUpdate`: читать что-либо внутри
+   * отложенного updater'а нельзя.
+   */
+  function takeLongRest() {
+    if (c.currentHp === 0) {
+      playLimitSound();
+      return;
+    }
+    const resources = resourcesBackAfterRest("long");
+    const refilled = resources.filter((r) => resourceCurrent(r) < resourceMax(r, c.abilities));
+    const slotsBack = spentSlotsTotal();
+    // Сколько костей действительно вернётся: половину максимума просит правило
+    // отдыха, а обрезает просьбу по потраченному `hitDice.ts` — своего Math.min
+    // здесь нет, иначе предел получил бы второго владельца.
+    const diceBack =
+      hitDiceLeft(restoreHitDice(c.hitDiceSpent, c.level, longRestHitDiceBack(c.level)), c.level) - hitDiceRemaining;
+    const exhaustionBefore = exhaustionLevelOf(c.conditions);
+    onUpdate((ch) => ({
+      ...ch,
+      currentHp: ch.maxHp,
+      hitDiceSpent: restoreHitDice(ch.hitDiceSpent, ch.level, longRestHitDiceBack(ch.level)),
+      spellSlotsCurrent: restoreAllSlots(ch.spellSlotsCurrent, ch.spellSlotsMax),
+      featureUses: refilledFeatureUses(ch, resources),
+      conditions: withExhaustionReduced(ch.conditions),
+    }));
+    setRestNote(
+      restSummary("Длинный отдых", [
+        `хиты ${c.maxHp}/${c.maxHp}`,
+        ...(diceBack > 0 ? [`Костей Хитов +${diceBack}`] : []),
+        ...(slotsBack > 0 ? [`ячеек возвращено ${slotsBack}`] : []),
+        ...refilled.map((r) => r.name),
+        ...(exhaustionBefore > 0
+          ? [exhaustionBefore === 1 ? "уровень истощения снят" : `истощение ур. ${exhaustionBefore - 1}`]
+          : []),
       ]),
     );
   }
@@ -1387,8 +1507,18 @@ function CharacterCard({
             <button type="button" onClick={takeShortRest}>
               Короткий отдых
             </button>
+            <button
+              type="button"
+              title="Длинный отдых: все хиты, половина Костей Хитов, все ячейки, особенности и ступень истощения"
+              aria-disabled={c.currentHp === 0}
+              className={c.currentHp === 0 ? "character-card__danger" : undefined}
+              onClick={takeLongRest}
+            >
+              Длинный отдых
+            </button>
             <span className="character-card__hint">{HIT_DICE_HINT}</span>
             <span className="character-card__hint">{SHORT_REST_HINT}</span>
+            <span className="character-card__hint">{LONG_REST_HINT}</span>
           </li>
         </ul>
         {restNote && <p className="character-card__hint">{restNote}</p>}

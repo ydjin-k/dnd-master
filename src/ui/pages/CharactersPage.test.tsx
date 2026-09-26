@@ -3,7 +3,13 @@ import bundledSpells from "../../../src-tauri/rules/spells.json";
 import bundledRules from "../../../src-tauri/rules/rules.json";
 import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
-import { CharactersPage, truncateDescription, classFeaturesBlockHasContent, clampCurrentHp } from "./CharactersPage";
+import {
+  CharactersPage,
+  truncateDescription,
+  classFeaturesBlockHasContent,
+  clampCurrentHp,
+  withExhaustionReduced,
+} from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
 import { WILD_MAGIC_DIE, WILD_MAGIC_TABLE } from "../wildMagicSurges";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
@@ -3021,7 +3027,7 @@ describe("CharactersPage", () => {
    * возвращает ровно помеченное `recharge: "short"` и ячейки только тому, у
    * кого `slotRecharge: "short"`.
    */
-  describe("Отдых: Кости Хитов и короткий отдых", () => {
+  describe("Отдых: Кости Хитов, короткий и длинный", () => {
     const WIZARD_TOPIC = classTopic("classes-wizard", "Волшебник", "6", "4");
 
     /**
@@ -3181,6 +3187,102 @@ describe("CharactersPage", () => {
       fireEvent.click(screen.getByText("Короткий отдых"));
       expect(applied(wizard).spellSlotsCurrent).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0]);
     });
+
+    // --- длинный отдых (characters-long-rest) ---
+
+    it("длинный отдых возвращает всё: хиты, половину костей, ячейки, ресурсы обоих отдыхов и ступень истощения", async () => {
+      const CLERIC_DIE = classTopic("classes-cleric", "Жрец", "8", "5");
+      const cleric: Character = {
+        ...characterWithInventory(),
+        class: "Жрец",
+        subclass: "Домен жизни",
+        race: "Эльф бездны",
+        level: 8,
+        maxHp: 60,
+        currentHp: 3,
+        hitDiceSpent: 8,
+        conditions: ["Истощение (ур. 4)"],
+        spellSlotsMax: [4, 3, 3, 2, 0, 0, 0, 0, 0],
+        spellSlotsCurrent: [0, 1, 0, 0, 0, 0, 0, 0, 0],
+        featureUses: [
+          // «Проведение энергии» помечено short — длинный отдых возвращает и его тоже.
+          { featureId: "channel-divinity", usesCurrent: 0 },
+          // «Зов бездны» помечен long — короткий его не возвращал, длинный обязан.
+          { featureId: "abyss-call", usesCurrent: 0 },
+        ],
+      };
+      await renderSheet(cleric, { topic: CLERIC_DIE });
+
+      fireEvent.click(screen.getByText("Длинный отдых"));
+      const after = applied(cleric);
+
+      expect(after.currentHp).toBe(60);
+      expect(after.hitDiceSpent).toBe(4); // половина МАКСИМУМА: на 8 уровне четыре кости
+      expect(after.spellSlotsCurrent).toEqual([4, 3, 3, 2, 0, 0, 0, 0, 0]);
+      expect(after.featureUses).toContainEqual({ featureId: "channel-divinity", usesCurrent: 2 });
+      expect(after.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 2 });
+      expect(after.conditions).toContain("Истощение (ур. 3)");
+      expect(after.conditions).not.toContain("Истощение (ур. 4)");
+      expect(
+        screen.getByText(/Длинный отдых: хиты 60\/60, Костей Хитов \+4, ячеек возвращено 11/),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/истощение ур\. 3/)).toBeInTheDocument();
+    });
+
+    it("половина костей считается от максимума: на 1 уровне минимум одна, а больше потраченного не вернётся", async () => {
+      const novice: Character = { ...characterWithInventory(), level: 1, maxHp: 12, currentHp: 4, hitDiceSpent: 1 };
+      await renderSheet(novice);
+      fireEvent.click(screen.getByText("Длинный отдых"));
+      // Половина от одной кости — ноль, и без минимума кость не вернулась бы никогда.
+      expect(applied(novice).hitDiceSpent).toBe(0);
+
+      cleanup();
+      updateCharacter.mockClear();
+      const thrifty: Character = { ...characterWithInventory(), level: 8, maxHp: 60, currentHp: 9, hitDiceSpent: 1 };
+      await renderSheet(thrifty);
+      fireEvent.click(screen.getByText("Длинный отдых"));
+      // Потрачена одна из восьми — вернётся ровно одна, а не половина уровня.
+      expect(applied(thrifty).hitDiceSpent).toBe(0);
+      expect(screen.getByText(/Костей Хитов \+1/)).toBeInTheDocument();
+    });
+
+    it("на нуле хитов длинный отдых не срабатывает, а короткий правилом не запрещён", async () => {
+      const downed: Character = { ...characterWithInventory(), level: 4, maxHp: 30, currentHp: 0, hitDiceSpent: 4 };
+      await renderSheet(downed);
+
+      const longRest = screen.getByText("Длинный отдых");
+      expect(longRest).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(longRest);
+
+      expect(sounds.playLimitSound).toHaveBeenCalled();
+      expect(updateCharacter).not.toHaveBeenCalled();
+      expect(screen.getByText("Короткий отдых")).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("отличие длинного от короткого — именно в ресурсах: short возвращают оба, long только длинный", async () => {
+      const elf: Character = {
+        ...characterWithInventory(),
+        race: "Эльф бездны",
+        level: 5,
+        maxHp: 40,
+        currentHp: 12,
+        featureUses: [
+          { featureId: "second-wind", usesCurrent: 0 },
+          { featureId: "abyss-call", usesCurrent: 0 },
+        ],
+      };
+      await renderSheet(elf);
+
+      fireEvent.click(screen.getByText("Короткий отдых"));
+      const afterShort = applied(elf);
+      expect(afterShort.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
+      expect(afterShort.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 0 });
+
+      fireEvent.click(screen.getByText("Длинный отдых"));
+      const afterLong = applied(elf);
+      expect(afterLong.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
+      expect(afterLong.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 2 });
+    });
   });
 
 });
@@ -3259,6 +3361,35 @@ describe("classFeaturesBlockHasContent", () => {
 
   it("an empty damageResistances array still counts as nothing granted", () => {
     expect(classFeaturesBlockHasContent({ ...empty, damageResistances: [] })).toBe(false);
+  });
+});
+
+/**
+ * Снижение истощения читает и пишет строку состояния ОДНИМ владельцем формата
+ * (`exhaustionLevelName`), а не своим регэкспом на месте. Проба отрицательная:
+ * поменяй в `withExhaustionReduced` высший уровень на любой другой — краснеет
+ * «снижается только высшая».
+ */
+describe("withExhaustionReduced", () => {
+  it("первый уровень истощения снимается совсем", () => {
+    expect(withExhaustionReduced(["Отравленное", "Истощение (ур. 1)"])).toEqual(["Отравленное"]);
+  });
+
+  it("остальные уровни опускаются на одну ступень", () => {
+    expect(withExhaustionReduced(["Истощение (ур. 4)"])).toEqual(["Истощение (ур. 3)"]);
+  });
+
+  it("шестой уровень — смерть по таблице SRD, но отдых всё равно снижает его до пятого", () => {
+    expect(withExhaustionReduced(["Истощение (ур. 6)"])).toEqual(["Истощение (ур. 5)"]);
+  });
+
+  it("без истощения список состояний не меняется вовсе", () => {
+    const conditions = ["Ослеплённое", "Отравленное"];
+    expect(withExhaustionReduced(conditions)).toBe(conditions);
+  });
+
+  it("несколько строк истощения разом: снижается только высшая, и двойника не появляется", () => {
+    expect(withExhaustionReduced(["Истощение (ур. 2)", "Истощение (ур. 1)"])).toEqual(["Истощение (ур. 1)"]);
   });
 });
 
