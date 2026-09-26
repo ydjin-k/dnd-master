@@ -3059,6 +3059,39 @@ describe("CharactersPage", () => {
       return (calls[calls.length - 1][1] as (c: Character) => Character)(char);
     }
 
+    it("держит счётчик и действия в строке, а правила и итог отдыха — отдельными блоками", async () => {
+      const hero: Character = {
+        ...characterWithInventory(),
+        level: 5,
+        hitDiceSpent: 2,
+        featureUses: [
+          { featureId: "second-wind", usesCurrent: 0 },
+          { featureId: "action-surge", usesCurrent: 0 },
+        ],
+      };
+      await renderSheet(hero);
+
+      const rest = screen.getByText("Отдых").closest("details");
+      expect(rest).toBeInTheDocument();
+      if (!rest) throw new Error("Блок отдыха не найден");
+
+      const actionRow = rest.querySelector<HTMLElement>(".character-card__rest-actions");
+      const hints = rest.querySelector<HTMLElement>(".character-card__rest-hints");
+      expect(actionRow).toBeInTheDocument();
+      expect(hints).toBeInTheDocument();
+      if (!actionRow || !hints) throw new Error("Раскладка отдыха не найдена");
+
+      expect(within(actionRow).getByText("3/5 (1к10)")).toBeInTheDocument();
+      expect(hints).not.toBe(actionRow);
+      expect(actionRow.contains(hints)).toBe(false);
+      expect([...hints.children].map((child) => child.tagName)).toEqual(["P", "P", "P"]);
+
+      fireEvent.click(within(actionRow).getByText("Короткий отдых"));
+      const note = screen.getByText("Короткий отдых: Второе дыхание, Всплеск действий.");
+      expect(note).toHaveClass("character-card__rest-note");
+      expect(note).not.toHaveClass("character-card__hint");
+    });
+
     it("трата кости лечит на выпавшее с модификатором Телосложения и уменьшает счётчик", async () => {
       const hero: Character = {
         ...characterWithInventory(),

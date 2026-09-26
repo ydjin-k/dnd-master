@@ -1489,7 +1489,7 @@ function CharacterCard({
       <details className="character-card__rest" open>
         <summary>Отдых</summary>
         <ul className="character-card__resource-list">
-          <li className="character-card__item dm-list-row">
+          <li className="character-card__item character-card__rest-actions dm-list-row">
             <strong>Кости Хитов</strong>{" "}
             <span className="character-card__resource-count">
               {hitDiceRemaining}/{c.level}
@@ -1516,12 +1516,14 @@ function CharacterCard({
             >
               Длинный отдых
             </button>
-            <span className="character-card__hint">{HIT_DICE_HINT}</span>
-            <span className="character-card__hint">{SHORT_REST_HINT}</span>
-            <span className="character-card__hint">{LONG_REST_HINT}</span>
           </li>
         </ul>
-        {restNote && <p className="character-card__hint">{restNote}</p>}
+        <div className="character-card__rest-hints">
+          <p className="character-card__hint">{HIT_DICE_HINT}</p>
+          <p className="character-card__hint">{SHORT_REST_HINT}</p>
+          <p className="character-card__hint">{LONG_REST_HINT}</p>
+        </div>
+        {restNote && <p className="character-card__rest-note">{restNote}</p>}
       </details>
       <div className="character-card__level">
         Уровень {c.level}{" "}
