@@ -228,6 +228,47 @@
   font-size: 0.85em;
 }
 
+.character-card__rest summary {
+  cursor: pointer;
+  color: var(--dm-text-muted);
+}
+
+.character-card__rest .character-card__resource-list {
+  margin: 0.3em 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.character-card__rest-actions {
+  align-items: center;
+}
+
+.character-card__rest-hints {
+  display: grid;
+  gap: 0.35em;
+  margin-top: 0.45em;
+  padding: 0.55em 0.65em;
+  border-left: 2px solid rgba(114, 214, 208, 0.32);
+  border-radius: 0 4px 4px 0;
+  background: rgba(7, 15, 33, 0.24);
+}
+
+.character-card__rest-hints .character-card__hint {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.character-card__rest-note {
+  margin: 0.65em 0 0;
+  padding: 0.55em 0.7em;
+  border: 1px solid rgba(217, 177, 105, 0.42);
+  border-radius: 4px;
+  background: rgba(217, 177, 105, 0.08);
+  color: var(--dm-gold);
+  font-size: 0.9em;
+  font-weight: 650;
+}
+
 .character-card__level {
   margin-top: 0.3em;
   font-size: 0.9em;
