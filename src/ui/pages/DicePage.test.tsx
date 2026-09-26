@@ -94,6 +94,61 @@ describe("DicePage", () => {
     expect(await screen.findByText("Вручную (d20)")).toBeInTheDocument();
   });
 
+  it("reminds the player, in the manual block, how a manual entry has to be counted", () => {
+    renderDicePage();
+    const hint = document.querySelector(".dice-page__manual .dice-page__manual-hint");
+    expect(hint?.textContent).toContain(
+      "Для записи ручного броска выберите тип кубика, а также их количество и запишите сумму броска со всеми штрафами и модификаторами",
+    );
+    expect(hint?.textContent).toContain("«Модификатор» и «Режим»");
+  });
+
+  // Смысл пробы — не «текст есть на экране», а «показанное = записанное»:
+  // ожидание собирается из самой записи журнала, поэтому разойтись молча они
+  // уже не могут. Модификатор «+3» выставлен нарочно: он относится к кнопке
+  // «Бросить» и ни в показ, ни в запись попасть не должен.
+  it("previews exactly the entry the manual submit records, modifier excluded", async () => {
+    renderDicePage();
+    fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
+    fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Модификатор"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Результат ручного броска"), { target: { value: "11" } });
+
+    const preview = document.querySelector(".dice-page__manual-preview");
+    expect(preview).not.toBeNull();
+    const shown = preview?.textContent;
+
+    fireEvent.click(screen.getByText("Записать вручную"));
+
+    const entry = await screen.findByRole("listitem");
+    const recordedLabel = entry.querySelector(".dice-log-entry__expr")?.textContent;
+    const recordedTotal = entry.querySelector(".dice-log-entry__total")?.textContent;
+    expect(shown).toBe(`Запишется: ${recordedLabel} — ${recordedTotal}`);
+    expect(recordedLabel).toBe("Вручную (2d6)");
+    expect(recordedTotal).toBe("11");
+    expect(entry.textContent).not.toContain("+3");
+  });
+
+  it("shows no preview while the manual field is empty", () => {
+    renderDicePage();
+    const input = screen.getByLabelText("Результат ручного броска");
+    expect(document.querySelector(".dice-page__manual-preview")).toBeNull();
+    fireEvent.change(input, { target: { value: "7" } });
+    expect(document.querySelector(".dice-page__manual-preview")?.textContent).toBe("Запишется: Вручную (d20) — 7");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(document.querySelector(".dice-page__manual-preview")).toBeNull();
+  });
+
+  // Пустое поле и не показывает, и не пишет — одно решение на оба: `Number("")`
+  // это 0, и раньше «Записать вручную» по пустому полю клало в журнал
+  // «Вручную (d20) 0».
+  it("records nothing when the manual field is empty", () => {
+    renderDicePage();
+    fireEvent.click(screen.getByText("Записать вручную"));
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.queryByText("Очистить историю")).not.toBeInTheDocument();
+  });
+
   it("keeps only the 10 most recent entries, newest first", async () => {
     let expression = 0;
     invokeMock.mockImplementation(async (_cmd: string, args: { expression: string }): Promise<RollResult> => {

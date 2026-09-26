@@ -48,6 +48,29 @@ function buildDiceLabel(sides: DieSides, count: number) {
   return `${count === 1 ? "" : count}d${sides}`;
 }
 
+/**
+ * Метка ручной записи. Единственное место, где она собирается: и запись в
+ * журнал (`submitManual`), и показ будущей записи берут её отсюда — иначе
+ * показанное игроку и легшее в журнал разойдутся молча.
+ */
+function buildManualLabel(sides: DieSides, count: number) {
+  return `Вручную (${buildDiceLabel(sides, count)})`;
+}
+
+/**
+ * Число, которое ляжет в журнал за введённый текст, либо null — записывать и
+ * показывать нечего. Одна на двоих: и `submitManual`, и показ будущей записи
+ * читают поле только отсюда, поэтому обещанное и записанное совпадают и в
+ * пограничных случаях. Пустое поле — именно null: `Number("")` даёт 0, и без
+ * этой проверки «Записать вручную» по пустому полю клало в журнал
+ * «Вручную (d20) 0», а показ обещал бы его ещё до первой набранной цифры.
+ */
+function manualEntryValue(raw: string): number | null {
+  if (raw.trim() === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
 const waitForRollAnimation = () => new Promise<void>((resolve) => window.setTimeout(resolve, ROLL_ANIMATION_MS));
 
 export function DicePage() {
@@ -59,6 +82,7 @@ export function DicePage() {
   const [isRolling, setIsRolling] = useState(false);
   const [manualValue, setManualValue] = useState("");
   const { log, recordRoll, recordRollError, recordManual, clearLog } = useDiceLog();
+  const manualPreview = manualEntryValue(manualValue);
 
   async function roll() {
     if (isRolling) return;
@@ -80,9 +104,11 @@ export function DicePage() {
 
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(manualValue);
-    if (!Number.isFinite(value)) return;
-    recordManual(`Вручную (${buildDiceLabel(sides, count)})`, value);
+    // Та же функция, что питает показ будущей записи: что показано, то и
+    // пишется, включая случай «показывать нечего».
+    const value = manualEntryValue(manualValue);
+    if (value === null) return;
+    recordManual(buildManualLabel(sides, count), value);
     setManualValue("");
   }
 
@@ -112,8 +138,20 @@ export function DicePage() {
       </button>
     </div>
     <form className="dice-page__manual" onSubmit={submitManual}>
-      <input aria-label="Результат ручного броска" type="number" value={manualValue} onChange={(event) => setManualValue(event.currentTarget.value)} placeholder="0" />
-      <button type="submit">Записать вручную</button>
+      <p className="dice-page__manual-hint dm-hint">
+        <span>
+          <span className="dm-hint__title">Для записи ручного броска выберите тип кубика, а также их количество и запишите сумму броска со всеми штрафами и модификаторами.</span>
+          <span className="dm-hint__text">В журнал попадут кость и количество, выбранные выше, и это число. «Модификатор» и «Режим» относятся к кнопке «Бросить» и в ручную запись не идут.</span>
+        </span>
+      </p>
+      <div className="dice-page__manual-row">
+        <input aria-label="Результат ручного броска" type="number" value={manualValue} onChange={(event) => setManualValue(event.currentTarget.value)} placeholder="0" />
+        <button type="submit">Записать вручную</button>
+      </div>
+      {manualPreview !== null && <p className="dice-page__manual-preview">
+        Запишется: <span className="dice-page__manual-preview-label">{buildManualLabel(sides, count)}</span>
+        {" — "}<span className="dice-page__manual-preview-total">{manualPreview}</span>
+      </p>}
     </form>
     {log.length > 0 && <div className="dice-page__log-actions">
       <button type="button" onClick={clearLog}>Очистить историю</button>
