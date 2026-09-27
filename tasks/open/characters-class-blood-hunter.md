@@ -24,9 +24,15 @@
 Сегодня список классов собирается ДВАЖДЫ и независимо: `topics.filter((t) => t.category ===
 "classes")` в мастере (`CharacterWizard.tsx:223`) и тот же отбор в `extractClassHitDice`
 (`CharactersPage.tsx:2416`). Класса вне `rules.json` не видит ни один. Завести
-`playableClasses(topics)` по образцу `playableRaces` (в `abyssElfRace.ts`), **перевести на него оба
+`playableClasses(topics)` по образцу `playableRaces`, **перевести на него оба
 читателя** и сделать его единственным владельцем факта «каким классом можно играть». Проба
 обязательна: свой класс виден И в мастере, И на листе.
+
+**Где его положить, зависит от `rules-own-races-and-classes`.** Если та карточка уже принята —
+`playableClasses` идёт рядом с `playableRaces` в `src/ui/ownRuleTopics.ts` и собирается из
+`OWN_RULE_TOPICS`, туда же одной строкой добавляется тема класса — и класс сам появляется во
+вкладке «Правила» со своей подписью. Если ещё нет — класть в `abyssElfRace.ts` рядом с
+`playableRaces` и ПОКАЗ В СПРАВОЧНИКЕ НЕ ЗАВОДИТЬ: это чужая карточка.
 
 **2. Модуль `src/ui/bloodHunterClass.ts`** в форме `RuleTopic`, с абзацем «Кость хитов: 1к10…» —
 без него `parseHitDie` не найдёт кость. В шапке — раздел «что взято из PDF, а что наше», как у
