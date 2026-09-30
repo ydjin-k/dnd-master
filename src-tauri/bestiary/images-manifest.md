@@ -93,7 +93,7 @@ Id — латинский, от **английского** имени SRD, не 
 | `Лягушка.png` | Лягушка | Frog | `frog.png` |
 | `Ледяной великан.png` | Ледяной великан | Frost Giant | `frost-giant.png` |
 | `Горгулья.png` | Горгулья | Gargoyle | `gargoyle.png` |
-| `Больная гигантская крыса.png` | Больная гигантская крыса | Giant Rat (Diseased) | `giant-rat-diseased.png` |
+| `Больная гигантская крыса.png` | Больная гигантская крыса | Giant Rat (Diseased) | ~~`giant-rat-diseased.png`~~ — **файл удалён 01.10.2026 по решению владельца**, записи под него нет |
 | `Гигантский морской конёк.png` | Гигантский морской конёк | Giant Sea Horse | `giant-sea-horse.png` |
 | `Гигантская акула.png` | Гигантская акула | Giant Shark | `giant-shark.png` |
 | `Гигантский паук.png` | Гигантский паук | Giant Spider | `giant-spider.png` |
