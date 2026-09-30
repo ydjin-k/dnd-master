@@ -95,9 +95,18 @@ import {
 } from "../madness";
 import {
   DEATH_SAVE_EXPRESSION,
+  DEATH_SAVE_FAILURES_TO_DEATH,
   DEATH_SAVE_RULES_LINK,
+  DEATH_SAVE_STATE_LABELS,
+  DEATH_SAVE_SUCCESSES_TO_STABLE,
+  applyDeathSaveRoll,
+  clampDeathSaveCount,
   deathSaveHintLines,
   deathSaveRollLabel,
+  deathSaveState,
+  deathSaveVerdict,
+  deathSavesOf,
+  normalizeDeathSaves,
 } from "../deathSaves";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
@@ -367,6 +376,42 @@ function ResourceRow({
   );
 }
 
+/**
+ * Ряд галочек спасброска — успехи или провалы. Одна разметка на оба ряда:
+ * отличаются они только подписью и числом клеток, и написанная дважды
+ * разошлась бы первой правкой (то же правило, что у `ResourceRow` выше).
+ *
+ * Клетки — настоящие `checkbox`: их можно нажать, они читаются скринридером и
+ * видны пробе по имени. Счёт `checked` считается сравнением с числом, а не
+ * своим массивом флагов: массив был бы вторым владельцем того же числа.
+ */
+function DeathSaveRow({
+  legend,
+  count,
+  total,
+  onSet,
+}: {
+  legend: string;
+  count: number;
+  total: number;
+  onSet: (box: number) => void;
+}) {
+  return (
+    <span className="character-card__dying-count">
+      {legend}: {count}/{total}
+      {Array.from({ length: total }, (_, index) => index + 1).map((box) => (
+        <input
+          key={box}
+          type="checkbox"
+          checked={box <= count}
+          aria-label={`${legend} ${box} из ${total}`}
+          onChange={() => onSet(box)}
+        />
+      ))}
+    </span>
+  );
+}
+
 function CharacterCard({
   character: c,
   spells,
@@ -450,9 +495,12 @@ function CharacterCard({
   // и у безумия: состояние ко второму нажатию ещё не перерисовалось бы, и
   // одна кость ушла бы за два броска.
   const hitDieRollingRef = useRef(false);
-  // Спасбросок от смерти: итог последнего броска и отказ движка. Оба живут в
-  // листе, а не в персонаже, — как у безумия и Кости Хитов выше.
-  const [deathSaveNote, setDeathSaveNote] = useState<string | null>(null);
+  // Спасбросок от смерти: что выпало на последней кости и отказ движка. Оба
+  // живут в листе, а не в персонаже, — как у безумия и Кости Хитов выше. В
+  // листе лежит РОВНО выпавшее число, а не готовая строка про счёт: счёт
+  // показывают галочки из персонажа, и вторая его копия в состоянии страницы
+  // разошлась бы с записанным.
+  const [lastDeathSaveRoll, setLastDeathSaveRoll] = useState<number | null>(null);
   const [deathSaveError, setDeathSaveError] = useState<string | null>(null);
   const [deathSaveRolling, setDeathSaveRolling] = useState(false);
   // Сторож повторного входа — ref, а не состояние, по той же причине, что у
@@ -463,6 +511,11 @@ function CharacterCard({
 
   /** Журнал бросков — единственный владелец истории; лист в него только пишет. */
   const { recordRoll } = useDiceLog();
+
+  // Счёт и состояние спасбросков — из персонажа через правило, а не из своего
+  // сравнения «успехов === 3»: у факта «стабилизирован/мёртв» один владелец.
+  const deathSaves = deathSavesOf(c);
+  const deathSaveStateNow = deathSaveState(deathSaves);
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -575,26 +628,63 @@ function CharacterCard({
    * Кость бросает движок (`roll_dice`), как у безумия и Кости Хитов: своего
    * `Math.random` на листе нет.
    *
-   * В персонажа эта функция не пишет НИЧЕГО — ни хитов, ни состояний. Счёт
-   * успехов и провалов заводит `characters-death-saves`, и он подключится
-   * ровно здесь, в одном месте, а не россыпью вызовов по файлу.
+   * Чем обернулся бросок, решает НЕ эта функция: выпавшее число уходит в
+   * `applyDeathSaveRoll` — единственного владельца правила. И считается там
+   * ВНУТРИ updater'а, от свежего персонажа (`ch`), а не от снимка рендера: два
+   * броска подряд, сделанные до перерисовки, иначе сложились бы в один — то же
+   * семейство дефектов, что поймала запись 136 у безумия. Само выпавшее число
+   * читается из результата ДО updater'а и кладётся в переменную.
    */
   async function rollDeathSave() {
     if (deathSaveRollingRef.current) return;
+    if (deathSaveState(deathSavesOf(c)) !== "rolling") return;
     deathSaveRollingRef.current = true;
     setDeathSaveRolling(true);
     setDeathSaveError(null);
-    setDeathSaveNote(null);
+    setLastDeathSaveRoll(null);
     try {
       const result = await invoke<RollResult>("roll_dice", { expression: DEATH_SAVE_EXPRESSION });
       recordRoll(deathSaveRollLabel(c.name), result);
-      setDeathSaveNote(`Выпало ${result.total} — запись ушла в журнал бросков.`);
+      const roll = result.total;
+      setLastDeathSaveRoll(roll);
+      onUpdate((ch) => {
+        const outcome = applyDeathSaveRoll(deathSavesOf(ch), roll);
+        return {
+          ...ch,
+          deathSaveSuccesses: outcome.saves.successes,
+          deathSaveFailures: outcome.saves.failures,
+          // Единственное место карточки, которое пишет хиты по ПРАВИЛУ, а не по
+          // вводу игрока: «20» возвращает ровно 1 хит. Величину даёт правило,
+          // предел — clampCurrentHp, как и всем прочим записям хитов.
+          currentHp: outcome.hp === null ? ch.currentHp : clampCurrentHp(outcome.hp, ch.maxHp),
+        };
+      });
     } catch (e) {
       setDeathSaveError(String(e));
     } finally {
       deathSaveRollingRef.current = false;
       setDeathSaveRolling(false);
     }
+  }
+
+  /**
+   * Галочка успеха/провала, поставленная руками: за столом бросают настоящей
+   * костью чаще, чем экранной, и игрок — хозяин числа, тем же правилом, что у
+   * поля хитов. Нажатие на N-ю клетку ставит счёт N, а повторное нажатие на
+   * уже отмеченную — N-1, то есть снимает её.
+   *
+   * Предел тот же, что у броска (`clampDeathSaveCount`), — второго владельца
+   * «не больше трёх» здесь нет. Число считается ДО `onUpdate`.
+   */
+  function setDeathSaveCount(kind: "successes" | "failures", box: number) {
+    const saves = deathSavesOf(c);
+    const was = kind === "successes" ? saves.successes : saves.failures;
+    const next = clampDeathSaveCount(box === was ? box - 1 : box);
+    onUpdate((ch) =>
+      kind === "successes"
+        ? { ...ch, deathSaveSuccesses: next }
+        : { ...ch, deathSaveFailures: next },
+    );
   }
 
   function addCondition() {
@@ -1548,11 +1638,36 @@ function CharacterCard({
                   <li key={line}>{line}</li>
                 ))}
               </ul>
+              <div className="character-card__dying-counts">
+                <DeathSaveRow
+                  legend="Успехи"
+                  count={deathSaves.successes}
+                  total={DEATH_SAVE_SUCCESSES_TO_STABLE}
+                  onSet={(box) => setDeathSaveCount("successes", box)}
+                />
+                <DeathSaveRow
+                  legend="Провалы"
+                  count={deathSaves.failures}
+                  total={DEATH_SAVE_FAILURES_TO_DEATH}
+                  onSet={(box) => setDeathSaveCount("failures", box)}
+                />
+              </div>
+              {deathSaveStateNow !== "rolling" && (
+                <p className="character-card__dying-state">{DEATH_SAVE_STATE_LABELS[deathSaveStateNow]}</p>
+              )}
               <div className="character-card__add-row">
-                <button type="button" onClick={rollDeathSave} disabled={deathSaveRolling}>
+                <button
+                  type="button"
+                  onClick={rollDeathSave}
+                  disabled={deathSaveRolling || deathSaveStateNow !== "rolling"}
+                >
                   Спасбросок от смерти
                 </button>
-                {deathSaveNote && <span className="character-card__dying-note">{deathSaveNote}</span>}
+                {lastDeathSaveRoll !== null && (
+                  <span className="character-card__dying-note">
+                    Выпало {lastDeathSaveRoll} — {deathSaveVerdict(lastDeathSaveRoll)}.
+                  </span>
+                )}
                 {deathSaveError && (
                   <span className="character-card__madness-error">Бросок не удался: {deathSaveError}</span>
                 )}
@@ -2597,7 +2712,15 @@ export function CharactersPage() {
                 removeCharacter(c.id);
               }
             }}
-            onUpdate={(updater) => updateCharacter(c.id, updater)}
+            /*
+              Воронка листа: КАЖДАЯ запись в персонажа проходит здесь, какой бы
+              кнопкой она ни началась. Поэтому нормализация счётчиков
+              спасбросков стоит одна и ровно тут, а не на пяти путях записи
+              хитов (ввод игрока, Кость Хитов, длинный отдых, пул лечения
+              архетипа, левел-ап): пять владельцев одного факта разошлись бы, а
+              шестой путь прошёл бы мимо всех пяти — см. normalizeDeathSaves.
+            */
+            onUpdate={(updater) => updateCharacter(c.id, (ch) => normalizeDeathSaves(updater(ch)))}
           />
         ))}
         {state.characters.length === 0 && (

@@ -171,6 +171,8 @@ function blankCharacter(): Character {
     abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
     maxHp: 8,
     currentHp: 8,
+    deathSaveSuccesses: 0,
+    deathSaveFailures: 0,
     hitDiceSpent: 0,
     armorClass: 10,
     speedFeet: 30,

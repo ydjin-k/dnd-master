@@ -694,3 +694,36 @@
   font-size: 0.85em;
   font-weight: 650;
 }
+
+/*
+ * Счётчики спасбросков (characters-death-saves) — два ряда галочек внутри
+ * блока нуля хитов. Отмечаются и руками: за столом бросают настоящей костью
+ * чаще, чем экранной, поэтому клетки — настоящие checkbox, а не рисунок.
+ */
+.character-card__dying-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 1.1em;
+  margin: 0 0 0.45em;
+  font-size: 0.85em;
+}
+
+.character-card__dying-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  color: var(--dm-text-muted);
+}
+
+.character-card__dying-count input {
+  margin: 0;
+  accent-color: var(--dm-danger);
+}
+
+/* «Стабилизирован» или «Мёртв» — слово, а не только галочки: итог игрок обязан прочитать. */
+.character-card__dying-state {
+  margin: 0 0 0.45em;
+  color: var(--dm-gold);
+  font-family: var(--dm-font-display);
+  font-size: 0.9em;
+}

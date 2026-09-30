@@ -195,6 +195,8 @@ describe("CharactersPage", () => {
       abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
       maxHp: 10,
       currentHp: 10,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
       hitDiceSpent: 0,
       armorClass: 10,
       speedFeet: 30,
@@ -297,6 +299,8 @@ describe("CharactersPage", () => {
           abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
           maxHp: 10,
           currentHp: 10,
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
           hitDiceSpent: 0,
           armorClass: 10,
           speedFeet: 30,
@@ -3339,17 +3343,28 @@ describe("CharactersPage", () => {
 
   describe("подсказка про 0 хитов", () => {
     /** Лист персонажа с заданными хитами; `total` — что выдаст движок на `roll_dice`. */
-    async function renderSheetAtHp(currentHp: number, total = 14) {
+    async function renderSheetAtHp(currentHp: number, total = 14, over: Partial<Character> = {}) {
       vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
         if (cmd === "get_rules") return [FIGHTER_TOPIC, CONDITIONS_TOPIC];
         if (cmd === "roll_dice") return { expression: DEATH_SAVE_EXPRESSION, rolls: [total], modifier: 0, total, dropped: null };
         return [];
       });
-      const hero: Character = { ...characterWithInventory(), currentHp };
+      const hero: Character = { ...characterWithInventory(), currentHp, ...over };
       mockState = baseState({ characters: [hero] });
       render(<CharactersPage />);
       await screen.findByText(/\(1к\d+\)/); // та же загрузка get_rules, что ждёт renderSheet выше
       return hero;
+    }
+
+    /**
+     * Обновитель, который лист отдал кампании последним, применённый к
+     * персонажу. Именно то, что уедет в сохранение, — вместе с воронкой
+     * нормализации, которую CharactersPage надевает на каждый вызов.
+     */
+    function lastUpdater(): (character: Character) => Character {
+      const calls = updateCharacter.mock.calls;
+      expect(calls.length, "лист ничего не записал в персонажа").toBeGreaterThan(0);
+      return calls[calls.length - 1][1] as (character: Character) => Character;
     }
 
     it("на нуле хитов блок виден: правило словами, кнопка и ссылка на раздел", async () => {
@@ -3384,14 +3399,18 @@ describe("CharactersPage", () => {
       expect(await screen.findByText(/Выпало 17/)).toBeInTheDocument();
     });
 
-    it("бросок не меняет персонажа: ни хитов, ни состояний, ни счётчика", async () => {
-      await renderSheetAtHp(0, 3);
+    it("бросок не трогает в персонаже ничего, кроме счёта спасбросков", async () => {
+      const hero = await renderSheetAtHp(0, 3, { conditions: ["Ослеплённое"] });
 
       fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
 
       await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
-      // Счёт заводит characters-death-saves; эта карточка в персонажа не пишет.
-      expect(updateCharacter).not.toHaveBeenCalled();
+      const after = lastUpdater()(hero);
+      // Провал записан, а остальной лист остался тем же: ни хитов, ни состояний.
+      expect(after.deathSaveFailures).toBe(1);
+      expect(after.currentHp).toBe(0);
+      expect(after.conditions).toEqual(["Ослеплённое"]);
+      expect({ ...after, deathSaveFailures: hero.deathSaveFailures }).toEqual(hero);
     });
 
     it("отказ движка виден на листе, а в журнал бросков ничего не уходит", async () => {
@@ -3408,6 +3427,166 @@ describe("CharactersPage", () => {
 
       expect(await screen.findByText(/Бросок не удался: .*кость не бросилась/)).toBeInTheDocument();
       expect(recordRoll).not.toHaveBeenCalled();
+    });
+
+    describe("счёт спасбросков", () => {
+      it("на нуле хитов видны оба ряда галочек, пустые", async () => {
+        await renderSheetAtHp(0);
+
+        const block = screen.getByRole("region", { name: "Ноль хитов: Герой" });
+        expect(within(block).getByText(/Успехи: 0\/3/)).toBeInTheDocument();
+        expect(within(block).getByText(/Провалы: 0\/3/)).toBeInTheDocument();
+        expect(within(block).getByRole("checkbox", { name: "Успехи 1 из 3" })).not.toBeChecked();
+      });
+
+      it("выше нуля хитов галочек нет вовсе — заполненными они и не должны быть", async () => {
+        await renderSheetAtHp(5, 14, { deathSaveSuccesses: 2, deathSaveFailures: 1 });
+
+        expect(screen.queryByRole("checkbox", { name: "Успехи 1 из 3" })).toBeNull();
+      });
+
+      it("«10» и выше — успех, ниже — провал", async () => {
+        const hero = await renderSheetAtHp(0, 12);
+        fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+        await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+        expect(lastUpdater()(hero)).toMatchObject({ deathSaveSuccesses: 1, deathSaveFailures: 0, currentHp: 0 });
+
+        cleanup();
+        updateCharacter.mockClear();
+        recordRoll.mockClear();
+        const other = await renderSheetAtHp(0, 9);
+        fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+        await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+        expect(lastUpdater()(other)).toMatchObject({ deathSaveSuccesses: 0, deathSaveFailures: 1, currentHp: 0 });
+      });
+
+      it("«1» даёт два провала сразу", async () => {
+        const hero = await renderSheetAtHp(0, 1);
+
+        fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+
+        await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+        expect(lastUpdater()(hero)).toMatchObject({ deathSaveFailures: 2 });
+        expect(await screen.findByText(/Выпало 1 — «1» — 2 провала сразу\./)).toBeInTheDocument();
+      });
+
+      it("«20» возвращает 1 хит и обнуляет оба счётчика", async () => {
+        const hero = await renderSheetAtHp(0, 20, { deathSaveSuccesses: 1, deathSaveFailures: 2 });
+
+        fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+
+        await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+        expect(lastUpdater()(hero)).toMatchObject({
+          currentHp: 1,
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
+        });
+      });
+
+      it("счёт идёт от СВЕЖЕГО персонажа, а не от снимка рендера: два броска подряд не складываются в один", async () => {
+        // Запись 136, то же семейство дефектов, что поймала карточка безумия:
+        // обновитель, считающий от снимка своего рендера, терял второй бросок.
+        const hero = await renderSheetAtHp(0, 7);
+
+        fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+        await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+        const updater = lastUpdater();
+
+        const first = updater(hero);
+        expect(first.deathSaveFailures).toBe(1);
+        expect(updater(first).deathSaveFailures).toBe(2);
+      });
+
+      it("три успеха — стабилизирован словом, и кнопка больше не бросает", async () => {
+        await renderSheetAtHp(0, 14, { deathSaveSuccesses: 3 });
+
+        expect(screen.getByText(/Стабилизирован/)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Спасбросок от смерти" })).toBeDisabled();
+        // Хиты стабилизированного по-прежнему ноль — блок на месте.
+        expect(screen.getByRole("region", { name: "Ноль хитов: Герой" })).toBeInTheDocument();
+      });
+
+      it("три провала — смерть словом, но персонаж на листе остаётся целиком", async () => {
+        await renderSheetAtHp(0, 14, { deathSaveFailures: 3 });
+
+        expect(screen.getByText(/Мёртв/)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Спасбросок от смерти" })).toBeDisabled();
+        // Ни удаления, ни прятанья: имя и поле хитов на месте.
+        expect(screen.getByText("Герой")).toBeInTheDocument();
+        expect(screen.getByLabelText("Текущие хиты: Герой")).toHaveValue(0);
+        expect(removeCharacter).not.toHaveBeenCalled();
+      });
+
+      it("галочка ставится руками: нажатие на третью клетку даёт счёт 3", async () => {
+        const hero = await renderSheetAtHp(0, 14, { deathSaveFailures: 1 });
+
+        fireEvent.click(screen.getByRole("checkbox", { name: "Провалы 3 из 3" }));
+
+        expect(lastUpdater()(hero)).toMatchObject({ deathSaveFailures: 3 });
+      });
+
+      it("повторное нажатие на отмеченную клетку снимает её", async () => {
+        const hero = await renderSheetAtHp(0, 14, { deathSaveSuccesses: 2 });
+
+        fireEvent.click(screen.getByRole("checkbox", { name: "Успехи 2 из 3" }));
+
+        expect(lastUpdater()(hero)).toMatchObject({ deathSaveSuccesses: 1 });
+      });
+    });
+
+    describe("обнуление счёта при подъёме хитов — одна воронка на все пути", () => {
+      it("ввод игрока: поднял хиты в поле — счёт очищен", async () => {
+        const hero = await renderSheetAtHp(0, 14, { deathSaveSuccesses: 1, deathSaveFailures: 2 });
+
+        fireEvent.change(screen.getByLabelText("Текущие хиты: Герой"), { target: { value: "4" } });
+
+        expect(lastUpdater()(hero)).toMatchObject({
+          currentHp: 4,
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
+        });
+      });
+
+      it("Кость Хитов: лечение костью очищает счёт тем же путём", async () => {
+        const hero = await renderSheetAtHp(0, 6, { deathSaveSuccesses: 1, deathSaveFailures: 2, level: 3, maxHp: 24 });
+
+        fireEvent.click(screen.getByTitle(/Потратить Кость Хитов/));
+
+        await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
+        const after = lastUpdater()(hero);
+        expect(after.currentHp).toBeGreaterThan(0);
+        expect(after.deathSaveSuccesses).toBe(0);
+        expect(after.deathSaveFailures).toBe(0);
+      });
+
+      it("левел-ап: прибавка хитов очищает счёт тем же путём", async () => {
+        const hero = await renderSheetAtHp(0, 14, {
+          deathSaveSuccesses: 1,
+          deathSaveFailures: 2,
+          level: 1,
+          maxHp: 12,
+        });
+
+        fireEvent.click(screen.getByText("Повысить уровень"));
+
+        const after = lastUpdater()(hero);
+        expect(after.level).toBe(2);
+        expect(after.currentHp).toBeGreaterThan(0);
+        expect(after.deathSaveSuccesses).toBe(0);
+        expect(after.deathSaveFailures).toBe(0);
+      });
+
+      it("запись, не поднимающая хиты, счёт НЕ стирает", async () => {
+        // Иначе любое движение по листу на нуле хитов обнуляло бы спасброски.
+        const hero = await renderSheetAtHp(0, 14, { deathSaveSuccesses: 1, deathSaveFailures: 2 });
+
+        const conditionInput = screen.getByPlaceholderText(/Состояние/);
+        fireEvent.change(conditionInput, { target: { value: "Отравленное" } });
+        const row = conditionInput.closest(".character-card__add-row") as HTMLElement;
+        fireEvent.click(within(row).getByText("Добавить"));
+
+        expect(lastUpdater()(hero)).toMatchObject({ deathSaveSuccesses: 1, deathSaveFailures: 2 });
+      });
     });
   });
 
