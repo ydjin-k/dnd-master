@@ -73,7 +73,8 @@
     "featureUses": [
       { "featureId": "bardic-inspiration", "usesCurrent": 3 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-bard-tiefling",
@@ -143,7 +144,8 @@
     "featureUses": [
       { "featureId": "bardic-inspiration", "usesCurrent": 3 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-barbarian-half-elf",
@@ -220,7 +222,8 @@
     "featureUses": [
       { "featureId": "rage", "usesCurrent": 2 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-barbarian-human",
@@ -288,7 +291,8 @@
     "featureUses": [
       { "featureId": "rage", "usesCurrent": 2 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-fighter-half-elf",
@@ -364,7 +368,8 @@
     "featureUses": [
       { "featureId": "second-wind", "usesCurrent": 1 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-fighter-human",
@@ -428,7 +433,8 @@
     "featureUses": [
       { "featureId": "second-wind", "usesCurrent": 1 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-wizard-high-elf",
@@ -492,7 +498,8 @@
     "featureUses": [
       { "featureId": "arcane-recovery", "usesCurrent": 1 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-wizard-gnome",
@@ -563,7 +570,8 @@
     "featureUses": [
       { "featureId": "arcane-recovery", "usesCurrent": 1 }
     ],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-druid-hill-dwarf",
@@ -632,7 +640,8 @@
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-druid-dwarf",
@@ -701,7 +710,8 @@
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-cleric-dwarf",
@@ -762,7 +772,8 @@
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   },
   {
     "id": "preset-cleric-half-elf",
@@ -833,6 +844,7 @@
     "spellSlotsMax": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "spellSlotsCurrent": [2, 0, 0, 0, 0, 0, 0, 0, 0],
     "featureUses": [],
-    "subclassChoices": {}
+    "subclassChoices": {},
+    "feats": []
   }
 ]

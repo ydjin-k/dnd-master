@@ -108,6 +108,15 @@ import {
   deathSavesOf,
   normalizeDeathSaves,
 } from "../deathSaves";
+import {
+  abilitiesWithFeat,
+  allFeats,
+  canTakeFeat,
+  featsOf,
+  prerequisiteText,
+  unmetPrerequisite,
+  type Feat,
+} from "../feats";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
@@ -420,6 +429,7 @@ function CharacterCard({
   classHitDiceByTitle,
   raceHpBonusByTitle,
   raceTraitsByTitle,
+  feats,
   turnKey,
   onRemove,
   onUpdate,
@@ -432,6 +442,12 @@ function CharacterCard({
   classHitDiceByTitle: Record<string, { id: string; max: number; average: number }>;
   raceHpBonusByTitle: Record<string, number>;
   raceTraitsByTitle: Record<string, RaceTrait[]>;
+  /**
+   * Все черты приложения: SRD-«Борец», прочитанный из rules.json, плюс наши
+   * (`feats.ts`). Приезжают сверху тем же приёмом, что расовые особенности:
+   * справочник загружает страница, а карточка его не читает.
+   */
+  feats: Feat[];
   /** Ключ текущего хода боя или null вне боя — им ограничивается «не чаще раза за ход» у Дикого всплеска. */
   turnKey: string | null;
   onRemove: () => void;
@@ -448,8 +464,12 @@ function CharacterCard({
   // состояние персонажа, — тем же правилом, что `slotsToRestore` ниже.
   const [hpDraft, setHpDraft] = useState<string | null>(null);
   const [asiPanelOpen, setAsiPanelOpen] = useState(false);
-  const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1">("plus2");
+  // Третий режим той же панели — «черта вместо увеличения» (необязательное
+  // правило SRD, раздел `character-feats`). Умолчание остаётся "plus2":
+  // Увеличение характеристик — основное правило, а черта от него отказ.
+  const [asiMode, setAsiMode] = useState<"plus2" | "plus1plus1" | "feat">("plus2");
   const [asiKeys, setAsiKeys] = useState<AbilityKey[]>([]);
+  const [asiFeatId, setAsiFeatId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [subclassPanelOpen, setSubclassPanelOpen] = useState(false);
   const [subclassChoiceIndex, setSubclassChoiceIndex] = useState(0);
@@ -1143,11 +1163,19 @@ function CharacterCard({
    * `newSubclassChoices` — выбор внутри архетипа, сделанный на этом же
    * левел-апе (см. confirmChoice), подмешивается в снимок владений/заклинаний
    * так же, как и сам архетип.
+   *
+   * `newFeatId` — черта, взятая вместо Увеличения характеристик (см.
+   * confirmAsi). Идёт сюда, а не своей записью в персонажа, по той же причине,
+   * по которой сюда идут характеристики: черта с прибавкой меняет
+   * `abilities`, а у значения характеристики один владелец — этот левел-ап.
+   * Отдельная запись «взял черту» + отдельная «поднял Силу» разъехались бы на
+   * первом же промахе.
    */
   function applyLevelUp(
     abilities: AbilityScores,
     chosenSubclassName?: string,
     newSubclassChoices?: Record<string, string[]>,
+    newFeatId?: string,
   ) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
@@ -1191,6 +1219,10 @@ function CharacterCard({
         currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
         subclass: subclassName,
         subclassChoices: allSubclassChoices,
+        // Каждую черту можно взять только раз (SRD) — повтор дал бы двойную
+        // прибавку к характеристике; отбор доступных это уже учитывает
+        // (`canTakeFeat`), поэтому здесь список только пополняется.
+        feats: newFeatId ? [...ch.feats, newFeatId] : ch.feats,
         // Архетип может давать владения, навык и всегда подготовленные заклинания
         // домена — на левел-апе они появляются вместе с ним (и с выбранным
         // вариантом, если он есть). Слияние, а не замена: таблицы класса и
@@ -1270,6 +1302,7 @@ function CharacterCard({
     if (isAsiLevel(dice?.id, newLevel)) {
       setAsiMode("plus2");
       setAsiKeys([]);
+      setAsiFeatId(null);
       setAsiPanelOpen(true);
       return;
     }
@@ -1316,9 +1349,10 @@ function CharacterCard({
     setChoiceSelections([]);
   }
 
-  function setAsiModeAndReset(mode: "plus2" | "plus1plus1") {
+  function setAsiModeAndReset(mode: "plus2" | "plus1plus1" | "feat") {
     setAsiMode(mode);
     setAsiKeys([]);
+    setAsiFeatId(null);
   }
 
   function toggleAsiKey(key: AbilityKey) {
@@ -1331,7 +1365,21 @@ function CharacterCard({
     });
   }
 
-  const asiReady = asiMode === "plus2" ? asiKeys.length === 1 : asiKeys.length === 2;
+  /**
+   * Черты, которые персонаж может взять прямо сейчас, и те, что не может, — с
+   * причиной. Причину выдаёт `unmetPrerequisite` (feats.ts), панель её только
+   * подписывает: догадываться о причине отказа показу запрещено, это тот самый
+   * дефект, на котором экран называл «сюда пути нет» 29 мирных объектов.
+   */
+  const takenFeats = featsOf(c, feats);
+  const offeredFeats = feats.filter((feat) => canTakeFeat(feat, c));
+  const blockedFeats = feats
+    .filter((feat) => !takenFeats.includes(feat) && !offeredFeats.includes(feat))
+    .map((feat) => ({ feat, reason: unmetPrerequisite(feat, c) ?? "" }));
+  const chosenFeat = offeredFeats.find((feat) => feat.id === asiFeatId) ?? null;
+
+  const asiReady =
+    asiMode === "feat" ? chosenFeat !== null : asiMode === "plus2" ? asiKeys.length === 1 : asiKeys.length === 2;
 
   /**
    * Улучшение характеристик (rules.json → character-beyond-1-level): либо +2
@@ -1341,6 +1389,18 @@ function CharacterCard({
    */
   function confirmAsi() {
     if (!asiReady) return;
+    // Черта вместо увеличения (необязательное правило SRD): прибавку черты к
+    // характеристикам считает `abilitiesWithFeat` — единственный владелец
+    // этого перевода, — и она едет тем же аргументом `abilities`, которым
+    // едет Улучшение характеристик. Второго пути записи характеристик здесь
+    // не заводится, поэтому нормализация на воронке листа видит и эту запись.
+    if (asiMode === "feat") {
+      if (!chosenFeat) return;
+      applyLevelUp(abilitiesWithFeat(c.abilities, chosenFeat), undefined, undefined, chosenFeat.id);
+      setAsiPanelOpen(false);
+      setAsiFeatId(null);
+      return;
+    }
     const abilities = { ...c.abilities };
     const bump = asiMode === "plus2" ? 2 : 1;
     for (const key of asiKeys) abilities[key] = Math.min(20, abilities[key] + bump);
@@ -1846,7 +1906,62 @@ function CharacterCard({
               />{" "}
               +1 двум характеристикам
             </label>
+            {/*
+              Третья ветка того же выбора — необязательное правило по чертам
+              (rules.json → character-feats): «вы можете отказаться от этой
+              особенности, чтобы вместо неё взять черту». Отдельной панели у неё
+              нет намеренно: это не второй выбор, а альтернатива первому, и
+              разведи их по панелям — игрок смог бы взять и то и другое.
+            */}
+            {feats.length > 0 && (
+              <label>
+                <input type="radio" checked={asiMode === "feat"} onChange={() => setAsiModeAndReset("feat")} />{" "}
+                черта вместо увеличения
+              </label>
+            )}
           </div>
+          {asiMode === "feat" ? (
+            <div className="character-card__asi-abilities character-card__asi-feats">
+              {offeredFeats.map((feat) => (
+                <label key={feat.id}>
+                  <input
+                    type="radio"
+                    name="asi-feat"
+                    checked={asiFeatId === feat.id}
+                    onChange={() => setAsiFeatId(feat.id)}
+                  />{" "}
+                  <strong>{feat.name}</strong>
+                  {feat.prerequisite && <> (требование: {prerequisiteText(feat.prerequisite)})</>} — {feat.description}
+                </label>
+              ))}
+              {offeredFeats.length === 0 && (
+                <p className="character-card__hint">
+                  Доступных черт нет: все подходящие уже взяты или их требования не выполнены.
+                </p>
+              )}
+              {/*
+                Недоступная черта не предлагается — но и не исчезает молча:
+                молчание игрок читает как «такой черты нет», а правило SRD
+                говорит именно о требовании, которое надо выполнить. Причина
+                приходит готовой строкой из feats.ts.
+              */}
+              {blockedFeats.length > 0 && (
+                <ul className="character-card__traits character-card__asi-feats-blocked">
+                  {blockedFeats.map(({ feat, reason }) => (
+                    <li key={feat.id} className="character-card__hint">
+                      <strong>{feat.name}</strong> — недоступна: {reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {takenFeats.length > 0 && (
+                <p className="character-card__hint">
+                  Уже взято (каждую черту можно взять только раз):{" "}
+                  {takenFeats.map((feat) => feat.name).join(", ")}
+                </p>
+              )}
+            </div>
+          ) : (
           <div className="character-card__asi-abilities">
             {ABILITY_LABELS.map(([key, label]) => (
               <label key={key}>
@@ -1860,6 +1975,7 @@ function CharacterCard({
               </label>
             ))}
           </div>
+          )}
           <div className="character-card__asi-actions">
             <button type="button" onClick={confirmAsi} disabled={!asiReady} data-own-sound>
               Подтвердить и повысить уровень
@@ -1933,6 +2049,26 @@ function CharacterCard({
           <p className="character-card__prof">Инструменты: {toolProficiencies.join(", ")}</p>
         )}
       </details>
+      {/*
+        Взятые черты — своим блоком, жирным именем, как расовые и классовые
+        особенности рядом (запись 17 в tasks/DONE.md: выбор, дающий особенность,
+        обязан быть виден). Прибавки к характеристике здесь нет и быть не
+        должно: она УЖЕ в `c.abilities` — черта применила её тем же левел-апом,
+        — и вторая подпись «+1 к Силе» рядом с числом характеристики означала
+        бы второго владельца этого числа.
+      */}
+      {takenFeats.length > 0 && (
+        <details className="character-card__feats" open>
+          <summary>Черты ({takenFeats.length})</summary>
+          <ul className="character-card__traits">
+            {takenFeats.map((feat) => (
+              <li key={feat.id} className="typography-term-line">
+                <strong>{feat.name}</strong> — {feat.description}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {raceTraits.length > 0 && (
         <details className="character-card__race-features" open>
           <summary>Расовые особенности ({raceTraits.length})</summary>
@@ -2654,6 +2790,14 @@ export function CharactersPage() {
   const [classHitDiceByTitle, setClassHitDiceByTitle] = useState<Record<string, { id: string; max: number; average: number }>>({});
   const [raceHpBonusByTitle, setRaceHpBonusByTitle] = useState<Record<string, number>>({});
   const [raceTraitsByTitle, setRaceTraitsByTitle] = useState<Record<string, RaceTrait[]>>({});
+  /**
+   * Черты приложения. Начальное значение — НАШИ черты, а не пустой список:
+   * справочник нужен ровно одной из них (SRD-«Борец» лежит в `rules.json` и
+   * оттуда читается, см. `allFeats`), а остальные четырнадцать не зависят от
+   * загрузки вовсе. Пустой старт устроил бы панели левел-апа мигание: ветка
+   * «черта вместо увеличения» сперва отсутствовала бы, потом появлялась.
+   */
+  const [feats, setFeats] = useState<Feat[]>(() => allFeats([]));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2672,6 +2816,7 @@ export function CharactersPage() {
         setClassHitDiceByTitle(extractClassHitDice(topics));
         setRaceHpBonusByTitle(extractRaceHpBonus(topics));
         setRaceTraitsByTitle(extractRaceTraits(topics));
+        setFeats(allFeats(topics));
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -2706,6 +2851,7 @@ export function CharactersPage() {
             classHitDiceByTitle={classHitDiceByTitle}
             raceHpBonusByTitle={raceHpBonusByTitle}
             raceTraitsByTitle={raceTraitsByTitle}
+            feats={feats}
             turnKey={wildMagicTurnKey(state.combat)}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {

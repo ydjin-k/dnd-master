@@ -204,6 +204,18 @@ pub struct Character {
     /// сохранения получают пустую карту через структурный `#[serde(default)]`,
     /// как и `tool_proficiencies` (см. карточку #73).
     pub subclass_choices: HashMap<String, Vec<String>>,
+    /// Взятые черты — id из `src/ui/feats.ts`, не названия: имя черты и её
+    /// текст живут одним владельцем на стороне UI, а у SRD-черты «Борец» — и
+    /// вовсе в `rules.json`, откуда она читается. Модель хранит только выбор.
+    ///
+    /// Прибавка к характеристике здесь не хранится: черта применяет её к
+    /// `abilities` в момент взятия — тем же путём, которым применяется
+    /// Улучшение характеристик, — и второе хранение завело бы второго
+    /// владельца значения характеристики.
+    ///
+    /// Старые сохранения этого поля не несут и получают пустой список через
+    /// структурный `#[serde(default)]`, как и `subclass_choices` выше.
+    pub feats: Vec<String>,
 }
 
 impl Character {
@@ -417,6 +429,42 @@ mod tests {
             .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.death_save_successes, 1, "галочки должны пережить перезапуск");
         assert_eq!(round_trip.death_save_failures, 2, "галочки должны пережить перезапуск");
+    }
+
+    /// characters-feats: у старого сохранения черт нет, и оно обязано
+    /// открываться как раньше — пустым списком, а не ошибкой разбора. Проба
+    /// сторожит и ИМЯ поля в файле (`feats`, camelCase): разъехавшееся имя
+    /// молча прочиталось бы пустотой, то есть стирало бы взятую черту при
+    /// каждой загрузке — вместе с прибавкой к характеристике, которую она уже
+    /// применила к `abilities` и которая осталась бы без объяснения.
+    #[test]
+    fn feats_read_empty_from_old_save_and_keep_written_values() {
+        let old_json = r#"{
+            "id": "abc", "name": "Воин", "race": "Человек", "class": "Воин", "level": 4,
+            "abilities": {
+                "strength": 16, "dexterity": 12, "constitution": 14,
+                "intelligence": 10, "wisdom": 11, "charisma": 10
+            },
+            "maxHp": 36, "currentHp": 36, "armorClass": 16,
+            "conditions": [], "inventory": []
+        }"#;
+        let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert!(character.feats.is_empty(), "нет поля — значит черт нет");
+
+        let saved: Character = serde_json::from_str(&old_json.replace(
+            r#""maxHp": 36"#,
+            r#""feats": ["feat-cepkiy-glaz", "feat-srd-grappler"], "maxHp": 36"#,
+        ))
+        .expect("сохранение с полем должно читаться");
+        assert_eq!(saved.feats, vec!["feat-cepkiy-glaz", "feat-srd-grappler"]);
+
+        let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
+            .expect("свежая запись должна читаться обратно");
+        assert_eq!(
+            round_trip.feats,
+            vec!["feat-cepkiy-glaz", "feat-srd-grappler"],
+            "взятые черты должны пережить перезапуск"
+        );
     }
 
     /// characters-class-feature-progression-1-5: сохранение с ячейками только

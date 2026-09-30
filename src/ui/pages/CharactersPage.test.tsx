@@ -218,6 +218,7 @@ describe("CharactersPage", () => {
       spellSlotsCurrent: [0, 0, 0, 0, 0],
       featureUses: [],
       subclassChoices: {},
+      feats: [],
     };
   }
 
@@ -322,6 +323,7 @@ describe("CharactersPage", () => {
           spellSlotsCurrent: [0, 0, 0, 0, 0],
           featureUses: [],
           subclassChoices: {},
+          feats: [],
         },
       ],
     });
@@ -1087,6 +1089,117 @@ describe("CharactersPage", () => {
     const updated = updater(char);
     expect(updated.abilities.strength).toBe(11);
     expect(updated.abilities.dexterity).toBe(11);
+  });
+
+  /*
+    Черты. Наблюдаемое поведение, которого требует карточка: на уровне ASI
+    игрок выбирает черту ВМЕСТО увеличения, черта видна на листе жирным именем,
+    а прибавка +1 действительно доходит до характеристики — тем же левел-апом,
+    которым доходит ASI, а не своей записью.
+  */
+  it("на уровне ASI можно взять черту вместо увеличения, и её +1 доходит до характеристики", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    const char: Character = {
+      ...characterWithInventory(),
+      level: 3,
+      abilities: { ...characterWithInventory().abilities, wisdom: 14 },
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    expect(updateCharacter).not.toHaveBeenCalled(); // сперва панель выбора
+    fireEvent.click(screen.getByLabelText(/черта вместо увеличения/));
+    fireEvent.click(screen.getByLabelText(/Цепкий глаз/));
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    expect(updated.level).toBe(4);
+    expect(updated.feats).toEqual(["feat-cepkiy-glaz"]);
+    expect(updated.abilities.wisdom).toBe(15); // черта обещает +1 — и он применён
+    // Характеристики не поднялись больше нигде: черта — отказ от увеличения.
+    expect(updated.abilities.strength).toBe(char.abilities.strength);
+  });
+
+  /*
+    Второй половине того же требования карточки — «увидеть изменившуюся
+    характеристику И МОДИФИКАТОР» — на листе отвечает строка спасброска: сырое
+    значение характеристики лист показывает только в панели выбора, а модификатор
+    живёт здесь. Мудрость 13 (+1) → 14 (+2): прибавка черты перешагивает через
+    чётную ступень, поэтому меняется и то и другое.
+  */
+  it("прибавка черты меняет и значение характеристики, и модификатор на листе", () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    const char: Character = {
+      ...characterWithInventory(),
+      level: 3,
+      abilities: { ...characterWithInventory().abilities, wisdom: 13 },
+    };
+    mockState = baseState({ characters: [char] });
+    const { unmount } = render(<CharactersPage />);
+
+    expect(screen.getByText(/Мудрость \(спасбросок\): \+1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    // Сырое значение видно в списке характеристик панели — до прибавки.
+    expect(screen.getByLabelText(/Мудрость \(13\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/черта вместо увеличения/));
+    fireEvent.click(screen.getByLabelText(/Цепкий глаз/));
+    fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const updated = updater(char);
+    unmount();
+
+    mockState = baseState({ characters: [updated] });
+    render(<CharactersPage />);
+    expect(updated.abilities.wisdom).toBe(14);
+    expect(screen.getByText(/Мудрость \(спасбросок\): \+2/)).toBeInTheDocument();
+  });
+
+  it("взятая черта видна на листе жирным именем", () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    mockState = baseState({
+      characters: [{ ...characterWithInventory(), level: 4, feats: ["feat-cepkiy-glaz"] }],
+    });
+    render(<CharactersPage />);
+
+    expect(screen.getByText("Черты (1)")).toBeInTheDocument();
+    const name = screen.getByText("Цепкий глаз");
+    expect(name.tagName).toBe("STRONG");
+  });
+
+  it("персонаж без черт открывается как раньше: блока черт нет", () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    mockState = baseState({ characters: [{ ...characterWithInventory(), level: 4, feats: [] }] });
+    render(<CharactersPage />);
+
+    expect(screen.queryByText(/^Черты \(/)).not.toBeInTheDocument();
+  });
+
+  /*
+    Отрицательная проверка требования из карточки: персонаж с Силой 10 не может
+    взять черту с требованием Сила 15 — и видит, почему. Причина приходит из
+    feats.ts, панель её не выводит сама.
+  */
+  it("недоступная по требованию черта не предлагается, а объясняется", async () => {
+    vi.mocked(invoke).mockImplementation(async (cmd: unknown) => (cmd === "get_rules" ? [FIGHTER_TOPIC] : []));
+    const char: Character = {
+      ...characterWithInventory(),
+      level: 3,
+      abilities: { ...characterWithInventory().abilities, strength: 10 },
+    };
+    mockState = baseState({ characters: [char] });
+    render(<CharactersPage />);
+
+    fireEvent.click(screen.getByText("Повысить уровень"));
+    fireEvent.click(screen.getByLabelText(/черта вместо увеличения/));
+
+    // Взять её нечем: радиокнопки с этим именем среди предложенных нет.
+    expect(screen.queryByLabelText(/Широкий замах/)).not.toBeInTheDocument();
+    // Но и молча она не исчезла — сказано, чего не хватает и сколько есть.
+    expect(screen.getByText(/требуется Сила 15 или выше, у вас 10/)).toBeInTheDocument();
   });
 
   it("levelling a Fighter from 1 to 5 in sequence grants class features, subclass at 3, and ASI at 4 (acceptance scenario from the task card)", async () => {

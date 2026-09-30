@@ -322,6 +322,16 @@
   margin-bottom: 0.5em;
 }
 
+/* Черты в панели выбора идут одной колонкой: у них не подпись из двух слов,
+   как у характеристик, а целое описание, и сетка выше его бы искрошила. */
+.character-card__asi-feats {
+  grid-template-columns: 1fr;
+}
+
+.character-card__asi-feats-blocked {
+  margin: 0 0 0.5em;
+}
+
 .character-card__asi-actions {
   display: flex;
   flex-wrap: wrap;
@@ -526,6 +536,10 @@
   width: min(21em, 100%);
 }
 
+/* Блок черт носит тот же вид, что расовые и классовые особенности рядом:
+   собственного оформления у него нет намеренно — на листе это такая же
+   особенность, и отличать её видом значило бы обещать игроку разницу. */
+.character-card__feats,
 .character-card__race-features,
 .character-card__class-features,
 .character-card__gear-proficiency {
@@ -533,6 +547,7 @@
   font-size: 0.9em;
 }
 
+.character-card__feats summary,
 .character-card__race-features summary,
 .character-card__class-features summary,
 .character-card__gear-proficiency summary {

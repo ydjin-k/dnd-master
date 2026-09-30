@@ -907,6 +907,37 @@ describe("CharacterWizard", () => {
     expect(equipmentLine!.querySelectorAll("strong")).toHaveLength(1);
   });
 
+  /**
+   * Прямое ожидание владельца (23.09.2026): черты он искал в мастере. Их там
+   * быть не может — по правилу черта берётся вместо Увеличения характеристик, а
+   * мастер ставит 1 уровень, — и пустое место на «Итоге» читалось бы как
+   * недоделка. Поэтому строка стоит и называет уровень первой точки выбора у
+   * ЭТОГО класса: у Воина это 4 (таблица `asiLevels`).
+   */
+  it("говорит на «Итоге», что черт у персонажа 1 уровня нет и когда появится первая", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Дворянин"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    const line = screen.getByText(/Черт у персонажа 1 уровня нет/);
+    expect(line).toBeInTheDocument();
+    expect(line).toHaveTextContent("на 4 уровне");
+  });
+
   it("suggests a name from the selected race's list for the current gender, and rerolling gives a different one", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 

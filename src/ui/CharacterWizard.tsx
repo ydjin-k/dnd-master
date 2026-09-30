@@ -62,7 +62,8 @@ import {
   type AbilityKey,
   type BackgroundData,
 } from "./characterCreationData";
-import { CLASS_PROGRESSION, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
+import { CLASS_PROGRESSION, asiLevels, characterResources, progressionAt, resourceMax, spellSlotsForLevel } from "./classProgression";
+import { firstFeatLevelHint } from "./feats";
 import { preparedSpellsMax } from "./preparedSpells";
 import { hasSpellbook, spellbookMax } from "./spellbook";
 import { CHARACTER_PORTRAIT_VARIANTS, characterPortraitUrl } from "./characterPortraits";
@@ -689,6 +690,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       // Выбор внутри архетипа появляется только левел-апом (chosenAtLevel всех
       // трёх подключённых случаев — 2 или 3 уровень, персонаж создаётся 1-м).
       subclassChoices: {},
+      // Черт у персонажа 1 уровня нет: черта берётся вместо Увеличения
+      // характеристик, а первая такая точка — не раньше 4 уровня (см.
+      // `asiLevels` в classProgression.ts). Шаг «Итог» это и говорит игроку
+      // (`firstFeatLevelHint`), а не оставляет пустое место.
+      feats: [],
     };
     await addCharacter(character);
     onDone();
@@ -1525,6 +1531,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 )}
               </li>
             )}
+            {/*
+              Обязательный показ выбора на «Итоге» (запись 17 в tasks/DONE.md)
+              работает и в обратную сторону: у персонажа 1 уровня черт нет по
+              правилу, и пустое место на этом шаге игрок читает как недоделку —
+              владелец искал черты именно здесь. Поэтому строка стоит всегда, а
+              уровень первой точки выбора берётся у таблицы класса (asiLevels),
+              а не вписан числом.
+            */}
+            <li className="wizard__hint">Черты: {firstFeatLevelHint(asiLevels(classId)[0])}</li>
             <li>Предыстория: {background?.title ?? "не выбрана"}</li>
             <li>Языки: {finalLanguages.join(", ") || "—"}</li>
             <li>

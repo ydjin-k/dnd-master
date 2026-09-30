@@ -162,6 +162,22 @@ export interface Character {
    * навсегда — см. `effectiveSubclassGrants` в characterCreationData.ts.
    */
   subclassChoices: Record<string, string[]>;
+  /**
+   * Взятые черты — id из `src/ui/feats.ts` (`Feat.id`), не названия: имя черты
+   * и её текст живут одним владельцем в том файле, а у SRD-черты «Борец» — и
+   * вовсе в `rules.json`, откуда она читается. Сохранённое имя разошлось бы с
+   * ними при первой же правке формулировки.
+   *
+   * Прибавка к характеристике здесь НЕ хранится отдельно: она уже применена к
+   * `abilities` в момент взятия (`abilitiesWithFeat` → тот же `applyLevelUp`,
+   * которым применяется Улучшение характеристик), и второе её хранение
+   * означало бы второго владельца значения характеристики.
+   *
+   * Старые сохранения поля не несут и получают пустой список структурным
+   * `#[serde(default)]` на стороне Rust (`model.rs`) — тем же приёмом, что
+   * `subclassChoices` и `hitDiceSpent`. Пустой список однозначен: черт нет.
+   */
+  feats: string[];
 }
 
 export interface JournalEntry {

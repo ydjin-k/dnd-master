@@ -108,6 +108,7 @@ function hero(conditions: string[]): Character {
     spellSlotsCurrent: [0, 0, 0, 0, 0],
     featureUses: [],
     subclassChoices: {},
+    feats: [],
   };
 }
 
