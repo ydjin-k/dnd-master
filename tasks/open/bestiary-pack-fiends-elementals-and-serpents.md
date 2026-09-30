@@ -1,6 +1,6 @@
 # bestiary-pack-fiends-elementals-and-serpents
 
-Зона: `bestiary`. Размер: **XL**. Роль: Data Developer.
+Зона: `bestiary`. Размер: **XL**. Роль: Developer.
 **Правило пачки: не больше одной XL за раз.**
 
 Пачка **E — Исчадия, стихийные и змеи** из десяти, на которые разбор сирот разложил каталог
