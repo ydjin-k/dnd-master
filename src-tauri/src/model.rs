@@ -119,6 +119,19 @@ pub struct Character {
     /// Максимум здесь не хранится: по SRD костей ровно столько, каков уровень,
     /// и остаток считает UI (`src/ui/hitDice.ts` — единственный владелец
     /// предела), как и максимумы ресурсов из таблицы прогрессии.
+    /// Спасброски от смерти: успехи и провалы, каждый 0–3. Модель их только
+    /// ХРАНИТ — правило счёта («10» и выше успех, «1» стоит два провала, «20»
+    /// возвращает 1 хит, три успеха стабилизируют, три провала убивают) живёт
+    /// одним владельцем на стороне UI (`src/ui/deathSaves.ts`), как и предел
+    /// Костей Хитов выше. Здесь нет даже обрезки до трёх: заведись она и тут,
+    /// у предела стало бы два владельца.
+    ///
+    /// Старые сохранения этих полей не несут и получают нули через
+    /// структурный `#[serde(default)]` — тем же приёмом, что
+    /// `portrait_variant` и `hit_dice_spent`. Ноль однозначен: спасбросков
+    /// ещё не было.
+    pub death_save_successes: u32,
+    pub death_save_failures: u32,
     pub hit_dice_spent: u32,
     pub armor_class: i32,
     pub speed_feet: i32,
@@ -333,6 +346,9 @@ mod tests {
         assert_eq!(character.experience_points, 0);
         // characters-hit-dice-and-short-rest: 0 = ничего не потрачено = запас полон.
         assert_eq!(character.hit_dice_spent, 0);
+        // characters-death-saves: 0 = спасбросков от смерти ещё не было.
+        assert_eq!(character.death_save_successes, 0);
+        assert_eq!(character.death_save_failures, 0);
         // characters-subclass-features-have-no-mechanical-effect
         assert!(character.armor_proficiencies.is_empty());
         assert!(character.weapon_proficiencies.is_empty());
@@ -366,6 +382,41 @@ mod tests {
         let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
             .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.hit_dice_spent, 3);
+    }
+
+    /// characters-death-saves: счётчики спасбросков должны появляться нулями у
+    /// старого сохранения и переживать перезапуск приложения, если игрок
+    /// наставил галочки руками. Проба сторожит ИМЕНА полей в файле
+    /// (`deathSaveSuccesses`/`deathSaveFailures`, camelCase): разъехавшееся имя
+    /// молча прочиталось бы нулём — то есть стирало бы счёт при каждой загрузке,
+    /// и персонаж на нуле хитов не умер бы никогда.
+    #[test]
+    fn death_saves_read_zero_from_old_save_and_keep_written_values() {
+        let old_json = r#"{
+            "id": "abc", "name": "Плут", "race": "Полурослик", "class": "Плут", "level": 3,
+            "abilities": {
+                "strength": 8, "dexterity": 16, "constitution": 12,
+                "intelligence": 12, "wisdom": 10, "charisma": 14
+            },
+            "maxHp": 21, "currentHp": 0, "armorClass": 14,
+            "conditions": [], "inventory": []
+        }"#;
+        let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert_eq!(character.death_save_successes, 0, "нет поля — значит спасбросков не было");
+        assert_eq!(character.death_save_failures, 0, "нет поля — значит спасбросков не было");
+
+        let saved: Character = serde_json::from_str(&old_json.replace(
+            r#""maxHp": 21"#,
+            r#""deathSaveSuccesses": 1, "deathSaveFailures": 2, "maxHp": 21"#,
+        ))
+        .expect("сохранение с полями должно читаться");
+        assert_eq!(saved.death_save_successes, 1);
+        assert_eq!(saved.death_save_failures, 2);
+
+        let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
+            .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.death_save_successes, 1, "галочки должны пережить перезапуск");
+        assert_eq!(round_trip.death_save_failures, 2, "галочки должны пережить перезапуск");
     }
 
     /// characters-class-feature-progression-1-5: сохранение с ячейками только

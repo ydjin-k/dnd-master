@@ -32,6 +32,21 @@ vi.mock("../state/CampaignContext", () => ({
   useCampaign: () => ({ state: mockState, addCharacter, removeCharacter, updateCharacter }),
 }));
 
+/**
+ * Журнал бросков подменяется так же, как кампания выше: лист персонажа пишет в
+ * него кнопкой спасброска от смерти (characters-zero-hp-hint), а страница здесь
+ * рендерится без провайдеров — `useDiceLog` вне провайдера бросает намеренно.
+ */
+vi.mock("../state/DiceLogContext", () => ({
+  useDiceLog: () => ({
+    log: [],
+    recordRoll: vi.fn(),
+    recordRollError: vi.fn(),
+    recordManual: vi.fn(),
+    clearLog: vi.fn(),
+  }),
+}));
+
 /** Кость хитов в том же формате строк rules.json, что читает `extractClassHitDice`. */
 function classTopic(id: string, title: string, die: string, average: string): RuleTopic {
   return {
@@ -156,6 +171,8 @@ function blankCharacter(): Character {
     abilities: { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
     maxHp: 8,
     currentHp: 8,
+    deathSaveSuccesses: 0,
+    deathSaveFailures: 0,
     hitDiceSpent: 0,
     armorClass: 10,
     speedFeet: 30,

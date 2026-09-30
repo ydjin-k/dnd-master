@@ -636,6 +636,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       currentHp: maxHp,
       // Новый персонаж костей ещё не тратил; максимум — его уровень, и потому не хранится.
       hitDiceSpent: 0,
+      // Спасбросков от смерти у нового персонажа не было: он создаётся с полными хитами.
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
       armorClass,
       speedFeet,
       initiative,
