@@ -654,3 +654,43 @@
   font-weight: 700;
   text-align: center;
 }
+
+/*
+ * Подсказка про 0 хитов (characters-zero-hp-hint). Показывается только на
+ * нуле, поэтому тревожную рамку берёт у --dm-danger: на листе это не рядовая
+ * подпись, а то, что игрок обязан увидеть, поставив ноль. Плитки характеристик
+ * и шкалу нагрузки блок не трогает — он стоит под ними.
+ */
+.character-card__dying {
+  margin: 0.45em 0 0.2em;
+  padding: 0.55em 0.7em;
+  border: 1px solid var(--dm-danger);
+  border-radius: 4px;
+  background: rgba(168, 64, 47, 0.12);
+}
+
+.character-card__dying-title {
+  display: block;
+  color: var(--dm-danger);
+  font-family: var(--dm-font-display);
+  font-size: 0.95em;
+}
+
+.character-card__dying-hints {
+  margin: 0.35em 0 0.5em;
+  padding-left: 1.1em;
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
+.character-card__dying-hints li {
+  margin: 0.2em 0;
+}
+
+/* Что выпало на последнем спасброске — та же роль, что у .character-card__rest-note. */
+.character-card__dying-note {
+  color: var(--dm-gold);
+  font-size: 0.85em;
+  font-weight: 650;
+}

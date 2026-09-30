@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
+import { useDiceLog } from "../../state/DiceLogContext";
 import {
   ABILITY_LABELS,
   ALL_ITEM_NAMES,
@@ -92,6 +93,12 @@ import {
   withMadness,
   type MadnessRules,
 } from "../madness";
+import {
+  DEATH_SAVE_EXPRESSION,
+  DEATH_SAVE_RULES_LINK,
+  deathSaveHintLines,
+  deathSaveRollLabel,
+} from "../deathSaves";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
@@ -443,6 +450,19 @@ function CharacterCard({
   // и у безумия: состояние ко второму нажатию ещё не перерисовалось бы, и
   // одна кость ушла бы за два броска.
   const hitDieRollingRef = useRef(false);
+  // Спасбросок от смерти: итог последнего броска и отказ движка. Оба живут в
+  // листе, а не в персонаже, — как у безумия и Кости Хитов выше.
+  const [deathSaveNote, setDeathSaveNote] = useState<string | null>(null);
+  const [deathSaveError, setDeathSaveError] = useState<string | null>(null);
+  const [deathSaveRolling, setDeathSaveRolling] = useState(false);
+  // Сторож повторного входа — ref, а не состояние, по той же причине, что у
+  // безумия: состояние ко второму нажатию ещё не перерисовалось бы, и второе
+  // нажатие прошло бы следом за первым. `disabled` на кнопке не спасает — он
+  // ждёт той же перерисовки.
+  const deathSaveRollingRef = useRef(false);
+
+  /** Журнал бросков — единственный владелец истории; лист в него только пишет. */
+  const { recordRoll } = useDiceLog();
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
@@ -544,6 +564,37 @@ function CharacterCard({
     // 12 в тот же миг становятся «12» и в поле, и в персонаже.
     setHpDraft(String(clampCurrentHp(parsed, c.maxHp)));
     onUpdate((ch) => ({ ...ch, currentHp: clampCurrentHp(parsed, ch.maxHp) }));
+  }
+
+  /**
+   * Спасбросок от смерти. Первое место листа персонажа, которое пишет в журнал
+   * бросков: за столом видно, чей бросок и что выпало, — поэтому в метке стоит
+   * имя (`deathSaveRollLabel`). Соседний бросок листа, «Безумие +1», в журнал
+   * НЕ пишет — расхождение известно и чинится своей карточкой, не этой.
+   *
+   * Кость бросает движок (`roll_dice`), как у безумия и Кости Хитов: своего
+   * `Math.random` на листе нет.
+   *
+   * В персонажа эта функция не пишет НИЧЕГО — ни хитов, ни состояний. Счёт
+   * успехов и провалов заводит `characters-death-saves`, и он подключится
+   * ровно здесь, в одном месте, а не россыпью вызовов по файлу.
+   */
+  async function rollDeathSave() {
+    if (deathSaveRollingRef.current) return;
+    deathSaveRollingRef.current = true;
+    setDeathSaveRolling(true);
+    setDeathSaveError(null);
+    setDeathSaveNote(null);
+    try {
+      const result = await invoke<RollResult>("roll_dice", { expression: DEATH_SAVE_EXPRESSION });
+      recordRoll(deathSaveRollLabel(c.name), result);
+      setDeathSaveNote(`Выпало ${result.total} — запись ушла в журнал бросков.`);
+    } catch (e) {
+      setDeathSaveError(String(e));
+    } finally {
+      deathSaveRollingRef.current = false;
+      setDeathSaveRolling(false);
+    }
   }
 
   function addCondition() {
@@ -1478,6 +1529,37 @@ function CharacterCard({
           <div className="character-card__encumbrance-scale">
             Нагружен с {encThresholds.encumberedFromLb} фнт. · Сильно нагружен свыше {encThresholds.heavilyEncumberedAboveLb} фнт.
           </div>
+          {/*
+            Подсказка про 0 хитов стоит ПОД плитками характеристик, а не между
+            плиткой «Вес» и её шкалой нагрузки: шкала — подпись к плитке, и
+            вклиниваться между ними значило бы разорвать пару. Место в шапке
+            карточки, а не в теле: тело сворачивается кнопкой, а правило нуля
+            хитов пропасть по сворачиванию не должно.
+
+            Появляется РОВНО на нуле — при любом другом значении хитов лист
+            выглядит как раньше, ни на пиксель иначе (просьба владельца
+            25.09.2026: подсказка по событию, а не постоянная строка).
+          */}
+          {c.currentHp === 0 && (
+            <section className="character-card__dying" aria-label={`Ноль хитов: ${c.name}`}>
+              <strong className="character-card__dying-title">0 хитов — что дальше</strong>
+              <ul className="character-card__dying-hints">
+                {deathSaveHintLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <div className="character-card__add-row">
+                <button type="button" onClick={rollDeathSave} disabled={deathSaveRolling}>
+                  Спасбросок от смерти
+                </button>
+                {deathSaveNote && <span className="character-card__dying-note">{deathSaveNote}</span>}
+                {deathSaveError && (
+                  <span className="character-card__madness-error">Бросок не удался: {deathSaveError}</span>
+                )}
+              </div>
+              <p className="character-card__hint">Правило целиком: {DEATH_SAVE_RULES_LINK}.</p>
+            </section>
+          )}
         </div>
       </div>
       {!collapsed && <div className="character-card__body">

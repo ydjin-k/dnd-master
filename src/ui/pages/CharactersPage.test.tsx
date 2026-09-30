@@ -11,6 +11,7 @@ import {
   withExhaustionReduced,
 } from "./CharactersPage";
 import { armorProficienciesFor, proficiencyBonusForLevel, weaponProficienciesFor } from "../characterCreationData";
+import { DEATH_SAVE_EXPRESSION, deathSaveRollLabel } from "../deathSaves";
 import { WILD_MAGIC_DIE, WILD_MAGIC_TABLE } from "../wildMagicSurges";
 import { emptyCoins, type CampaignState, type Character, type RuleTopic, type Spell } from "../../state/types";
 
@@ -97,6 +98,23 @@ const addCharacter = vi.fn();
 const removeCharacter = vi.fn();
 const updateCharacter = vi.fn();
 
+/**
+ * Журнал бросков подменяется так же, как кампания выше: страница рендерится
+ * без провайдеров, а `useDiceLog` вне провайдера бросает намеренно. Нужен здесь
+ * только `recordRoll` — единственное, что лист персонажа в журнал вызывает
+ * (characters-zero-hp-hint).
+ */
+const recordRoll = vi.fn();
+vi.mock("../../state/DiceLogContext", () => ({
+  useDiceLog: () => ({
+    log: [],
+    recordRoll,
+    recordRollError: vi.fn(),
+    recordManual: vi.fn(),
+    clearLog: vi.fn(),
+  }),
+}));
+
 let mockState: CampaignState;
 vi.mock("../../state/CampaignContext", () => ({
   useCampaign: () => ({ state: mockState, addCharacter, removeCharacter, updateCharacter }),
@@ -125,6 +143,7 @@ describe("CharactersPage", () => {
     addCharacter.mockClear();
     removeCharacter.mockClear();
     updateCharacter.mockClear();
+    recordRoll.mockClear();
     Object.values(sounds).forEach((sound) => sound.mockClear());
     window.confirm = vi.fn(() => true);
     vi.mocked(invoke).mockImplementation(async () => []);
@@ -3315,6 +3334,80 @@ describe("CharactersPage", () => {
       const afterLong = applied(elf);
       expect(afterLong.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
       expect(afterLong.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 2 });
+    });
+  });
+
+  describe("подсказка про 0 хитов", () => {
+    /** Лист персонажа с заданными хитами; `total` — что выдаст движок на `roll_dice`. */
+    async function renderSheetAtHp(currentHp: number, total = 14) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [FIGHTER_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "roll_dice") return { expression: DEATH_SAVE_EXPRESSION, rolls: [total], modifier: 0, total, dropped: null };
+        return [];
+      });
+      const hero: Character = { ...characterWithInventory(), currentHp };
+      mockState = baseState({ characters: [hero] });
+      render(<CharactersPage />);
+      await screen.findByText(/\(1к\d+\)/); // та же загрузка get_rules, что ждёт renderSheet выше
+      return hero;
+    }
+
+    it("на нуле хитов блок виден: правило словами, кнопка и ссылка на раздел", async () => {
+      await renderSheetAtHp(0);
+
+      const block = screen.getByRole("region", { name: "Ноль хитов: Герой" });
+      expect(block).toBeInTheDocument();
+      // Числа правила видны игроку, не уходя на вкладку «Правила».
+      expect(within(block).getByText(/10 и выше — успех/)).toBeInTheDocument();
+      expect(within(block).getByText(/3 успеха — вы стабилизированы/)).toBeInTheDocument();
+      expect(within(block).getByRole("button", { name: "Спасбросок от смерти" })).toBeInTheDocument();
+      expect(within(block).getByText(/Правила → Урон и лечение/)).toBeInTheDocument();
+    });
+
+    it("выше нуля хитов блока нет вовсе", async () => {
+      await renderSheetAtHp(1);
+
+      expect(screen.queryByRole("region", { name: "Ноль хитов: Герой" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Спасбросок от смерти" })).toBeNull();
+    });
+
+    it("кнопка бросает к20 движком и пишет в журнал бросков метку с именем персонажа", async () => {
+      await renderSheetAtHp(0, 17);
+
+      fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+
+      await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(invoke)).toHaveBeenCalledWith("roll_dice", { expression: DEATH_SAVE_EXPRESSION });
+      const [label, result] = recordRoll.mock.calls[0];
+      expect(label).toBe(deathSaveRollLabel("Герой"));
+      expect(result).toMatchObject({ total: 17 });
+      expect(await screen.findByText(/Выпало 17/)).toBeInTheDocument();
+    });
+
+    it("бросок не меняет персонажа: ни хитов, ни состояний, ни счётчика", async () => {
+      await renderSheetAtHp(0, 3);
+
+      fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+
+      await waitFor(() => expect(recordRoll).toHaveBeenCalledTimes(1));
+      // Счёт заводит characters-death-saves; эта карточка в персонажа не пишет.
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("отказ движка виден на листе, а в журнал бросков ничего не уходит", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "get_rules") return [FIGHTER_TOPIC, CONDITIONS_TOPIC];
+        if (cmd === "roll_dice") throw new Error("кость не бросилась");
+        return [];
+      });
+      mockState = baseState({ characters: [{ ...characterWithInventory(), currentHp: 0 }] });
+      render(<CharactersPage />);
+      await screen.findByText(/\(1к\d+\)/);
+
+      fireEvent.click(screen.getByRole("button", { name: "Спасбросок от смерти" }));
+
+      expect(await screen.findByText(/Бросок не удался: .*кость не бросилась/)).toBeInTheDocument();
+      expect(recordRoll).not.toHaveBeenCalled();
     });
   });
 
