@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { RuleTopic } from "../../state/types";
 import { OPTIONAL_CATEGORY, OPTIONAL_RULE_TOPICS } from "../optionalRules";
+import { isOwnRuleTopic, OWN_RULE_TOPICS } from "../ownRuleTopics";
 import { ExternalLink } from "../ExternalLink";
 import { RuleBlockView } from "../RuleBlockView";
 import { SPELLCASTING_CATEGORY } from "./spellcastingCategory";
@@ -32,13 +33,16 @@ export function RulesPage() {
         // (SpellsPage): здесь не показывается ни список Spell[], ни темы
         // категории заклинаний — иначе у одного текста стало бы два места показа.
         const ruleTopics = loaded.filter((t) => t.category !== SPELLCASTING_CATEGORY);
-        // Опциональные правила приезжают НЕ из rules.json: там ровно SRD, и
-        // подмешивать туда своё нельзя — см. шапку `optionalRules.ts`.
-        // Показываются они той же страницей и тем же кодом, отличается только
-        // происхождение и подпись внизу.
-        const withOptional = [...ruleTopics, ...OPTIONAL_RULE_TOPICS];
-        setTopics(withOptional);
-        if (withOptional.length > 0) setActiveId(withOptional[0].id);
+        // Наши расы и классы (`ownRuleTopics.ts`) и опциональные правила
+        // (`optionalRules.ts`) приезжают НЕ из rules.json: там ровно SRD, и
+        // подмешивать туда своё нельзя — см. шапки этих файлов. Показываются
+        // они той же страницей и тем же кодом, отличается только происхождение
+        // и подпись внизу. Своих разделов наши темы не просят: тема несёт свою
+        // категорию сама, поэтому Эльф бездны встаёт в «Расы» рядом с
+        // SRD-расами.
+        const withOwn = [...ruleTopics, ...OWN_RULE_TOPICS, ...OPTIONAL_RULE_TOPICS];
+        setTopics(withOwn);
+        if (withOwn.length > 0) setActiveId(withOwn[0].id);
       })
       .catch((e) => setError(String(e)));
   }, []);
@@ -101,9 +105,23 @@ export function RulesPage() {
         )}
 
         {/* Подпись разведена по происхождению темы. Общий подвал обещает SRD
-            за всё показанное, и опциональные правила под него подставлять
-            нельзя: они не SRD, и такая подпись соврала бы об источнике. */}
-        {activeTopic?.category === OPTIONAL_CATEGORY ? (
+            за всё показанное, и ни опциональные правила, ни наши расы с
+            классами под него подставлять нельзя: они не SRD, и такая подпись
+            соврала бы об источнике.
+
+            Наше узнаётся по принадлежности `OWN_RULE_TOPICS`, а НЕ по
+            категории: у нашей расы категория `races` ровно та же, что у Эльфа
+            и Гнома из SRD, и различать по ней значило бы подписать либо SRD
+            как наше, либо наше как SRD. Текст каждой из трёх подписей написан
+            здесь по одному разу. */}
+        {isOwnRuleTopic(activeTopic) ? (
+          <footer className="rules-page__attribution">
+            Этот раздел не входит в SRD 5.1 — он написан для D&amp;D Master. Перевод SRD и его
+            лицензия на него не распространяются; официальным материалом D&amp;D он не является и
+            за него не выдаётся. Отдельные механики могут совпадать с открытым SRD — что именно,
+            сказано в тексте самого раздела.
+          </footer>
+        ) : activeTopic?.category === OPTIONAL_CATEGORY ? (
           <footer className="rules-page__attribution">
             Опциональные правила — не часть SRD 5.1. Механика и числа взяты из сторонних
             дополнений, текст написан заново для этого приложения. Правило необязательное: включает

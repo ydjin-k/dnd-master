@@ -135,7 +135,8 @@ import { UIIcon } from "../UIIcon";
 import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../characterPresets";
 import { CoinIcon } from "../CoinIcon";
 import { characterPortraitUrl } from "../characterPortraits";
-import { abyssElfSpellLine, playableRaces, raceResources, withSunlitPassive } from "../abyssElfRace";
+import { abyssElfSpellLine, raceResources, withSunlitPassive } from "../abyssElfRace";
+import { playableRaces } from "../ownRuleTopics";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
@@ -2741,8 +2742,8 @@ function extractRaceHpBonus(topics: RuleTopic[]): Record<string, number> {
 /**
  * Особенности расы по её названию (`Character.race` хранит текст, не id) — тем
  * же приёмом, что и `extractRaceHpBonus` выше. Список рас берётся у
- * `playableRaces`: девять из справочника SRD плюс наша десятая, и лист не
- * знает, какая из них откуда, — ему нужно только название и особенности.
+ * `playableRaces` (`ownRuleTopics.ts`): девять из справочника SRD плюс наши, и
+ * лист не знает, какая из них откуда, — ему нужно только название и особенности.
  */
 function extractRaceTraits(topics: RuleTopic[]): Record<string, RaceTrait[]> {
   const result: Record<string, RaceTrait[]> = {};
