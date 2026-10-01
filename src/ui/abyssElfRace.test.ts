@@ -10,13 +10,13 @@ import {
   ABYSS_ELF_TITLE,
   ABYSS_ELF_TRAITS,
   abyssElfSpellLine,
-  playableRaces,
   raceGrantedCantrips,
   raceResources,
   SUNLIGHT_TRAIT_NAME,
   sunlitPassivePerception,
   withSunlitPassive,
 } from "./abyssElfRace";
+import { playableRaces } from "./ownRuleTopics";
 import { CHARACTER_PORTRAIT_RACES } from "./characterPortraits";
 
 const rules = bundledRules as RuleTopic[];

@@ -4,6 +4,8 @@ import bundledOwnCreatures from "../../../src-tauri/bestiary/own-creatures.json"
 import bundledSpells from "../../../src-tauri/rules/spells.json";
 import {
   EVENT_TABLES,
+  OWNER_AUTHORED_EIGHT_THEMES,
+  OWNER_SUPPLIED,
   TABLE_GROUPS,
   findCoverageGap,
   findTable,
@@ -145,6 +147,52 @@ describe("таблицы генератора событий", () => {
     expect(check.sourceNote).toContain("привал");
   });
 
+  // ── подпись происхождения восьми тем ──────────────────────────────────────
+
+  /**
+   * Разделы восьми тем — хвост `TABLE_GROUPS` после прежних пяти. Берутся
+   * оттуда, а не переписываются списком: владелец порядка разделов один.
+   */
+  const EIGHT_THEME_GROUPS: readonly string[] = TABLE_GROUPS.slice(5);
+
+  /**
+   * Таблица восьми тем, подписанная чужой подписью, — иначе `null`.
+   *
+   * Подпись у этих 34 таблиц обязана отличаться от `OWNER_SUPPLIED`: та
+   * говорит «пометок авторства в исходнике нет», а этот документ объявляет
+   * авторство сам, первой страницей. Прежняя подпись на нём — не
+   * неточность, а неправда игроку, поэтому у неё есть страж.
+   */
+  function findWrongProvenance(table: EventTable): string | null {
+    if (!EIGHT_THEME_GROUPS.includes(table.group)) return null;
+    if (table.source !== OWNER_AUTHORED_EIGHT_THEMES) {
+      return `${table.id} → source: подпись не своя`;
+    }
+    if (table.sourceNote !== OWNER_AUTHORED_EIGHT_THEMES) {
+      return `${table.id} → sourceNote: игрок не увидит подписи`;
+    }
+    return null;
+  }
+
+  it("все 34 таблицы восьми тем подписаны своей подписью, и она видна игроку", () => {
+    const signed = EVENT_TABLES.filter((t) => EIGHT_THEME_GROUPS.includes(t.group));
+    expect(signed).toHaveLength(34);
+    expect(signed.map(findWrongProvenance).filter((hit) => hit !== null)).toEqual([]);
+    // Подпись — текст на экране: она называет, ЧТО игрок держит в руках.
+    expect(OWNER_AUTHORED_EIGHT_THEMES).toContain("Авторский сборник владельца");
+    expect(OWNER_AUTHORED_EIGHT_THEMES).toContain("не перепечатка таблиц");
+    expect(OWNER_AUTHORED_EIGHT_THEMES).not.toBe(OWNER_SUPPLIED);
+  });
+
+  it("ни один из восьми новых разделов не пуст", () => {
+    // `AdventuresPage.tsx:257` рисует optgroup на КАЖДЫЙ раздел списка, даже
+    // пустой: раздел без таблиц — пустой заголовок в выпадающем списке.
+    for (const group of EIGHT_THEME_GROUPS) {
+      const inGroup = EVENT_TABLES.filter((t) => t.group === group);
+      expect(inGroup.length, `раздел «${group}»`).toBeGreaterThan(0);
+    }
+  });
+
   // ── отрицательные пробы: страж обязан краснеть, а не молчать ──────────────
 
   it("дыра в диапазонах краснеет и называет таблицу и незакрытое число", () => {
@@ -172,6 +220,37 @@ describe("таблицы генератора событий", () => {
     expect(gap).toContain("Волшебные грибы");
     expect(gap).toContain("107");
     expect(gap).toContain("d113");
+  });
+
+  it("дыра в середине новой таблицы к6 краснеет и называет её кость", () => {
+    // Восемь таблиц документа бросаются к6, остальные двадцать шесть — к8.
+    // Дыру пробиваем в СЕРЕДИНЕ: у края её поймал бы и сдвиг нумерации.
+    const table = findTable("chase-interference")!;
+    expect(table.die).toBe(6);
+    const holed = withRows(
+      table,
+      table.rows.filter((row) => row.from !== 3),
+    );
+    const gap = findCoverageGap(holed);
+    expect(gap).toContain("Вмешательство");
+    expect(gap).toContain("3");
+    expect(gap).toContain("d6");
+  });
+
+  it("возврат прежней подписи на таблицу восьми тем краснеет", () => {
+    // Снимаем починку: подписываем «Страну фей» прежней OWNER_SUPPLIED —
+    // той самой строкой, которая для этого документа ложна.
+    const table = findTable("planar-feywild")!;
+    const reverted: EventTable = {
+      ...table,
+      source: OWNER_SUPPLIED,
+      sourceNote: OWNER_SUPPLIED,
+    };
+    expect(findWrongProvenance(reverted)).toContain("source");
+    // И отдельно — подпись, пропавшая с экрана, хотя в `source` она верна.
+    expect(findWrongProvenance({ ...table, sourceNote: undefined })).toContain(
+      "sourceNote",
+    );
   });
 
   it("нахлёст диапазонов краснеет и называет таблицу и число", () => {

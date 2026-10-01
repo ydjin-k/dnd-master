@@ -1,15 +1,20 @@
 import { TABLES as adventureHooks } from "./adventureHooks";
 import { TABLES as battleEvents } from "./battleEvents";
 import { TABLES as bossMechanics } from "./bossMechanics";
+import { TABLES as chaseGenerators } from "./chaseGenerators";
 import { TABLES as cityEvents } from "./cityEvents";
 import { TABLES as feyMarks } from "./feyMarks";
 import { TABLES as hallucinations } from "./hallucinations";
+import { TABLES as hazardAftermath } from "./hazardAftermath";
 import { TABLES as infernalContracts } from "./infernalContracts";
 import { TABLES as longRestEvents } from "./longRestEvents";
 import { TABLES as magicMushrooms } from "./magicMushrooms";
+import { TABLES as npcGenerators } from "./npcGenerators";
+import { TABLES as planarGenerators } from "./planarGenerators";
 import { TABLES as plotTwists } from "./plotTwists";
 import { TABLES as pocketTrinkets } from "./pocketTrinkets";
 import { TABLES as questHooks } from "./questHooks";
+import { TABLES as randomEncounterGenerators } from "./randomEncounterGenerators";
 import { TABLES as randomEvents } from "./randomEvents";
 import { TABLES as resurrectionSideEffects } from "./resurrectionSideEffects";
 import { TABLES as riddles } from "./riddles";
@@ -17,39 +22,61 @@ import { TABLES as roadEncounters } from "./roadEncounters";
 import { TABLES as secretSocieties } from "./secretSocieties";
 import { TABLES as settlementEvents } from "./settlementEvents";
 import { TABLES as thievesGuildQuests } from "./thievesGuildQuests";
+import { TABLES as trapGenerators } from "./trapGenerators";
 import { TABLES as trapsAndPuzzles } from "./trapsAndPuzzles";
 import { TABLES as travelEvents } from "./travelEvents";
 import { TABLES as underdarkCreatureEncounters } from "./underdarkCreatureEncounters";
 import { TABLES as underdarkEvents } from "./underdarkEvents";
 import { TABLES as underdarkTerrainEncounters } from "./underdarkTerrainEncounters";
 import { TABLES as underwaterEvents } from "./underwaterEvents";
+import { TABLES as villainGenerators } from "./villainGenerators";
 import { TABLES as waterEvents } from "./waterEvents";
 import { TABLES as weaponRunes } from "./weaponRunes";
+import { TABLES as wildernessGenerators } from "./wildernessGenerators";
 import type { EventTable, EventTableRow } from "./types";
 
 export type { EventTable, EventTableRow } from "./types";
-export { OWNER_SUPPLIED } from "./types";
+export { OWNER_AUTHORED_EIGHT_THEMES, OWNER_SUPPLIED } from "./types";
 
-/** Порядок разделов в списке выбора. Единственный владелец порядка. */
+/**
+ * Порядок разделов в списке выбора. Единственный владелец порядка.
+ *
+ * Первые пять — прежние, по ним разложены 53 таблицы двадцати семи документов.
+ * Следом восемь тем документа «Генераторы D&D 5e: восемь тем» в его
+ * собственном порядке 01–08 (решение владельца 30.09.2026: темы становятся
+ * СВОИМИ разделами, старые таблицы по ним не переезжают). Шесть тем
+ * пересекаются с прежними разделами по назначению — это осознанно: за столом
+ * больше выбора, а строками они друг друга не дублируют.
+ */
 export const TABLE_GROUPS = [
   "Приключения и зацепки",
   "Странствия",
   "Бой и столкновения",
   "Находки и диковины",
   "Странности и последствия",
+  "Дикая местность",
+  "Погоня",
+  "Ловушки и препятствия",
+  "Неигровые персонажи",
+  "Планарные эффекты",
+  "Последствия опасностей",
+  "Злодеи",
+  "Случайные встречи",
 ] as const;
 
 /** Все таблицы генератора, в порядке разделов, внутри раздела — по имени. */
 export const EVENT_TABLES: readonly EventTable[] = [
-  ...adventureHooks, ...battleEvents, ...bossMechanics, ...cityEvents,
-  ...feyMarks, ...hallucinations, ...infernalContracts, ...longRestEvents,
-  ...magicMushrooms, ...plotTwists, ...pocketTrinkets, ...questHooks,
-  ...randomEvents, ...resurrectionSideEffects, ...riddles, ...roadEncounters,
+  ...adventureHooks, ...battleEvents, ...bossMechanics, ...chaseGenerators,
+  ...cityEvents, ...feyMarks, ...hallucinations, ...hazardAftermath,
+  ...infernalContracts, ...longRestEvents, ...magicMushrooms,
+  ...npcGenerators, ...planarGenerators, ...plotTwists, ...pocketTrinkets,
+  ...questHooks, ...randomEncounterGenerators, ...randomEvents,
+  ...resurrectionSideEffects, ...riddles, ...roadEncounters,
   ...secretSocieties, ...settlementEvents, ...thievesGuildQuests,
-  ...trapsAndPuzzles, ...travelEvents, ...underdarkCreatureEncounters,
-  ...underdarkEvents, ...underdarkTerrainEncounters, ...underwaterEvents,
-  ...waterEvents,
-  ...weaponRunes,
+  ...trapGenerators, ...trapsAndPuzzles, ...travelEvents,
+  ...underdarkCreatureEncounters, ...underdarkEvents,
+  ...underdarkTerrainEncounters, ...underwaterEvents, ...villainGenerators,
+  ...waterEvents, ...weaponRunes, ...wildernessGenerators,
 ].sort(
   (a, b) =>
     TABLE_GROUPS.indexOf(a.group as (typeof TABLE_GROUPS)[number]) -
