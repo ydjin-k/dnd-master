@@ -1243,14 +1243,7 @@ mod bestiary_data_tests {
     /// `imageAsset`, и проба сама проследит, что вычеркнули не зря.
     #[test]
     fn every_own_creature_has_an_image() {
-        const AWAITING_REDRAWN_ART: [&str; 6] = [
-            "Колючий демон",
-            "Вождь багбиров",
-            "Полуогр",
-            "Подземный орк",
-            "Гнилоглаз",
-            "Полулич",
-        ];
+        const AWAITING_REDRAWN_ART: [&str; 0] = [];
         let own = super::read_monster_file(
             &bestiary_dir().join(OWN_BESTIARY_FILE),
             MonsterOrigin::Own,
@@ -2029,14 +2022,9 @@ mod bestiary_data_tests {
     /// выше: часть полей необязательна у соседей по файлу, а у этих семи
     /// книга даёт их все — кроме послаблений, названных ниже поимённо.
     ///
-    /// **Картинка тут проверяется НАОБОРОТ, чем у пачки D, и это главное, что
-    /// проба стережёт.** У шестерых из семи холст подписан ЧУЖИМ словом, и
-    /// `imageAsset` им ставить нельзя, пока холст не перевыпущен; у Падшей
-    /// души подписи нет вовсе, и картинка у неё обязана быть. Забыть тут
-    /// можно в обе стороны сразу — и приписать картинку тому, кому нельзя, и
-    /// потерять её у той единственной, кому можно, — поэтому проверяются обе.
-    /// Вторую половину (что имя стоит в `AWAITING_REDRAWN_ART`, а не
-    /// «картинки просто нет») держит `every_own_creature_has_an_image`.
+    /// Все семь холстов теперь подключены по `id`: у Падшей души подписи не
+    /// было, а остальные шесть прошли отдельную перелетовку. Проба держит
+    /// завершённое состояние и не даёт снова потерять любой `imageAsset`.
     #[test]
     fn pack_contested_seven_have_a_full_stat_block() {
         const SEVEN: [&str; 7] = [
@@ -2066,8 +2054,6 @@ mod bestiary_data_tests {
         /// У кого ненулевая наземная скорость. Полулич парит и по земле не
         /// ходит вовсе — «Скорость 0 фт., летая 30 фт.».
         const WITH_GROUND_SPEED: [&str; 6] = WITH_ATTACK;
-        /// Единственный холст пачки без чужой подписи.
-        const WITH_IMAGE: &str = "padshaya-dusha";
         let own = super::read_monster_file(
             &bestiary_dir().join(OWN_BESTIARY_FILE),
             MonsterOrigin::Own,
@@ -2147,21 +2133,11 @@ mod bestiary_data_tests {
         );
         for id in SEVEN {
             let m = own.iter().find(|m| m.id == id).expect("найден выше");
-            if id == WITH_IMAGE {
-                assert!(
-                    m.image_asset.as_deref() == Some(&format!("images/{id}.jpg")[..]),
-                    "{id}: подписи на холсте нет вовсе, значит файл переименован \
-                     под id и картинка обязана стоять; сейчас {:?}",
-                    m.image_asset
-                );
-            } else {
-                assert!(
-                    m.image_asset.is_none(),
-                    "{id}: холст подписан ЧУЖИМ словом — картинку нельзя \
-                     подключать, пока он не перевыпущен; сейчас {:?}",
-                    m.image_asset
-                );
-            }
+            assert!(
+                m.image_asset.as_deref() == Some(&format!("images/{id}.jpg")[..]),
+                "{id}: принятый холст обязан быть подключён по id; сейчас {:?}",
+                m.image_asset
+            );
         }
     }
 
