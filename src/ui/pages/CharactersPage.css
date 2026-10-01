@@ -195,6 +195,16 @@
   line-height: 1.15;
 }
 
+/* Причина, по которой число на плитке не равно листовому, — «быстрый темп −5». */
+.character-card__stat-note {
+  margin: 0.1em 0 0;
+  color: var(--dm-text-muted);
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 /* Пороги нагрузки числом — подсказка под плитками, читается вместе с плиткой «Вес». */
 .character-card__encumbrance-scale {
   margin: 0.1em 0 0.15em;

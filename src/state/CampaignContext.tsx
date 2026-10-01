@@ -15,8 +15,10 @@ import {
   type JournalEntry,
   type ResultObject,
   type SceneOutcome,
+  type TravelState,
   emptyCampaignState,
 } from "./types";
+import { travelOf } from "../ui/travelPace";
 import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
 
 interface CampaignContextValue {
@@ -39,6 +41,7 @@ interface CampaignContextValue {
   addJournalEntry: (entry: JournalEntry) => Promise<void>;
   removeJournalEntry: (id: string) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
+  setTravel: (updater: (travel: TravelState) => TravelState) => Promise<void>;
   startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
   combatAttack: (attackerId: string, targetId: string) => Promise<void>;
@@ -237,6 +240,22 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [state, persist],
   );
 
+  /**
+   * Счётчик пути. Через `persistWith`, а не `persist`: провал форсированного
+   * марша пишет в кампанию дважды подряд — час в счётчик и степень истощения на
+   * лист, — и обе записи ложатся до перерисовки. Со снимком рендера вторая
+   * затирала бы первую вместе с пройденным часом.
+   *
+   * Умолчание подставляет `travelOf`, а не этот провайдер: кампания без темпа
+   * обязана считаться «в путь не выходили» одинаково и здесь, и на экране.
+   */
+  const setTravel = useCallback(
+    async (updater: (travel: TravelState) => TravelState) => {
+      await persistWith((current) => ({ ...current, travel: updater(travelOf(current.travel)) }));
+    },
+    [persistWith],
+  );
+
   // Бой сохраняется на бэкенде внутри команды — тут только применяем
   // результат. Общий враппер вместо семи одинаковых try/catch.
   const runServerAction = useCallback(
@@ -361,6 +380,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         addJournalEntry,
         removeJournalEntry,
         setCampaignName,
+        setTravel,
         startCombat,
         moveCombatant,
         combatAttack,

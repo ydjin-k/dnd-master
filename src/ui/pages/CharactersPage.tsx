@@ -120,6 +120,7 @@ import {
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
+import { pacePassivePenalty, pacedPassivePerception, paceById, travelOf } from "../travelPace";
 import {
   EXHAUSTION_MAX_LEVEL,
   exhaustionEffectLines,
@@ -377,6 +378,7 @@ function CharacterCard({
   raceTraitsByTitle,
   feats,
   turnKey,
+  travelPace,
   onRemove,
   onUpdate,
 }: {
@@ -396,6 +398,12 @@ function CharacterCard({
   feats: Feat[];
   /** Ключ текущего хода боя или null вне боя — им ограничивается «не чаще раза за ход» у Дикого всплеска. */
   turnKey: string | null;
+  /**
+   * Темп, которым идёт отряд (`CampaignState.travel`) — плата быстрого темпа
+   * вычитается из пассивной внимательности здесь, на листе. Карточка темпом не
+   * владеет и не меняет его: выбирают его на «Приключениях», у счётчика пути.
+   */
+  travelPace: string;
   onRemove: () => void;
   onUpdate: (updater: (character: Character) => Character) => void;
 }) {
@@ -1396,7 +1404,21 @@ function CharacterCard({
    * попавший под эту подпись, врал бы об источнике. Счётчик при этом общий,
    * `Character.featureUses` по id, — и тратится теми же кнопками.
    */
-  const raceTraits = withSunlitPassive(raceTraitsByTitle[c.race] ?? [], c.race, c.passivePerception);
+  /**
+   * Пассивная внимательность, какой она есть в пути: число листа минус плата
+   * быстрого темпа. Считает её `travelPace.ts` — здесь только показ, своего
+   * вычитания у карточки нет.
+   */
+  const pacePenalty = pacePassivePenalty(travelPace);
+  const pacedPassive = pacedPassivePerception(c.passivePerception, travelPace);
+  const paceName = paceById(travelPace).name.toLowerCase();
+  /**
+   * Цена «Чувствительности к солнечному свету» считается ОТ числа с темпом, а не
+   * от листового: иначе на быстром темпе особенность обещала бы под солнцем
+   * внимательность выше той, что стоит на плитке рядом. Две платы складываются,
+   * и обе названы числом.
+   */
+  const raceTraits = withSunlitPassive(raceTraitsByTitle[c.race] ?? [], c.race, pacedPassive);
   const raceResourceList = raceResources(c.race, c.level);
   const raceSpellLine = abyssElfSpellLine(c.race, (id) => spells.find((sp) => sp.id === id)?.name ?? id);
   /**
@@ -1615,7 +1637,12 @@ function CharacterCard({
             </div>
             <div className="character-card__stat">
               <dt>Пас. внимательность</dt>
-              <dd>{c.passivePerception}</dd>
+              <dd>{pacedPassive}</dd>
+              {pacePenalty > 0 && (
+                <p className="character-card__stat-note">
+                  {paceName} темп −{pacePenalty}
+                </p>
+              )}
             </div>
             <div className="character-card__stat">
               <dt>Вес</dt>
@@ -2799,6 +2826,7 @@ export function CharactersPage() {
             raceTraitsByTitle={raceTraitsByTitle}
             feats={feats}
             turnKey={wildMagicTurnKey(state.combat)}
+            travelPace={travelOf(state.travel).pace}
             onRemove={() => {
               if (window.confirm(`Удалить персонажа «${c.name}»? Это необратимо.`)) {
                 removeCharacter(c.id);
