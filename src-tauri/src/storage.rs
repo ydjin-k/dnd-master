@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::model::{CampaignState, Character, JournalEntry};
+use crate::model::{CampaignState, Character, JournalEntry, TravelState};
 
 /// Поля документа кампании, которыми владеет ФРОНТ, — и весь список сразу.
 ///
@@ -34,6 +34,16 @@ pub struct FrontOwnedFields {
     pub campaign_name: String,
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
+    /// Счётчик пути (`engine-travel-pace`). Фронт им ВЛАДЕЕТ: темп выбирает
+    /// мастер, часы и дни двигают его кнопки, и ни одна команда движка этого
+    /// поля не касается. Поэтому оно обязано быть здесь — без этой строки
+    /// счётчик жил до первой перезагрузки окна и уезжал в `null`, что и поймало
+    /// живое окно, а не проба.
+    ///
+    /// Поле обязательное, как и три выше: фронт, не приславший то, чем владеет,
+    /// — это дефект, и честнее отказать записи громко, чем принять её с `null`
+    /// и молча стереть пройденный путь.
+    pub travel: Option<TravelState>,
 }
 
 /// Tauri-команды выполняются на разных потоках, и без этого две почти
@@ -320,6 +330,7 @@ fn save_front_owned_in(base: &Path, fields: FrontOwnedFields) -> Result<Campaign
         state.campaign_name = fields.campaign_name;
         state.characters = fields.characters;
         state.journal = fields.journal;
+        state.travel = fields.travel;
         Ok(())
     })
 }
@@ -878,6 +889,7 @@ mod tests {
                     timestamp: "2026-09-23T10:00:00Z".into(),
                     text: "Записал у костра".into(),
                 }],
+                travel: None,
             },
         )
         .unwrap();
@@ -894,6 +906,69 @@ mod tests {
         assert_eq!(after.characters.len(), 1);
     }
 
+    /// engine-travel-pace: счётчик пути — поле ФРОНТА, и запись с фронта обязана
+    /// его сохранять. Без этой строки в `FrontOwnedFields` счётчик жил только до
+    /// перезагрузки окна: живое окно показывало 11 часов и 33 мили, а на диске
+    /// лежал `travel: null`. Поймало это окно, а не проба, — поэтому проба
+    /// появилась здесь.
+    ///
+    /// Отрицательная проба: убрать `state.travel = fields.travel` в
+    /// `save_front_owned_in` — строка «счётчик обязан уцелеть» краснеет, называя
+    /// `None` вместо одиннадцати часов.
+    #[test]
+    fn front_save_keeps_the_travel_counter_it_owns() {
+        let base = temp_dir("front-owned-travel");
+        create_campaign_in(&base, "Поход".into()).unwrap();
+
+        save_front_owned_in(
+            &base,
+            FrontOwnedFields {
+                campaign_name: "Поход".into(),
+                characters: vec![],
+                journal: vec![],
+                travel: Some(TravelState {
+                    pace: "fast".into(),
+                    difficult_terrain: false,
+                    hours_today: 11,
+                    day_marches: 2,
+                    half_day_marches: 1,
+                    lost_days: 1,
+                }),
+            },
+        )
+        .unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let travel = after.travel.expect("счётчик обязан уцелеть: фронт им владеет");
+        assert_eq!(travel.pace, "fast");
+        assert_eq!(travel.hours_today, 11);
+        assert_eq!(travel.day_marches, 2);
+        assert_eq!(travel.half_day_marches, 1);
+        assert_eq!(travel.lost_days, 1);
+    }
+
+    /// Обратная сторона: кампания, в которую фронт ещё не ходил, остаётся без
+    /// счётчика — `null`, а не нули. Иначе «в путь не выходили» стало бы
+    /// неотличимо от «вышли и прошли ноль часов».
+    #[test]
+    fn front_save_without_travel_keeps_the_campaign_without_a_counter() {
+        let base = temp_dir("front-owned-travel-none");
+        create_campaign_in(&base, "Поход".into()).unwrap();
+
+        save_front_owned_in(
+            &base,
+            FrontOwnedFields {
+                campaign_name: "Поход".into(),
+                characters: vec![],
+                journal: vec![],
+                travel: None,
+            },
+        )
+        .unwrap();
+
+        assert!(load_active_in(&base).unwrap().unwrap().travel.is_none());
+    }
+
     /// Ответ на вопрос «что будет, если фронт прислал чужое поле»: оно тихо
     /// игнорируется, и это свойство ТИПА, а не проверка в теле команды —
     /// `FrontOwnedFields` некуда положить `combat`, и serde его пропускает.
@@ -904,6 +979,7 @@ mod tests {
             "campaignName": "Поход",
             "characters": [],
             "journal": [],
+            "travel": null,
             "combat": {"gridWidth": 12, "gridHeight": 10, "combatants": [], "turnOrder": [],
                        "currentTurnIndex": 0, "round": 7, "log": [], "finished": false}
         }"#;
@@ -944,6 +1020,7 @@ mod tests {
                     timestamp: "2026-09-23T10:00:00Z".into(),
                     text: "Записал у костра".into(),
                 }],
+                travel: None,
             },
         )
         .unwrap();
