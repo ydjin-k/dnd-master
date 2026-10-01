@@ -15,6 +15,7 @@ import {
   type EventTableRow,
 } from "../eventTables";
 import { ScenePage } from "./ScenePage";
+import { TravelPage } from "./TravelPage";
 import "./AdventuresPage.css";
 
 /**
@@ -26,7 +27,7 @@ import "./AdventuresPage.css";
  * мастер читает за столом, движок — решение с машинными последствиями. Сливать
  * их нельзя (ADR раздел 9, пункт 14).
  */
-type View = "menu" | "generator" | "scene";
+type View = "menu" | "generator" | "scene" | "travel";
 
 /** Что показано игроку после броска. Держится до следующего броска. */
 interface Outcome {
@@ -110,6 +111,16 @@ export function AdventuresPage() {
               Выберите таблицу — приложение бросит её кость и покажет выпавшее
             </span>
           </button>
+          <button
+            type="button"
+            className="adventures-page__entry dm-button--primary"
+            onClick={() => setView("travel")}
+          >
+            <span className="adventures-page__entry-title">Странствие</span>
+            <span className="adventures-page__entry-hint">
+              Темп отряда, счётчик пути, форсированный марш, еда и вода
+            </span>
+          </button>
         </div>
       </section>
     );
@@ -124,6 +135,10 @@ export function AdventuresPage() {
         <ScenePage />
       </section>
     );
+  }
+
+  if (view === "travel") {
+    return <TravelPage onBack={() => setView("menu")} />;
   }
 
   return <EventGenerator onBack={() => setView("menu")} />;
