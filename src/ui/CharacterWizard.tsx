@@ -645,6 +645,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       initiative,
       passivePerception,
       conditions: [],
+      // Новый персонаж сыт: полудней без еды у него ноль (SRD «Еда и вода»).
+      halfDaysWithoutFood: 0,
       inventory,
       coins,
       savingThrowProficiencies: classProf?.savingThrowLabels ?? [],

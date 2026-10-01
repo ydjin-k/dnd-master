@@ -29,6 +29,7 @@ vi.mock("../../state/CampaignContext", () => ({
 
 function stateWith(engine: EngineState | null): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [],

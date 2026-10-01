@@ -127,6 +127,7 @@ function mockBackend() {
 
 function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [],
@@ -140,6 +141,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
 /** Заготовка персонажа для полей, которых нет в проверяемом сценарии. */
 function blankCharacter(): Character {
   return {
+    halfDaysWithoutFood: 0,
     id: "blank",
     name: "Заготовка",
     race: "Человек",

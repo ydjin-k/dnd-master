@@ -122,6 +122,7 @@ vi.mock("../../state/CampaignContext", () => ({
 
 function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [],
@@ -161,6 +162,7 @@ describe("CharactersPage", () => {
 
   function characterWithInventory(): CampaignState["characters"][number] {
     return {
+      halfDaysWithoutFood: 0,
       id: "hero",
       name: "Герой",
       race: "Человек",
@@ -269,6 +271,7 @@ describe("CharactersPage", () => {
     mockState = baseState({
       characters: [
         {
+          halfDaysWithoutFood: 0,
           id: "hero",
           name: "Герой",
           race: "Человек",

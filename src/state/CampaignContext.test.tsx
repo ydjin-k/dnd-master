@@ -8,6 +8,7 @@ import type { CampaignState, Character } from "./types";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
 const initialState: CampaignState = {
+  travel: null,
   id: "campaign-1",
   campaignName: "Тест",
   characters: [],
@@ -54,6 +55,7 @@ describe("CampaignContext journal persistence", () => {
 /** Персонаж-заготовка: пробам ниже важны только `id` и `conditions`. */
 function hero(conditions: string[]): Character {
   return {
+    halfDaysWithoutFood: 0,
     id: "hero",
     name: "Герой",
     race: "Человек",

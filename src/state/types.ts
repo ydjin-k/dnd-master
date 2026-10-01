@@ -112,6 +112,22 @@ export interface Character {
   initiative: number;
   passivePerception: number;
   conditions: string[];
+  /**
+   * Полудни без еды — SRD `[3]/blocks[27]`: «Полфунта еды в день считается как
+   * полдня без еды», поэтому счёт идёт половинками, а не днями. Целое число, а
+   * не дробь в днях: дробью пришлось бы сравнивать 0.5 на равенство, и половина
+   * дня, прожитая дважды, могла бы не сложиться в день.
+   *
+   * Хранится ПРОЖИТО без еды, а не «осталось»: предел считается из
+   * Телосложения (`daysWithoutFoodLimit` в `foodAndWater.ts`), и ноль здесь
+   * однозначно значит «сыт» — у сохранения, записанного до этой карточки, он и
+   * стоит, структурным `#[serde(default)]` на стороне Rust, тем же приёмом, что
+   * `hitDiceSpent`.
+   *
+   * Истощение от голода и жажды хранится не здесь, а там, где живёт всякое
+   * истощение, — в `conditions` под именем `Истощение (ур. N)`.
+   */
+  halfDaysWithoutFood: number;
   inventory: InventoryItem[];
   coins: Coins;
   savingThrowProficiencies: string[];
@@ -453,6 +469,35 @@ export interface GmResponse {
   result: ResultObject;
 }
 
+/** Строка таблицы темпа перемещения (`rules.json` `[2]/blocks[15]`) — см. `travelPace.ts`. */
+export type TravelPaceId = "fast" | "normal" | "slow";
+
+/**
+ * Счётчик пути кампании: темп, местность и ВРЕМЯ. Расстояния здесь нет
+ * намеренно — мили выводятся из темпа и часов (`travelledMiles` в
+ * `src/ui/travelPace.ts`), и хранить их вторым числом значило бы завести
+ * второго владельца пройденного пути.
+ *
+ * Все четыре счётчика времени раздельны, потому что раздельны кнопки мастера:
+ * полный дневной переход, переход «темп вдвое» (им наказывают девять строк
+ * «Столкновений местности Подземья»), потерянный день и часы незакрытого
+ * сегодняшнего перехода. Сложить их в одно число нельзя: у каждого своя цена в
+ * милях, а у часов — ещё и спасбросок форсированного марша.
+ */
+export interface TravelState {
+  pace: TravelPaceId;
+  /** Идём по труднопроходимой местности — половина расстояния (`[2]/blocks[18]`). */
+  difficultTerrain: boolean;
+  /** Часы сегодняшнего перехода. Девятый и дальше — форсированный марш. */
+  hoursToday: number;
+  /** Полные дневные переходы с начала пути — колонка «День». */
+  dayMarches: number;
+  /** Дневные переходы вполовину — «темп вдвое меньше». */
+  halfDayMarches: number;
+  /** Дни, потерянные вовсе: время ушло, миль нет. */
+  lostDays: number;
+}
+
 export interface CampaignState {
   id: string;
   campaignName: string;
@@ -461,6 +506,13 @@ export interface CampaignState {
   combat: CombatState | null;
   /** Состояние движка мастера. `null` у кампаний, созданных до него. */
   engine: EngineState | null;
+  /**
+   * Счётчик пути (SRD `[2]` «Передвижение»). У кампаний, записанных до него,
+   * приезжает со значениями по умолчанию структурным `#[serde(default)]` на
+   * стороне Rust — тем же приёмом, которым пережит приход движка. Читать его
+   * надо через `travelOf` из `travelPace.ts`: он и подставляет умолчание.
+   */
+  travel: TravelState | null;
 }
 
 export interface CampaignSummary {
@@ -540,4 +592,5 @@ export const emptyCampaignState = (): CampaignState => ({
   journal: [],
   combat: null,
   engine: null,
+  travel: null,
 });

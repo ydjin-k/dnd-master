@@ -138,6 +138,13 @@ pub struct Character {
     pub initiative: i32,
     pub passive_perception: i32,
     pub conditions: Vec<String>,
+    /// Полудни без еды (SRD `[3]/blocks[27]`: «Полфунта еды в день считается как
+    /// полдня без еды»). Половинками, а не днями, чтобы счёт был целым числом.
+    /// Старые сохранения получают 0 структурным `#[serde(default)]` — тем же
+    /// приёмом, что `hit_dice_spent`, и ноль однозначен: персонаж сыт.
+    /// Истощение от голода модель тут не держит: оно живёт в `conditions`, где и
+    /// всякое другое истощение.
+    pub half_days_without_food: i32,
     pub inventory: Vec<InventoryItem>,
     /// Устарело — деньги в одном золотом числе, до появления номиналов
     /// (см. `coins`). Читается только для миграции старых сохранений
@@ -304,6 +311,29 @@ pub struct CombatState {
     pub finished: bool,
 }
 
+/// Счётчик пути отряда (SRD 5.1, раздел `[2]` «Передвижение»).
+///
+/// Модель хранит ВРЕМЯ и выбор мастера — темп, местность, часы и дни. Миль
+/// здесь нет намеренно: они выводятся из темпа и часов
+/// (`travelledMiles` в `src/ui/travelPace.ts`), и второе их хранение означало бы
+/// второго владельца пройденного пути.
+///
+/// Темп — строка, а не перечисление, по той же причине, по которой состояния
+/// персонажа лежат строками: словарь значений живёт на стороне показа
+/// (`TRAVEL_PACES`), и неизвестное значение там превращается в обычный темп, а
+/// не роняет загрузку. `Default` даёт пустую строку — её `paceById` читает как
+/// обычный темп.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TravelState {
+    pub pace: String,
+    pub difficult_terrain: bool,
+    pub hours_today: i32,
+    pub day_marches: i32,
+    pub half_day_marches: i32,
+    pub lost_days: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CampaignState {
@@ -318,6 +348,11 @@ pub struct CampaignState {
     /// у самого `CampaignState` — тем же приёмом, которым уже пережиты
     /// переименование полей и снос целого движка приключения.
     pub engine: Option<crate::gm::state::EngineState>,
+    /// Счётчик пути (SRD `[2]`). `None` у кампаний, записанных до него, — тем же
+    /// структурным `#[serde(default)]`, которым пережит приход движка; показ
+    /// подставляет умолчание сам (`travelOf` в `travelPace.ts`), поэтому
+    /// кампания без темпа открывается обычным темпом и нулями, а не падает.
+    pub travel: Option<TravelState>,
 }
 
 #[cfg(test)]
@@ -582,5 +617,98 @@ mod tests {
         let old_json = r#"{"id": "torch-1", "name": "Факел", "quantity": 5, "notes": ""}"#;
         let item: InventoryItem = serde_json::from_str(old_json).expect("старый предмет должен читаться");
         assert_eq!(item.weight_lb, 0.0);
+    }
+
+    /// engine-travel-pace: кампания, записанная до счётчика пути, обязана
+    /// открываться, а не падать на отсутствующем поле. `None` здесь значит «в
+    /// путь не выходили», и умолчание темпа подставляет показ (`travelOf`), а
+    /// не миграция файла.
+    #[test]
+    fn campaign_without_travel_deserializes_as_none() {
+        let old_json = r#"{
+            "id": "camp-1", "campaignName": "Старая кампания",
+            "characters": [], "journal": [], "combat": null
+        }"#;
+        let campaign: CampaignState =
+            serde_json::from_str(old_json).expect("кампания без счётчика пути должна читаться");
+        assert!(campaign.travel.is_none(), "нет поля — значит в путь не выходили");
+        assert!(campaign.engine.is_none());
+    }
+
+    /// engine-travel-pace: счётчик пути обязан пережить перезапуск приложения.
+    /// Проба сторожит ИМЕНА полей в файле сохранения (camelCase): разъехавшееся
+    /// имя молча прочиталось бы нулём, то есть обнуляло бы пройденный путь при
+    /// каждой загрузке — ровно та же ошибка, что уже ловили на `hitDiceSpent`.
+    #[test]
+    fn travel_counter_survives_round_trip_by_field_names() {
+        let saved_json = r#"{
+            "id": "camp-2", "campaignName": "Поход", "characters": [], "journal": [], "combat": null,
+            "travel": {
+                "pace": "fast", "difficultTerrain": true,
+                "hoursToday": 3, "dayMarches": 2, "halfDayMarches": 1, "lostDays": 1
+            }
+        }"#;
+        let campaign: CampaignState =
+            serde_json::from_str(saved_json).expect("кампания со счётчиком должна читаться");
+        let travel = campaign.travel.clone().expect("счётчик должен быть прочитан");
+        assert_eq!(travel.pace, "fast");
+        assert!(travel.difficult_terrain);
+        assert_eq!(travel.hours_today, 3);
+        assert_eq!(travel.day_marches, 2);
+        assert_eq!(travel.half_day_marches, 1);
+        assert_eq!(travel.lost_days, 1);
+
+        let round_trip: CampaignState =
+            serde_json::from_str(&serde_json::to_string(&campaign).expect("запись")).expect("чтение обратно");
+        let again = round_trip.travel.expect("счётчик должен пережить запись и чтение");
+        assert_eq!(again.pace, "fast");
+        assert_eq!(again.hours_today, 3);
+        assert_eq!(again.day_marches, 2);
+        assert_eq!(again.half_day_marches, 1);
+        assert_eq!(again.lost_days, 1);
+        assert!(again.difficult_terrain);
+    }
+
+    /// engine-travel-pace: счётчик пути с незнакомым темпом не роняет загрузку —
+    /// строка доезжает до показа, и обычным темпом её делает `paceById`, а не
+    /// миграция. Вторым владельцем умолчания модель не становится.
+    #[test]
+    fn travel_counter_keeps_unknown_pace_string() {
+        let json = r#"{
+            "id": "camp-3", "campaignName": "Поход", "characters": [], "journal": [], "combat": null,
+            "travel": { "pace": "galloping" }
+        }"#;
+        let campaign: CampaignState = serde_json::from_str(json).expect("должна читаться");
+        let travel = campaign.travel.expect("счётчик должен быть прочитан");
+        assert_eq!(travel.pace, "galloping");
+        assert_eq!(travel.hours_today, 0, "отсутствующие счётчики — нули");
+        assert_eq!(travel.day_marches, 0);
+    }
+
+    /// engine-travel-pace: персонаж, сохранённый до голода и жажды, обязан
+    /// читаться сытым. Ноль здесь однозначен — полудней без еды не было.
+    #[test]
+    fn character_without_hunger_counter_reads_as_fed() {
+        let old_json = r#"{
+            "id": "abc", "name": "Тест", "race": "Орк", "class": "Плут", "level": 1,
+            "abilities": {
+                "strength": 10, "dexterity": 10, "constitution": 10,
+                "intelligence": 10, "wisdom": 10, "charisma": 10
+            },
+            "maxHp": 10, "currentHp": 10, "armorClass": 10,
+            "conditions": [], "inventory": []
+        }"#;
+        let character: Character = serde_json::from_str(old_json).expect("старый персонаж должен читаться");
+        assert_eq!(character.half_days_without_food, 0);
+
+        let saved: Character = serde_json::from_str(
+            &old_json.replace(r#""maxHp": 10"#, r#""halfDaysWithoutFood": 5, "maxHp": 10"#),
+        )
+        .expect("сохранение с полем должно читаться");
+        assert_eq!(saved.half_days_without_food, 5, "счёт голода должен пережить загрузку");
+
+        let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
+            .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.half_days_without_food, 5);
     }
 }

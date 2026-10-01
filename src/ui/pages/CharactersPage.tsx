@@ -120,6 +120,13 @@ import {
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
+import {
+  EXHAUSTION_MAX_LEVEL,
+  exhaustionEffectLines,
+  exhaustionLevelName,
+  exhaustionLevelOf,
+  withExhaustionReduced,
+} from "../exhaustion";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, FeatureUses, RollResult, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
@@ -131,6 +138,8 @@ import { abyssElfSpellLine, playableRaces, raceResources, withSunlitPassive } fr
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
+export { withExhaustionReduced };
+
 type Panel = "none" | "wizard" | "presets";
 
 /**
@@ -140,23 +149,6 @@ type Panel = "none" | "wizard" | "presets";
  * не пустит персонажа на уровень, строки которого в таблице нет.
  */
 const MAX_LEVEL = PROGRESSION_MAX_LEVEL;
-
-/** Ступеней истощения в таблице SRD ровно шесть — и столько же строк в CONDITIONS (characterCreationData.ts). */
-const EXHAUSTION_MAX_LEVEL = 6;
-
-/** Эффект каждого отдельного уровня истощения, по таблице «Истощение» в rules.json → appendices-conditions. */
-const EXHAUSTION_LEVEL_EFFECTS: Record<number, string> = {
-  1: "Помеха на проверки характеристик.",
-  2: "Скорость уменьшается вдвое.",
-  3: "Помеха на броски атаки и спасброски.",
-  4: "Максимальные хиты уменьшаются вдвое.",
-  5: "Скорость уменьшается до 0.",
-  6: "Смерть.",
-};
-
-/** Дословно из rules.json → appendices-conditions, абзац после таблицы «Истощение». */
-const EXHAUSTION_RECOVERY =
-  "Завершение длинного отдыха снижает уровень истощения существа на 1, при условии, что существо также принимало некоторую пищу и питьё.";
 
 /**
  * Правило траты Костей Хитов — словами, а не машиной состояний. По SRD кости
@@ -203,52 +195,6 @@ function longRestHitDiceBack(level: number): number {
 /** Общий принцип снятия состояний (rules.json → appendices-conditions, абзац перед таблицей). */
 const CONDITIONS_GENERAL_HINT =
   "Состояние снимается, когда его отменяет вызвавший эффект (например, «Сбитый с ног» снимается, если встать на ноги), либо когда заканчивается его длительность.";
-
-function exhaustionLevelName(level: number): string {
-  return `Истощение (ур. ${level})`;
-}
-
-/**
- * Наивысший уровень истощения в состояниях или 0, если его нет. Читается ТЕМ ЖЕ
- * владельцем формата строки, что и пишется (`exhaustionLevelName`): своего
- * разбора регэкспом здесь нет намеренно — разъехавшись с форматом, он молча
- * перестал бы видеть истощение вовсе.
- */
-function exhaustionLevelOf(conditions: string[]): number {
-  let level = 0;
-  for (let l = 1; l <= EXHAUSTION_MAX_LEVEL; l++) {
-    if (conditions.includes(exhaustionLevelName(l))) level = l;
-  }
-  return level;
-}
-
-/**
- * Одна ступень истощения вниз — правило длинного отдыха SRD (EXHAUSTION_RECOVERY
- * выше). Первый уровень снимается совсем, остальные заменяются строкой уровнем
- * ниже — тем же `exhaustionLevelName`, что их и написал.
- *
- * Снижается ступень у ВЫСШЕГО уровня: несколько строк истощения разом
- * появляются только если игрок наставил их руками, и снимать по одной у каждой
- * значило бы вылечить его вдвое-втрое быстрее правила. Шестой уровень — смерть
- * по таблице SRD, но исключения правило не делает: до пятого отдых снижает и
- * его, и прятать это не наше дело.
- */
-export function withExhaustionReduced(conditions: string[]): string[] {
-  const level = exhaustionLevelOf(conditions);
-  if (level === 0) return conditions;
-  const current = exhaustionLevelName(level);
-  if (level === 1) return conditions.filter((cond) => cond !== current);
-  // Set — если игрок уже держал и строку уровнем ниже: двух одинаковых состояний не бывает.
-  return [...new Set(conditions.map((cond) => (cond === current ? exhaustionLevelName(level - 1) : cond)))];
-}
-
-/** Эффекты истощения накопительные: уровень N включает эффекты уровней 1..N, плюс как снять. */
-function exhaustionEffectLines(level: number): string[] {
-  const lines: string[] = [];
-  for (let l = 1; l <= level; l++) lines.push(EXHAUSTION_LEVEL_EFFECTS[l]);
-  lines.push(EXHAUSTION_RECOVERY);
-  return lines;
-}
 
 /**
  * Карта «состояние → строки эффекта», извлечённая из appendices-conditions:

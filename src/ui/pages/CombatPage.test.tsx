@@ -57,10 +57,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [
       {
+        halfDaysWithoutFood: 0,
         id: "hero",
         name: "Герой",
         race: "",

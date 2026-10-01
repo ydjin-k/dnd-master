@@ -25,6 +25,7 @@ function engine(over: Partial<EngineState> = {}): EngineState {
 
 function stateWith(engineState: EngineState | null): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [],

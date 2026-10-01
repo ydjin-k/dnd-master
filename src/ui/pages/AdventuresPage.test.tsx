@@ -44,7 +44,7 @@ function rollsAlwaysWithin(total: number) {
 }
 
 function emptyState(): CampaignState {
-  return { id: "c1", campaignName: "Тест", characters: [], journal: [], combat: null, engine: null };
+  return { id: "c1", campaignName: "Тест", characters: [], journal: [], combat: null, engine: null, travel: null };
 }
 
 /** Отряд из одного бойца: боя без своей стороны не поднять. */

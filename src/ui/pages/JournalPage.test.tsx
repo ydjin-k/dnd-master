@@ -34,6 +34,7 @@ describe("JournalPage", () => {
 
   it("adding a journal entry clears the form and does not crash", async () => {
     mockState = {
+      travel: null,
       id: "c1",
       campaignName: "Тест",
       characters: [],
@@ -61,6 +62,7 @@ describe("JournalPage", () => {
 
   it("removes the selected journal entry", () => {
     mockState = {
+      travel: null,
       id: "c1",
       campaignName: "Тест",
       characters: [],
@@ -146,6 +148,7 @@ describe("JournalPage", () => {
   // вместо `entryTime` — краснеет именно эта проба, остальные остаются зелёными.
   it("запись без даты подписана честно и уходит в конец дневника", () => {
     mockState = {
+      travel: null,
       id: "c1",
       campaignName: "Тест",
       characters: [],
@@ -180,6 +183,7 @@ describe("JournalPage", () => {
 
 function createStateWithEntries(count: number, textLength = 0): CampaignState {
   return {
+    travel: null,
     id: "c1",
     campaignName: "Тест",
     characters: [],
