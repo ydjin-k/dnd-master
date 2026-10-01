@@ -20,6 +20,9 @@
 | `drow-elite-warrior.jpg` | **Элитный воитель дроу** | `elitny-voitel-drou` | Элитный воитель дроу | `elitny-voitel-drou.jpg`, `imageAsset` |
 | `drow-mage.jpg` | **Маг дроу** | `mag-drou` | Маг дроу | `mag-drou.jpg`, `imageAsset` |
 | `drou-zhritsa.jpg` | **Дроу Жрица** | `drou-zhritsa` | Дроу Жрица — перелетована | `drou-zhritsa.jpg`, `imageAsset` |
+| `lizardfolk-shaman.jpg` | **Людоящер шаман** | `lyudoyashcher-shaman` | Людоящер шаман | `lyudoyashcher-shaman.jpg`, `imageAsset` |
+| `lizard-king.jpg` | **Король ящеров** | `korol-yashcherov` | Король/королева ящеров | `korol-yashcherov.jpg`, `imageAsset` |
+| `sahuagin-priestess.jpg` | **Жрица сахуагинов** | `zhritsa-sahuaginov` | Жрица сахуагинов | `zhritsa-sahuaginov.jpg`, `imageAsset` |
 
 **Восемь холстов этих пачек перелетованы отдельно.** Карточка
 `art-bestiary-relettering-fourteen-canvases` (роль `ui-developer`, решение владельца 01.10.2026)
@@ -27,10 +30,6 @@
 только проставить `imageAsset`. **Если файл с новым именем не найден, а старый на месте — значит
 перелетовка ещё не села: остановись и скажи**, не ставь `imageAsset` на холст с чужой подписью и
 не переименовывай его сам.
-
-| `lizardfolk-shaman.jpg` | **Людоящер шаман** | `lyudoyashcher-shaman` | Людоящер шаман | `lyudoyashcher-shaman.jpg`, `imageAsset` |
-| `lizard-king.jpg` | **Король ящеров** | `korol-yashcherov` | Король/королева ящеров | `korol-yashcherov.jpg`, `imageAsset` |
-| `sahuagin-priestess.jpg` | **Жрица сахуагинов** | `zhritsa-sahuaginov` | Жрица сахуагинов | `zhritsa-sahuaginov.jpg`, `imageAsset` |
 
 ## Ловушки этой пачки
 

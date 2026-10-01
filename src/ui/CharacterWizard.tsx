@@ -72,11 +72,11 @@ import {
   ABYSS_ELF_ID,
   ABYSS_ELF_SPEED_FEET,
   abyssElfSpellLine,
-  playableRaces,
   raceGrantedCantrips,
   raceResources,
   withSunlitPassive,
 } from "./abyssElfRace";
+import { playableRaces } from "./ownRuleTopics";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -217,8 +217,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       .catch((e) => setLoadError(String(e)));
   }, []);
 
-  // Девять рас справочника плюс наша десятая — список собирает playableRaces
-  // (abyssElfRace.ts), и он же единственный владелец факта «кем можно играть».
+  // Девять рас справочника плюс наши — список собирает playableRaces
+  // (ownRuleTopics.ts), и он же единственный владелец факта «кем можно играть».
   // Дальше мастер не различает, откуда раса приехала: форма у всех одна.
   const races = useMemo(() => playableRaces(topics), [topics]);
   const classes = useMemo(() => topics.filter((t) => t.category === "classes"), [topics]);
