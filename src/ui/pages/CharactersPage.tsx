@@ -16,7 +16,6 @@ import {
   CONDITIONS,
   ENCUMBRANCE_LABELS,
   encumbranceLevel,
-  encumbranceSpeedPenaltyFeet,
   encumbranceThresholdsLb,
   HEALING_POTIONS,
   HEAVILY_ENCUMBERED_DISADVANTAGE_HINT,
@@ -120,7 +119,7 @@ import {
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
 import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
-import { pacePassivePenalty, pacedPassivePerception, paceById, travelOf } from "../travelPace";
+import { travelOf } from "../travelPace";
 import {
   EXHAUSTION_MAX_LEVEL,
   exhaustionEffectLines,
@@ -128,6 +127,7 @@ import {
   exhaustionLevelOf,
   withExhaustionReduced,
 } from "../exhaustion";
+import { effectiveStats } from "../effectiveStats";
 import { hasSpellbook, keepSpellbook, spellbookAt, spellbookOf, spellbookSource, writableSpells } from "../spellbook";
 import type { AbilityScores, Character, Coins, FeatureUses, RollResult, RuleTopic, Spell } from "../../state/types";
 import { CharacterWizard } from "../CharacterWizard";
@@ -1010,6 +1010,20 @@ function CharacterCard({
     const diceBack =
       hitDiceLeft(restoreHitDice(c.hitDiceSpent, c.level, longRestHitDiceBack(c.level)), c.level) - hitDiceRemaining;
     const exhaustionBefore = exhaustionLevelOf(c.conditions);
+    /**
+     * Максимум в подписи — ЭФФЕКТИВНЫЙ и уже послеотдыховый: отдых снижает
+     * ступень истощения, и половина от ур. 4 исчезает тем же нажатием. Считает
+     * его тот же владелец, что и плитка, иначе подпись сказала бы «хиты 40/40»
+     * рядом с плиткой, показывающей 20/20. В сохранение при этом уходит
+     * хранимый `ch.maxHp` — обрезан ровно показ.
+     */
+    const maxHpAfterRest = effectiveStats({
+      maxHp: c.maxHp,
+      currentHp: c.maxHp,
+      speedFeet: c.speedFeet,
+      passivePerception: c.passivePerception,
+      conditions: withExhaustionReduced(c.conditions),
+    }).maxHp.value;
     onUpdate((ch) => ({
       ...ch,
       currentHp: ch.maxHp,
@@ -1020,7 +1034,7 @@ function CharacterCard({
     }));
     setRestNote(
       restSummary("Длинный отдых", [
-        `хиты ${c.maxHp}/${c.maxHp}`,
+        `хиты ${maxHpAfterRest}/${maxHpAfterRest}`,
         ...(diceBack > 0 ? [`Костей Хитов +${diceBack}`] : []),
         ...(slotsBack > 0 ? [`ячеек возвращено ${slotsBack}`] : []),
         ...refilled.map((r) => r.name),
@@ -1405,21 +1419,6 @@ function CharacterCard({
    * попавший под эту подпись, врал бы об источнике. Счётчик при этом общий,
    * `Character.featureUses` по id, — и тратится теми же кнопками.
    */
-  /**
-   * Пассивная внимательность, какой она есть в пути: число листа минус плата
-   * быстрого темпа. Считает её `travelPace.ts` — здесь только показ, своего
-   * вычитания у карточки нет.
-   */
-  const pacePenalty = pacePassivePenalty(travelPace);
-  const pacedPassive = pacedPassivePerception(c.passivePerception, travelPace);
-  const paceName = paceById(travelPace).name.toLowerCase();
-  /**
-   * Цена «Чувствительности к солнечному свету» считается ОТ числа с темпом, а не
-   * от листового: иначе на быстром темпе особенность обещала бы под солнцем
-   * внимательность выше той, что стоит на плитке рядом. Две платы складываются,
-   * и обе названы числом.
-   */
-  const raceTraits = withSunlitPassive(raceTraitsByTitle[c.race] ?? [], c.race, pacedPassive);
   const raceResourceList = raceResources(c.race, c.level);
   const raceSpellLine = abyssElfSpellLine(c.race, (id) => spells.find((sp) => sp.id === id)?.name ?? id);
   /**
@@ -1545,9 +1544,40 @@ function CharacterCard({
    * округление развело бы показанное число с моментом появления плашки.
    */
   const encThresholds = encumbranceThresholdsLb(c.abilities.strength);
-  const speedPenaltyFeet = encumbranceSpeedPenaltyFeet(encLevel);
-  const effectiveSpeedFeet = Math.max(0, c.speedFeet - speedPenaltyFeet);
-  const speedLabel = speedPenaltyFeet > 0 ? `${effectiveSpeedFeet} фт` : `${c.speedFeet} фт`;
+  /**
+   * Числа листа, какими они есть прямо сейчас: состояния, темп отряда и
+   * нагрузка наложены ОДНИМ владельцем (`effectiveStats.ts`) в объявленном им
+   * порядке. Своей арифметики над `c.speedFeet`, `c.passivePerception` и
+   * `c.maxHp` у карточки больше нет — ни одной: три прежних инлайновых
+   * пересчёта (темп, солнечный свет, нагрузка) переехали туда целиком, и
+   * состояния не стали четвёртым.
+   *
+   * Хранимое при этом не трогается: `effective` ничего не пишет в персонажа, а
+   * `c.maxHp`/`c.speedFeet` остаются базой, к которой лист возвращается, как
+   * только состояние снято.
+   */
+  const effective = effectiveStats({
+    maxHp: c.maxHp,
+    currentHp: c.currentHp,
+    speedFeet: c.speedFeet,
+    passivePerception: c.passivePerception,
+    conditions: c.conditions,
+    travelPace,
+    encumbrance: encLevel,
+  });
+  const speedLabel = `${effective.speedFeet.value} фт`;
+  /**
+   * Цена «Чувствительности к солнечному свету» считается ОТ числа владельца, а
+   * не от листового: иначе на быстром темпе особенность обещала бы под солнцем
+   * внимательность выше той, что стоит на плитке рядом. Порядок этих двух плат
+   * объявлен у владельца (`PASSIVE_LAYER_ORDER`), сам вычет остался за
+   * `abyssElfRace.ts`, и обе платы названы числом.
+   */
+  const raceTraits = withSunlitPassive(
+    raceTraitsByTitle[c.race] ?? [],
+    c.race,
+    effective.passivePerception.value,
+  );
   /**
    * Грузоподъёмность — мягкий потолок: перевес разрешён, он даёт «Сильно нагружен»
    * со штрафом (encumbranceLevel), а не запрет на добавление. Предикат остался
@@ -1612,17 +1642,27 @@ function CharacterCard({
                   className="character-card__hp-input"
                   type="number"
                   min={0}
-                  max={c.maxHp}
+                  max={effective.maxHp.value}
                   step={1}
                   aria-label={`Текущие хиты: ${c.name}`}
-                  value={hpDraft ?? String(c.currentHp)}
+                  value={hpDraft ?? String(effective.currentHp)}
                   onChange={(e) => editCurrentHp(e.currentTarget.value)}
                   // Уход из поля снимает черновик: оставленное пустым поле
                   // возвращается к тому, что в персонаже, а не обнуляет хиты.
                   onBlur={() => setHpDraft(null)}
                 />
-                /{c.maxHp}
+                /{effective.maxHp.value}
               </dd>
+              {/*
+                Истощение ур. 4 половинит максимум — подпись называет оба числа
+                сразу, и хранимое в ней видно: сорок никуда не делись, пока
+                истощение держится, они просто недоступны.
+              */}
+              {effective.maxHp.layers.map((layer) => (
+                <p key={layer.source} className="character-card__stat-note">
+                  {layer.note}
+                </p>
+              ))}
             </div>
             <div className="character-card__stat">
               <dt>КД</dt>
@@ -1631,6 +1671,16 @@ function CharacterCard({
             <div className="character-card__stat">
               <dt>Скорость</dt>
               <dd>{speedLabel}</dd>
+              {/*
+                Подписи — слои владельца, а не собранный здесь второй раз
+                список: каждый источник называет себя и свою цену числом, и
+                порядок строк — это порядок наложения.
+              */}
+              {effective.speedFeet.layers.map((layer) => (
+                <p key={layer.source} className="character-card__stat-note">
+                  {layer.note}
+                </p>
+              ))}
             </div>
             <div className="character-card__stat">
               <dt>Инициатива</dt>
@@ -1638,12 +1688,12 @@ function CharacterCard({
             </div>
             <div className="character-card__stat">
               <dt>Пас. внимательность</dt>
-              <dd>{pacedPassive}</dd>
-              {pacePenalty > 0 && (
-                <p className="character-card__stat-note">
-                  {paceName} темп −{pacePenalty}
+              <dd>{effective.passivePerception.value}</dd>
+              {effective.passivePerception.layers.map((layer) => (
+                <p key={layer.source} className="character-card__stat-note">
+                  {layer.note}
                 </p>
-              )}
+              ))}
             </div>
             <div className="character-card__stat">
               <dt>Вес</dt>
@@ -1714,7 +1764,8 @@ function CharacterCard({
       {!collapsed && <div className="character-card__body">
       {encLevel !== "normal" && (
         <div className="character-card__danger character-card__danger--heavy">
-          ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effectiveSpeedFeet} фт (было {c.speedFeet} фт)
+          ⚠ {ENCUMBRANCE_LABELS[encLevel]} — скорость {effective.speedFeet.value} фт (было{" "}
+          {effective.speedFeet.base} фт)
         </div>
       )}
       <details className="character-card__rest" open>
