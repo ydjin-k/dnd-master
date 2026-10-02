@@ -2819,6 +2819,426 @@ mod bestiary_data_tests {
         );
     }
 
+    /// Шестеро пачки E (`bestiary-pack-fiends-elementals-and-serpents`) —
+    /// Огненная змея, Грязевой мефит, Дымовой мефит, Костяная нага, Рыцарь
+    /// смерти и Пожиратель интеллекта — заполнены целиком.
+    ///
+    /// Книжные блоки стоят на печатных страницах 202 (оба мефита, в двух
+    /// колонках одного разворота), 217 (Костяная нага), 235 (Пожиратель
+    /// интеллекта), 251 (Рыцарь смерти) и 252 (Огненная змея); счёт
+    /// `pdfplumber` — 204, 219, 237, 253 и 254, колонтитул отстаёт от счёта
+    /// ровно на два. Заголовок в текстовом слое рассыпается на буквице
+    /// («о Гненная змея», «к остяная наГа», «р ыцарь смерти»), поэтому
+    /// страница опознаётся колонтитулом последней строки («Мефиты 202»,
+    /// «Наги 217», «Пожиратель интеллекта 235», «Рыцарь смерти 251»,
+    /// «Саламандры 252»), а оба мефита и обе наги читаются поколоночно:
+    /// `page.crop((0, 0, w/2, h))` и `page.crop((w/2, 0, w, h))`.
+    ///
+    /// Послабления названы поимённо, и каждое — факт книги, а не поблажка:
+    ///
+    /// - **Мультиатака требуется с троих** — Огненной змеи (укус и хвост),
+    ///   Рыцаря смерти (три удара мечом) и Пожирателя интеллекта (когти плюс
+    ///   Пожирание интеллекта). У обоих мефитов и у Костяной наги её в книге
+    ///   нет вовсе: у мефита удар и дыхание, у наги единственное действие —
+    ///   укус.
+    /// - **`skills` требуются с троих** — Грязевого мефита (Скрытность +3),
+    ///   Дымового мефита (Восприятие +2, Скрытность +4) и Пожирателя
+    ///   интеллекта (Восприятие +2, Скрытность +4). У Огненной змеи, Костяной
+    ///   наги и Рыцаря смерти строки «Навыки» в книге нет; приписать её «как у
+    ///   родни по SRD» — ровно тот подбор по соседям, который карточка
+    ///   запрещает.
+    /// - **`savingThrows` и `reactions` требуются с одного** — у Рыцаря смерти
+    ///   (Лов +6, Мдр +9, Хар +10 и реакция «Парирование»). У остальных пяти
+    ///   этих разделов в книге нет.
+    /// - **`damageVulnerabilities` требуется с одного** — у Огненной змеи
+    ///   (холод). Больше ни у кого из шести строки уязвимости нет.
+    /// - **`damageImmunities` требуются с пятерых**, кроме Пожирателя
+    ///   интеллекта: у него в книге стоит только сопротивление.
+    /// - **`damageResistances` требуются с двоих** — Огненной змеи и
+    ///   Пожирателя интеллекта (обоим немагические дробящий, колющий и
+    ///   рубящий). У мефитов, наги и рыцаря строки сопротивления нет.
+    /// - **`conditionImmunities` требуются с пятерых**, кроме Огненной змеи: у
+    ///   неё в книге строки «Иммунитет к состоянию» нет вовсе.
+    /// - **`senses`, `languages`, `traits` и атака требуются со всех шести** —
+    ///   чувство названо у каждого (тёмное зрение у пятерых, слепое у
+    ///   Пожирателя), язык назван у каждого, особенность есть у каждого, и у
+    ///   каждого есть хотя бы один бросок атаки.
+    #[test]
+    fn pack_e_fiends_elementals_and_serpents_have_a_full_stat_block() {
+        const SIX: [&str; 6] = [
+            "ognennaya-zmeya",
+            "gryazevoy-mefit",
+            "dymovoy-mefit",
+            "kostyanaya-naga",
+            "rytsar-smerti",
+            "pozhiratel-intellekta",
+        ];
+        /// У кого в книге есть мультиатака — см. разбор послаблений над пробой.
+        const WITH_MULTIATTACK: [&str; 3] =
+            ["ognennaya-zmeya", "rytsar-smerti", "pozhiratel-intellekta"];
+        /// У кого в книге есть строка «Навыки».
+        const WITH_SKILLS: [&str; 3] = [
+            "gryazevoy-mefit",
+            "dymovoy-mefit",
+            "pozhiratel-intellekta",
+        ];
+        /// У кого в книге есть строка «Спасброски».
+        const WITH_SAVES: [&str; 1] = ["rytsar-smerti"];
+        /// У кого в книге есть раздел «Реакции».
+        const WITH_REACTIONS: [&str; 1] = ["rytsar-smerti"];
+        /// У кого в книге есть строка «Уязвимость к урону».
+        const WITH_VULNERABILITIES: [&str; 1] = ["ognennaya-zmeya"];
+        /// У кого в книге есть строка «Сопротивление к урону».
+        const WITH_RESISTANCES: [&str; 2] = ["ognennaya-zmeya", "pozhiratel-intellekta"];
+        /// У кого в книге есть строка «Иммунитет к урону».
+        const WITH_DAMAGE_IMMUNITIES: [&str; 5] = [
+            "ognennaya-zmeya",
+            "gryazevoy-mefit",
+            "dymovoy-mefit",
+            "kostyanaya-naga",
+            "rytsar-smerti",
+        ];
+        /// У кого в книге есть строка «Иммунитет к состоянию».
+        const WITH_CONDITION_IMMUNITIES: [&str; 5] = [
+            "gryazevoy-mefit",
+            "dymovoy-mefit",
+            "kostyanaya-naga",
+            "rytsar-smerti",
+            "pozhiratel-intellekta",
+        ];
+        let own = super::read_monster_file(
+            &bestiary_dir().join(OWN_BESTIARY_FILE),
+            MonsterOrigin::Own,
+        )
+        .expect("прочитать own-creatures.json");
+        for id in SIX {
+            let m = own
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} нет в own-creatures.json"));
+            assert!(!m.name.is_empty(), "{id}: пустое имя");
+            assert!(!m.description.is_empty(), "{id}: пустое описание");
+            assert!(!m.creature_type.is_empty(), "{id}: пустой тип");
+            assert!(!m.size.is_empty(), "{id}: пустой размер");
+            assert!(!m.challenge_rating.is_empty(), "{id}: пустая опасность");
+            assert!(
+                m.max_hp > 0 && m.armor_class > 0,
+                "{id}: хиты или КД не заполнены"
+            );
+            assert!(!m.hit_dice.is_empty(), "{id}: пустые кости хитов");
+            assert!(m.speed_feet > 0, "{id}: не заполнена скорость");
+            for (label, score) in [
+                ("Сила", m.abilities.strength),
+                ("Ловкость", m.abilities.dexterity),
+                ("Телосложение", m.abilities.constitution),
+                ("Интеллект", m.abilities.intelligence),
+                ("Мудрость", m.abilities.wisdom),
+                ("Харизма", m.abilities.charisma),
+            ] {
+                assert!(score > 0, "{id}: не заполнена характеристика {label}");
+            }
+            assert!(
+                m.attack_bonus.is_some() && m.damage_dice.is_some(),
+                "{id}: атака с броском стоит в книге у всех шести — бонус и \
+                 кости обязаны стоять"
+            );
+            assert!(
+                m.senses.as_ref().is_some_and(|s| !s.is_empty()),
+                "{id}: чувство названо в книге у всех шести"
+            );
+            assert!(
+                m.languages.as_ref().is_some_and(|l| !l.is_empty()),
+                "{id}: языки названы в книге у всех шести"
+            );
+            assert!(!m.traits.is_empty(), "{id}: пустые особенности");
+            assert!(!m.actions.is_empty(), "{id}: пустые действия");
+            assert!(
+                m.image_asset.as_deref() == Some(&format!("images/{id}.jpg")[..]),
+                "{id}: холст подписан нашим словом и переименован под id, \
+                 значит и подключён обязан быть по id; сейчас стоит {:?}",
+                m.image_asset
+            );
+        }
+        for id in WITH_MULTIATTACK {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.actions.iter().any(|a| a.starts_with("Мультиатака.")),
+                "{id}: мультиатака стоит в книге и обязана стоять в записи"
+            );
+        }
+        for id in WITH_SKILLS {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.skills.as_ref().is_some_and(|s| !s.is_empty()),
+                "{id}: строка «Навыки» стоит в книге и обязана стоять в записи"
+            );
+        }
+        for id in WITH_SAVES {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.saving_throws.as_ref().is_some_and(|s| !s.is_empty()),
+                "{id}: строка «Спасброски» стоит в книге и обязана стоять в записи"
+            );
+        }
+        for id in WITH_REACTIONS {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.reactions.as_ref().is_some_and(|r| !r.is_empty()),
+                "{id}: раздел «Реакции» стоит в книге и обязан стоять в записи"
+            );
+        }
+        for id in WITH_VULNERABILITIES {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.damage_vulnerabilities
+                    .as_ref()
+                    .is_some_and(|v| !v.is_empty()),
+                "{id}: строка «Уязвимость к урону» стоит в книге и обязана \
+                 стоять в записи"
+            );
+        }
+        for id in WITH_RESISTANCES {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.damage_resistances.as_ref().is_some_and(|r| !r.is_empty()),
+                "{id}: строка «Сопротивление к урону» стоит в книге и обязана \
+                 стоять в записи"
+            );
+        }
+        for id in WITH_DAMAGE_IMMUNITIES {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.damage_immunities.as_ref().is_some_and(|i| !i.is_empty()),
+                "{id}: строка «Иммунитет к урону» стоит в книге и обязана \
+                 стоять в записи"
+            );
+        }
+        for id in WITH_CONDITION_IMMUNITIES {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            assert!(
+                m.condition_immunities.as_ref().is_some_and(|i| !i.is_empty()),
+                "{id}: строка «Иммунитет к состоянию» стоит в книге и обязана \
+                 стоять в записи"
+            );
+        }
+        // Отсутствие держится так же строго, как присутствие: приписать графу,
+        // которой в книге нет, тут можно только подбором по родне из SRD.
+        for id in SIX {
+            let m = own.iter().find(|m| m.id == id).expect("найден выше");
+            if !WITH_MULTIATTACK.contains(&id) {
+                assert!(
+                    !m.actions.iter().any(|a| a.starts_with("Мультиатака.")),
+                    "у {id} в книге мультиатаки нет вовсе — её тут можно лишь \
+                     подобрать у родни, а это карточка запрещает"
+                );
+            }
+            if !WITH_SKILLS.contains(&id) {
+                assert!(
+                    m.skills.is_none(),
+                    "у {id} в книге строки «Навыки» нет; сейчас стоит {:?}",
+                    m.skills
+                );
+            }
+            if !WITH_SAVES.contains(&id) {
+                assert!(
+                    m.saving_throws.is_none(),
+                    "у {id} в книге строки «Спасброски» нет; сейчас стоит {:?}",
+                    m.saving_throws
+                );
+            }
+            if !WITH_REACTIONS.contains(&id) {
+                assert!(
+                    m.reactions.is_none(),
+                    "у {id} в книге раздела «Реакции» нет; сейчас стоит {:?}",
+                    m.reactions
+                );
+            }
+            if !WITH_VULNERABILITIES.contains(&id) {
+                assert!(
+                    m.damage_vulnerabilities.is_none(),
+                    "у {id} в книге строки «Уязвимость к урону» нет; сейчас \
+                     стоит {:?}",
+                    m.damage_vulnerabilities
+                );
+            }
+            if !WITH_RESISTANCES.contains(&id) {
+                assert!(
+                    m.damage_resistances.is_none(),
+                    "у {id} в книге строки «Сопротивление к урону» нет; сейчас \
+                     стоит {:?}",
+                    m.damage_resistances
+                );
+            }
+            if !WITH_DAMAGE_IMMUNITIES.contains(&id) {
+                assert!(
+                    m.damage_immunities.is_none(),
+                    "у {id} в книге строки «Иммунитет к урону» нет; сейчас \
+                     стоит {:?}",
+                    m.damage_immunities
+                );
+            }
+            if !WITH_CONDITION_IMMUNITIES.contains(&id) {
+                assert!(
+                    m.condition_immunities.is_none(),
+                    "у {id} в книге строки «Иммунитет к состоянию» нет; сейчас \
+                     стоит {:?}",
+                    m.condition_immunities
+                );
+            }
+        }
+    }
+
+    /// Числа шестерых пачки E взяты из книги, а НЕ подобраны у родни по SRD.
+    ///
+    /// Проба заведена на ловушку, названную карточкой поимённо: у четверых из
+    /// шести в `bestiary.json` уже лежит родня, и подобрать у неё числа —
+    /// самая дешёвая ошибка этой пачки. Соседняя проба
+    /// `pack_e_fiends_elementals_and_serpents_have_a_full_stat_block` её не
+    /// увидит: у списанной записи все графы непусты.
+    ///
+    /// Родня и расхождение по книге:
+    ///
+    /// - **Оба мефита против четырёх мефитов SRD.** В `bestiary.json` лежат
+    ///   Пылевой, Ледяной, Магмовый и Паровой; наши Грязевой и Дымовой стоят в
+    ///   книге в двух колонках одного разворота. Сверху у всех шести совпадает
+    ///   почти всё: Маленький элементаль, нейтрально-злой, тёмное зрение
+    ///   60 футов, иммунитет к яду и к отравлению, низкая опасность, заголовки
+    ///   «Предсмертная вспышка» и «Врождённое колдовство». Расходятся — КД,
+    ///   хиты, кости хитов и шестёрки характеристик.
+    /// - **Костяная нага против Наги-стража и Духовной наги.** Все три —
+    ///   Большие, у всех тёмное зрение 60 футов, иммунитет к яду и
+    ///   «Использование заклинаний»; хиты в книге 58 против 127 и 75.
+    /// - **Огненная змея против Саламандры.** Змея — младшая форма, и это
+    ///   ровно тот случай, когда «взять у взрослого» выглядит разумно: хиты в
+    ///   книге 22 против 90, опасность 1 против 5.
+    /// - **Рыцарь смерти против Рыцаря SRD.** Общее слово в имени — вся их
+    ///   общность: хиты 180 против 52, опасность 17 против 3.
+    ///
+    /// Сверять с книгой проба не может и не пытается — книги в git нет. Она
+    /// держит ровно то, чем блоки расходятся: названные числами хиты и
+    /// опасность всех шести, попарно различные шестёрки характеристик, и
+    /// прямое сравнение каждого из четверых с его роднёй из `bestiary.json`.
+    /// Что хиты сходятся с костями, независимо стережёт
+    /// `hit_dice_average_matches_max_hp` по всему бестиарию сразу.
+    #[test]
+    fn pack_e_six_are_not_copied_from_their_srd_kin() {
+        let dir = bestiary_dir();
+        let own = super::read_monster_file(&dir.join(OWN_BESTIARY_FILE), MonsterOrigin::Own)
+            .expect("прочитать own-creatures.json");
+        let srd = super::read_monster_file(&dir.join(SRD_BESTIARY_FILE), MonsterOrigin::Srd)
+            .expect("прочитать bestiary.json");
+        let find = |list: &'static str, id: &str| -> MonsterTemplate {
+            let from = if list == "own" { &own } else { &srd };
+            from.iter()
+                .find(|m| m.id == id)
+                .unwrap_or_else(|| panic!("{id} нет в {list}"))
+                .clone()
+        };
+        let six: Vec<MonsterTemplate> = [
+            "ognennaya-zmeya",
+            "gryazevoy-mefit",
+            "dymovoy-mefit",
+            "kostyanaya-naga",
+            "rytsar-smerti",
+            "pozhiratel-intellekta",
+        ]
+        .iter()
+        .map(|id| find("own", id))
+        .collect();
+
+        // `AbilityScores` не выводит `PartialEq` — шестёрки сравниваются
+        // напрямую, как в пробе пачки F.
+        let scores = |a: &crate::model::AbilityScores| {
+            (
+                a.strength,
+                a.dexterity,
+                a.constitution,
+                a.intelligence,
+                a.wisdom,
+                a.charisma,
+            )
+        };
+        let all: Vec<_> = six.iter().map(|m| scores(&m.abilities)).collect();
+        for i in 0..all.len() {
+            for j in (i + 1)..all.len() {
+                assert_ne!(
+                    all[i], all[j],
+                    "у {} и {} совпали все шесть характеристик — в книге \
+                     расходится каждая пара",
+                    six[i].name, six[j].name
+                );
+            }
+        }
+
+        // Четверо против своей родни из SRD: ни у одной пары не сходятся разом
+        // хиты, кости хитов и опасность.
+        for (ours, kin) in [
+            ("gryazevoy-mefit", "dust-mephit"),
+            ("gryazevoy-mefit", "ice-mephit"),
+            ("gryazevoy-mefit", "magma-mephit"),
+            ("gryazevoy-mefit", "steam-mephit"),
+            ("dymovoy-mefit", "dust-mephit"),
+            ("dymovoy-mefit", "ice-mephit"),
+            ("dymovoy-mefit", "magma-mephit"),
+            ("dymovoy-mefit", "steam-mephit"),
+            ("kostyanaya-naga", "guardian-naga"),
+            ("kostyanaya-naga", "spirit-naga"),
+            ("ognennaya-zmeya", "salamander"),
+            ("rytsar-smerti", "knight"),
+        ] {
+            let (o, k) = (find("own", ours), find("srd", kin));
+            assert_ne!(
+                (o.max_hp, o.hit_dice.as_str(), o.challenge_rating.as_str()),
+                (k.max_hp, k.hit_dice.as_str(), k.challenge_rating.as_str()),
+                "{ours} повторил за {kin} разом хиты, кости и опасность — \
+                 это подбор по соседу, а числа обязаны быть книжные"
+            );
+            assert_ne!(
+                scores(&o.abilities),
+                scores(&k.abilities),
+                "{ours} повторил за {kin} все шесть характеристик"
+            );
+        }
+
+        // Числа книги, названные явно: хиты, опасность и КД всех шести.
+        assert_eq!(
+            [
+                find("own", "ognennaya-zmeya").max_hp,
+                find("own", "gryazevoy-mefit").max_hp,
+                find("own", "dymovoy-mefit").max_hp,
+                find("own", "kostyanaya-naga").max_hp,
+                find("own", "rytsar-smerti").max_hp,
+                find("own", "pozhiratel-intellekta").max_hp,
+            ],
+            [22, 27, 22, 58, 180, 21],
+            "хиты шестерых — числа книги, а не подбор по родне"
+        );
+        assert_eq!(
+            [
+                find("own", "ognennaya-zmeya").armor_class,
+                find("own", "gryazevoy-mefit").armor_class,
+                find("own", "dymovoy-mefit").armor_class,
+                find("own", "kostyanaya-naga").armor_class,
+                find("own", "rytsar-smerti").armor_class,
+                find("own", "pozhiratel-intellekta").armor_class,
+            ],
+            [14, 11, 12, 15, 20, 12],
+            "КД шестерых — числа книги, а не подбор по родне"
+        );
+        assert_eq!(
+            [
+                find("own", "ognennaya-zmeya").challenge_rating,
+                find("own", "gryazevoy-mefit").challenge_rating,
+                find("own", "dymovoy-mefit").challenge_rating,
+                find("own", "kostyanaya-naga").challenge_rating,
+                find("own", "rytsar-smerti").challenge_rating,
+                find("own", "pozhiratel-intellekta").challenge_rating,
+            ],
+            ["1", "1/4", "1/4", "4", "17", "2"],
+            "опасность шестерых — числа книги, а не подбор по родне"
+        );
+    }
+
     /// Маг дроу и Элитный воитель дроу — ДВА разных стат-блока, а не один с
     /// перекрашенными числами.
     ///
