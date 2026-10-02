@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import bundledRules from "../../src-tauri/rules/rules.json";
+import type { RuleBlock, RuleTopic } from "../state/types";
 import {
   CANNOT_MOVE_CONDITIONS,
   MAX_HP_LAYER_ORDER,
@@ -207,5 +209,106 @@ describe("пассивная внимательность — темп и сол
   it("солнечный свет считается ОТ числа с темпом: 13 − 5 − 5 = 3", () => {
     const paced = effectiveStats(sheet({ travelPace: "fast" })).passivePerception.value;
     expect(sunlitPassivePerception(ABYSS_ELF_TITLE, paced)).toBe(13 - 5 - DISADVANTAGE_PASSIVE_PENALTY);
+  });
+});
+
+/**
+ * Сверка с источником ПОСТРОЧНО, а не по памяти: числа читаются из того самого
+ * `src-tauri/rules/rules.json`, который уходит в сборку, раздел `[14]`
+ * `appendices-conditions`.
+ *
+ * Без этой сверки пробы выше были бы самоссылочными: они берут номера уровней
+ * из тех же констант, что и считающий код, и уехавшая на единицу константа
+ * уехала бы вместе с пробой. Поймано отрицательной пробой: `2 → 3` ничего не
+ * покраснело. Здесь номер сверяется со СТРОКОЙ таблицы, и теперь краснеет.
+ */
+describe("числа сверены с rules.json [14] appendices-conditions", () => {
+  const section = (bundledRules as RuleTopic[]).find((topic) => topic.id === "appendices-conditions");
+
+  function blocks(): RuleBlock[] {
+    expect(section, "в rules.json нет раздела appendices-conditions").toBeTruthy();
+    return section!.blocks;
+  }
+
+  /** Строки таблицы «Истощение» — единственной таблицы раздела (`[14]/blocks[13]`). */
+  function exhaustionRows(): string[][] {
+    const table = blocks().find((block) => block.type === "table");
+    expect(table, "в разделе нет таблицы истощения").toBeTruthy();
+    const rows = (table as { type: "table"; rows: string[][] }).rows;
+    // Первая строка — заголовки «Уровень | Эффект».
+    expect(rows[0]).toEqual(["Уровень", "Эффект"]);
+    return rows.slice(1);
+  }
+
+  /** Номер уровня у строки, чей эффект назван этими словами. */
+  function levelWithEffect(effect: string): number {
+    const row = exhaustionRows().find(([, text]) => text === effect);
+    expect(row, `в таблице истощения нет строки «${effect}»`).toBeTruthy();
+    return Number(row![0]);
+  }
+
+  /** Текст эффектов состояния — list-блок сразу за заголовком с его именем. */
+  function conditionLines(name: string): string[] {
+    const all = blocks();
+    const at = all.findIndex((block) => block.type === "heading" && block.level === 2 && block.text === name);
+    expect(at, `в разделе нет состояния «${name}»`).toBeGreaterThanOrEqual(0);
+    const next = all[at + 1];
+    expect(next.type, `за «${name}» идёт не список`).toBe("list");
+    return (next as { type: "list"; items: string[] }).items;
+  }
+
+  it("таблица истощения даёт ровно шесть строк", () => {
+    expect(exhaustionRows()).toHaveLength(6);
+  });
+
+  it("«Скорость уменьшается вдвое» — это строка уровня 2, а не какая-то другая", () => {
+    expect(EXHAUSTION_HALF_SPEED_LEVEL).toBe(levelWithEffect("Скорость уменьшается вдвое"));
+  });
+
+  it("«Максимальные хиты уменьшаются вдвое» — строка уровня 4", () => {
+    expect(EXHAUSTION_HALF_MAX_HP_LEVEL).toBe(levelWithEffect("Максимальные хиты уменьшаются вдвое"));
+  });
+
+  it("«Скорость уменьшается до 0» — строка уровня 5", () => {
+    expect(EXHAUSTION_ZERO_SPEED_LEVEL).toBe(levelWithEffect("Скорость уменьшается до 0"));
+  });
+
+  it("у уровней 1 и 3 в таблице помеха, а не число — потому они скорость и не трогают", () => {
+    const rows = exhaustionRows();
+    expect(rows[0]).toEqual(["1", "Помеха на проверки характеристик"]);
+    expect(rows[2]).toEqual(["3", "Помеха на броски атаки и спасброски"]);
+  });
+
+  it.each(SPEED_ZERO_LOCKED_CONDITIONS)(
+    "у «%s» в источнике сказано и «скорость… становится 0», и что бонусы её не поднимают",
+    (condition) => {
+      const first = conditionLines(condition)[0];
+      expect(first).toContain("становится 0");
+      expect(first).toMatch(/не может извлечь выгоду из какого-либо бонуса|никакие эффекты не могут повысить/);
+    },
+  );
+
+  it.each(CANNOT_MOVE_CONDITIONS)("у «%s» в источнике сказано «не может двигаться», а не «скорость 0»", (condition) => {
+    const lines = conditionLines(condition).join(" ");
+    expect(lines).toContain("не может двигаться");
+    expect(lines).not.toContain("Скорость");
+  });
+
+  it("состояния без чисел не обещают ни нуля скорости, ни запрета двигаться", () => {
+    for (const condition of ["Ослеплённое", "Заворожённое", "Оглохшее", "Испуганное", "Недееспособное", "Невидимое", "Отравленное"]) {
+      const lines = conditionLines(condition).join(" ");
+      expect(lines).not.toContain("становится 0");
+      expect(lines).not.toContain("не может двигаться");
+    }
+  });
+
+  it("«Сбитый с ног» ограничивает движение ползанием, но числа листу не даёт", () => {
+    const lines = conditionLines("Сбитый с ног").join(" ");
+    expect(lines).toContain("ползание");
+    expect(lines).not.toContain("становится 0");
+  });
+
+  it("«Окаменевшее» множит вес вдесятеро — а вес на листе строка, и считать там нечего", () => {
+    expect(conditionLines("Окаменевшее").join(" ")).toContain("вес увеличивается в десять раз");
   });
 });
