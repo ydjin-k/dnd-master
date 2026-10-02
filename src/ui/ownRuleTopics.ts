@@ -1,6 +1,7 @@
 import type { RuleTopic } from "../state/types";
 import { ABYSS_ELF_TOPIC } from "./abyssElfRace";
 import { GOBLIN_TOPIC } from "./goblinRace";
+import { SATYR_TOPIC } from "./satyrRace";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -39,7 +40,7 @@ import { GOBLIN_TOPIC } from "./goblinRace";
  * отдаёт наши расы в этом же порядке после девяти SRD-рас, так что Эльф бездны
  * остаётся десятым в мастере создания, а новые расы встают за ним.
  */
-export const OWN_RULE_TOPICS: readonly RuleTopic[] = [ABYSS_ELF_TOPIC, GOBLIN_TOPIC];
+export const OWN_RULE_TOPICS: readonly RuleTopic[] = [ABYSS_ELF_TOPIC, GOBLIN_TOPIC, SATYR_TOPIC];
 
 /** Категория, по которой раса попадает в мастер создания, — та же, что у SRD-рас. */
 const RACES_CATEGORY = "races";

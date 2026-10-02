@@ -18,6 +18,7 @@ import { ABYSS_ELF_ID, ABYSS_ELF_LANGUAGES, ABYSS_ELF_NAMES, ABYSS_ELF_TRAITS } 
 // содержание расы живёт в её собственном модуле, а карты ниже держат по строке
 // на расу и ссылаются на владельца.
 import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_TRAITS } from "./goblinRace";
+import { SATYR_FIXED_SKILLS, SATYR_ID, SATYR_LANGUAGES, SATYR_TRAITS } from "./satyrRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4514,6 +4515,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   // Пачка A — наши расы, и языки у каждой сверяются не с rules.json, а со своим
   // модулем: SRD о них ничего не знает.
   [GOBLIN_ID]: GOBLIN_LANGUAGES,
+  [SATYR_ID]: SATYR_LANGUAGES,
 };
 
 /**
@@ -4563,6 +4565,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   "races-elf": ["Восприятие"], // Обострённые чувства
   "races-half-orc": ["Запугивание"], // Угрожающий
   [GOBLIN_ID]: GOBLIN_FIXED_SKILLS, // Повадка изгоя — наш выбор, не из стат-блока
+  [SATYR_ID]: SATYR_FIXED_SKILLS, // Искусство пировать — тоже наш выбор
 };
 
 /** Полуэльф: «Гибкость навыков» — 2 навыка по выбору игрока. */
@@ -4665,6 +4668,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   // границу «что открытый контент, а что придумано здесь» несёт шапка каждого
   // модуля, а не этот комментарий.
   [GOBLIN_ID]: GOBLIN_TRAITS,
+  [SATYR_ID]: SATYR_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */

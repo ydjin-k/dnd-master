@@ -16,6 +16,7 @@ import {
 } from "./goblinRace";
 import { ALL_LANGUAGES, ALL_SKILLS, RACE_FIXED_SKILLS, RACE_LANGUAGES, RACE_TRAITS } from "./characterCreationData";
 import { isOwnRuleTopic, playableRaces } from "./ownRuleTopics";
+import { abyssElfSpellLine, raceGrantedCantrips, raceResources } from "./abyssElfRace";
 import { CHARACTER_PORTRAIT_RACES } from "./characterPortraits";
 
 const rules = bundledRules as unknown as RuleTopic[];
@@ -165,11 +166,16 @@ describe("что НАШЕ — собрано не под чужую играбе
     expect(prose).toContain(`Ваша базовая скорость ходьбы — ${GOBLIN_SPEED_FEET} футов`);
   });
 
-  it("заклинаний раса не даёт — значит ни одного id в spells.json ей не нужно", () => {
+  it("заклинаний раса не даёт — ни заговора, ни ресурса, ни строки заклинаний", () => {
     // Решение пачки, названное словами в шапке модуля: ни одна из пяти рас
     // заклинаний не даёт, поэтому второго владельца заклинания не появляется.
-    const text = GOBLIN_TRAITS.map((t) => `${t.name} ${t.description}`).join(" ");
-    expect(text).not.toMatch(/заклинани|заговор/i);
+    // Проба спрашивает НАСТОЯЩИЕ раздатчики (их зовут мастер создания и лист),
+    // а не ищет слова в тексте: «Сопротивление магии» законно говорит про
+    // заклинания, а в spells.json есть заклинания с именами «Тёмное зрение» и
+    // «Языки» — поиск по словам краснел бы на честных строках.
+    expect(raceGrantedCantrips(GOBLIN_TITLE)).toEqual([]);
+    expect(raceResources(GOBLIN_TITLE, 20)).toEqual([]);
+    expect(abyssElfSpellLine(GOBLIN_TITLE, (id) => id)).toBeNull();
   });
 
   it("каждая черта непуста и названа по-своему — двух заголовков одного факта нет", () => {

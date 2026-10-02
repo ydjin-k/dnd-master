@@ -4,6 +4,7 @@ import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
 import { RACE_FIXED_SKILLS, RACE_HP_BONUS, RACE_LANGUAGES, RACE_TRAITS } from "./characterCreationData";
 import { GOBLIN_ABILITY_BONUS, GOBLIN_ID, GOBLIN_SPEED_FEET, GOBLIN_TITLE } from "./goblinRace";
+import { SATYR_ABILITY_BONUS, SATYR_ID, SATYR_SPEED_FEET, SATYR_TITLE } from "./satyrRace";
 
 /**
  * Пачка A — наблюдаемым поведением мастера создания, а не данными.
@@ -136,6 +137,7 @@ interface PackRace {
 
 const PACK_A: PackRace[] = [
   { id: GOBLIN_ID, title: GOBLIN_TITLE, bonuses: GOBLIN_ABILITY_BONUS, speedFeet: GOBLIN_SPEED_FEET },
+  { id: SATYR_ID, title: SATYR_TITLE, bonuses: SATYR_ABILITY_BONUS, speedFeet: SATYR_SPEED_FEET },
 ];
 
 describe.each(PACK_A)("раса пачки A в мастере: $title", (race) => {
