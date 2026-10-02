@@ -80,6 +80,7 @@ import {
 // строке на расу и ссылаются на владельца, а не копируют числа.
 import { GOBLIN_ABILITY_BONUS, GOBLIN_ID, GOBLIN_SPEED_FEET } from "./goblinRace";
 import { SATYR_ABILITY_BONUS, SATYR_ID, SATYR_SPEED_FEET } from "./satyrRace";
+import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
 import { playableRaces } from "./ownRuleTopics";
 import "./CharacterWizard.css";
 
@@ -133,6 +134,7 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   // указан рядом, здесь только ссылка на него.
   [GOBLIN_ID]: { fixed: GOBLIN_ABILITY_BONUS },
   [SATYR_ID]: { fixed: SATYR_ABILITY_BONUS },
+  [SERPENT_ID]: { fixed: SERPENT_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -154,6 +156,7 @@ const RACE_SPEED_FEET: Record<string, number> = {
   // арифметики над скоростью ни здесь, ни на листе не появляется.
   [GOBLIN_ID]: GOBLIN_SPEED_FEET,
   [SATYR_ID]: SATYR_SPEED_FEET,
+  [SERPENT_ID]: SERPENT_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.

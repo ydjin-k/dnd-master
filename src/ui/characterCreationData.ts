@@ -19,6 +19,7 @@ import { ABYSS_ELF_ID, ABYSS_ELF_LANGUAGES, ABYSS_ELF_NAMES, ABYSS_ELF_TRAITS } 
 // на расу и ссылаются на владельца.
 import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_TRAITS } from "./goblinRace";
 import { SATYR_FIXED_SKILLS, SATYR_ID, SATYR_LANGUAGES, SATYR_TRAITS } from "./satyrRace";
+import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_TRAITS } from "./serpentRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4516,6 +4517,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   // модулем: SRD о них ничего не знает.
   [GOBLIN_ID]: GOBLIN_LANGUAGES,
   [SATYR_ID]: SATYR_LANGUAGES,
+  [SERPENT_ID]: SERPENT_LANGUAGES,
 };
 
 /**
@@ -4566,9 +4568,17 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   "races-half-orc": ["Запугивание"], // Угрожающий
   [GOBLIN_ID]: GOBLIN_FIXED_SKILLS, // Повадка изгоя — наш выбор, не из стат-блока
   [SATYR_ID]: SATYR_FIXED_SKILLS, // Искусство пировать — тоже наш выбор
+  [SERPENT_ID]: SERPENT_FIXED_SKILLS, // Долгая игра
 };
 
-/** Полуэльф: «Гибкость навыков» — 2 навыка по выбору игрока. */
+/**
+ * Полуэльф: «Гибкость навыков» — 2 навыка по выбору игрока.
+ *
+ * Ни одна наша раса здесь НЕ стоит, и это не недоделка: подпись к этому выбору
+ * в мастере создания вшита строкой «Гибкость навыков» — названием особенности
+ * Полуэльфа из SRD. Наша раса, вставшая в эту карту, показала бы игроку чужое
+ * имя особенности вместо своего. Разбор — в шапке `serpentRace.ts`.
+ */
 export const RACE_SKILL_CHOICE_COUNT: Record<string, number> = {
   "races-half-elf": 2,
 };
@@ -4669,6 +4679,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   // модуля, а не этот комментарий.
   [GOBLIN_ID]: GOBLIN_TRAITS,
   [SATYR_ID]: SATYR_TRAITS,
+  [SERPENT_ID]: SERPENT_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
