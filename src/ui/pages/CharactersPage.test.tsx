@@ -3706,6 +3706,105 @@ describe("CharactersPage", () => {
     });
   });
 
+  /**
+   * Состояния с числами НА ЛИСТЕ — то же, что проверяется глазами в живом окне
+   * («Критерии тестирования» карточки characters-conditions-to-numbers), но
+   * читается с плиток, а не со скриншота. Сами числа сверены с `rules.json`
+   * `[14]` в `effectiveStats.test.ts`; здесь проверяется, что лист показывает
+   * именно их, а не ярлык рядом с прежним числом.
+   */
+  describe("состояния доходят до чисел на плитках", () => {
+    /** Персонаж «Критериев тестирования»: скорость 30, максимум 40. */
+    function sheetHero(conditions: string[], extra: Partial<Character> = {}): Character {
+      return { ...characterWithInventory(), maxHp: 40, currentHp: 40, speedFeet: 30, conditions, ...extra };
+    }
+
+    function renderWith(conditions: string[], extra: Partial<Character> = {}) {
+      mockState = baseState({ characters: [sheetHero(conditions, extra)] });
+      render(<CharactersPage />);
+    }
+
+    it("«Схваченное»: 30 фт → 0 фт, и снятие возвращает 30", () => {
+      renderWith(["Схваченное"]);
+      expectStat("Скорость", "0 фт");
+      expect(screen.getByText("Схваченное — 0 фт, и бонусы её не поднимают")).toBeInTheDocument();
+      cleanup();
+      renderWith([]);
+      expectStat("Скорость", "30 фт");
+    });
+
+    it("«Опутанный»: 30 фт → 0 фт", () => {
+      renderWith(["Опутанный"]);
+      expectStat("Скорость", "0 фт");
+    });
+
+    it("«Истощение (ур. 2)» — 15 фт, «Истощение (ур. 5)» — 0 фт", () => {
+      renderWith(["Истощение (ур. 2)"]);
+      expectStat("Скорость", "15 фт");
+      cleanup();
+      renderWith(["Истощение (ур. 5)"]);
+      expectStat("Скорость", "0 фт");
+    });
+
+    it("«Парализованное» — не может двигаться, лист показывает 0 фт", () => {
+      renderWith(["Парализованное"]);
+      expectStat("Скорость", "0 фт");
+    });
+
+    it("нагруженный под «Схваченным» показывает 0 фт, а не отрицательное число", () => {
+      const base = characterWithInventory();
+      renderWith(["Схваченное"], {
+        abilities: { ...base.abilities, strength: 10 },
+        inventory: [{ id: "load-1", name: "Груз", quantity: 1, notes: "", weightLb: 151 }],
+      });
+      expectStat("Скорость", "0 фт");
+      expect(screen.getByText(/⚠ Сильно нагружен — скорость 0 фт \(было 30 фт\)/)).toBeInTheDocument();
+    });
+
+    it("«Истощение (ур. 4)»: максимум 40 → 20, снятие — снова 40", () => {
+      renderWith(["Истощение (ур. 4)"]);
+      expect(screen.getByText("/20")).toBeInTheDocument();
+      expect(screen.getByText("истощение ур. 4 — максимум вдвое, в сохранении 40")).toBeInTheDocument();
+      cleanup();
+      renderWith([]);
+      expect(screen.getByText("/40")).toBeInTheDocument();
+    });
+
+    it("ур. 4 обрезает показанные хиты, а в сохранение не пишет ничего", () => {
+      renderWith(["Истощение (ур. 4)"]);
+      expect((screen.getByLabelText("Текущие хиты: Герой") as HTMLInputElement).value).toBe("20");
+      // Показ — показом: от самого показа в персонажа не ушло ни одной записи.
+      expect(updateCharacter).not.toHaveBeenCalled();
+    });
+
+    it("хиты ниже эффективного максимума лист не трогает", () => {
+      renderWith(["Истощение (ур. 4)"], { currentHp: 12 });
+      expect((screen.getByLabelText("Текущие хиты: Герой") as HTMLInputElement).value).toBe("12");
+    });
+
+    it("длинный отдых при ур. 4 называет послеотдыховый максимум, а в сохранение пишет хранимый", async () => {
+      renderWith(["Истощение (ур. 4)"], { currentHp: 7 });
+      await act(async () => {
+        fireEvent.click(screen.getByText("Длинный отдых"));
+      });
+      // Ступень снята отдыхом (ур. 4 → ур. 3), и половина максимума ушла с ней.
+      expect(screen.getByText(/хиты 40\/40/)).toBeInTheDocument();
+      const updater = updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (
+        c: Character,
+      ) => Character;
+      const after = updater(sheetHero(["Истощение (ур. 4)"], { currentHp: 7 }));
+      expect(after.maxHp).toBe(40);
+      expect(after.currentHp).toBe(40);
+      expect(after.conditions).toEqual(["Истощение (ур. 3)"]);
+    });
+
+    it("состояние без чисел плитки не двигает", () => {
+      renderWith(["Отравленное"]);
+      expectStat("Скорость", "30 фт");
+      expect(screen.getByText("/40")).toBeInTheDocument();
+    });
+  });
+
 });
 
 describe("truncateDescription", () => {
