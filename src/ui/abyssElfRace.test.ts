@@ -16,7 +16,7 @@ import {
   sunlitPassivePerception,
   withSunlitPassive,
 } from "./abyssElfRace";
-import { playableRaces } from "./ownRuleTopics";
+import { OWN_RULE_TOPICS, playableRaces } from "./ownRuleTopics";
 import { CHARACTER_PORTRAIT_RACES } from "./characterPortraits";
 
 const rules = bundledRules as RuleTopic[];
@@ -30,10 +30,16 @@ describe("граница «в rules.json только SRD»", () => {
     expect(rules.some((t) => t.title === ABYSS_ELF_TITLE)).toBe(false);
   });
 
-  it("играбельных рас в справочнике по-прежнему девять — десятую добавляет только playableRaces", () => {
+  it("играбельных рас в справочнике по-прежнему девять — остальных добавляет только playableRaces", () => {
     const srdRaces = rules.filter((t) => t.category === "races" && t.id !== "races-traits");
     expect(srdRaces).toHaveLength(9);
-    expect(playableRaces(rules)).toHaveLength(10);
+    // Число наших рас вшивать сюда нельзя: пачка A добавила к Эльфу бездны ещё
+    // пять, и вшитая «десятка» покраснела бы на расе, которая всё сделала
+    // правильно. Сторожится то, что проверяемо: SRD-рас ровно девять, наши
+    // приходят ТОЛЬКО из `OWN_RULE_TOPICS`, и ни одна не задвоилась.
+    const ownRaces = OWN_RULE_TOPICS.filter((t) => t.category === "races");
+    expect(ownRaces.length).toBeGreaterThan(0);
+    expect(playableRaces(rules)).toHaveLength(srdRaces.length + ownRaces.length);
   });
 
   it("девять прежних рас не тронуты: playableRaces отдаёт их теми же и в том же порядке", () => {
@@ -46,6 +52,10 @@ describe("граница «в rules.json только SRD»", () => {
 
 describe("Эльф бездны как данные", () => {
   it("десятой встаёт именно наша раса, и её название то же, что ждёт библиотека портретов", () => {
+    // Десятая — потому что Эльф бездны стоит первым в `OWN_RULE_TOPICS`, а
+    // `playableRaces` отдаёт наши расы после девяти SRD-рас в порядке списка.
+    // Перестановка в том списке покрасит эту пробу — и правильно: мастер
+    // создания показывает расы в том же порядке.
     const tenth = playableRaces(rules)[9];
     expect(tenth.id).toBe(ABYSS_ELF_ID);
     expect(tenth.title).toBe(ABYSS_ELF_TITLE);

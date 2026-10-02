@@ -76,6 +76,9 @@ import {
   raceResources,
   withSunlitPassive,
 } from "./abyssElfRace";
+// Пачка A: пять наших рас, каждая — владелец своих чисел. Карты ниже держат по
+// строке на расу и ссылаются на владельца, а не копируют числа.
+import { GOBLIN_ABILITY_BONUS, GOBLIN_ID, GOBLIN_SPEED_FEET } from "./goblinRace";
 import { playableRaces } from "./ownRuleTopics";
 import "./CharacterWizard.css";
 
@@ -125,6 +128,9 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   // Десятая раса — наша, и числа у неё наши: сверять их не с чем, владелец
   // строки — abyssElfRace.ts, здесь только ссылка на него.
   [ABYSS_ELF_ID]: { fixed: ABYSS_ELF_ABILITY_BONUS },
+  // Пачка A — наши расы, числа тоже наши: сверять их не с чем, владелец строки
+  // указан рядом, здесь только ссылка на него.
+  [GOBLIN_ID]: { fixed: GOBLIN_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -140,6 +146,11 @@ const RACE_SPEED_FEET: Record<string, number> = {
   "races-half-elf": 30,
   "races-tiefling": 30,
   [ABYSS_ELF_ID]: ABYSS_ELF_SPEED_FEET,
+  // Пачка A. Это БАЗА, а не слой: число ложится в `Character.speedFeet` при
+  // создании, и пересчёты листа (нагрузка, истощение, состояния) накладываются
+  // на него у единственного владельца — `effectiveStats.ts`. Инлайновой
+  // арифметики над скоростью ни здесь, ни на листе не появляется.
+  [GOBLIN_ID]: GOBLIN_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.

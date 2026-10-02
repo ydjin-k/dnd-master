@@ -14,6 +14,10 @@ import { WILD_MAGIC_PAYBACK_FEATURE, WILD_MAGIC_SUBCLASS_NAME } from "./wildMagi
 // не заводит вторую копию чисел и текстов. Встречный импорт оттуда — только
 // типы, он стирается сборкой, цикла нет.
 import { ABYSS_ELF_ID, ABYSS_ELF_LANGUAGES, ABYSS_ELF_NAMES, ABYSS_ELF_TRAITS } from "./abyssElfRace";
+// Пачка A (`characters-races-pack-a`) — ещё пять наших рас, тем же приёмом: всё
+// содержание расы живёт в её собственном модуле, а карты ниже держат по строке
+// на расу и ссылаются на владельца.
+import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_TRAITS } from "./goblinRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4507,6 +4511,9 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   "races-half-elf": { fixed: ["Общий", "Эльфийский"], choiceCount: 1 },
   "races-tiefling": { fixed: ["Общий", "Инфернальный"] },
   [ABYSS_ELF_ID]: ABYSS_ELF_LANGUAGES,
+  // Пачка A — наши расы, и языки у каждой сверяются не с rules.json, а со своим
+  // модулем: SRD о них ничего не знает.
+  [GOBLIN_ID]: GOBLIN_LANGUAGES,
 };
 
 /**
@@ -4555,6 +4562,7 @@ export const RACE_HP_BONUS: Record<string, number> = {
 export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   "races-elf": ["Восприятие"], // Обострённые чувства
   "races-half-orc": ["Запугивание"], // Угрожающий
+  [GOBLIN_ID]: GOBLIN_FIXED_SKILLS, // Повадка изгоя — наш выбор, не из стат-блока
 };
 
 /** Полуэльф: «Гибкость навыков» — 2 навыка по выбору игрока. */
@@ -4653,6 +4661,10 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
     },
   ],
   [ABYSS_ELF_ID]: ABYSS_ELF_TRAITS,
+  // Пачка A. Эти строки тоже выбиваются из «сжато из SRD 5.1»: расы наши, и
+  // границу «что открытый контент, а что придумано здесь» несёт шапка каждого
+  // модуля, а не этот комментарий.
+  [GOBLIN_ID]: GOBLIN_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
