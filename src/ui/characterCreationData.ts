@@ -25,6 +25,13 @@ import {
   CHANGELING_LANGUAGES,
   CHANGELING_TRAITS,
 } from "./changelingRace";
+import {
+  GOLIATH_FIXED_SKILLS,
+  GOLIATH_HP_BONUS,
+  GOLIATH_ID,
+  GOLIATH_LANGUAGES,
+  GOLIATH_TRAITS,
+} from "./goliathRace";
 import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_TRAITS } from "./serpentRace";
 
 export type AbilityKey = keyof AbilityScores;
@@ -4526,6 +4533,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   [SERPENT_ID]: SERPENT_LANGUAGES,
   // Единственная раса пачки с выбором языка — почему, в шапке changelingRace.ts.
   [CHANGELING_ID]: CHANGELING_LANGUAGES,
+  [GOLIATH_ID]: GOLIATH_LANGUAGES,
 };
 
 /**
@@ -4565,9 +4573,19 @@ export const BACKGROUND_LANGUAGES: Record<string, number> = {
  * поля, которое можно было бы посчитать.
  */
 
-/** Холмовой дварф: «Дварфская выдержка» — макс. хиты +1 на 1 уровне. */
+/**
+ * Прибавка к максимуму хитов на 1 уровне. Разовая, не на каждом уровне:
+ * `maxHpForLevel` прибавляет `raceHpBonus` один раз.
+ *
+ * - Холмовой дварф: «Дварфская выдержка» — +1 из SRD;
+ * - Голиаф: «Каменная кожа» — +2, НАШЕ число (см. шапку `goliathRace.ts`).
+ *
+ * Две записи на пятнадцать рас — норма, а не недоделка: прибавку к хитам даёт
+ * раса, у которой эта прибавка и есть главная механическая черта.
+ */
 export const RACE_HP_BONUS: Record<string, number> = {
   "races-dwarf": 1,
+  [GOLIATH_ID]: GOLIATH_HP_BONUS,
 };
 
 /** Навыки, которые раса даёт автоматически (не выбор игрока). */
@@ -4578,6 +4596,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [SATYR_ID]: SATYR_FIXED_SKILLS, // Искусство пировать — тоже наш выбор
   [SERPENT_ID]: SERPENT_FIXED_SKILLS, // Долгая игра
   [CHANGELING_ID]: CHANGELING_FIXED_SKILLS, // Личина без прошлого
+  [GOLIATH_ID]: GOLIATH_FIXED_SKILLS, // Крепкая хватка
 };
 
 /**
@@ -4690,6 +4709,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [SATYR_ID]: SATYR_TRAITS,
   [SERPENT_ID]: SERPENT_TRAITS,
   [CHANGELING_ID]: CHANGELING_TRAITS,
+  [GOLIATH_ID]: GOLIATH_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */

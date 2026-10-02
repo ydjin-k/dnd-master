@@ -81,6 +81,7 @@ import {
 import { GOBLIN_ABILITY_BONUS, GOBLIN_ID, GOBLIN_SPEED_FEET } from "./goblinRace";
 import { SATYR_ABILITY_BONUS, SATYR_ID, SATYR_SPEED_FEET } from "./satyrRace";
 import { CHANGELING_ABILITY_BONUS, CHANGELING_ID, CHANGELING_SPEED_FEET } from "./changelingRace";
+import { GOLIATH_ABILITY_BONUS, GOLIATH_ID, GOLIATH_SPEED_FEET } from "./goliathRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
 import { playableRaces } from "./ownRuleTopics";
 import "./CharacterWizard.css";
@@ -137,6 +138,7 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   [SATYR_ID]: { fixed: SATYR_ABILITY_BONUS },
   [SERPENT_ID]: { fixed: SERPENT_ABILITY_BONUS },
   [CHANGELING_ID]: { fixed: CHANGELING_ABILITY_BONUS },
+  [GOLIATH_ID]: { fixed: GOLIATH_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -160,6 +162,7 @@ const RACE_SPEED_FEET: Record<string, number> = {
   [SATYR_ID]: SATYR_SPEED_FEET,
   [SERPENT_ID]: SERPENT_SPEED_FEET,
   [CHANGELING_ID]: CHANGELING_SPEED_FEET,
+  [GOLIATH_ID]: GOLIATH_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.

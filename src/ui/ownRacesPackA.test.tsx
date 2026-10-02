@@ -11,6 +11,7 @@ import {
   CHANGELING_SPEED_FEET,
   CHANGELING_TITLE,
 } from "./changelingRace";
+import { GOLIATH_ABILITY_BONUS, GOLIATH_ID, GOLIATH_SPEED_FEET, GOLIATH_TITLE } from "./goliathRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET, SERPENT_TITLE } from "./serpentRace";
 
 /**
@@ -152,6 +153,7 @@ const PACK_A: PackRace[] = [
     bonuses: CHANGELING_ABILITY_BONUS,
     speedFeet: CHANGELING_SPEED_FEET,
   },
+  { id: GOLIATH_ID, title: GOLIATH_TITLE, bonuses: GOLIATH_ABILITY_BONUS, speedFeet: GOLIATH_SPEED_FEET },
 ];
 
 describe.each(PACK_A)("раса пачки A в мастере: $title", (race) => {
