@@ -2,6 +2,7 @@ import type { RuleTopic } from "../state/types";
 import { ABYSS_ELF_TOPIC } from "./abyssElfRace";
 import { GOBLIN_TOPIC } from "./goblinRace";
 import { SATYR_TOPIC } from "./satyrRace";
+import { CHANGELING_TOPIC } from "./changelingRace";
 import { SERPENT_TOPIC } from "./serpentRace";
 
 /**
@@ -46,6 +47,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   GOBLIN_TOPIC,
   SATYR_TOPIC,
   SERPENT_TOPIC,
+  CHANGELING_TOPIC,
 ];
 
 /** Категория, по которой раса попадает в мастер создания, — та же, что у SRD-рас. */

@@ -19,6 +19,12 @@ import { ABYSS_ELF_ID, ABYSS_ELF_LANGUAGES, ABYSS_ELF_NAMES, ABYSS_ELF_TRAITS } 
 // на расу и ссылаются на владельца.
 import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_TRAITS } from "./goblinRace";
 import { SATYR_FIXED_SKILLS, SATYR_ID, SATYR_LANGUAGES, SATYR_TRAITS } from "./satyrRace";
+import {
+  CHANGELING_FIXED_SKILLS,
+  CHANGELING_ID,
+  CHANGELING_LANGUAGES,
+  CHANGELING_TRAITS,
+} from "./changelingRace";
 import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_TRAITS } from "./serpentRace";
 
 export type AbilityKey = keyof AbilityScores;
@@ -4518,6 +4524,8 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   [GOBLIN_ID]: GOBLIN_LANGUAGES,
   [SATYR_ID]: SATYR_LANGUAGES,
   [SERPENT_ID]: SERPENT_LANGUAGES,
+  // Единственная раса пачки с выбором языка — почему, в шапке changelingRace.ts.
+  [CHANGELING_ID]: CHANGELING_LANGUAGES,
 };
 
 /**
@@ -4569,6 +4577,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [GOBLIN_ID]: GOBLIN_FIXED_SKILLS, // Повадка изгоя — наш выбор, не из стат-блока
   [SATYR_ID]: SATYR_FIXED_SKILLS, // Искусство пировать — тоже наш выбор
   [SERPENT_ID]: SERPENT_FIXED_SKILLS, // Долгая игра
+  [CHANGELING_ID]: CHANGELING_FIXED_SKILLS, // Личина без прошлого
 };
 
 /**
@@ -4680,6 +4689,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [GOBLIN_ID]: GOBLIN_TRAITS,
   [SATYR_ID]: SATYR_TRAITS,
   [SERPENT_ID]: SERPENT_TRAITS,
+  [CHANGELING_ID]: CHANGELING_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
