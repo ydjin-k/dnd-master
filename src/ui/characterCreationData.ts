@@ -17,12 +17,13 @@ import { ABYSS_ELF_ID, ABYSS_ELF_LANGUAGES, ABYSS_ELF_NAMES, ABYSS_ELF_TRAITS } 
 // Пачка A (`characters-races-pack-a`) — ещё пять наших рас, тем же приёмом: всё
 // содержание расы живёт в её собственном модуле, а карты ниже держат по строке
 // на расу и ссылаются на владельца.
-import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_TRAITS } from "./goblinRace";
-import { SATYR_FIXED_SKILLS, SATYR_ID, SATYR_LANGUAGES, SATYR_TRAITS } from "./satyrRace";
+import { GOBLIN_FIXED_SKILLS, GOBLIN_ID, GOBLIN_LANGUAGES, GOBLIN_NAMES, GOBLIN_TRAITS } from "./goblinRace";
+import { SATYR_FIXED_SKILLS, SATYR_ID, SATYR_LANGUAGES, SATYR_NAMES, SATYR_TRAITS } from "./satyrRace";
 import {
   CHANGELING_FIXED_SKILLS,
   CHANGELING_ID,
   CHANGELING_LANGUAGES,
+  CHANGELING_NAMES,
   CHANGELING_TRAITS,
 } from "./changelingRace";
 import {
@@ -30,9 +31,10 @@ import {
   GOLIATH_HP_BONUS,
   GOLIATH_ID,
   GOLIATH_LANGUAGES,
+  GOLIATH_NAMES,
   GOLIATH_TRAITS,
 } from "./goliathRace";
-import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_TRAITS } from "./serpentRace";
+import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_NAMES, SERPENT_TRAITS } from "./serpentRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4943,6 +4945,13 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
     ],
   },
   [ABYSS_ELF_ID]: ABYSS_ELF_NAMES,
+  // Пачка A — по строке на расу, как и у всех карт выше. Сами списки живут
+  // в модулях рас: имя принадлежит расе, а не этой таблице.
+  [GOBLIN_ID]: GOBLIN_NAMES,
+  [SATYR_ID]: SATYR_NAMES,
+  [SERPENT_ID]: SERPENT_NAMES,
+  [CHANGELING_ID]: CHANGELING_NAMES,
+  [GOLIATH_ID]: GOLIATH_NAMES,
   general: {
     male: [
       "Алекс", "Сандер", "Тавин", "Рен", "Кай", "Джордан", "Морис", "Лео",
