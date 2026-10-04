@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "D&D Master",
+  "productName": "DnD Master",
   "version": "0.1.0",
   "identifier": "com.dndmaster.app",
   "build": {
