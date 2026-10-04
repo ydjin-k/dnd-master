@@ -36,6 +36,12 @@
       "bestiary/*.json": "bestiary/",
       "characters/*.json": "characters/",
       "bestiary/images/*": "bestiary/images/"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      }
     }
   }
 }
