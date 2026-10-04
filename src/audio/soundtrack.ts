@@ -61,7 +61,7 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
     ["cave-wind.mp3", "Ветер в пещере"],
     ["desert-storm-wind.mp3", "Песчаная буря"],
     ["gusting-wind.mp3", "Порывистый ветер"],
-    ["wind.wav", "Ветер"],
+    ["wind.ogg", "Ветер"],
   ]],
   ["rain", "Дождь", [
     ["rain-with-thunder.mp3", "Дождь с грозой"],
@@ -74,9 +74,9 @@ export const AMBIENT_CATEGORIES: SoundtrackCategory[] = build("ambient/", [
   ]],
   ["forest", "Лес", [
     ["night-forest.mp3", "Ночной лес"],
-    ["birdsong.wav", "Птичье пение"],
-    ["stream.wav", "Ручей"],
-    ["morning-forest.wav", "Утренний лес"],
+    ["birdsong.ogg", "Птичье пение"],
+    ["stream.ogg", "Ручей"],
+    ["morning-forest.ogg", "Утренний лес"],
   ]],
   ["cave", "Пещера", [
     ["moving-slab.mp3", "Ползущая плита"],
