@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RuleBlock, RuleTopic } from "../state/types";
 import { NAME_SUGGESTIONS } from "./characterCreationData";
+import { ABYSS_ELF_TOPIC, ABYSS_ELF_ID } from "./abyssElfRace";
 import { GOBLIN_TOPIC, GOBLIN_ID } from "./goblinRace";
 import { SATYR_TOPIC, SATYR_ID } from "./satyrRace";
 import { SERPENT_TOPIC, SERPENT_ID } from "./serpentRace";
@@ -8,7 +9,7 @@ import { CHANGELING_TOPIC, CHANGELING_ID } from "./changelingRace";
 import { GOLIATH_TOPIC, GOLIATH_ID } from "./goliathRace";
 
 /**
- * Сторож ФОРМЫ текста наших рас — той, которую владелец попросил 04.10.2026,
+ * Сторож ФОРМЫ текста всех ШЕСТИ наших рас — той, которую владелец попросил 04.10.2026,
  * посмотрев на пачку A глазами: «описание бедное, в мастере должно быть как на
  * моих листах». Листы владельца — чужой изданный текст (Volo's, Theros,
  * Eberron), и переносить его нельзя; перенесена СТРУКТУРА, наполненная своим
@@ -18,8 +19,12 @@ import { GOLIATH_TOPIC, GOLIATH_ID } from "./goliathRace";
  * ЧТО ИМЕННО СТОРОЖИТСЯ. Не слова — форма: пять разделов в объявленном
  * порядке, таблица происхождения ровно на к8, три таблицы отыгрыша ровно на
  * к6, механика НЕ выехала из своего раздела, «Источник» остался последним.
- * Проба написана потому, что перестройка пяти модулей руками — ровно тот
- * случай, когда абзац уезжает в соседний раздел незаметно.
+ * Проба написана потому, что перестройка модулей руками — ровно тот случай,
+ * когда абзац уезжает в соседний раздел незаметно.
+ *
+ * «Эльф бездны» приведён к той же форме второй просьбой владельца в тот же день:
+ * он не из пачки A, поэтому в первую правку не вошёл и остался плоским — пять
+ * рас с таблицами против одной без них. Разнобоя больше нет.
  *
  * ПОЧЕМУ ПРОБА НЕ САМОССЫЛОЧНА (урок записи 179). Числа строк она не берёт из
  * тех же констант, что код: «восемь» требуется от ПОДПИСИ таблицы («к8»),
@@ -36,6 +41,7 @@ interface Race {
 }
 
 const RACES: Race[] = [
+  { id: ABYSS_ELF_ID, topic: ABYSS_ELF_TOPIC, mechanicsSection: "Особенности эльфов бездны" },
   { id: GOBLIN_ID, topic: GOBLIN_TOPIC, mechanicsSection: "Особенности гоблинов" },
   { id: SATYR_ID, topic: SATYR_TOPIC, mechanicsSection: "Особенности сатиров" },
   { id: SERPENT_ID, topic: SERPENT_TOPIC, mechanicsSection: "Особенности серпентов" },
