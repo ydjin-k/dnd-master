@@ -6,6 +6,7 @@ import { CHANGELING_TOPIC } from "./changelingRace";
 import { GOLIATH_TOPIC } from "./goliathRace";
 import { SERPENT_TOPIC } from "./serpentRace";
 import { TABAXI_TOPIC } from "./tabaxiRace";
+import { HARENGON_TOPIC } from "./harengonRace";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -52,6 +53,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   CHANGELING_TOPIC,
   GOLIATH_TOPIC,
   TABAXI_TOPIC,
+  HARENGON_TOPIC,
 ];
 
 

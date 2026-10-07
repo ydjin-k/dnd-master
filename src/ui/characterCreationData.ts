@@ -38,6 +38,7 @@ import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_NAMES, SER
 // Пачка B (`characters-races-pack-b`) — последние пять наших рас, тем же
 // приёмом: содержание живёт в модуле расы, карты ниже держат по строке на расу.
 import { TABAXI_FIXED_SKILLS, TABAXI_ID, TABAXI_LANGUAGES, TABAXI_NAMES, TABAXI_TRAITS } from "./tabaxiRace";
+import { HARENGON_FIXED_SKILLS, HARENGON_ID, HARENGON_LANGUAGES, HARENGON_NAMES, HARENGON_TRAITS } from "./harengonRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4542,6 +4543,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   // Пачка B. Табакси — вторая наша раса с выбором языка: механизм из SRD
   // (Человек, Эльф), причина своя — см. шапку tabaxiRace.ts.
   [TABAXI_ID]: TABAXI_LANGUAGES,
+  [HARENGON_ID]: HARENGON_LANGUAGES,
 };
 
 /**
@@ -4606,6 +4608,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [CHANGELING_ID]: CHANGELING_FIXED_SKILLS, // Личина без прошлого
   [GOLIATH_ID]: GOLIATH_FIXED_SKILLS, // Крепкая хватка
   [TABAXI_ID]: TABAXI_FIXED_SKILLS, // Повадка собирателя — наш выбор, не из стат-блока
+  [HARENGON_ID]: HARENGON_FIXED_SKILLS,
 };
 
 /**
@@ -4720,6 +4723,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [CHANGELING_ID]: CHANGELING_TRAITS,
   [GOLIATH_ID]: GOLIATH_TRAITS,
   [TABAXI_ID]: TABAXI_TRAITS,
+  [HARENGON_ID]: HARENGON_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
@@ -4961,6 +4965,7 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
   [CHANGELING_ID]: CHANGELING_NAMES,
   [GOLIATH_ID]: GOLIATH_NAMES,
   [TABAXI_ID]: TABAXI_NAMES,
+  [HARENGON_ID]: HARENGON_NAMES,
   general: {
     male: [
       "Алекс", "Сандер", "Тавин", "Рен", "Кай", "Джордан", "Морис", "Лео",
