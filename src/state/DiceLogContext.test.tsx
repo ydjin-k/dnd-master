@@ -115,6 +115,11 @@ describe("журнал бросков в контексте", () => {
 
   it("обнуляет журнал при входе в кампанию через лаунчер", async () => {
     render(<App />);
+    // Запуск ВСЕГДА начинается с приветственного окна (правка владельца
+    // 07.10.2026, сторож — `src/App.test.tsx`), поэтому в кампанию входим
+    // руками. Раньше App открывал её сам, и проба попадала сразу во вкладки.
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть кампанию Стол" }, { timeout: 2000 }));
+    fireEvent.click(screen.getByRole("button", { name: /Начать|Продолжить/ }));
     fireEvent.click(await screen.findByText("Кубики", {}, { timeout: 2000 }));
     fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
     await waitFor(() => expect(totals()).toEqual(["1"]), { timeout: 1000 });

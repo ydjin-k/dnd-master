@@ -1,4 +1,4 @@
-import type { RuleTopic } from "../state/types";
+import type { RuleBlock, RuleTopic } from "../state/types";
 import { ABYSS_ELF_TOPIC } from "./abyssElfRace";
 import { GOBLIN_TOPIC } from "./goblinRace";
 import { SATYR_TOPIC } from "./satyrRace";
@@ -51,6 +51,58 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   CHANGELING_TOPIC,
   GOLIATH_TOPIC,
 ];
+
+
+/**
+ * Заголовок раздела механики. Одинаков у всех пятнадцати рас: девять статей
+ * SRD начинают им статью сразу после названия («Особенности дварфов»,
+ * «Особенности эльфов»), наши шесть ставят его третьим, после двух разделов
+ * культуры. Проверено по `rules.json` — исключений нет ни одного.
+ */
+const MECHANICS_HEADING_PREFIX = "Особенности";
+
+/**
+ * Заголовок раздела происхождения — первый из тех, что в мастере не нужны.
+ * Есть только у наших рас («Почему ты ушёл из племени» и соседи); у SRD
+ * такого раздела нет, и срез там просто доходит до конца статьи.
+ */
+const ROLEPLAY_HEADING_PREFIX = "Почему ты ";
+
+/**
+ * Что мастер создания показывает, когда расу выбрали.
+ *
+ * ЗАЧЕМ СРЕЗ. Просьба владельца 07.10.2026, после живой установки: «ты
+ * добавил все элементы новой расы в мастер создания персонажа, там это не
+ * нужно». И он прав: мастер — это ВЫБОР, а чтение — вкладка «Правила». У
+ * наших рас статья выросла до 27–29 блоков с четырьмя таблицами бросков, и
+ * выбирающий расу человек получал в лицо таблицу отыгрыша вместо чисел.
+ *
+ * ЭТОТ ПРИЁМ В ПРИЛОЖЕНИИ УЖЕ ЕСТЬ. Шаг «Класс» устроен ровно так же —
+ * показывает шапку класса, а не все фичи по уровням (`CharacterWizard.tsx`,
+ * срез `classIntroBlocks`). Расы просто догнали классы.
+ *
+ * ПРАВИЛО ОДНО НА ВСЕ ПЯТНАДЦАТЬ РАС — второе решение владельца того же дня:
+ * «хочется, чтобы писалось везде одинаково». Поэтому срез НЕ спрашивает,
+ * наша это раса или SRD: он идёт от раздела механики до раздела
+ * происхождения, и разницу создаёт сама статья, а не исключение в коде.
+ * У SRD-рас раздела происхождения нет, и срез доходит до конца — вместе с
+ * подрасой («Холмовой дварф», «Высший эльф»), чьи бонусы мастер и выдаёт.
+ *
+ * ЕСЛИ ФОРМА СЛОМАЕТСЯ, показывается статья целиком: пустой шаг «Раса» —
+ * отказ приложения, а лишний текст — всего лишь некрасиво.
+ */
+export function raceWizardBlocks(topic: RuleTopic): readonly RuleBlock[] {
+  const isHeading = (block: RuleBlock, prefix: string) =>
+    block.type === "heading" && block.level === 2 && block.text.startsWith(prefix);
+
+  const start = topic.blocks.findIndex((block) => isHeading(block, MECHANICS_HEADING_PREFIX));
+  if (start === -1) return topic.blocks;
+
+  const end = topic.blocks.findIndex(
+    (block, index) => index > start && isHeading(block, ROLEPLAY_HEADING_PREFIX),
+  );
+  return topic.blocks.slice(start, end === -1 ? topic.blocks.length : end);
+}
 
 /** Категория, по которой раса попадает в мастер создания, — та же, что у SRD-рас. */
 const RACES_CATEGORY = "races";

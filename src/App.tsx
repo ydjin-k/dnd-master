@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { CampaignProvider, useCampaign } from "./state/CampaignContext";
 import { DiceLogProvider } from "./state/DiceLogContext";
 import { SoundtrackProvider } from "./state/SoundtrackContext";
-import type { CampaignState } from "./state/types";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
 import { AdventuresPage } from "./ui/pages/AdventuresPage";
@@ -55,27 +53,24 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
   );
 }
 
-type Phase = "loading" | "launcher" | "playing";
+type Phase = "launcher" | "playing";
 
 function App() {
-  const [phase, setPhase] = useState<Phase>("loading");
+  // Запуск ВСЕГДА начинается с приветственного окна — даже когда на диске
+  // лежит активная кампания. Решение владельца 07.10.2026: приложение не
+  // должно открывать кампанию само, выбор хроники делает человек. Раньше App
+  // спрашивал load_active_campaign и при непустом ответе сразу уходил в
+  // "playing"; указатель активной кампании при этом НЕ отменён — он
+  // по-прежнему нужен CampaignProvider, которому Launcher передаёт выбор
+  // через switch_campaign.
+  const [phase, setPhase] = useState<Phase>("launcher");
   // Меняется при каждом входе в кампанию — форсирует пересоздание
   // CampaignProvider, чтобы он не тащил состояние предыдущей кампании.
   const [campaignKey, setCampaignKey] = useState(0);
 
-  useEffect(() => {
-    invoke<CampaignState | null>("load_active_campaign")
-      .then((state) => setPhase(state ? "playing" : "launcher"))
-      .catch(() => setPhase("launcher"));
-  }, []);
-
   function enterCampaign() {
     setCampaignKey((k) => k + 1);
     setPhase("playing");
-  }
-
-  if (phase === "loading") {
-    return <p>Загрузка…</p>;
   }
 
   if (phase === "launcher") {

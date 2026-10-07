@@ -83,7 +83,7 @@ import { SATYR_ABILITY_BONUS, SATYR_ID, SATYR_SPEED_FEET } from "./satyrRace";
 import { CHANGELING_ABILITY_BONUS, CHANGELING_ID, CHANGELING_SPEED_FEET } from "./changelingRace";
 import { GOLIATH_ABILITY_BONUS, GOLIATH_ID, GOLIATH_SPEED_FEET } from "./goliathRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
-import { playableRaces } from "./ownRuleTopics";
+import { playableRaces, raceWizardBlocks } from "./ownRuleTopics";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -862,7 +862,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <div className="wizard__pick-detail">
             {race ? (
               <>
-                {race.blocks.map((b, i) => <RuleBlockView key={i} block={b} />)}
+                {/* Не вся статья, а её механика: см. `raceWizardBlocks`. */}
+                {raceWizardBlocks(race).map((b, i) => <RuleBlockView key={i} block={b} />)}
                 {raceLanguages?.choiceCount ? (
                   <p className="wizard__hint">
                     Дополнительный язык по выбору:{" "}
