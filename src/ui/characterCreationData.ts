@@ -35,6 +35,9 @@ import {
   GOLIATH_TRAITS,
 } from "./goliathRace";
 import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_NAMES, SERPENT_TRAITS } from "./serpentRace";
+// Пачка B (`characters-races-pack-b`) — последние пять наших рас, тем же
+// приёмом: содержание живёт в модуле расы, карты ниже держат по строке на расу.
+import { TABAXI_FIXED_SKILLS, TABAXI_ID, TABAXI_LANGUAGES, TABAXI_NAMES, TABAXI_TRAITS } from "./tabaxiRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4536,6 +4539,9 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   // Единственная раса пачки с выбором языка — почему, в шапке changelingRace.ts.
   [CHANGELING_ID]: CHANGELING_LANGUAGES,
   [GOLIATH_ID]: GOLIATH_LANGUAGES,
+  // Пачка B. Табакси — вторая наша раса с выбором языка: механизм из SRD
+  // (Человек, Эльф), причина своя — см. шапку tabaxiRace.ts.
+  [TABAXI_ID]: TABAXI_LANGUAGES,
 };
 
 /**
@@ -4599,6 +4605,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [SERPENT_ID]: SERPENT_FIXED_SKILLS, // Долгая игра
   [CHANGELING_ID]: CHANGELING_FIXED_SKILLS, // Личина без прошлого
   [GOLIATH_ID]: GOLIATH_FIXED_SKILLS, // Крепкая хватка
+  [TABAXI_ID]: TABAXI_FIXED_SKILLS, // Повадка собирателя — наш выбор, не из стат-блока
 };
 
 /**
@@ -4712,6 +4719,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [SERPENT_ID]: SERPENT_TRAITS,
   [CHANGELING_ID]: CHANGELING_TRAITS,
   [GOLIATH_ID]: GOLIATH_TRAITS,
+  [TABAXI_ID]: TABAXI_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
@@ -4952,6 +4960,7 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
   [SERPENT_ID]: SERPENT_NAMES,
   [CHANGELING_ID]: CHANGELING_NAMES,
   [GOLIATH_ID]: GOLIATH_NAMES,
+  [TABAXI_ID]: TABAXI_NAMES,
   general: {
     male: [
       "Алекс", "Сандер", "Тавин", "Рен", "Кай", "Джордан", "Морис", "Лео",
