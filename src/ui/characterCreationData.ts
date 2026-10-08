@@ -40,6 +40,7 @@ import { SERPENT_FIXED_SKILLS, SERPENT_ID, SERPENT_LANGUAGES, SERPENT_NAMES, SER
 import { TABAXI_FIXED_SKILLS, TABAXI_ID, TABAXI_LANGUAGES, TABAXI_NAMES, TABAXI_TRAITS } from "./tabaxiRace";
 import { HARENGON_FIXED_SKILLS, HARENGON_ID, HARENGON_LANGUAGES, HARENGON_NAMES, HARENGON_TRAITS } from "./harengonRace";
 import { FIRBOLG_FIXED_SKILLS, FIRBOLG_ID, FIRBOLG_LANGUAGES, FIRBOLG_NAMES, FIRBOLG_TRAITS } from "./firbolgRace";
+import { AASIMAR_FIXED_SKILLS, AASIMAR_ID, AASIMAR_LANGUAGES, AASIMAR_NAMES, AASIMAR_TRAITS } from "./aasimarRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4546,6 +4547,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   [TABAXI_ID]: TABAXI_LANGUAGES,
   [HARENGON_ID]: HARENGON_LANGUAGES,
   [FIRBOLG_ID]: FIRBOLG_LANGUAGES,
+  [AASIMAR_ID]: AASIMAR_LANGUAGES,
 };
 
 /**
@@ -4612,6 +4614,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [TABAXI_ID]: TABAXI_FIXED_SKILLS, // Повадка собирателя — наш выбор, не из стат-блока
   [HARENGON_ID]: HARENGON_FIXED_SKILLS,
   [FIRBOLG_ID]: FIRBOLG_FIXED_SKILLS,
+  [AASIMAR_ID]: AASIMAR_FIXED_SKILLS,
 };
 
 /**
@@ -4728,6 +4731,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [TABAXI_ID]: TABAXI_TRAITS,
   [HARENGON_ID]: HARENGON_TRAITS,
   [FIRBOLG_ID]: FIRBOLG_TRAITS,
+  [AASIMAR_ID]: AASIMAR_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
@@ -4971,6 +4975,7 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
   [TABAXI_ID]: TABAXI_NAMES,
   [HARENGON_ID]: HARENGON_NAMES,
   [FIRBOLG_ID]: FIRBOLG_NAMES,
+  [AASIMAR_ID]: AASIMAR_NAMES,
   general: {
     male: [
       "Алекс", "Сандер", "Тавин", "Рен", "Кай", "Джордан", "Морис", "Лео",
