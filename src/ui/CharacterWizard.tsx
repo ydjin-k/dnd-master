@@ -36,7 +36,7 @@ import {
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
   DWARF_TOOL_CHOICES,
-  FIGHTER_FIGHTING_STYLES,
+  fightingStyleChoiceFor,
   INSTRUMENTS,
   NAME_SUGGESTIONS,
   PROFICIENCY_BONUS_HINT,
@@ -300,7 +300,17 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const raceTraits = raceTraitsWithVariant(raceId ? (RACE_TRAITS[raceId] ?? []) : [], raceVariantId);
   const spellAbility = classId ? CLASS_SPELLCASTING_ABILITY[classId] : undefined;
   const dwarfToolChoices = raceId === "races-dwarf" ? DWARF_TOOL_CHOICES : [];
-  const fighterFightingStyles = classId === "classes-fighter" ? FIGHTER_FIGHTING_STYLES : [];
+  /**
+   * Боевые стили, которые спрашивает МАСТЕР, — только у классов, выбирающих
+   * стиль на 1 уровне (это Воин). Кровавый охотник выбирает его на 2, и
+   * спросить его здесь значило бы выдать персонажу 1 уровня особенность,
+   * которой у него ещё нет; он выберет стиль на левел-апе (CharactersPage).
+   * Факт «какие стили и на каком уровне» живёт в одном месте —
+   * `fightingStyleChoiceFor` (characterCreationData.ts), а не сверкой id
+   * класса, как было раньше.
+   */
+  const classFightingStyles = fightingStyleChoiceFor(classId);
+  const wizardFightingStyles = classFightingStyles?.level === 1 ? classFightingStyles.styles : [];
   const isRanger = classId === "classes-ranger";
   const isMonk = classId === "classes-monk";
   const isBard = classId === "classes-bard";
@@ -639,7 +649,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     ...(background?.equipment ?? []),
   ];
   const finalFightingStyle =
-    classId === "classes-fighter" ? fightingStyle || fighterFightingStyles[0]?.name || "" : "";
+    wizardFightingStyles.length > 0 ? fightingStyle || wizardFightingStyles[0]?.name || "" : "";
   const armorClass = computeArmorClass({
     classId: classId ?? "",
     subclassName: level1Subclass?.name,
@@ -1052,14 +1062,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </div>
                   </div>
                 )}
-                {fighterFightingStyles.length > 0 && (
+                {wizardFightingStyles.length > 0 && (
                   <p className="wizard__hint">
                     Боевой стиль:{" "}
                     <select
-                      value={fightingStyle || fighterFightingStyles[0]?.name || ""}
+                      value={fightingStyle || wizardFightingStyles[0]?.name || ""}
                       onChange={(e) => setFightingStyle(e.currentTarget.value)}
                     >
-                      {fighterFightingStyles.map((s) => (
+                      {wizardFightingStyles.map((s) => (
                         <option key={s.name} value={s.name}>
                           {s.name}
                         </option>
@@ -1722,12 +1732,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 {raceSpellLine && <p className="wizard__hint">{raceSpellLine}</p>}
               </li>
             )}
-            {fighterFightingStyles.length > 0 && (
+            {wizardFightingStyles.length > 0 && (
               <li>
                 Боевой стиль:{" "}
-                <strong>{fightingStyle || fighterFightingStyles[0].name}</strong> —{" "}
+                <strong>{fightingStyle || wizardFightingStyles[0].name}</strong> —{" "}
                 {
-                  fighterFightingStyles.find((s) => s.name === (fightingStyle || fighterFightingStyles[0].name))
+                  wizardFightingStyles.find((s) => s.name === (fightingStyle || wizardFightingStyles[0].name))
                     ?.description
                 }
               </li>

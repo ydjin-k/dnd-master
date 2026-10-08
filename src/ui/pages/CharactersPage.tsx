@@ -31,6 +31,8 @@ import {
   coinsTotalGold,
   computeArmorClass,
   effectiveSubclassGrants,
+  fightingStyleByName,
+  fightingStyleChoiceFor,
   fmtMod,
   healingPoolSelfHeal,
   maxHpForLevel,
@@ -275,6 +277,8 @@ export function classFeaturesBlockHasContent(args: {
   bonusCantrips: unknown;
   damageResistances?: unknown[];
   healingBonus: unknown;
+  /** Выбранный боевой стиль: у Воина 1 уровня он был единственным содержимым блока, и без него блок не открывался. */
+  fightingStyle?: unknown;
 }): boolean {
   return (
     args.classFeatures.length > 0 ||
@@ -285,7 +289,8 @@ export function classFeaturesBlockHasContent(args: {
     args.domainSpells.length > 0 ||
     !!args.bonusCantrips ||
     !!args.damageResistances?.length ||
-    !!args.healingBonus
+    !!args.healingBonus ||
+    !!args.fightingStyle
   );
 }
 
@@ -429,6 +434,15 @@ function CharacterCard({
   const [collapsed, setCollapsed] = useState(false);
   const [subclassPanelOpen, setSubclassPanelOpen] = useState(false);
   const [subclassChoiceIndex, setSubclassChoiceIndex] = useState(0);
+  /**
+   * Выбор боевого стиля — четвёртая ветка того же прерывания левел-апа (см.
+   * requestLevelUp). Нужна классу, который выбирает стиль НЕ на 1 уровне: у
+   * Воина это 1 уровень, и его спрашивает мастер создания, а у Кровавого
+   * охотника — 2, и спросить может только левел-ап. Поля в персонаже для
+   * этого не добавлено: стиль по-прежнему один, `Character.fightingStyle`.
+   */
+  const [fightingStylePanelOpen, setFightingStylePanelOpen] = useState(false);
+  const [fightingStyleIndex, setFightingStyleIndex] = useState(0);
   // Выбор внутри архетипа (Добыча охотника и т.п.) — третья ветка того же
   // прерывания левел-апа, что и выбор архетипа/ASI выше (см. requestLevelUp).
   const [pendingChoice, setPendingChoice] = useState<SubclassChoice | null>(null);
@@ -1140,12 +1154,17 @@ function CharacterCard({
    * `abilities`, а у значения характеристики один владелец — этот левел-ап.
    * Отдельная запись «взял черту» + отдельная «поднял Силу» разъехались бы на
    * первом же промахе.
+   *
+   * `newFightingStyle` — боевой стиль, выбранный на этом же левел-апе (см.
+   * confirmFightingStyle), тем же приёмом: одна запись в персонажа, а не
+   * отдельная «выбрал стиль» рядом с «поднял уровень».
    */
   function applyLevelUp(
     abilities: AbilityScores,
     chosenSubclassName?: string,
     newSubclassChoices?: Record<string, string[]>,
     newFeatId?: string,
+    newFightingStyle?: string,
   ) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
@@ -1189,6 +1208,7 @@ function CharacterCard({
         currentHp: Math.min(newMaxHp, ch.currentHp + hpGained),
         subclass: subclassName,
         subclassChoices: allSubclassChoices,
+        fightingStyle: newFightingStyle ?? ch.fightingStyle,
         // Каждую черту можно взять только раз (SRD) — повтор дал бы двойную
         // прибавку к характеристике; отбор доступных это уже учитывает
         // (`canTakeFeat`), поэтому здесь список только пополняется.
@@ -1246,6 +1266,12 @@ function CharacterCard({
    * ПОДКЛЮЧЁННОГО случая, но само прерывание рассчитано на совпадение: если
    * бы совпало, выбор архетипа заканчивается раньше и обнаруживает choice
    * следующим шагом, а не одновременно с ним.
+   *
+   * Четвёртая ветка — боевой стиль класса, который выбирает его не на 1
+   * уровне (Кровавый охотник, 2 уровень): уровень берётся из данных
+   * (`fightingStyleChoiceFor`), а не сверяется id класса, и спрашивается
+   * только пока стиль не выбран. У Воина стиль приходит на 1 уровне, то есть
+   * из мастера создания, и эта ветка его не касается вовсе.
    */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
@@ -1265,6 +1291,12 @@ function CharacterCard({
     const choice = pendingChoiceFor(grantedSubclassName, newLevel);
     if (choice) {
       openChoicePanel(choice, grantedSubclassName);
+      return;
+    }
+    const styleChoice = fightingStyleChoiceFor(dice?.id);
+    if (styleChoice && styleChoice.level > 1 && newLevel >= styleChoice.level && !c.fightingStyle) {
+      setFightingStyleIndex(0);
+      setFightingStylePanelOpen(true);
       return;
     }
     // Уровни ASI берутся из таблицы класса (classProgression.ts): стандартные
@@ -1292,6 +1324,16 @@ function CharacterCard({
       return;
     }
     applyLevelUp(c.abilities, chosen);
+  }
+
+  /** Боевые стили класса для панели левел-апа — те же данные, что у мастера создания. */
+  const levelUpFightingStyles = fightingStyleChoiceFor(classHitDiceByTitle[c.class]?.id)?.styles ?? [];
+
+  function confirmFightingStyle() {
+    const chosen = levelUpFightingStyles[fightingStyleIndex]?.name;
+    if (!chosen) return;
+    setFightingStylePanelOpen(false);
+    applyLevelUp(c.abilities, undefined, undefined, undefined, chosen);
   }
 
   function openChoicePanel(choice: SubclassChoice, subclassName?: string) {
@@ -1432,6 +1474,8 @@ function CharacterCard({
   /** Возвращает ли короткий отдых ячейки — ПОЛЕ данных класса, а не сверка его id. */
   const shortRestReturnsSlots = slotRechargeOf(classId) === "short";
   const classScaling = progression?.scaling ?? [];
+  /** Выбранный боевой стиль с его текстом — или `undefined`, если класс стиля не выбирает или ещё не выбрал. */
+  const chosenFightingStyle = fightingStyleByName(c.fightingStyle);
   const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level, c.subclassChoices).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
   );
@@ -1821,7 +1865,9 @@ function CharacterCard({
         <button
           type="button"
           onClick={requestLevelUp}
-          disabled={c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen || !!pendingChoice}
+          disabled={
+            c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen || fightingStylePanelOpen || !!pendingChoice
+          }
           aria-disabled={!levelUpReady}
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
           data-own-sound
@@ -1872,6 +1918,32 @@ function CharacterCard({
               Подтвердить и повысить уровень
             </button>
             <button type="button" onClick={() => setSubclassPanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+      {fightingStylePanelOpen && levelUpFightingStyles.length > 0 && (
+        <div className="character-card__asi">
+          <p>Выберите боевой стиль ({c.level + 1} уровень):</p>
+          <div className="character-card__asi-mode character-card__asi-mode--choices">
+            {levelUpFightingStyles.map((style, i) => (
+              <label key={style.name}>
+                <input
+                  type="radio"
+                  name="fighting-style-choice"
+                  checked={fightingStyleIndex === i}
+                  onChange={() => setFightingStyleIndex(i)}
+                />{" "}
+                <strong>{style.name}</strong> — {style.description}
+              </label>
+            ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button type="button" onClick={confirmFightingStyle} data-own-sound>
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={() => setFightingStylePanelOpen(false)}>
               Отмена
             </button>
           </div>
@@ -2140,6 +2212,7 @@ function CharacterCard({
         bonusCantrips: grants?.bonusCantrips,
         damageResistances: grants?.damageResistances,
         healingBonus,
+        fightingStyle: chosenFightingStyle,
       }) && (
         <details className="character-card__class-features" open>
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
@@ -2213,6 +2286,18 @@ function CharacterCard({
                 );
               })}
             </ul>
+          )}
+          {/*
+            Выбранный боевой стиль. До этой карточки он нигде не
+            показывался: поле `Character.fightingStyle` мастер создания
+            записывал, КД по «Обороне» считало, а игрок на листе своего
+            выбора не видел. Текст стиля берётся у его единственного
+            владельца (`fightingStyleByName`), своей копии здесь нет.
+          */}
+          {chosenFightingStyle && (
+            <p className="character-card__prof">
+              Боевой стиль: <strong>{chosenFightingStyle.name}</strong> — {chosenFightingStyle.description}
+            </p>
           )}
           {grants?.damageResistances && grants.damageResistances.length > 0 && (
             <p className="character-card__prof">Сопротивление урону: {grants.damageResistances.join(", ")}</p>

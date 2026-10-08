@@ -3883,6 +3883,9 @@ describe("CharactersPage", () => {
         currentHp: 10 + (level - 1) * 6,
         // Состояние — то же, по которому levelUpRunner ждёт загрузки справочника.
         conditions: ["Ослеплённое"],
+        // Боевой стиль класс выбирает на 2 уровне: персонаж 2 уровня и выше уже
+        // с ним, иначе левел-ап справедливо остановится и спросит (см. пробы ниже).
+        fightingStyle: level >= 2 ? "Дуэлянт" : "",
         featureUses,
       };
     }
@@ -3908,6 +3911,9 @@ describe("CharactersPage", () => {
       // Растущие числа таблицы: 6 уровень — кость 1к6, известных проклятий два.
       expect(within(block).getByText("Кость гемокрафта: 1к6")).toBeInTheDocument();
       expect(within(block).getByText("Известные проклятья крови: 2")).toBeInTheDocument();
+      // Третий путь кости хитов (после максимума хитов и левел-апа) — счётчик
+      // Костей Хитов: лицо кости тоже приходит из classHitDiceByTitle.
+      expect(screen.getByText("6/6 (1к10)")).toBeInTheDocument();
     });
 
     it("проклятье тратится, и длинный отдых возвращает счётчик полным", async () => {
@@ -4005,6 +4011,60 @@ describe("CharactersPage", () => {
       // Ячеек «Магии договора» на листе нет: у класса ячеек не бывает, а запаса
       // ячеек у архетипа в приложении нет вовсе.
       expect(within(block).queryByText(/Ячейки заклинаний/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Боевой стиль существующим полем `Character.fightingStyle` — тем же, что у
+     * Воина. Разница одна и она в данных: Воин выбирает стиль на 1 уровне, и
+     * его спрашивает мастер создания, а кровавый охотник на 2 — и спросить
+     * может только левел-ап. Стилей у него четыре из шести: «Обороны» и
+     * «Защиты» в файле владельца нет.
+     */
+    it("левел-ап 1 → 2 спрашивает боевой стиль из четырёх и пишет его тем же полем, что у Воина", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, bloodHunter(1, [{ featureId: "blood-curse", usesCurrent: 1 }]));
+      await run.ready();
+      expect(run.char.fightingStyle).toBe("");
+
+      run.levelUp(() => {
+        expect(screen.getByText("Выберите боевой стиль (2 уровень):")).toBeInTheDocument();
+        const labels = Array.from(document.querySelectorAll('input[name="fighting-style-choice"]')).map(
+          (input) => (input.closest("label") as HTMLElement).textContent ?? "",
+        );
+        expect(labels).toHaveLength(4);
+        // «Обороны» и «Защиты» у класса нет — иначе игрок получил бы +1 КД,
+        // которого PDF ему не даёт.
+        expect(labels.join(" | ")).not.toMatch(/Оборона/);
+        expect(labels.join(" | ")).not.toMatch(/Защита/);
+
+        const greatWeapon = Array.from(document.querySelectorAll('input[name="fighting-style-choice"]')).find(
+          (input) => (input.closest("label") as HTMLElement).textContent?.includes("Сражение большим оружием"),
+        )!;
+        fireEvent.click(greatWeapon);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(2);
+      expect(run.char.fightingStyle).toBe("Сражение большим оружием");
+      // Выбор виден на листе, а не только лежит в сохранении.
+      expect(screen.getByText(/Боевой стиль:/)).toBeInTheDocument();
+      expect(screen.getByText("Сражение большим оружием")).toBeInTheDocument();
+    });
+
+    it("выбранный стиль больше не переспрашивается — левел-ап 2 → 3 сразу идёт к ордену", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(2, [{ featureId: "blood-curse", usesCurrent: 1 }]),
+        fightingStyle: "Стрельба из лука",
+      });
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.queryByText("Выберите боевой стиль (3 уровень):")).not.toBeInTheDocument();
+        expect(screen.getByText("Выберите архетип (3 уровень):")).toBeInTheDocument();
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(3);
+      expect(run.char.fightingStyle).toBe("Стрельба из лука");
     });
   });
 

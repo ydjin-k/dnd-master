@@ -1871,5 +1871,50 @@ describe("CharacterWizard", () => {
     // Класс не заклинатель: ни ячеек, ни заговоров.
     expect(character.spellSlotsMax.every((n) => n === 0)).toBe(true);
     expect(character.knownCantrips).toEqual([]);
+    // Боевой стиль класс выбирает на 2 уровне, а не при создании: мастер его
+    // не спрашивает и ничего в поле не подставляет. У Воина — наоборот,
+    // проба ниже.
+    expect(character.fightingStyle).toBe("");
+  });
+
+  /**
+   * Обратный конец той же правки. Боевой стиль перестал быть механикой
+   * одного Воина (`classId === "classes-fighter"`) и стал данными
+   * (`CLASS_FIGHTING_STYLES`: какие стили и на каком уровне). Воин от этого
+   * не изменился: стиль у него на 1 уровне, значит мастер его спрашивает,
+   * показывает на «Итоге» и кладёт в персонажа.
+   */
+  it("Воину мастер по-прежнему даёт выбрать боевой стиль и показывает его на «Итоге»", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    const styleSelect = document.querySelector(".wizard__hint select") as HTMLSelectElement;
+    expect(Array.from(styleSelect.options).map((o) => o.value)).toHaveLength(6);
+    fireEvent.change(styleSelect, { target: { value: "Оборона" } });
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    // Шаг «Итог» называет выбранный стиль — правило проекта: выбор, дающий
+    // особенность, обязан быть виден в итоге.
+    expect(await screen.findByText(/Боевой стиль:/)).toBeInTheDocument();
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), { target: { value: "Брант" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.fightingStyle).toBe("Оборона");
   });
 });

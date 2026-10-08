@@ -46,7 +46,11 @@ import { GENASI_ELEMENTS, GENASI_FIXED_SKILLS, GENASI_ID, GENASI_LANGUAGES, GENA
 // расы выше: содержание живёт в `bloodHunterClass.ts`, карты ниже держат по
 // строке на класс и ссылаются на владельца. Встречный импорт оттуда — только
 // тип `RuleTopic` из состояния, цикла нет.
-import { BLOOD_HUNTER_ID } from "./bloodHunterClass";
+import {
+  BLOOD_HUNTER_FIGHTING_STYLE_LEVEL,
+  BLOOD_HUNTER_FIGHTING_STYLE_NAMES,
+  BLOOD_HUNTER_ID,
+} from "./bloodHunterClass";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -5217,6 +5221,53 @@ export const FIGHTER_FIGHTING_STYLES: FightingStyle[] = [
   },
   { name: "Сражение двумя оружиями", description: "К урону от второй атаки при бое двумя оружиями добавляется модификатор характеристики." },
 ];
+
+/**
+ * Какие боевые стили класс выбирает и НА КАКОМ УРОВНЕ — единственный владелец
+ * обоих фактов.
+ *
+ * ЗАЧЕМ ОН ПОЯВИЛСЯ. Боевой стиль был механикой одного Воина, и оба факта о
+ * нём лежали вшитыми: мастер создания сверял `classId === "classes-fighter"`,
+ * а уровень не хранился нигде — он просто совпадал с первым, где мастер и
+ * спрашивает. Кровавый охотник (с. 2 PDF владельца) выбирает стиль на 2
+ * уровне и из четырёх вариантов, а не из шести, и оба отличия должны жить
+ * данными: второго поля в персонаже для него не завели, стиль по-прежнему
+ * один — `Character.fightingStyle`.
+ *
+ * СТИЛИ — ССЫЛКАМИ ПО ИМЕНИ в `FIGHTER_FIGHTING_STYLES`, а не копиями: текст
+ * стиля принадлежит тому списку, и вторая копия разошлась бы первой правкой.
+ * У кровавого охотника из шести нет «Обороны» и «Защиты» — поэтому правило
+ * «+1 КД в доспехе» (`computeArmorClass`) его и не касается: стиля, который
+ * его включает, у класса просто нет.
+ */
+export interface ClassFightingStyles {
+  /** Уровень, на котором класс выбирает стиль: 1 — в мастере создания, 2 и выше — на левел-апе. */
+  level: number;
+  styles: FightingStyle[];
+}
+
+export const CLASS_FIGHTING_STYLES: Record<string, ClassFightingStyles> = {
+  "classes-fighter": { level: 1, styles: FIGHTER_FIGHTING_STYLES },
+  [BLOOD_HUNTER_ID]: {
+    level: BLOOD_HUNTER_FIGHTING_STYLE_LEVEL,
+    styles: BLOOD_HUNTER_FIGHTING_STYLE_NAMES.map(
+      (name) => FIGHTER_FIGHTING_STYLES.find((style) => style.name === name)!,
+    ),
+  },
+};
+
+/** Боевые стили класса и уровень их выбора — или undefined, если класс стиля не выбирает. */
+export function fightingStyleChoiceFor(classId: string | null | undefined): ClassFightingStyles | undefined {
+  return classId ? CLASS_FIGHTING_STYLES[classId] : undefined;
+}
+
+/**
+ * Описание выбранного стиля — по имени из `Character.fightingStyle`. Лист
+ * персонажа показывает стиль этим текстом, и своей копии у него нет.
+ */
+export function fightingStyleByName(name: string | null | undefined): FightingStyle | undefined {
+  return name ? FIGHTER_FIGHTING_STYLES.find((style) => style.name === name) : undefined;
+}
 
 /** Следопыт, «Избранный враг» — 13 видов существ + вариант «два вида гуманоидов» (rules.json → classes-ranger). */
 export const RANGER_FAVORED_ENEMIES = [

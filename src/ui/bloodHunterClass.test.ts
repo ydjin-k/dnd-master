@@ -17,9 +17,12 @@ import {
   CLASS_LEVEL_FEATURES,
   CLASS_PROFICIENCIES,
   CLASS_SUBCLASSES,
+  fightingStyleByName,
+  fightingStyleChoiceFor,
   subclassGrants,
   FIGHTER_FIGHTING_STYLES,
   armorProficienciesFor,
+  computeArmorClass,
   equipmentChoiceFor,
   maxHpForLevel,
   parseHitDie,
@@ -123,6 +126,53 @@ describe("Кровавый охотник — наш класс в справо�
     }
     expect([...BLOOD_HUNTER_FIGHTING_STYLE_NAMES]).not.toContain("Оборона");
     expect([...BLOOD_HUNTER_FIGHTING_STYLE_NAMES]).not.toContain("Защита");
+  });
+});
+
+/**
+ * Боевой стиль существующим полем `Character.fightingStyle` — второго поля
+ * класс не завёл. Отличий от Воина два, и оба живут данными, а не ветками в
+ * коде: уровень выбора (2 против 1) и состав стилей (4 из 6).
+ */
+describe("Кровавый охотник — боевой стиль", () => {
+  it("выбирается на 2 уровне, а не на 1, — и у Воина при этом по-прежнему на 1", () => {
+    expect(fightingStyleChoiceFor(BLOOD_HUNTER_ID)?.level).toBe(2);
+    expect(fightingStyleChoiceFor("classes-fighter")?.level).toBe(1);
+  });
+
+  it("четыре стиля с. 5 PDF, и их текст принадлежит общему списку, а не копии", () => {
+    const styles = fightingStyleChoiceFor(BLOOD_HUNTER_ID)!.styles;
+
+    expect(styles.map((s) => s.name)).toEqual([
+      "Дуэлянт",
+      "Сражение большим оружием",
+      "Сражение двумя оружиями",
+      "Стрельба из лука",
+    ]);
+    // Те же объекты, что в общем списке: копии текста нет.
+    for (const style of styles) expect(FIGHTER_FIGHTING_STYLES).toContain(style);
+    expect(fightingStyleChoiceFor("classes-fighter")!.styles).toHaveLength(6);
+  });
+
+  it("«Обороны» у класса нет, поэтому прибавки +1 к КД он не получает ни при каком стиле", () => {
+    const styles = fightingStyleChoiceFor(BLOOD_HUNTER_ID)!.styles.map((s) => s.name);
+    expect(styles).not.toContain("Оборона");
+
+    // Доспех тот же, стиль «Оборона» в поле всё же стоит (чужой или ручная
+    // правка) — КД класса от этого не меняется: правило привязано к Воину.
+    const abilities = emptyAbilityScores();
+    const inventory = ["Проклёпанная кожа"];
+    expect(
+      computeArmorClass({ classId: BLOOD_HUNTER_ID, abilities, inventoryItemNames: inventory, fightingStyle: "Оборона" }),
+    ).toBe(computeArmorClass({ classId: BLOOD_HUNTER_ID, abilities, inventoryItemNames: inventory }));
+  });
+
+  it("текст выбранного стиля лист берёт у единственного владельца", () => {
+    expect(fightingStyleByName("Дуэлянт")?.description).toBe(
+      FIGHTER_FIGHTING_STYLES.find((s) => s.name === "Дуэлянт")!.description,
+    );
+    expect(fightingStyleByName("")).toBeUndefined();
+    expect(fightingStyleByName("Выдуманный стиль")).toBeUndefined();
   });
 });
 
