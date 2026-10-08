@@ -32,6 +32,7 @@ import {
 } from "./characterCreationData";
 import { CLASS_PROGRESSION, characterResources, PROGRESSION_MAX_LEVEL } from "./classProgression";
 import { emptyAbilityScores, emptyCoins } from "../state/types";
+import { OWN_RULE_TOPICS } from "./ownRuleTopics";
 
 /** Все 12 базовых классов SRD 5.1 (rules.json → category "classes") — см. таблицу в карточке characters-original-subclasses. */
 const ALL_12_CLASSES = [
@@ -49,9 +50,20 @@ const ALL_12_CLASSES = [
   "classes-sorcerer",
 ];
 
+/**
+ * Наши классы — из `OWN_RULE_TOPICS`, а не списком руками и не числом: вшитая
+ * двенадцатка покраснела бы на следующем классе, который всё сделал правильно
+ * (тот же урок, что у рас, запись 179). Число архетипов у наших классов своё
+ * (у Кровавого охотника орденов четыре), и проверяется он отдельными пробами
+ * в bloodHunterClass.test.ts — здесь только присутствие в таблице.
+ */
+const OWN_CLASS_IDS = OWN_RULE_TOPICS.filter((t) => t.category === "classes").map((t) => t.id);
+
 describe("CLASS_SUBCLASSES (characters-original-subclasses)", () => {
-  it("has exactly 12 classes", () => {
-    expect(new Set(Object.keys(CLASS_SUBCLASSES))).toEqual(new Set(ALL_12_CLASSES));
+  it("держит двенадцать классов SRD и наши", () => {
+    expect(ALL_12_CLASSES).toHaveLength(12);
+    expect(OWN_CLASS_IDS.length).toBeGreaterThan(0);
+    expect(new Set(Object.keys(CLASS_SUBCLASSES))).toEqual(new Set([...ALL_12_CLASSES, ...OWN_CLASS_IDS]));
   });
 
   /**
@@ -739,6 +751,9 @@ describe("Особенности архетипов на уровнях 6-12", (
     "classes-sorcerer": [6],
     "classes-warlock": [6, 10],
     "classes-wizard": [6, 10],
+    // Наш класс: умения ордена на 3, 7 и 11 (с. 2 PDF владельца); в этот
+    // диапазон попадают 7 и 11.
+    "classes-blood-hunter": [7, 11],
   };
 
   it("покрывает каждый архетип каждого класса — и SRD-шный, и оба оригинальных", () => {

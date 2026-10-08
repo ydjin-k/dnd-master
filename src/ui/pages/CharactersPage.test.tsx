@@ -3938,7 +3938,12 @@ describe("CharactersPage", () => {
     });
 
     it("левел-ап 5 → 6 растит хиты своей костью, даёт второе проклятье и кость 1к6", async () => {
-      const run = levelUpRunner(HUMAN_TOPIC, bloodHunter(5, [{ featureId: "blood-curse", usesCurrent: 1 }]));
+      // Орден уже выбран — иначе левел-ап перехватила бы панель выбора ордена
+      // (chosenAtLevel 3, а персонаж до сих пор без архетипа).
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(5, [{ featureId: "blood-curse", usesCurrent: 1 }]),
+        subclass: "Орден мутантов",
+      });
       await run.ready();
 
       run.levelUp();
@@ -3948,6 +3953,58 @@ describe("CharactersPage", () => {
       expect(run.char.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 2 });
       expect(run.char.featureUses).toContainEqual({ featureId: "brand-of-castigation", usesCurrent: 1 });
       expect(screen.getByText("Кость гемокрафта: 1к6")).toBeInTheDocument();
+    });
+
+    /**
+   * Орден — архетип с четырьмя вариантами, поэтому левел-ап на 3 уровне
+   * ОБЯЗАН остановиться и спросить: автоподстановка первого отдала бы игроку
+   * орден, которого он не выбирал.
+     */
+    it("левел-ап 2 → 3 спрашивает орден из четырёх и приносит его умения 3 уровня", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, bloodHunter(2, [{ featureId: "blood-curse", usesCurrent: 1 }]));
+      await run.ready();
+
+      run.levelUp(() => {
+        // Панель открылась вместо мгновенного левел-апа.
+        expect(screen.getByText("Выберите архетип (3 уровень):")).toBeInTheDocument();
+        const labels = Array.from(document.querySelectorAll('input[name="subclass-choice"]')).map(
+          (input) => (input.closest("label") as HTMLElement).textContent,
+        );
+        expect(labels).toHaveLength(4);
+        expect(labels.join(" | ")).toMatch(/Орден призрачных убийц/);
+        expect(labels.join(" | ")).toMatch(/Орден ликантропов/);
+
+        fireEvent.click(screen.getByText("Орден ликантропов").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(3);
+      expect(run.char.subclass).toBe("Орден ликантропов");
+      // Умения ордена 3 уровня видны на листе; умения других орденов — нет.
+      expect(screen.getByText("Обострённые чувства")).toBeInTheDocument();
+      expect(screen.getByText("Гибридная трансформация")).toBeInTheDocument();
+      expect(screen.queryByText("Обряд рассвета")).not.toBeInTheDocument();
+    });
+
+    it("Орден осквернённых душ поднимает норму заговоров с нуля до двух, ячеек не даёт", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [HUMAN_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({
+        characters: [
+          {
+            ...bloodHunter(3, [{ featureId: "blood-curse", usesCurrent: 1 }]),
+            subclass: "Орден осквернённых душ",
+          },
+        ],
+      });
+      render(<CharactersPage />);
+
+      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
+      expect(within(block).getByText(/Заговоры сверх нормы класса: 2/)).toBeInTheDocument();
+      // Ячеек «Магии договора» на листе нет: у класса ячеек не бывает, а запаса
+      // ячеек у архетипа в приложении нет вовсе.
+      expect(within(block).queryByText(/Ячейки заклинаний/)).not.toBeInTheDocument();
     });
   });
 

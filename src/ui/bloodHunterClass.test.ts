@@ -16,6 +16,8 @@ import {
   CLASS_EQUIPMENT,
   CLASS_LEVEL_FEATURES,
   CLASS_PROFICIENCIES,
+  CLASS_SUBCLASSES,
+  subclassGrants,
   FIGHTER_FIGHTING_STYLES,
   armorProficienciesFor,
   equipmentChoiceFor,
@@ -336,5 +338,95 @@ describe("Кровавый охотник — таблица прогресси�
   it("увеличение характеристик приходит на 4, 8 и 12 — как у десяти классов SRD", () => {
     // с. 6 PDF: 4, 8, 12, 16 и 19 уровни; последние два выше потолка.
     expect(asiLevels(BLOOD_HUNTER_ID)).toEqual([4, 8, 12]);
+  });
+});
+
+/**
+ * Ордены — архетипы класса, выбор на 3 уровне (с. 2 и 5 PDF владельца).
+ * Названия и состав выписаны здесь по PDF, а не сняты с кода: подмени орден
+ * или сдвинь уровень умения — и проба покраснеет на названии, а не на общем
+ * снимке данных.
+ */
+describe("Кровавый охотник — ордены", () => {
+  const info = CLASS_SUBCLASSES[BLOOD_HUNTER_ID];
+
+  it("выбираются на 3 уровне, и их четыре — все, что есть в файле владельца", () => {
+    expect(info.chosenAtLevel).toBe(3);
+    expect(info.subclasses.map((s) => s.name)).toEqual([
+      "Орден призрачных убийц",
+      "Орден осквернённых душ",
+      "Орден мутантов",
+      "Орден ликантропов",
+    ]);
+  });
+
+  it("у каждого ордена есть умения на 3, 7 и 11 уровнях и ни одного выше потолка", () => {
+    for (const order of info.subclasses) {
+      for (const level of [3, 7, 11]) {
+        expect(order.featuresByLevel[level]?.length, `${order.name} ур. ${level}`).toBeGreaterThan(0);
+      }
+      for (const key of Object.keys(order.featuresByLevel)) {
+        expect(Number(key), `${order.name}: уровень ${key}`).toBeLessThanOrEqual(PROGRESSION_MAX_LEVEL);
+      }
+      // Умения 15 и 18 уровней из PDF выше потолка приложения — их здесь быть не должно.
+      expect(order.featuresByLevel[15]).toBeUndefined();
+      expect(order.featuresByLevel[18]).toBeUndefined();
+    }
+  });
+
+  it("у каждого ордена есть своё описание — выбор из четырёх вариантов без него слепой", () => {
+    for (const order of info.subclasses) {
+      expect(order.description?.trim().length, order.name).toBeGreaterThan(40);
+    }
+  });
+
+  it("имена умений 3 уровня — те же, что в PDF", () => {
+    const at3 = (name: string) =>
+      info.subclasses.find((s) => s.name === name)!.featuresByLevel[3].map((f) => f.name);
+
+    expect(at3("Орден призрачных убийц")).toEqual(["Обряд рассвета", "Специалист по проклятьям"]);
+    expect(at3("Орден осквернённых душ")).toEqual([
+      "Потусторонний покровитель",
+      "Магия договора",
+      "Ритуальная фокусировка",
+    ]);
+    expect(at3("Орден мутантов")).toEqual(["Формулы", "Создание мутагенов"]);
+    expect(at3("Орден ликантропов")).toEqual(["Обострённые чувства", "Гибридная трансформация"]);
+  });
+
+  /**
+   * Единственная механика, которую ордены выражают числом. «Магия договора»
+   * даёт два заговора колдуна с 3 уровня — ровно с уровня выбора ордена и
+   * внутри потолка не растёт (третий заговор на 10 уровне приложение выразить
+   * не может: у `bonusCantrips` нет уровня, и об этом сказано в тексте
+   * особенности). Ячеек «Магии договора» на листе нет вовсе: у класса ячеек
+   * не бывает, а запаса ячеек у архетипа в приложении нет.
+   */
+  it("Орден осквернённых душ даёт два заговора из списка колдуна и ни одной ячейки", () => {
+    const grants = subclassGrants(BLOOD_HUNTER_ID, "Орден осквернённых душ");
+
+    expect(grants?.bonusCantrips).toEqual({ count: 2, fromClassId: "classes-warlock" });
+    for (const level of [3, 7, 11, 12]) {
+      expect(progressionAt(BLOOD_HUNTER_ID, level)!.spellSlots.every((n) => n === 0), `ур. ${level}`).toBe(true);
+    }
+  });
+
+  /**
+   * Сознательное решение, а не пропуск: `SubclassGrants.resources` уровня не
+   * знает, а почти каждый счётчик ордена либо приходит позже 3 уровня
+   * («Эфирный шаг» — 7), либо меняет число на 11 («Гибридная трансформация»,
+   * «Создание мутагенов»). Счётчик, заведённый сразу, выдал бы умение раньше
+   * срока или соврал бы числом. Проба сторожит именно это: появится механизм
+   * с уровнем — её надо будет пересмотреть вместе с данными.
+   */
+  it("своих счётчиков ордены не заводят — всё, что растёт с уровнем, живёт текстом", () => {
+    for (const order of info.subclasses) {
+      expect(order.grants?.resources, order.name).toBeUndefined();
+      expect(order.grants?.resourceOptions, order.name).toBeUndefined();
+    }
+    // Классовые счётчики от выбора ордена не меняются ни числом, ни составом.
+    expect(characterResources(BLOOD_HUNTER_ID, "Орден ликантропов", 11).map((r) => r.id)).toEqual(
+      characterResources(BLOOD_HUNTER_ID, null, 11).map((r) => r.id),
+    );
   });
 });
