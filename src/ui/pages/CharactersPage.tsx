@@ -38,6 +38,7 @@ import {
   parseHitDieAverage,
   proficiencyBonusForLevel,
   proficiencyBonusHint,
+  raceTraitsWithVariant,
   subclassEffectValue,
   subclassGrants,
   subclassResourceOptionsAt,
@@ -1573,8 +1574,16 @@ function CharacterCard({
    * объявлен у владельца (`PASSIVE_LAYER_ORDER`), сам вычет остался за
    * `abyssElfRace.ts`, и обе платы названы числом.
    */
+  /**
+   * Особенности расы вместе с особенностями выбранного варианта (стихия
+   * Дженази). Склейку делает тот же единственный владелец правила, которого
+   * зовёт мастер создания (`raceTraitsWithVariant`): два места, складывающие
+   * эти списки по-своему, разошлись бы молча — на обзорном шаге игрок увидел
+   * бы одно, а на листе другое. Раса без варианта получает свой список
+   * нетронутым, и ветки «а это Дженази» здесь нет.
+   */
   const raceTraits = withSunlitPassive(
-    raceTraitsByTitle[c.race] ?? [],
+    raceTraitsWithVariant(raceTraitsByTitle[c.race] ?? [], c.raceVariant),
     c.race,
     effective.passivePerception.value,
   );

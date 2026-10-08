@@ -87,6 +87,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         allies: "",
         treasures: "",
         languages: [],
+        raceVariant: "",
         favoredEnemy: "",
         knownTerrain: "",
         level: 1,

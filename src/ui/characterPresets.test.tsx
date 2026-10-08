@@ -166,6 +166,7 @@ function blankCharacter(): Character {
     allies: "",
     treasures: "",
     languages: [],
+    raceVariant: "",
     favoredEnemy: "",
     knownTerrain: "",
     level: 1,

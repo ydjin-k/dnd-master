@@ -9,6 +9,7 @@ import { TABAXI_TOPIC } from "./tabaxiRace";
 import { HARENGON_TOPIC } from "./harengonRace";
 import { FIRBOLG_TOPIC } from "./firbolgRace";
 import { AASIMAR_TOPIC } from "./aasimarRace";
+import { GENASI_TOPIC } from "./genasiRace";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -58,6 +59,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   HARENGON_TOPIC,
   FIRBOLG_TOPIC,
   AASIMAR_TOPIC,
+  GENASI_TOPIC,
 ];
 
 

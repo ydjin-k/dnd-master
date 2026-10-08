@@ -969,6 +969,58 @@ mod tests {
         assert!(load_active_in(&base).unwrap().unwrap().travel.is_none());
     }
 
+    /// Выбранный ВАРИАНТ расы переживает запись и чтение.
+    ///
+    /// Поле `race_variant` появилось вместе с механизмом выбора варианта расы
+    /// (стихия Дженази, карточка `characters-races-pack-b`), и ломается оно
+    /// молча в обе стороны. Если поля нет в модели, фронт пришлёт стихию, serde
+    /// её выбросит, и после перезапуска лист покажет расу без стихии — ту же
+    /// расу, но без половины особенностей. Если же старое сохранение, записанное
+    /// до появления поля, не прочитается, персонаж не откроется вовсе.
+    ///
+    /// Проба сторожит оба конца: круг «сохранить — прочитать» и чтение JSON,
+    /// в котором поля нет.
+    #[test]
+    fn chosen_race_variant_survives_a_save_and_an_old_save_without_it_still_opens() {
+        let base = temp_dir("race-variant");
+        create_campaign_in(&base, "Поход".into()).unwrap();
+
+        save_front_owned_in(
+            &base,
+            FrontOwnedFields {
+                campaign_name: "Поход".into(),
+                characters: vec![Character {
+                    id: "c1".into(),
+                    name: "Струя".into(),
+                    race: "Дженази".into(),
+                    race_variant: "genasi-water".into(),
+                    ..Default::default()
+                }],
+                journal: vec![],
+                travel: None,
+            },
+        )
+        .unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let character = after.characters.first().expect("персонаж обязан уцелеть");
+        assert_eq!(character.race, "Дженази");
+        assert_eq!(
+            character.race_variant, "genasi-water",
+            "стихия потерялась при записи — после перезапуска лист покажет расу без половины особенностей"
+        );
+
+        // Сохранение, записанное до появления поля: его в JSON просто нет.
+        let legacy = r#"{"id":"c2","name":"Прах","race":"Дженази"}"#;
+        assert!(
+            !legacy.contains("raceVariant"),
+            "фикстура обязана быть БЕЗ поля — иначе проба сторожит пустоту"
+        );
+        let old: Character = serde_json::from_str(legacy).expect("старый персонаж обязан открыться");
+        assert_eq!(old.name, "Прах");
+        assert_eq!(old.race_variant, "", "структурный serde(default) обязан дать пустую строку");
+    }
+
     /// Ответ на вопрос «что будет, если фронт прислал чужое поле»: оно тихо
     /// игнорируется, и это свойство ТИПА, а не проверка в теле команды —
     /// `FrontOwnedFields` некуда положить `combat`, и serde его пропускает.

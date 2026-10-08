@@ -187,6 +187,7 @@ describe("CharactersPage", () => {
       allies: "",
       treasures: "",
       languages: [],
+      raceVariant: "",
       favoredEnemy: "",
       knownTerrain: "",
       level: 1,
@@ -296,6 +297,7 @@ describe("CharactersPage", () => {
           allies: "",
           treasures: "",
           languages: [],
+          raceVariant: "",
           favoredEnemy: "",
           knownTerrain: "",
           level: 1,
@@ -2996,6 +2998,51 @@ describe("CharactersPage", () => {
       await screen.findByText(/Расовые особенности/);
       expect(screen.queryByText("Зов бездны")).not.toBeInTheDocument();
       expect(screen.queryByText(/Пассивная внимательность там же/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Стихия Дженази — выбор, сделанный в мастере создания (пункт 2а карточки
+     * characters-races-pack-b). Лист обязан показать особенности ИМЕННО той
+     * стихии, что лежит в сохранении: склейку делает тот же единственный
+     * владелец правила, которого зовёт мастер (`raceTraitsWithVariant`), и
+     * разойдись они — на обзорном шаге игрок увидел бы одно, а на листе другое.
+     */
+    it("лист Дженази показывает особенности выбранной стихии, а не всех четырёх", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({
+        characters: [
+          { ...characterWithInventory(), name: "Струя", race: "Дженази", raceVariant: "genasi-water" },
+        ],
+      });
+      render(<CharactersPage />);
+
+      // Три общих особенности плюс две у стихии.
+      const block = (await screen.findByText(/Расовые особенности \(5\)/)).closest("details") as HTMLElement;
+      expect(within(block).getByText("Стихия в крови")).toBeInTheDocument();
+      expect(within(block).getByText(/Стихия твоей крови — вода/)).toBeInTheDocument();
+      expect(within(block).getByText("Дыхание под водой")).toBeInTheDocument();
+      // Чужие стихии на лист не приезжают.
+      expect(within(block).queryByText("Искра")).not.toBeInTheDocument();
+      expect(within(block).queryByText("Дыхание ветра")).not.toBeInTheDocument();
+      expect(within(block).queryByText("Не свалить")).not.toBeInTheDocument();
+    });
+
+    it("Дженази из сохранения без стихии открывается и показывает только общие особенности", async () => {
+      // Поле `raceVariant` появилось вместе с механизмом, и у сохранений до
+      // него там "". Лист обязан открыться, а не остаться без блока или упасть.
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [FIGHTER_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({
+        characters: [{ ...characterWithInventory(), name: "Прах", race: "Дженази", raceVariant: "" }],
+      });
+      render(<CharactersPage />);
+
+      const block = (await screen.findByText(/Расовые особенности \(3\)/)).closest("details") as HTMLElement;
+      expect(within(block).getByText("Не исчадие")).toBeInTheDocument();
+      expect(within(block).queryByText("Стихия в крови")).not.toBeInTheDocument();
     });
 
     it("старое сохранение расы без особенностей открывается и блока не заводит", async () => {

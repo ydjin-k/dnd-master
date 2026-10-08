@@ -11,6 +11,7 @@ import { TABAXI_TOPIC, TABAXI_ID } from "./tabaxiRace";
 import { HARENGON_TOPIC, HARENGON_ID } from "./harengonRace";
 import { FIRBOLG_TOPIC, FIRBOLG_ID } from "./firbolgRace";
 import { AASIMAR_TOPIC, AASIMAR_ID } from "./aasimarRace";
+import { GENASI_TOPIC, GENASI_ID } from "./genasiRace";
 
 /**
  * Сторож ФОРМЫ текста всех ШЕСТИ наших рас — той, которую владелец попросил 04.10.2026,
@@ -55,6 +56,7 @@ const RACES: Race[] = [
   { id: HARENGON_ID, topic: HARENGON_TOPIC, mechanicsSection: "Особенности зайцегонов" },
   { id: FIRBOLG_ID, topic: FIRBOLG_TOPIC, mechanicsSection: "Особенности фирболгов" },
   { id: AASIMAR_ID, topic: AASIMAR_TOPIC, mechanicsSection: "Особенности аасимаров" },
+  { id: GENASI_ID, topic: GENASI_TOPIC, mechanicsSection: "Особенности дженази" },
 ];
 
 /** Заголовки второго уровня по порядку — это и есть оглавление статьи. */

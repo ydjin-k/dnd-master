@@ -80,6 +80,7 @@ function hero(conditions: string[]): Character {
     allies: "",
     treasures: "",
     languages: [],
+    raceVariant: "",
     favoredEnemy: "",
     knownTerrain: "",
     level: 1,

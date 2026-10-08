@@ -875,6 +875,101 @@ describe("CharacterWizard", () => {
     expect(character.knownTerrain).toBe("Горы");
   });
 
+  /**
+   * Механизм выбора ВАРИАНТА расы (пункт 2а карточки characters-races-pack-b).
+   * Выбора такого сорта в мастере не было ни у одной из пятнадцати рас:
+   * `raceBonus.choice` выбирает характеристики, `RACE_SKILL_CHOICE_COUNT` —
+   * навыки, а стихия Дженази меняет НАБОР ОСОБЕННОСТЕЙ.
+   *
+   * Три вещи, которые здесь ломаются молча, и все три проверяются ниже:
+   * шаг не должен пускать дальше без выбора (иначе игрок получит расу, которой
+   * не выбирал); выбранная стихия обязана отрисоваться на шаге «Итог» (правило
+   * проекта: выбор, которого не видно в «Итоге», считается несделанным); и она
+   * обязана уехать в сохранение, иначе лист персонажа её не найдёт.
+   */
+  it("blocks the race step until a Genasi element is picked, then shows it on review and saves it", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дженази"));
+    fillStandardAbilities();
+
+    // Без стихии шаг не пускает дальше — и говорит, чего не хватает.
+    expect(screen.getByText("Выбери стихию, чтобы продолжить.")).toBeInTheDocument();
+
+    const fire = document.querySelector<HTMLInputElement>('input[name="race-variant"][value="genasi-fire"]');
+    expect(fire, "переключателя стихии нет на шаге «Раса»").not.toBeNull();
+    fireEvent.click(fire!);
+    expect(screen.queryByText("Выбери стихию, чтобы продолжить.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    // Имя особенности жирным — тем же приёмом, что у остальных расовых черт;
+    // стихию называет описание рядом с ним.
+    const record = screen.getByText("Стихия в крови");
+    expect(record.tagName).toBe("STRONG");
+    expect(record.closest("li")).toHaveTextContent("Стихия твоей крови — огонь.");
+    // И механика стихии, а не только запись выбора.
+    expect(screen.getByText("Искра")).toBeInTheDocument();
+    // Чужие стихии на обзор не приезжают.
+    expect(screen.queryByText("Дыхание под водой")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Дженази Тест" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.race).toBe("Дженази");
+    expect(character.raceVariant).toBe("genasi-fire");
+  });
+
+  it("leaves raceVariant empty for a race that has no variants at all", async () => {
+    // Четырнадцать рас из пятнадцати вариантов не имеют, и поле обязано
+    // оставаться пустым: непустое значение у них означало бы, что выбор
+    // предыдущей расы не сбросился при смене.
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Дженази"));
+    fillStandardAbilities();
+    fireEvent.click(document.querySelector<HTMLInputElement>('input[name="race-variant"][value="genasi-air"]')!);
+    // Смена расы обязана снять выбор — вместе с переключателем.
+    fireEvent.click(screen.getByText("Человек"));
+    fillStandardAbilities();
+    expect(document.querySelector('input[name="race-variant"]')).toBeNull();
+
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    await screen.findByPlaceholderText("Имя персонажа");
+    fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Человек Тест" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.raceVariant).toBe("");
+  });
+
   it("shows the chosen background's feature (bold name + description) on the review step", async () => {
     render(<CharacterWizard onDone={() => {}} />);
 

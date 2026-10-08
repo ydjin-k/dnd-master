@@ -46,6 +46,8 @@ import {
   RACE_HP_BONUS,
   RACE_LANGUAGES,
   RACE_SKILL_CHOICE_COUNT,
+  RACE_VARIANTS,
+  raceTraitsWithVariant,
   RACE_TRAITS,
   RANGER_FAVORED_ENEMIES,
   RANGER_TERRAIN_TYPES,
@@ -86,6 +88,7 @@ import { TABAXI_ABILITY_BONUS, TABAXI_ID, TABAXI_SPEED_FEET } from "./tabaxiRace
 import { HARENGON_ABILITY_BONUS, HARENGON_ID, HARENGON_SPEED_FEET } from "./harengonRace";
 import { FIRBOLG_ABILITY_BONUS, FIRBOLG_ID, FIRBOLG_SPEED_FEET } from "./firbolgRace";
 import { AASIMAR_ABILITY_BONUS, AASIMAR_ID, AASIMAR_SPEED_FEET } from "./aasimarRace";
+import { GENASI_ABILITY_BONUS, GENASI_ID, GENASI_SPEED_FEET } from "./genasiRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
 import { playableRaces, raceWizardBlocks } from "./ownRuleTopics";
 import "./CharacterWizard.css";
@@ -148,6 +151,7 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   [HARENGON_ID]: { fixed: HARENGON_ABILITY_BONUS },
   [FIRBOLG_ID]: { fixed: FIRBOLG_ABILITY_BONUS },
   [AASIMAR_ID]: { fixed: AASIMAR_ABILITY_BONUS },
+  [GENASI_ID]: { fixed: GENASI_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -176,6 +180,7 @@ const RACE_SPEED_FEET: Record<string, number> = {
   [HARENGON_ID]: HARENGON_SPEED_FEET,
   [FIRBOLG_ID]: FIRBOLG_SPEED_FEET,
   [AASIMAR_ID]: AASIMAR_SPEED_FEET,
+  [GENASI_ID]: GENASI_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.
@@ -210,6 +215,14 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [flaws, setFlaws] = useState("");
   const [chosenLanguage, setChosenLanguage] = useState("");
   const [raceSkillChoices, setRaceSkillChoices] = useState<string[]>([]);
+  /**
+   * Выбранный вариант расы (стихия Дженази). Значения по умолчанию здесь нет
+   * СОЗНАТЕЛЬНО: вариант меняет набор особенностей, и молча подставленный
+   * первый пункт отдал бы игроку расу, которой он не выбирал. Поэтому шаг
+   * блокируется до выбора — тем же приёмом, что выбор навыков и выбор
+   * характеристик, а не как инструмент дварфа (тот подставляется молча).
+   */
+  const [raceVariantId, setRaceVariantId] = useState("");
   const [chosenDwarfTool, setChosenDwarfTool] = useState("");
   const [fightingStyle, setFightingStyle] = useState("");
   const [favoredEnemy, setFavoredEnemy] = useState("");
@@ -274,7 +287,13 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const raceHpBonus = raceId ? (RACE_HP_BONUS[raceId] ?? 0) : 0;
   const raceFixedSkills = raceId ? (RACE_FIXED_SKILLS[raceId] ?? []) : [];
   const raceSkillChoiceCount = raceId ? (RACE_SKILL_CHOICE_COUNT[raceId] ?? 0) : 0;
-  const raceTraits = raceId ? (RACE_TRAITS[raceId] ?? []) : [];
+  const raceVariantChoice = raceId ? RACE_VARIANTS[raceId] : undefined;
+  /**
+   * Особенности расы вместе с особенностями выбранного варианта. Склейку
+   * делает единственный владелец правила (`raceTraitsWithVariant`) — его же
+   * зовёт лист персонажа, иначе обзорный шаг и лист разошлись бы молча.
+   */
+  const raceTraits = raceTraitsWithVariant(raceId ? (RACE_TRAITS[raceId] ?? []) : [], raceVariantId);
   const spellAbility = classId ? CLASS_SPELLCASTING_ABILITY[classId] : undefined;
   const dwarfToolChoices = raceId === "races-dwarf" ? DWARF_TOOL_CHOICES : [];
   const fighterFightingStyles = classId === "classes-fighter" ? FIGHTER_FIGHTING_STYLES : [];
@@ -387,6 +406,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setChoiceBonusKeys([]);
     setChosenLanguage("");
     setRaceSkillChoices([]);
+    setRaceVariantId("");
     setChosenDwarfTool("");
   }
 
@@ -640,6 +660,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       id: crypto.randomUUID(),
       name: name.trim(),
       race: race?.title ?? "",
+      // Вариант расы — тем же приёмом, что избранный враг Следопыта ниже:
+      // выбор сделан при создании, и лист читает его из сохранения, а не
+      // пересчитывает. Пусто у рас без вариантов.
+      raceVariant: raceVariantChoice ? raceVariantId : "",
       class: klass?.title ?? "",
       subclass: level1Subclass?.name ?? "",
       background: background?.title ?? "",
@@ -796,6 +820,9 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       if (raceSkillChoiceCount > 0 && raceSkillChoices.length < raceSkillChoiceCount) {
         return `Выбери ${raceSkillChoiceCount} навыка (гибкость навыков), чтобы продолжить.`;
       }
+      if (raceVariantChoice && !raceVariantId) {
+        return `${raceVariantChoice.missing}, чтобы продолжить.`;
+      }
       if (raceBonus?.choice && choiceBonusKeys.length < raceBonus.choice.count) {
         return `Выбери ${raceBonus.choice.count} характеристики для бонуса, чтобы продолжить.`;
       }
@@ -892,6 +919,30 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </select>
                   </p>
                 ) : null}
+                {raceVariantChoice && (
+                  /*
+                   * Стоит сразу под срезом механики (`raceWizardBlocks` выше) и
+                   * рядом с остальными выборами шага — тем же `wizard__hint` и
+                   * теми же `wizard__choice-bonus`, что у выбора навыков.
+                   * Переключатель радиогруппой, а не флажками: вариант ровно
+                   * один, и флажок разрешил бы выбрать два.
+                   */
+                  <p className="wizard__hint">
+                    {raceVariantChoice.prompt} —{" "}
+                    {raceVariantChoice.options.map((option) => (
+                      <label key={option.id} className="wizard__choice-bonus">
+                        <input
+                          type="radio"
+                          name="race-variant"
+                          value={option.id}
+                          checked={raceVariantId === option.id}
+                          onChange={() => setRaceVariantId(option.id)}
+                        />
+                        {option.title}
+                      </label>
+                    ))}
+                  </p>
+                )}
                 {raceSkillChoiceCount > 0 && (
                   <p className="wizard__hint">
                     Гибкость навыков: выбери {raceSkillChoiceCount} навыка (выбрано{" "}

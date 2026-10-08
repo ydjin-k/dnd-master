@@ -41,6 +41,7 @@ import { TABAXI_FIXED_SKILLS, TABAXI_ID, TABAXI_LANGUAGES, TABAXI_NAMES, TABAXI_
 import { HARENGON_FIXED_SKILLS, HARENGON_ID, HARENGON_LANGUAGES, HARENGON_NAMES, HARENGON_TRAITS } from "./harengonRace";
 import { FIRBOLG_FIXED_SKILLS, FIRBOLG_ID, FIRBOLG_LANGUAGES, FIRBOLG_NAMES, FIRBOLG_TRAITS } from "./firbolgRace";
 import { AASIMAR_FIXED_SKILLS, AASIMAR_ID, AASIMAR_LANGUAGES, AASIMAR_NAMES, AASIMAR_TRAITS } from "./aasimarRace";
+import { GENASI_ELEMENTS, GENASI_FIXED_SKILLS, GENASI_ID, GENASI_LANGUAGES, GENASI_NAMES, GENASI_TRAITS } from "./genasiRace";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -4548,6 +4549,7 @@ export const RACE_LANGUAGES: Record<string, RaceLanguages> = {
   [HARENGON_ID]: HARENGON_LANGUAGES,
   [FIRBOLG_ID]: FIRBOLG_LANGUAGES,
   [AASIMAR_ID]: AASIMAR_LANGUAGES,
+  [GENASI_ID]: GENASI_LANGUAGES,
 };
 
 /**
@@ -4615,6 +4617,7 @@ export const RACE_FIXED_SKILLS: Record<string, string[]> = {
   [HARENGON_ID]: HARENGON_FIXED_SKILLS,
   [FIRBOLG_ID]: FIRBOLG_FIXED_SKILLS,
   [AASIMAR_ID]: AASIMAR_FIXED_SKILLS,
+  [GENASI_ID]: GENASI_FIXED_SKILLS,
 };
 
 /**
@@ -4632,6 +4635,99 @@ export const RACE_SKILL_CHOICE_COUNT: Record<string, number> = {
 export interface RaceTrait {
   name: string;
   description: string;
+}
+
+/** Один вариант расы — то, что игрок выбирает на шаге «Раса». */
+export interface RaceVariant {
+  /**
+   * Идентификатор варианта, уникальный СРЕДИ ВСЕХ рас, а не внутри своей:
+   * именно он хранится в `Character.raceVariant`, и по нему лист персонажа
+   * находит особенности, не зная ни расы, ни карты (`raceTraitsWithVariant`).
+   */
+  id: string;
+  /** Название варианта для игрока — им подписан переключатель и запись в особенности. */
+  title: string;
+  /** Особенности, которые вариант ДОБАВЛЯЕТ к общим особенностям расы. */
+  traits: RaceTrait[];
+}
+
+/** Выбор варианта расы целиком: подпись, вопрос игроку и сами варианты. */
+export interface RaceVariantChoice {
+  /** Полная строка-вопрос на шаге «Раса» — подпись к переключателю. */
+  prompt: string;
+  /**
+   * Чего не хватает, когда вариант не выбран, — готовой строкой для
+   * `stepValidationMessage`.
+   *
+   * Строка лежит в ДАННЫХ, а не собирается из `label` в коде, и это не
+   * избыточность: по-русски «Выбери» требует винительного падежа, и
+   * `label.toLowerCase()` дал бы «Выбери стихия». Склонять слова кодом —
+   * заводить в мастере вторую грамматику, а править падеж глазами можно
+   * только там, где слово и написано.
+   */
+  missing: string;
+  options: RaceVariant[];
+}
+
+/**
+ * Восьмая карта расы — ВАРИАНТ, который выбирает игрок.
+ *
+ * ЗАЧЕМ ОНА ПОЯВИЛАСЬ. Решение владельца 07.10.2026 по Дженази: одна раса, но
+ * четыре стихии дают РАЗНУЮ механику. Выбора такого сорта в мастере не было ни
+ * у одной из пятнадцати рас, и подходящего тоже: `raceBonus.choice` выбирает
+ * ХАРАКТЕРИСТИКИ (Полуэльф), `RACE_SKILL_CHOICE_COUNT` — НАВЫКИ, а здесь нужен
+ * третий — выбор, меняющий НАБОР ОСОБЕННОСТЕЙ.
+ *
+ * ЧЕГО ЭТА КАРТА НЕ ДЕЛАЕТ, И ЭТО СОЗНАТЕЛЬНО. Вариант не меняет ни бонусов
+ * характеристик, ни скорости, ни навыков, ни языков — только особенности.
+ * Иначе шаг «Характеристики», расчёт хитов и лист получили бы по ветке «а
+ * какой у него вариант», и одна раса с вариантами стоила бы дороже четырёх
+ * отдельных. Если следующей расе понадобится вариант с бонусом, это отдельное
+ * решение и отдельная карточка, а не тихое расширение этой карты.
+ *
+ * ДЕВЯТЬ РАС SRD ЗДЕСЬ НЕ СТОЯТ И СТОЯТЬ НЕ ДОЛЖНЫ. У них подраса вшита в
+ * бонусы намеренно (`RACE_ABILITY_BONUSES`, комментарии «+ Холмовой дварф»,
+ * «+ Высший эльф»): в SRD 5.1 у каждой расы ровно одна подраса, выбирать
+ * игроку не из чего, и карточка пачки B просила эту вшитость не трогать.
+ */
+export const RACE_VARIANTS: Record<string, RaceVariantChoice> = {
+  [GENASI_ID]: GENASI_ELEMENTS,
+};
+
+/**
+ * Вариант по его идентификатору — где бы он ни лежал.
+ *
+ * Спрашивать приходится именно так, БЕЗ id расы: лист персонажа хранит
+ * `Character.race` названием, а не идентификатором, и второй способ перевести
+ * одно в другое сделал бы двух владельцев одного факта. Поэтому id варианта
+ * уникален среди всех рас, и этого достаточно обоим звавшим — мастеру
+ * создания и листу.
+ */
+export function raceVariantById(variantId: string | null | undefined): RaceVariant | undefined {
+  if (!variantId) return undefined;
+  for (const choice of Object.values(RACE_VARIANTS)) {
+    const found = choice.options.find((option) => option.id === variantId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Особенности расы с учётом выбранного варианта — ОДИН владелец этого правила
+ * на весь проект: его зовут и мастер создания (шаги «Раса» и «Итог»), и лист
+ * персонажа. Два места, складывающие эти списки по-своему, разошлись бы молча:
+ * на обзоре игрок увидел бы одно, а на листе другое.
+ *
+ * Особенности варианта встают ПЕРВЫМИ: выбор игрока читается первой строкой, а
+ * не теряется в середине общего списка. Раса без варианта получает свой список
+ * нетронутым, и ветки «а это раса с вариантами» ни у кого из звавших нет.
+ */
+export function raceTraitsWithVariant(
+  baseTraits: RaceTrait[],
+  variantId: string | null | undefined,
+): RaceTrait[] {
+  const variant = raceVariantById(variantId);
+  return variant ? [...variant.traits, ...baseTraits] : baseTraits;
 }
 
 /**
@@ -4732,6 +4828,7 @@ export const RACE_TRAITS: Record<string, RaceTrait[]> = {
   [HARENGON_ID]: HARENGON_TRAITS,
   [FIRBOLG_ID]: FIRBOLG_TRAITS,
   [AASIMAR_ID]: AASIMAR_TRAITS,
+  [GENASI_ID]: GENASI_TRAITS,
 };
 
 /** Заклинательная характеристика — только классы, у которых заклинания есть уже на 1 уровне. */
@@ -4976,6 +5073,7 @@ export const NAME_SUGGESTIONS: Record<string, { male: string[]; female: string[]
   [HARENGON_ID]: HARENGON_NAMES,
   [FIRBOLG_ID]: FIRBOLG_NAMES,
   [AASIMAR_ID]: AASIMAR_NAMES,
+  [GENASI_ID]: GENASI_NAMES,
   general: {
     male: [
       "Алекс", "Сандер", "Тавин", "Рен", "Кай", "Джордан", "Морис", "Лео",

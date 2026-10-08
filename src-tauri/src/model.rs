@@ -63,6 +63,12 @@ pub struct Character {
     pub id: String,
     pub name: String,
     pub race: String,
+    /// Выбранный вариант расы — стихия Дженази и всё, что придёт после неё
+    /// (`RACE_VARIANTS` в `src/ui/characterCreationData.ts`). Хранится
+    /// идентификатор варианта, а не название. Пусто у рас без вариантов и у
+    /// сохранений, записанных до появления поля: структурный
+    /// `#[serde(default)]` даёт "" тем же приёмом, что `favored_enemy`.
+    pub race_variant: String,
     pub class: String,
     pub subclass: String,
     pub background: String,

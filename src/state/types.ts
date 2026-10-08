@@ -38,6 +38,18 @@ export interface Character {
   id: string;
   name: string;
   race: string;
+  /**
+   * Выбранный ВАРИАНТ расы — стихия Дженази и всё, что придёт после неё
+   * (`RACE_VARIANTS` в `characterCreationData.ts`). Хранится идентификатор
+   * варианта, а не его название: название показывается, а искать по нему
+   * особенности значило бы завести второй способ перевода имени в данные.
+   *
+   * Пусто у всех рас без вариантов — то есть у четырнадцати из пятнадцати, — и
+   * у сохранений, записанных до появления поля: `#[serde(default)]` на
+   * структуре `Character` в `model.rs` даёт "" тем же приёмом, что
+   * `portraitVariant` и `favoredEnemy`.
+   */
+  raceVariant: string;
   class: string;
   subclass: string;
   background: string;
