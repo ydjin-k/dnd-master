@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import bundledRules from "../../src-tauri/rules/rules.json";
 import type { RuleBlock, RuleTopic } from "../state/types";
 import {
+  BLOOD_CURSES,
+  BLOOD_CURSES_CHOICE_ID,
+  BLOOD_CURSES_KNOWN_STEPS,
   BLOOD_CURSE_RESOURCE_ID,
   BLOOD_HUNTER_FIGHTING_STYLE_NAMES,
   BLOOD_HUNTER_ID,
@@ -16,7 +19,10 @@ import {
   CLASS_EQUIPMENT,
   CLASS_LEVEL_FEATURES,
   CLASS_PROFICIENCIES,
+  CLASS_CHOICES,
   CLASS_SUBCLASSES,
+  classChoiceKnownAt,
+  classChoicesFor,
   fightingStyleByName,
   fightingStyleChoiceFor,
   subclassGrants,
@@ -478,5 +484,90 @@ describe("Кровавый охотник — ордены", () => {
     expect(characterResources(BLOOD_HUNTER_ID, "Орден ликантропов", 11).map((r) => r.id)).toEqual(
       characterResources(BLOOD_HUNTER_ID, null, 11).map((r) => r.id),
     );
+  });
+});
+
+/**
+ * Проклятья крови как ВЫБОР игрока — первый пользователь общего механизма
+ * классового выбора (сам механизм проверяется на выдуманных данных в
+ * classChoices.test.ts). Здесь сторожится подключение и числа PDF.
+ */
+describe("Кровавый охотник — проклятья крови как выбор", () => {
+  const choice = classChoicesFor(BLOOD_HUNTER_ID)[0];
+
+  it("у класса ровно один классовый выбор, и это проклятья крови", () => {
+    expect(classChoicesFor(BLOOD_HUNTER_ID)).toHaveLength(1);
+    expect(choice.id).toBe(BLOOD_CURSES_CHOICE_ID);
+    expect(choice.options).toEqual(BLOOD_CURSES);
+  });
+
+  it("известных проклятий 1, со 6 уровня 2, с 10 — 3 (с. 2 PDF)", () => {
+    const byLevel = Array.from({ length: PROGRESSION_MAX_LEVEL }, (_, i) => classChoiceKnownAt(choice, i + 1));
+
+    expect(byLevel).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]);
+  });
+
+  /**
+   * Сердце шва между выбором и таблицей. Столбец «Известные проклятья крови»
+   * на листе и число, которое спрашивает выбор, — ОДНО число; написанные
+   * отдельно, они разошлись бы, и игрок увидел бы на листе «3», выбрав два.
+   * Проба сверяет два ЧИТАТЕЛЯ одного владельца на всех двенадцати уровнях.
+   */
+  it("столбец таблицы и число спрашиваемого выбора — одно и то же на каждом уровне", () => {
+    for (let level = 1; level <= PROGRESSION_MAX_LEVEL; level++) {
+      const fromTable = progressionAt(BLOOD_HUNTER_ID, level)!.scaling.find(
+        (v) => v.name === "Известные проклятья крови",
+      )!.value;
+      expect(fromTable, `ур. ${level}`).toBe(String(classChoiceKnownAt(choice, level)));
+    }
+  });
+
+  it("восемь проклятий на выбор — все без требования уровня и ордена", () => {
+    expect(BLOOD_CURSES).toHaveLength(8);
+    for (const curse of BLOOD_CURSES) {
+      expect(curse.minLevel, curse.id).toBeUndefined();
+      expect(curse.name.startsWith("Проклятье "), curse.id).toBe(true);
+    }
+  });
+
+  /**
+   * Четыре проклятья PDF даёт сам орден на 15 и 18 уровнях, и они не
+   * считаются в число известных — то есть в выбор игрока не входят ни сейчас,
+   * ни после подъёма потолка. Попади любое в список — игрок смог бы взять на
+   * 1 уровне то, что принадлежит ордену и восемнадцатому.
+   */
+  it("проклятья, которые даёт орден, в выбор не попали", () => {
+    const ownerBound = ["экзорциста", "пожирания души", "гниения", "воя"];
+    const names = BLOOD_CURSES.map((c) => c.name).join(" | ");
+    for (const tail of ownerBound) {
+      expect(names.includes(tail), `в выборе оказалось «Проклятье ${tail}»`).toBe(false);
+    }
+  });
+
+  /**
+   * Статья справочника и панель выбора берут имена и тексты из ОДНОГО списка:
+   * абзацы раздела «Проклятья крови» собираются из `BLOOD_CURSES`. Напиши их
+   * второй копией — и переименование проклятья разошлось бы между статьёй и
+   * выбором молча.
+   */
+  it("абзацы статьи собраны из того же списка, что и варианты выбора", () => {
+    const paragraphs = BLOOD_HUNTER_TOPIC.blocks.flatMap((b) => (b.type === "paragraph" ? [b.text] : []));
+
+    for (const curse of BLOOD_CURSES) {
+      expect(
+        paragraphs.includes(`${curse.name}. ${curse.description}`),
+        `в статье нет абзаца «${curse.name}»`,
+      ).toBe(true);
+    }
+  });
+
+  it("ступени известного — тот же единственный владелец, что кормит таблицу", () => {
+    expect(choice.knownByLevel).toBe(BLOOD_CURSES_KNOWN_STEPS);
+    // Четвёртое и пятое проклятье приходят на 14 и 18 — выше потолка.
+    expect(BLOOD_CURSES_KNOWN_STEPS.map(([from]) => from)).toEqual([1, 6, 10]);
+  });
+
+  it("проклятья крови есть только у нашего класса — в CLASS_CHOICES больше никого", () => {
+    expect(Object.keys(CLASS_CHOICES)).toEqual([BLOOD_HUNTER_ID]);
   });
 });

@@ -47,6 +47,9 @@ import { GENASI_ELEMENTS, GENASI_FIXED_SKILLS, GENASI_ID, GENASI_LANGUAGES, GENA
 // строке на класс и ссылаются на владельца. Встречный импорт оттуда — только
 // тип `RuleTopic` из состояния, цикла нет.
 import {
+  BLOOD_CURSES,
+  BLOOD_CURSES_CHOICE_ID,
+  BLOOD_CURSES_KNOWN_STEPS,
   BLOOD_HUNTER_FIGHTING_STYLE_LEVEL,
   BLOOD_HUNTER_FIGHTING_STYLE_NAMES,
   BLOOD_HUNTER_ID,
@@ -5199,6 +5202,153 @@ export const ARTISAN_TOOLS: GearData[] = [
   { name: "Инструменты ткача", cost: "1 зм", weight: "5 фнт." },
   { name: "Инструменты резчика по дереву", cost: "1 зм", weight: "5 фнт." },
 ];
+
+/**
+ * ОБЩИЙ МЕХАНИЗМ КЛАССОВОГО ВЫБОРА. Выбор, который делает сам КЛАСС, а не
+ * архетип: проклятья крови Кровавого охотника сейчас, инфузии Изобретателя и
+ * формулы Алхимика — следующими карточками. Поэтому он заведён списком,
+ * ступенями и вариантами, и ни одной строки про проклятья в нём нет.
+ *
+ * ЧЕМ ОТЛИЧАЕТСЯ ОТ ТРЁХ УЖЕ РАБОТАЮЩИХ МЕХАНИЗМОВ, и почему не подошёл ни один:
+ * - `SubclassChoice` — выбор внутри АРХЕТИПА. Живёт в `SubclassGrants.choices`
+ *   и хранится в `Character.subclassChoices`; архетип у Кровавого охотника
+ *   выбирается только на 3 уровне, а первое проклятье приходит на 1 — спросить
+ *   его там некому, и смена архетипа не должна стирать классовый выбор;
+ * - `CLASS_FIGHTING_STYLES` — РОВНО ОДИН выбор, РОВНО один раз, и его значение
+ *   живёт своим полем `Character.fightingStyle`. Здесь вариантов набирается
+ *   несколько и по лесенке уровней, так что поле на каждый выбор не заведёшь;
+ * - `CLASS_SUBCLASSES` — выбор одного архетипа из списка, тоже однократный.
+ *
+ * Переписывать их этот механизм НЕ должен (распоряжение Producer'а 08.10.2026):
+ * у стиля и архетипов свои работающие механизмы, и их замена — не следствие
+ * появления этого.
+ *
+ * СКОЛЬКО ВАРИАНТОВ ОТКРЫТО — лесенка `knownByLevel`: «с какого уровня сколько
+ * ВСЕГО», а не «сколько прибавилось». Так написан столбец таблицы класса, и так
+ * его читают оба места: мастер создания (уровень 1) и левел-ап (уровень, на
+ * котором число выросло). Разница «сколько уже выбрано» считается вычитанием, а
+ * не хранится вторым числом.
+ */
+export interface ClassChoiceOption {
+  /** Стабильный id — он и только он уходит в `Character.classChoices`. */
+  id: string;
+  /** Имя варианта. На шаге «Итог» и на листе выделяется жирным — правило проекта. */
+  name: string;
+  description: string;
+  /**
+   * Уровень, с которого вариант доступен. Умолчание — 1. Нужен спискам, где
+   * часть вариантов открывается позже (мутагены Ордена мутантов, инфузии
+   * Изобретателя); у проклятий крови внутри потолка 12 таких нет.
+   */
+  minLevel?: number;
+}
+
+export interface ClassChoice {
+  /** Стабильный id выбора — ключ в `Character.classChoices`. */
+  id: string;
+  /** Название особенности, под которой идёт выбор («Проклятья крови»). */
+  name: string;
+  /** Единица для подписи «Выбери ещё 1 проклятье крови» — в единственном числе. */
+  unit: string;
+  /** Сколько вариантов известно ВСЕГО к уровню: пары «с какого уровня → сколько». */
+  knownByLevel: readonly (readonly [number, number])[];
+  options: readonly ClassChoiceOption[];
+}
+
+/**
+ * Классовые выборы по классам. У двенадцати классов SRD их нет: в SRD такой
+ * формы («выбери N из списка, список растёт с уровнем») у самих классов не
+ * встречается — всё подобное там принадлежит архетипу или заклинаниям.
+ */
+export const CLASS_CHOICES: Record<string, readonly ClassChoice[]> = {
+  [BLOOD_HUNTER_ID]: [
+    {
+      id: BLOOD_CURSES_CHOICE_ID,
+      name: "Проклятья крови",
+      unit: "проклятье крови",
+      // Ступени столбца таблицы класса — у них один владелец, модуль класса:
+      // те же числа читает `scaling` в classProgression.ts.
+      knownByLevel: BLOOD_CURSES_KNOWN_STEPS,
+      options: BLOOD_CURSES,
+    },
+  ],
+};
+
+/** Классовые выборы этого класса — пустой список у классов без них. */
+export function classChoicesFor(classId: string | null | undefined): readonly ClassChoice[] {
+  return (classId && CLASS_CHOICES[classId]) || [];
+}
+
+/**
+ * Сколько вариантов этого выбора известно на уровне `level` — последняя
+ * подошедшая ступень `knownByLevel`. Ниже первой ступени — ноль: выбора ещё нет.
+ */
+export function classChoiceKnownAt(choice: ClassChoice, level: number): number {
+  let known = 0;
+  for (const [from, count] of choice.knownByLevel) {
+    if (level >= from) known = count;
+  }
+  return known;
+}
+
+/** Варианты, доступные на этом уровне (`minLevel`), — порядок списка сохраняется. */
+export function classChoiceOptionsAt(choice: ClassChoice, level: number): ClassChoiceOption[] {
+  return choice.options.filter((option) => (option.minLevel ?? 1) <= level);
+}
+
+/**
+ * Первый выбор, в котором на уровне `level` открыто больше вариантов, чем
+ * выбрано, — и сколько ещё не хватает. Единственный владелец правила «пора
+ * спросить»: его зовут и мастер создания (уровень 1), и левел-ап.
+ *
+ * `undefined` значит «спрашивать нечего»: либо у класса выборов нет, либо все
+ * открытые варианты уже выбраны.
+ */
+export function pendingChoiceAmong(
+  choices: readonly ClassChoice[],
+  level: number,
+  chosen: Record<string, string[]> | undefined,
+): { choice: ClassChoice; missing: number } | undefined {
+  for (const choice of choices) {
+    const have = chosen?.[choice.id]?.length ?? 0;
+    const missing = classChoiceKnownAt(choice, level) - have;
+    if (missing > 0) return { choice, missing };
+  }
+  return undefined;
+}
+
+/** То же правило для класса: берёт его выборы из таблицы и спрашивает `pendingChoiceAmong`. */
+export function pendingClassChoice(
+  classId: string | null | undefined,
+  level: number,
+  chosen: Record<string, string[]> | undefined,
+): { choice: ClassChoice; missing: number } | undefined {
+  return pendingChoiceAmong(classChoicesFor(classId), level, chosen);
+}
+
+/**
+ * Выбранное игроком — по выборам класса, с полными вариантами, а не числом и не
+ * голыми id. Единственный владелец показа: его зовут и шаг «Итог» мастера, и
+ * лист персонажа, иначе они разошлись бы молча (то же правило, что у
+ * `raceTraitsWithVariant`).
+ *
+ * Неизвестный id молча пропускается: вариант могли переименовать или убрать, и
+ * сохранение с ним не должно ронять ни один из двух показов.
+ */
+export function chosenClassChoices(
+  classId: string | null | undefined,
+  chosen: Record<string, string[]> | undefined,
+): { choice: ClassChoice; options: ClassChoiceOption[] }[] {
+  const result: { choice: ClassChoice; options: ClassChoiceOption[] }[] = [];
+  for (const choice of classChoicesFor(classId)) {
+    const ids = chosen?.[choice.id] ?? [];
+    const options = ids
+      .map((id) => choice.options.find((option) => option.id === id))
+      .filter((option): option is ClassChoiceOption => !!option);
+    if (options.length > 0) result.push({ choice, options });
+  }
+  return result;
+}
 
 export interface FightingStyle {
   name: string;

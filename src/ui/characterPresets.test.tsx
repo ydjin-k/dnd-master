@@ -197,6 +197,7 @@ function blankCharacter(): Character {
     spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
     featureUses: [],
     subclassChoices: {},
+    classChoices: {},
     feats: [],
   };
 }

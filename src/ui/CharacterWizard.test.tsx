@@ -146,6 +146,22 @@ function pickRequiredClassSkills() {
  * "Далее" until all 6 have a value. A no-op when the standard-array table isn't on screen
  * (other methods, other steps) or a dropdown was already explicitly set by the test.
  */
+/**
+ * Классовый выбор на шаге «Класс» (проклятья крови и всё, что придёт за
+ * ними): отмечает первый незанятый вариант в каждой сетке выбора. Своя
+ * сетка, а не `wizard__skill-grid` навыков, — отличить одно от другого
+ * одним селектором иначе нельзя.
+ */
+function pickRequiredClassChoices() {
+  for (const grid of Array.from(document.querySelectorAll(".wizard__class-choice-grid"))) {
+    for (let i = 0; i < 5; i++) {
+      const input = grid.querySelector<HTMLInputElement>('input:not(:checked):not(:disabled)');
+      if (!input) break;
+      fireEvent.click(input);
+    }
+  }
+}
+
 function fillStandardAbilities() {
   const STANDARD_VALUES = ["15", "14", "13", "12", "10", "8"];
   const selects = Array.from(
@@ -1832,6 +1848,8 @@ describe("CharacterWizard", () => {
     fireEvent.click(await screen.findByText("Кровавый охотник"));
     // Три навыка из восьми — норма класса; шаг не пустит дальше, если их меньше.
     pickRequiredClassSkills();
+    // И одно проклятье крови — классовый выбор 1 уровня, без него шаг тоже закрыт.
+    pickRequiredClassChoices();
     fillStandardAbilities();
     fireEvent.click(screen.getByText("Далее"));
     fireEvent.click(await screen.findByText("Послушник"));
@@ -1916,5 +1934,110 @@ describe("CharacterWizard", () => {
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.fightingStyle).toBe("Оборона");
+  });
+
+  /**
+   * Классовый выбор в мастере создания — проклятья крови 1 уровня. Общий
+   * механизм (`CLASS_CHOICES`), и пробы ниже сторожат три требования
+   * карточки: выбор работает при создании, доезжает до персонажа ПОИМЁННО и
+   * виден на шаге «Итог» с именем жирным.
+   */
+  it("шаг «Класс» не пускает дальше, пока проклятье крови не выбрано", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Кровавый охотник"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+
+    // Навыки выбраны, характеристики разложены — и всё равно не пускает:
+    // умолчания у классового выбора нет СОЗНАТЕЛЬНО, молча подставленный
+    // первый пункт отдал бы игроку проклятье, которого он не выбирал.
+    expect(screen.getByText(/Выбери проклятье крови, чтобы продолжить/)).toBeInTheDocument();
+
+    pickRequiredClassChoices();
+    expect(screen.queryByText(/Выбери проклятье крови/)).not.toBeInTheDocument();
+  });
+
+  it("выбранное проклятье доезжает до персонажа по id и видно на «Итоге» жирным", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Кровавый охотник"));
+    pickRequiredClassSkills();
+    // Выбираем ИМЕНЕМ, а не первый попавшийся: проба должна увидеть именно его.
+    fireEvent.click(screen.getByText("Проклятье слепоты").closest("label")!.querySelector("input")!);
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    // Шаг «Итог»: правило проекта — имя особенности жирным, тем же приёмом,
+    // что у расовых особенностей и боевого стиля.
+    const summary = (await screen.findByText("Проклятья крови:")).closest("li") as HTMLElement;
+    const name = within(summary).getByText("Проклятье слепоты");
+    expect(name.tagName).toBe("STRONG");
+    expect(within(summary).getByText(/вычитаете её бросок из этой атаки/)).toBeInTheDocument();
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), { target: { value: "Гаррен" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    // В персонаже — id варианта, не имя: имя живёт одним владельцем.
+    expect(character.classChoices).toEqual({ "blood-curses": ["blood-curse-eyes"] });
+  });
+
+  it("смена класса сбрасывает классовый выбор, а не тащит его чужому классу", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Кровавый охотник"));
+    pickRequiredClassChoices();
+    // Передумал: Воин классовых выборов не имеет вовсе.
+    fireEvent.click(screen.getByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+
+    expect(document.querySelector(".wizard__class-choice-grid")).toBeNull();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), { target: { value: "Брант" } });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.class).toBe("Воин");
+    expect(character.classChoices).toEqual({});
+  });
+
+  it("двенадцати классам SRD мастер классового выбора не показывает вовсе", async () => {
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Бард"));
+
+    expect(document.querySelector(".wizard__class-choice-grid")).toBeNull();
   });
 });

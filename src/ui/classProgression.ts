@@ -3,6 +3,7 @@ import { abilityMod, subclassGrants, type AbilityKey } from "./characterCreation
 // второй копии этих строк здесь быть не должно — по тем же id лист ищет
 // `Character.featureUses`. Встречного импорта оттуда нет.
 import {
+  BLOOD_CURSES_KNOWN_STEPS,
   BLOOD_CURSE_RESOURCE_ID,
   BLOOD_HUNTER_ID,
   BRAND_OF_CASTIGATION_RESOURCE_ID,
@@ -558,7 +559,13 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       ],
       scaling: [
         { name: "Кость гемокрафта", value: byStep(level, [[1, "1к4"], [5, "1к6"], [11, "1к8"]]) },
-        { name: "Известные проклятья крови", value: byStep(level, [[1, "1"], [6, "2"], [10, "3"]]) },
+        // Числа — ступени столбца таблицы класса, у них один владелец (модуль
+        // класса), и он же кормит лесенку выбора проклятий в CLASS_CHOICES:
+        // написанные здесь отдельно, они разошлись бы с числом выбранного.
+        {
+          name: "Известные проклятья крови",
+          value: String(byStep(level, BLOOD_CURSES_KNOWN_STEPS.map(([from, count]) => [from, count] as [number, number]))),
+        },
       ],
     })),
   },

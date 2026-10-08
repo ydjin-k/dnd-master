@@ -118,6 +118,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         spellSlotsCurrent: [0, 0, 0, 0, 0],
         featureUses: [],
         subclassChoices: {},
+        classChoices: {},
         feats: [],
       },
     ],

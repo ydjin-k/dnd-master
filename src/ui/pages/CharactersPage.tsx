@@ -30,8 +30,12 @@ import {
   armorProficienciesFor,
   coinsTotalGold,
   computeArmorClass,
+  chosenClassChoices,
+  classChoiceOptionsAt,
   effectiveSubclassGrants,
   fightingStyleByName,
+  classChoicesFor,
+  pendingClassChoice,
   fightingStyleChoiceFor,
   fmtMod,
   healingPoolSelfHeal,
@@ -279,6 +283,8 @@ export function classFeaturesBlockHasContent(args: {
   healingBonus: unknown;
   /** Выбранный боевой стиль: у Воина 1 уровня он был единственным содержимым блока, и без него блок не открывался. */
   fightingStyle?: unknown;
+  /** Выбранные варианты классового выбора (проклятья крови и далее) — у персонажа 1 уровня это единственное содержимое блока. */
+  classChoices?: unknown[];
 }): boolean {
   return (
     args.classFeatures.length > 0 ||
@@ -290,7 +296,8 @@ export function classFeaturesBlockHasContent(args: {
     !!args.bonusCantrips ||
     !!args.damageResistances?.length ||
     !!args.healingBonus ||
-    !!args.fightingStyle
+    !!args.fightingStyle ||
+    !!args.classChoices?.length
   );
 }
 
@@ -443,6 +450,16 @@ function CharacterCard({
    */
   const [fightingStylePanelOpen, setFightingStylePanelOpen] = useState(false);
   const [fightingStyleIndex, setFightingStyleIndex] = useState(0);
+  /**
+   * Классовый выбор — ПЯТАЯ ветка того же прерывания левел-апа (см.
+   * requestLevelUp). Открывается на уровне, где у выбора вырос столбец
+   * известного: у Кровавого охотника это 6 и 10. Форма общая, не под
+   * проклятья: `ClassChoice` знает и сколько спрашивать, и из чего выбирать,
+   * поэтому инфузиям Изобретателя и формулам Алхимика эта панель достанется
+   * готовой.
+   */
+  const [classChoicePending, setClassChoicePending] = useState<{ choiceId: string; missing: number } | null>(null);
+  const [classChoiceSelections, setClassChoiceSelections] = useState<string[]>([]);
   // Выбор внутри архетипа (Добыча охотника и т.п.) — третья ветка того же
   // прерывания левел-апа, что и выбор архетипа/ASI выше (см. requestLevelUp).
   const [pendingChoice, setPendingChoice] = useState<SubclassChoice | null>(null);
@@ -509,6 +526,8 @@ function CharacterCard({
 
   /** `Character.class` хранит заголовок класса, id ищем через ту же карту, что и кость хитов. */
   const classId = classHitDiceByTitle[c.class]?.id;
+  /** Классовые выборы этого класса — и для панели левел-апа, и для показа выбранного. */
+  const classChoicesForCard = classChoicesFor(classId);
 
   /**
    * Владения доспехами/оружием персонаж хранит снимком (как и владения
@@ -1158,6 +1177,11 @@ function CharacterCard({
    * `newFightingStyle` — боевой стиль, выбранный на этом же левел-апе (см.
    * confirmFightingStyle), тем же приёмом: одна запись в персонажа, а не
    * отдельная «выбрал стиль» рядом с «поднял уровень».
+   *
+   * `newClassChoiceIds` — варианты классового выбора, добавленные на этом же
+   * левел-апе (см. confirmClassChoice): пара «id выбора → добавленные id
+   * вариантов». ДОБАВЛЯЮТСЯ к уже выбранному, а не заменяют его: проклятье,
+   * выученное на 1 уровне, на шестом не переспрашивается.
    */
   function applyLevelUp(
     abilities: AbilityScores,
@@ -1165,6 +1189,7 @@ function CharacterCard({
     newSubclassChoices?: Record<string, string[]>,
     newFeatId?: string,
     newFightingStyle?: string,
+    newClassChoiceIds?: Record<string, string[]>,
   ) {
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
@@ -1209,6 +1234,17 @@ function CharacterCard({
         subclass: subclassName,
         subclassChoices: allSubclassChoices,
         fightingStyle: newFightingStyle ?? ch.fightingStyle,
+        classChoices: newClassChoiceIds
+          ? {
+              ...ch.classChoices,
+              ...Object.fromEntries(
+                Object.entries(newClassChoiceIds).map(([choiceId, added]) => [
+                  choiceId,
+                  [...new Set([...(ch.classChoices?.[choiceId] ?? []), ...added])],
+                ]),
+              ),
+            }
+          : ch.classChoices,
         // Каждую черту можно взять только раз (SRD) — повтор дал бы двойную
         // прибавку к характеристике; отбор доступных это уже учитывает
         // (`canTakeFeat`), поэтому здесь список только пополняется.
@@ -1272,6 +1308,12 @@ function CharacterCard({
    * (`fightingStyleChoiceFor`), а не сверяется id класса, и спрашивается
    * только пока стиль не выбран. У Воина стиль приходит на 1 уровне, то есть
    * из мастера создания, и эта ветка его не касается вовсе.
+   *
+   * Пятая ветка — классовый выбор (`pendingClassChoice`): проклятья крови на
+   * 6 и 10 уровнях, а дальше инфузии и формулы. Условие читается из данных
+   * целиком — «открыто больше, чем выбрано», — поэтому ни один уровень и ни
+   * один класс здесь не вшит. Она же догоняет персонажа из сохранения, у
+   * которого выбора ещё нет вовсе: спросит всё недостающее сразу.
    */
   function requestLevelUp() {
     if (c.level >= MAX_LEVEL) return;
@@ -1297,6 +1339,12 @@ function CharacterCard({
     if (styleChoice && styleChoice.level > 1 && newLevel >= styleChoice.level && !c.fightingStyle) {
       setFightingStyleIndex(0);
       setFightingStylePanelOpen(true);
+      return;
+    }
+    const classChoice = pendingClassChoice(dice?.id, newLevel, c.classChoices);
+    if (classChoice) {
+      setClassChoiceSelections([]);
+      setClassChoicePending({ choiceId: classChoice.choice.id, missing: classChoice.missing });
       return;
     }
     // Уровни ASI берутся из таблицы класса (classProgression.ts): стандартные
@@ -1334,6 +1382,35 @@ function CharacterCard({
     if (!chosen) return;
     setFightingStylePanelOpen(false);
     applyLevelUp(c.abilities, undefined, undefined, undefined, chosen);
+  }
+
+  /**
+   * Открытый классовый выбор целиком — сам `ClassChoice` по сохранённому id.
+   * Панель держит только id и число недостающих вариантов, а не копию
+   * данных: список вариантов принадлежит `CLASS_CHOICES`.
+   */
+  const levelUpClassChoice = classChoicePending
+    ? classChoicesForCard.find((choice) => choice.id === classChoicePending.choiceId)
+    : undefined;
+
+  function toggleClassChoiceSelection(optionId: string) {
+    if (!classChoicePending) return;
+    setClassChoiceSelections((prev) => toggleChoiceSelection(prev, optionId, classChoicePending.missing));
+  }
+
+  function confirmClassChoice() {
+    if (!classChoicePending || !levelUpClassChoice) return;
+    if (classChoiceSelections.length !== classChoicePending.missing) return;
+    const choiceId = classChoicePending.choiceId;
+    const added = classChoiceSelections;
+    setClassChoicePending(null);
+    setClassChoiceSelections([]);
+    applyLevelUp(c.abilities, undefined, undefined, undefined, undefined, { [choiceId]: added });
+  }
+
+  function cancelClassChoice() {
+    setClassChoicePending(null);
+    setClassChoiceSelections([]);
   }
 
   function openChoicePanel(choice: SubclassChoice, subclassName?: string) {
@@ -1476,6 +1553,8 @@ function CharacterCard({
   const classScaling = progression?.scaling ?? [];
   /** Выбранный боевой стиль с его текстом — или `undefined`, если класс стиля не выбирает или ещё не выбрал. */
   const chosenFightingStyle = fightingStyleByName(c.fightingStyle);
+  /** Выбранные варианты классового выбора — с именами и текстами, не id и не числом. */
+  const chosenClassOptions = chosenClassChoices(classId, c.classChoices);
   const subclassOptions = subclassResourceOptionsAt(classId, c.subclass, c.level, c.subclassChoices).filter((option) =>
     classResources.some((r) => r.id === option.resourceId),
   );
@@ -1866,7 +1945,12 @@ function CharacterCard({
           type="button"
           onClick={requestLevelUp}
           disabled={
-            c.level >= MAX_LEVEL || asiPanelOpen || subclassPanelOpen || fightingStylePanelOpen || !!pendingChoice
+            c.level >= MAX_LEVEL ||
+            asiPanelOpen ||
+            subclassPanelOpen ||
+            fightingStylePanelOpen ||
+            !!classChoicePending ||
+            !!pendingChoice
           }
           aria-disabled={!levelUpReady}
           className={!levelUpReady && c.level < MAX_LEVEL ? "character-card__danger" : undefined}
@@ -1944,6 +2028,55 @@ function CharacterCard({
               Подтвердить и повысить уровень
             </button>
             <button type="button" onClick={() => setFightingStylePanelOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+      {classChoicePending && levelUpClassChoice && (
+        <div className="character-card__asi">
+          <p>
+            Выберите «{levelUpClassChoice.name}» ({c.level + 1} уровень) —{" "}
+            {classChoicePending.missing > 1
+              ? `ещё ${classChoicePending.missing} варианта(ов)`
+              : `ещё один вариант`}
+            :
+          </p>
+          <div className="character-card__asi-mode character-card__asi-mode--choices">
+            {/*
+              Уже выбранные варианты из списка выброшены: проклятье, выученное
+              на 1 уровне, вторым выбрать нельзя. Отбор идёт по сохранению, а
+              не по снимку панели, — иначе повтор прошёл бы после отмены.
+            */}
+            {classChoiceOptionsAt(levelUpClassChoice, c.level + 1)
+              .filter((option) => !(c.classChoices?.[levelUpClassChoice.id] ?? []).includes(option.id))
+              .map((option) => (
+                <label key={option.id}>
+                  <input
+                    type={classChoicePending.missing === 1 ? "radio" : "checkbox"}
+                    name="class-choice-option"
+                    checked={classChoiceSelections.includes(option.id)}
+                    disabled={
+                      classChoicePending.missing > 1 &&
+                      !classChoiceSelections.includes(option.id) &&
+                      classChoiceSelections.length >= classChoicePending.missing
+                    }
+                    onChange={() => toggleClassChoiceSelection(option.id)}
+                  />{" "}
+                  <strong>{option.name}</strong> — {option.description}
+                </label>
+              ))}
+          </div>
+          <div className="character-card__asi-actions">
+            <button
+              type="button"
+              onClick={confirmClassChoice}
+              disabled={classChoiceSelections.length !== classChoicePending.missing}
+              data-own-sound
+            >
+              Подтвердить и повысить уровень
+            </button>
+            <button type="button" onClick={cancelClassChoice}>
               Отмена
             </button>
           </div>
@@ -2213,6 +2346,7 @@ function CharacterCard({
         damageResistances: grants?.damageResistances,
         healingBonus,
         fightingStyle: chosenFightingStyle,
+        classChoices: chosenClassOptions,
       }) && (
         <details className="character-card__class-features" open>
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
@@ -2299,6 +2433,26 @@ function CharacterCard({
               Боевой стиль: <strong>{chosenFightingStyle.name}</strong> — {chosenFightingStyle.description}
             </p>
           )}
+          {/*
+            Классовый выбор — ПОИМЁННО, а не числом. Число известного уже
+            стоит отдельной строкой `classScaling` («Известные проклятья
+            крови: 2»), и его одного игроку мало: он выбирал конкретные
+            варианты, и лист обязан их помнить. Показ собирает тот же
+            единственный владелец, что и шаг «Итог» мастера
+            (`chosenClassChoices`), иначе они разошлись бы молча.
+          */}
+          {chosenClassOptions.map(({ choice, options }) => (
+            <div key={choice.id}>
+              <p className="character-card__prof">{choice.name}:</p>
+              <ul className="character-card__traits">
+                {options.map((option) => (
+                  <li key={option.id}>
+                    <strong>{option.name}</strong> — {option.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           {grants?.damageResistances && grants.damageResistances.length > 0 && (
             <p className="character-card__prof">Сопротивление урону: {grants.damageResistances.join(", ")}</p>
           )}

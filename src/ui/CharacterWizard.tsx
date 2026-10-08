@@ -36,6 +36,10 @@ import {
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
   CUSTOM_BACKGROUND_GOLD_LIMIT,
   DWARF_TOOL_CHOICES,
+  chosenClassChoices,
+  classChoiceKnownAt,
+  classChoiceOptionsAt,
+  classChoicesFor,
   fightingStyleChoiceFor,
   INSTRUMENTS,
   NAME_SUGGESTIONS,
@@ -232,6 +236,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [bardInstruments, setBardInstruments] = useState<string[]>([]);
   const [chosenBackgroundLanguages, setChosenBackgroundLanguages] = useState<string[]>([]);
   const [classSkills, setClassSkills] = useState<string[]>([]);
+  /**
+   * Классовый выбор 1 уровня (проклятья крови и всё, что придёт после них) —
+   * `ClassChoice.id` → id выбранных вариантов, та же форма, что уйдёт в
+   * `Character.classChoices`. Умолчания здесь нет СОЗНАТЕЛЬНО, тем же
+   * правилом, что у варианта расы и навыков класса: молча подставленный
+   * первый пункт отдал бы игроку особенность, которой он не выбирал, —
+   * поэтому шаг блокируется до выбора (`stepValidationMessage`).
+   */
+  const [classChoiceIds, setClassChoiceIds] = useState<Record<string, string[]>>({});
   const [equipmentChoice, setEquipmentChoice] = useState<Record<number, number>>({});
   const [equipmentPicks, setEquipmentPicks] = useState<Record<string, string[]>>({});
   const [method, setMethod] = useState<AbilityMethod>("standard");
@@ -309,6 +322,16 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
    * `fightingStyleChoiceFor` (characterCreationData.ts), а не сверкой id
    * класса, как было раньше.
    */
+  /**
+   * Классовые выборы, которые спрашивает МАСТЕР, — только те, у кого на 1
+   * уровне уже открыт хотя бы один вариант. Остальные (если появятся выборы,
+   * начинающиеся выше) спросит левел-ап: предложить здесь то, чего у
+   * персонажа 1 уровня ещё нет, значило бы выдать ему чужую особенность.
+   * Лесенку читает единственный владелец правила — `classChoiceKnownAt`.
+   */
+  const wizardClassChoices = classChoicesFor(classId).filter((choice) => classChoiceKnownAt(choice, 1) > 0);
+  /** Что показать на «Итоге»: выбранные варианты с именами и текстами, а не id. */
+  const summaryClassChoices = chosenClassChoices(classId, classChoiceIds);
   const classFightingStyles = fightingStyleChoiceFor(classId);
   const wizardFightingStyles = classFightingStyles?.level === 1 ? classFightingStyles.styles : [];
   const isRanger = classId === "classes-ranger";
@@ -451,6 +474,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     setClassId(id);
     setChosenSubclassIndex(0);
     setClassSkills([]);
+    setClassChoiceIds({});
     setEquipmentChoice({});
     setFightingStyle("");
     setFavoredEnemy("");
@@ -469,6 +493,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
 
   function setBardInstrumentAt(index: number, instrumentName: string) {
     setBardInstruments((prev) => prev.map((v, i) => (i === index ? instrumentName : v)));
+  }
+
+  /**
+   * Отметить/снять вариант классового выбора. Потолок — сколько открыто на 1
+   * уровне; при `pick === 1` работает как радиокнопка. Приём общий с выбором
+   * внутри архетипа: `toggleChoiceSelection` владеет этим правилом один.
+   */
+  function toggleClassChoiceOption(choiceId: string, optionId: string, pick: number) {
+    setClassChoiceIds((prev) => ({
+      ...prev,
+      [choiceId]: toggleChoiceSelection(prev[choiceId] ?? [], optionId, pick),
+    }));
   }
 
   function toggleClassSkill(skill: string) {
@@ -766,6 +802,10 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       // Выбор внутри архетипа появляется только левел-апом (chosenAtLevel всех
       // трёх подключённых случаев — 2 или 3 уровень, персонаж создаётся 1-м).
       subclassChoices: {},
+      // Классовый выбор 1 уровня — наоборот, делается здесь: первое проклятье
+      // крови приходит на 1 уровне, и спросить его больше негде. Уходят id
+      // вариантов, не имена (см. `Character.classChoices`).
+      classChoices: classChoiceIds,
       // Черт у персонажа 1 уровня нет: черта берётся вместо Увеличения
       // характеристик, а первая такая точка — не раньше 4 уровня (см.
       // `asiLevels` в classProgression.ts). Шаг «Итог» это и говорит игроку
@@ -846,6 +886,15 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       if (!classId) return "Выбери класс, чтобы продолжить.";
       if (classProf && classSkills.length < classProf.skillCount) {
         return `Выбери ${classProf.skillCount} навыка класса, чтобы продолжить.`;
+      }
+      for (const choice of wizardClassChoices) {
+        const need = classChoiceKnownAt(choice, 1);
+        const have = classChoiceIds[choice.id]?.length ?? 0;
+        if (have < need) {
+          return need === 1
+            ? `Выбери ${choice.unit}, чтобы продолжить.`
+            : `Выбери ${need} вариантов «${choice.name}», чтобы продолжить.`;
+        }
       }
       return null;
     }
@@ -1062,6 +1111,37 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                     </div>
                   </div>
                 )}
+                {wizardClassChoices.map((choice) => {
+                  const pick = classChoiceKnownAt(choice, 1);
+                  const selected = classChoiceIds[choice.id] ?? [];
+                  const options = classChoiceOptionsAt(choice, 1);
+                  return (
+                    <div key={choice.id} className="wizard__class-choice">
+                      <p className="wizard__hint">
+                        {choice.name} — выбери {pick} (выбрано {selected.length}/{pick}):
+                      </p>
+                      {/* Раскладку берём у сетки навыков, а свой класс нужен пробам:
+                          отличить вариант классового выбора от навыка класса одним
+                          селектором иначе нельзя. */}
+                      <div className="wizard__skill-grid wizard__class-choice-grid">
+                        {options.map((option) => (
+                          <label key={option.id} className="wizard__choice-bonus" title={option.description}>
+                            <input
+                              type={pick === 1 ? "radio" : "checkbox"}
+                              name={`class-choice-${choice.id}`}
+                              checked={selected.includes(option.id)}
+                              onChange={() => toggleClassChoiceOption(choice.id, option.id, pick)}
+                              disabled={
+                                pick > 1 && !selected.includes(option.id) && selected.length >= pick
+                              }
+                            />
+                            {option.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
                 {wizardFightingStyles.length > 0 && (
                   <p className="wizard__hint">
                     Боевой стиль:{" "}
@@ -1732,6 +1812,25 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                 {raceSpellLine && <p className="wizard__hint">{raceSpellLine}</p>}
               </li>
             )}
+            {/*
+              Правило проекта: ЛЮБОЙ выбор мастера, дающий особенность, обязан
+              отрисоваться на «Итоге», и имя особенности — жирным, тем же
+              приёмом, что у расовых особенностей и боевого стиля рядом.
+              Показ собирает единственный владелец (`chosenClassChoices`) —
+              его же зовёт лист персонажа, иначе итог и лист разошлись бы.
+            */}
+            {summaryClassChoices.map(({ choice, options }) => (
+              <li key={choice.id}>
+                {choice.name}:
+                <ul className="wizard__traits">
+                  {options.map((option) => (
+                    <li key={option.id}>
+                      <strong>{option.name}</strong> — {option.description}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
             {wizardFightingStyles.length > 0 && (
               <li>
                 Боевой стиль:{" "}

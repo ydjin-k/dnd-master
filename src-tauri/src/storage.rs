@@ -471,6 +471,72 @@ mod tests {
         assert_eq!(list_campaigns_in(&base).unwrap().len(), 1);
     }
 
+    /// characters-class-blood-hunter, шестой коммит — классовый выбор обязан
+    /// ПЕРЕЖИВАТЬ ПЕРЕЗАПУСК, и это требование карточки проверяется здесь, а не
+    /// на стороне UI: поле может быть объявлено в TypeScript и при этом молча
+    /// теряться на записи, потому что сериализует кампанию Rust, и
+    /// незнакомое ему поле он просто не выведет.
+    ///
+    /// Отрицательная проба проверена руками: поставить полю
+    /// `#[serde(skip)]` — краснеет именно она, причём кампания при этом
+    /// «сохраняется успешно» и открывается без ошибки, просто выбор пуст.
+    #[test]
+    fn class_choices_survive_a_save_and_load_round_trip() {
+        let base = temp_dir("class-choices");
+        let created = create_campaign_in(&base, "Кровавая охота".into()).unwrap();
+
+        let mut hunter = Character::default();
+        hunter.id = "bh1".into();
+        hunter.name = "Гаррен".into();
+        hunter.class = "Кровавый охотник".into();
+        hunter.level = 10;
+        hunter.class_choices.insert(
+            "blood-curses".into(),
+            vec!["blood-curse-marked".into(), "blood-curse-eyes".into(), "blood-curse-binding".into()],
+        );
+
+        let state = CampaignState {
+            characters: vec![hunter],
+            ..created
+        };
+        save_campaign_in(&base, &state).unwrap();
+
+        let loaded = load_active_in(&base).unwrap().expect("кампания должна открыться");
+        let hunter = &loaded.characters[0];
+        // Поимённо и по порядку: «не пусто» пропустило бы и обрезку, и пересортировку.
+        assert_eq!(
+            hunter.class_choices.get("blood-curses").map(Vec::as_slice),
+            Some(
+                ["blood-curse-marked", "blood-curse-eyes", "blood-curse-binding"]
+                    .map(String::from)
+                    .as_slice()
+            ),
+            "выбранные проклятья крови не дожили до загрузки"
+        );
+    }
+
+    /// Сохранение, записанное ДО появления классового выбора, обязано
+    /// открыться — и дать пустую карту, а не упасть на отсутствующем поле.
+    /// Тот же структурный `#[serde(default)]`, которым пережиты приход
+    /// `subclass_choices` и `tool_proficiencies`.
+    #[test]
+    fn campaign_saved_before_class_choices_opens_with_an_empty_map() {
+        let base = temp_dir("class-choices-legacy");
+        let id = "no-class-choices";
+        // Персонаж без единого поля, кроме имени и класса: ровно так выглядит
+        // старое сохранение для всего, что добавлено после него.
+        let raw = r#"{"id":"no-class-choices","campaignName":"До выбора",
+            "characters":[{"id":"old","name":"Старый","class":"Кровавый охотник","level":6}],
+            "journal":[],"combat":null,"engine":null,"travel":null}"#;
+        assert!(!raw.contains("classChoices"), "фикстура обязана быть БЕЗ нового поля");
+        fs::write(campaign_path(&base, id).unwrap(), raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let loaded = load_active_in(&base).unwrap().expect("старая кампания должна открыться");
+        assert_eq!(loaded.characters.len(), 1);
+        assert!(loaded.characters[0].class_choices.is_empty(), "ожидалась пустая карта выбора");
+    }
+
     #[test]
     fn corrupted_legacy_file_fails_migration_without_touching_it() {
         let base = temp_dir("legacy-corrupt");

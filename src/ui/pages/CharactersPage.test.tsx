@@ -221,6 +221,7 @@ describe("CharactersPage", () => {
       spellSlotsCurrent: [0, 0, 0, 0, 0],
       featureUses: [],
       subclassChoices: {},
+      classChoices: {},
       feats: [],
     };
   }
@@ -328,6 +329,7 @@ describe("CharactersPage", () => {
           spellSlotsCurrent: [0, 0, 0, 0, 0],
           featureUses: [],
           subclassChoices: {},
+          classChoices: {},
           feats: [],
         },
       ],
@@ -3886,6 +3888,14 @@ describe("CharactersPage", () => {
         // Боевой стиль класс выбирает на 2 уровне: персонаж 2 уровня и выше уже
         // с ним, иначе левел-ап справедливо остановится и спросит (см. пробы ниже).
         fightingStyle: level >= 2 ? "Дуэлянт" : "",
+        // Столько проклятий крови, сколько открыто на этом уровне (1 / 2 с 6 /
+        // 3 с 10): иначе левел-ап справедливо остановится и спросит недостающие.
+        classChoices: {
+          "blood-curses": ["blood-curse-marked", "blood-curse-eyes", "blood-curse-binding"].slice(
+            0,
+            level >= 10 ? 3 : level >= 6 ? 2 : 1,
+          ),
+        },
         featureUses,
       };
     }
@@ -3952,13 +3962,132 @@ describe("CharactersPage", () => {
       });
       await run.ready();
 
-      run.levelUp();
+      // На 6 уровне открывается второе известное проклятье, и левел-ап
+      // останавливается, чтобы спросить ЕГО — см. отдельные пробы ниже.
+      run.levelUp(() => {
+        fireEvent.click(screen.getByText("Проклятье слепоты").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
       expect(run.char.level).toBe(6);
       // 1к10 из текста статьи: 10 + 5 × (6 + 0).
       expect(run.char.maxHp).toBe(40);
       expect(run.char.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 2 });
       expect(run.char.featureUses).toContainEqual({ featureId: "brand-of-castigation", usesCurrent: 1 });
       expect(screen.getByText("Кость гемокрафта: 1к6")).toBeInTheDocument();
+    });
+
+    /**
+     * Классовый выбор — общий механизм (`CLASS_CHOICES`), и проклятья крови
+     * его первый пользователь. Пробы ниже сторожат ровно то, что требует
+     * карточка: выбор приходит на уровне, где вырос столбец известного (6 и
+     * 10), уже выбранное не переспрашивается, и на листе оно видно ПОИМЁННО.
+     */
+    it("левел-ап 5 → 6 спрашивает второе проклятье крови, не переспрашивая первое", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(5, [{ featureId: "blood-curse", usesCurrent: 1 }]),
+        subclass: "Орден мутантов",
+      });
+      await run.ready();
+      expect(run.char.classChoices["blood-curses"]).toEqual(["blood-curse-marked"]);
+
+      run.levelUp(() => {
+        expect(screen.getByText(/Выберите «Проклятья крови» \(6 уровень\)/)).toBeInTheDocument();
+        const labels = Array.from(document.querySelectorAll('input[name="class-choice-option"]')).map(
+          (input) => (input.closest("label") as HTMLElement).textContent ?? "",
+        );
+        // Семь из восьми: выученное на 1 уровне «Проклятье метки» выброшено.
+        expect(labels).toHaveLength(7);
+        expect(labels.join(" | ")).not.toMatch(/Проклятье метки/);
+
+        fireEvent.click(screen.getByText("Проклятье слепоты").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(6);
+      // Добавилось, а не заменило: первое проклятье на месте.
+      expect(run.char.classChoices["blood-curses"]).toEqual(["blood-curse-marked", "blood-curse-eyes"]);
+      // На листе — поимённо, а не числом.
+      expect(screen.getByText("Проклятья крови:")).toBeInTheDocument();
+      expect(screen.getByText("Проклятье метки")).toBeInTheDocument();
+      expect(screen.getByText("Проклятье слепоты")).toBeInTheDocument();
+      // Число известного при этом никуда не делось — это столбец таблицы.
+      expect(screen.getByText("Известные проклятья крови: 2")).toBeInTheDocument();
+    });
+
+    it("на 7 уровне ничего не переспрашивает — столбец известного не вырос", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(6, [{ featureId: "blood-curse", usesCurrent: 2 }]),
+        subclass: "Орден мутантов",
+      });
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.queryByText(/Выберите «Проклятья крови»/)).not.toBeInTheDocument();
+      });
+      expect(run.char.level).toBe(7);
+      expect(run.char.classChoices["blood-curses"]).toHaveLength(2);
+    });
+
+    it("левел-ап 9 → 10 спрашивает третье проклятье, и выбранное переживает перезапуск", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(9, [{ featureId: "blood-curse", usesCurrent: 2 }]),
+        subclass: "Орден мутантов",
+      });
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText(/Выберите «Проклятья крови» \(10 уровень\)/)).toBeInTheDocument();
+        fireEvent.click(screen.getByText("Проклятье привязки").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.classChoices["blood-curses"]).toEqual([
+        "blood-curse-marked",
+        "blood-curse-eyes",
+        "blood-curse-binding",
+      ]);
+      // «Переживает перезапуск» на этом уровне проверяется тем же, чем его
+      // переживают все поля персонажа: выбор лежит в `Character` и уходит в
+      // сохранение. Что лист читает его из сохранения, а не из своей памяти,
+      // показывает отдельный рендер того же персонажа с нуля.
+      cleanup();
+      mockState = baseState({ characters: [run.char] });
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [HUMAN_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      render(<CharactersPage />);
+
+      await screen.findByText(/Особенности класса/);
+      expect(screen.getByText("Проклятье метки")).toBeInTheDocument();
+      expect(screen.getByText("Проклятье слепоты")).toBeInTheDocument();
+      expect(screen.getByText("Проклятье привязки")).toBeInTheDocument();
+      expect(screen.getByText("Известные проклятья крови: 3")).toBeInTheDocument();
+    });
+
+    it("персонажу из сохранения без выбора вовсе левел-ап спрашивает всё недостающее сразу", async () => {
+      // Поле `classChoices` появилось вместе с механизмом, и у сохранений до
+      // него оно пустое. Лист обязан догнать выбор, а не молча оставить
+      // персонажа без проклятий: на 6 уровне открыто два, выбрано ноль.
+      const run = levelUpRunner(HUMAN_TOPIC, {
+        ...bloodHunter(5, [{ featureId: "blood-curse", usesCurrent: 1 }]),
+        subclass: "Орден мутантов",
+        classChoices: {},
+      });
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText(/ещё 2 варианта/)).toBeInTheDocument();
+        const inputs = Array.from(
+          document.querySelectorAll<HTMLInputElement>('input[name="class-choice-option"]'),
+        );
+        // Ни одно не выброшено: выбранных у персонажа нет.
+        expect(inputs).toHaveLength(8);
+        fireEvent.click(inputs[0]);
+        fireEvent.click(inputs[1]);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.classChoices["blood-curses"]).toHaveLength(2);
     });
 
     /**
