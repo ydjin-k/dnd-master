@@ -9,6 +9,7 @@ import { CHANGELING_TOPIC, CHANGELING_ID } from "./changelingRace";
 import { GOLIATH_TOPIC, GOLIATH_ID } from "./goliathRace";
 import { TABAXI_TOPIC, TABAXI_ID } from "./tabaxiRace";
 import { HARENGON_TOPIC, HARENGON_ID } from "./harengonRace";
+import { FIRBOLG_TOPIC, FIRBOLG_ID } from "./firbolgRace";
 
 /**
  * Сторож ФОРМЫ текста всех ШЕСТИ наших рас — той, которую владелец попросил 04.10.2026,
@@ -51,6 +52,7 @@ const RACES: Race[] = [
   { id: GOLIATH_ID, topic: GOLIATH_TOPIC, mechanicsSection: "Особенности голиафов" },
   { id: TABAXI_ID, topic: TABAXI_TOPIC, mechanicsSection: "Особенности табакси" },
   { id: HARENGON_ID, topic: HARENGON_TOPIC, mechanicsSection: "Особенности зайцегонов" },
+  { id: FIRBOLG_ID, topic: FIRBOLG_TOPIC, mechanicsSection: "Особенности фирболгов" },
 ];
 
 /** Заголовки второго уровня по порядку — это и есть оглавление статьи. */

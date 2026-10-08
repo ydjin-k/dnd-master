@@ -84,6 +84,7 @@ import { CHANGELING_ABILITY_BONUS, CHANGELING_ID, CHANGELING_SPEED_FEET } from "
 import { GOLIATH_ABILITY_BONUS, GOLIATH_ID, GOLIATH_SPEED_FEET } from "./goliathRace";
 import { TABAXI_ABILITY_BONUS, TABAXI_ID, TABAXI_SPEED_FEET } from "./tabaxiRace";
 import { HARENGON_ABILITY_BONUS, HARENGON_ID, HARENGON_SPEED_FEET } from "./harengonRace";
+import { FIRBOLG_ABILITY_BONUS, FIRBOLG_ID, FIRBOLG_SPEED_FEET } from "./firbolgRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
 import { playableRaces, raceWizardBlocks } from "./ownRuleTopics";
 import "./CharacterWizard.css";
@@ -144,6 +145,7 @@ const RACE_ABILITY_BONUSES: Record<string, RaceAbilityBonus> = {
   // Пачка B — то же самое: числа наши, владелец строки указан рядом.
   [TABAXI_ID]: { fixed: TABAXI_ABILITY_BONUS },
   [HARENGON_ID]: { fixed: HARENGON_ABILITY_BONUS },
+  [FIRBOLG_ID]: { fixed: FIRBOLG_ABILITY_BONUS },
 };
 
 // Скорость — сверена вручную с текстом «Скорость. Ваша базовая скорость
@@ -170,6 +172,7 @@ const RACE_SPEED_FEET: Record<string, number> = {
   [GOLIATH_ID]: GOLIATH_SPEED_FEET,
   [TABAXI_ID]: TABAXI_SPEED_FEET,
   [HARENGON_ID]: HARENGON_SPEED_FEET,
+  [FIRBOLG_ID]: FIRBOLG_SPEED_FEET,
 };
 
 // Ровно два варианта — владелец продукта явно попросил не добавлять третий.
