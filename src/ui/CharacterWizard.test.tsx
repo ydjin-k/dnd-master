@@ -1810,4 +1810,66 @@ describe("CharacterWizard", () => {
       within(list).getByText(/Пляшущие огоньки.*Огонь фей.*Тьма/),
     ).toBeInTheDocument();
   });
+
+  /**
+   * Отрицательная проба на сам класс, той же конструкции, что проба Эльфа
+   * бездны выше: `topics` этого файла Кровавого охотника НЕ содержат — класса
+   * нет и в `rules.json`, он приезжает из `playableClasses` (ownRuleTopics.ts).
+   * Убери его оттуда или из `OWN_RULE_TOPICS` — и проба покраснеет именно на
+   * названии класса, а не на общем снимке экрана.
+   *
+   * Проверяется весь путь карточки: класс выбирается, его спасброски,
+   * владения, навыки, инструменты и стартовое снаряжение доезжают до
+   * персонажа, а кость хитов 1к10 из текста статьи — до максимума хитов.
+   */
+  it("Кровавый охотник выбирается наравне с двенадцатью и доносит до персонажа владения, навыки, снаряжение и кость хитов", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Человек"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Кровавый охотник"));
+    // Три навыка из восьми — норма класса; шаг не пустит дальше, если их меньше.
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByLabelText(/Ручной ввод/));
+    fireEvent.click(await screen.findByText("Далее")); // характеристики: база 10 везде
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее")); // снаряжение: по умолчанию
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Гаррен" },
+    });
+    fireEvent.click(screen.getByText("Создать персонажа"));
+
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.class).toBe("Кровавый охотник");
+    // Кость хитов 1к10 из абзаца статьи: 10 + модификатор Телосложения 0.
+    expect(character.maxHp).toBe(10);
+    expect(character.savingThrowProficiencies).toEqual(["Ловкость", "Интеллект"]);
+    expect(character.armorProficiencies).toEqual(expect.arrayContaining(["light", "medium", "shields"]));
+    expect(character.armorProficiencies).not.toContain("heavy");
+    expect(character.weaponProficiencies).toEqual(expect.arrayContaining(["simple", "martial"]));
+    // Инструменты алхимика — безусловное владение самого класса, не архетипа.
+    expect(character.toolProficiencies).toContain("Инструменты алхимика");
+    // Три навыка класса (первые три чекбокса его списка) плюс два навыка фона.
+    expect(character.skillProficiencies).toEqual(
+      expect.arrayContaining(["Акробатика", "Атлетика", "Выживание"]),
+    );
+    expect(character.skillProficiencies).toHaveLength(5);
+    // Стартовое снаряжение по умолчанию: первый вариант каждого слота.
+    const inventory = character.inventory.map((i) => i.name);
+    expect(inventory).toEqual(expect.arrayContaining(["Арбалет, лёгкий", "Арбалетные болты ×20", "Проклёпанная кожа", "Набор путешественника", "Инструменты алхимика"]));
+    // Проклёпанная кожа — КД 12, Ловкость 10 (+0).
+    expect(character.armorClass).toBe(12);
+    // Класс не заклинатель: ни ячеек, ни заговоров.
+    expect(character.spellSlotsMax.every((n) => n === 0)).toBe(true);
+    expect(character.knownCantrips).toEqual([]);
+  });
 });

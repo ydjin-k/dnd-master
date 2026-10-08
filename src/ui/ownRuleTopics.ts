@@ -10,6 +10,9 @@ import { HARENGON_TOPIC } from "./harengonRace";
 import { FIRBOLG_TOPIC } from "./firbolgRace";
 import { AASIMAR_TOPIC } from "./aasimarRace";
 import { GENASI_TOPIC } from "./genasiRace";
+// Первый наш класс (`characters-class-blood-hunter`). Тем же приёмом, что расы:
+// всё содержание класса живёт в его модуле, здесь — одна строка регистрации.
+import { BLOOD_HUNTER_TOPIC } from "./bloodHunterClass";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -46,7 +49,15 @@ import { GENASI_TOPIC } from "./genasiRace";
  *
  * ПОРЯДОК В СПИСКЕ значащий, и менять его без причины нельзя: `playableRaces`
  * отдаёт наши расы в этом же порядке после девяти SRD-рас, так что Эльф бездны
- * остаётся десятым в мастере создания, а новые расы встают за ним.
+ * остаётся десятым в мастере создания, а новые расы встают за ним. То же у
+ * классов: `playableClasses` отдаёт наши классы после двенадцати SRD-классов в
+ * порядке этого списка.
+ *
+ * Обещание сдержалось и для класса: Кровавый охотник
+ * (`characters-class-blood-hunter`) стоил ровно одной строки ниже — ни правок
+ * в `RulesPage`, ни новой категории. Точку регистрации для мастера и листа
+ * ему при этом пришлось завести (`playableClasses`): у рас она была, у
+ * классов её не было вовсе.
  */
 export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   ABYSS_ELF_TOPIC,
@@ -60,6 +71,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   FIRBOLG_TOPIC,
   AASIMAR_TOPIC,
   GENASI_TOPIC,
+  BLOOD_HUNTER_TOPIC,
 ];
 
 
