@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import bundledRules from "../../src-tauri/rules/rules.json";
 import type { RuleBlock, RuleTopic } from "../state/types";
 import {
+  BLOOD_CURSE_RESOURCE_ID,
   BLOOD_HUNTER_FIGHTING_STYLE_NAMES,
   BLOOD_HUNTER_ID,
   BLOOD_HUNTER_TITLE,
   BLOOD_HUNTER_TOPIC,
+  BRAND_OF_CASTIGATION_RESOURCE_ID,
 } from "./bloodHunterClass";
 import {
   ALL_ITEMS_WITH_COST,
@@ -23,8 +25,17 @@ import {
   toolProficienciesFor,
   weaponProficienciesFor,
 } from "./characterCreationData";
-import { PROGRESSION_MAX_LEVEL } from "./classProgression";
+import {
+  CLASS_PROGRESSION,
+  PROGRESSION_MAX_LEVEL,
+  asiLevels,
+  characterResources,
+  progressionAt,
+  resourceMax,
+  slotRechargeOf,
+} from "./classProgression";
 import { isOwnRuleTopic, playableClasses } from "./ownRuleTopics";
+import { emptyAbilityScores } from "../state/types";
 
 const srdTopics = bundledRules as unknown as RuleTopic[];
 const topic = playableClasses(srdTopics).find((t) => t.id === BLOOD_HUNTER_ID);
@@ -249,5 +260,81 @@ describe("Кровавый охотник — особенности по уро
     expect(nameAt(8)).toEqual([]);
     expect(nameAt(11)).toEqual([]);
     expect(nameAt(12)).toEqual([]);
+  });
+});
+
+/**
+ * Таблица уровней класса числами — те же столбцы, что в статье справочника, но
+ * здесь их читает механика. Ожидания ниже выписаны по с. 2 PDF владельца
+ * построчно и НЕ повторяют за кодом ни ступеней `byStep`, ни их границ: код
+ * задаёт ступени «с какого уровня», проба перечисляет все двенадцать уровней.
+ * Сдвинь границу на уровень — и проба покраснеет на конкретном уровне.
+ */
+describe("Кровавый охотник — таблица прогрессии 1-12", () => {
+  const at = (level: number) => progressionAt(BLOOD_HUNTER_ID, level)!;
+  const levels = Array.from({ length: PROGRESSION_MAX_LEVEL }, (_, i) => i + 1);
+  const scalingValue = (level: number, name: string) =>
+    at(level).scaling.find((v) => v.name === name)?.value;
+
+  it("кость гемокрафта растёт 1к4 → 1к6 с 5 уровня → 1к8 с 11", () => {
+    expect(levels.map((l) => scalingValue(l, "Кость гемокрафта"))).toEqual([
+      "1к4", "1к4", "1к4", "1к4", "1к6", "1к6", "1к6", "1к6", "1к6", "1к6", "1к8", "1к8",
+    ]);
+  });
+
+  it("известных проклятий крови 1, со 6 уровня 2, с 10 — 3", () => {
+    expect(levels.map((l) => scalingValue(l, "Известные проклятья крови"))).toEqual([
+      "1", "1", "1", "1", "1", "2", "2", "2", "2", "3", "3", "3",
+    ]);
+  });
+
+  /**
+   * Главное место, где столбец таблицы легко спутать с запасом применений:
+   * известных проклятий на 10 уровне три, а применений «Проклятой крови»
+   * по-прежнему два — третье приходит на 13, выше потолка приложения.
+   */
+  it("применений «Проклятой крови» одно, со 6 уровня два — и на 10 их всё ещё два", () => {
+    const uses = (level: number) => {
+      const resource = at(level).resources.find((r) => r.id === BLOOD_CURSE_RESOURCE_ID);
+      return resource ? resourceMax(resource, emptyAbilityScores()) : undefined;
+    };
+
+    expect(levels.map(uses)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]);
+    expect(scalingValue(10, "Известные проклятья крови")).toBe("3");
+  });
+
+  it("счётчик «Клейма наказания» заводится ровно на 6 уровне и возвращается коротким отдыхом", () => {
+    const brand = (level: number) =>
+      at(level).resources.find((r) => r.id === BRAND_OF_CASTIGATION_RESOURCE_ID);
+
+    for (const level of [1, 2, 3, 4, 5]) expect(brand(level), `ур. ${level}`).toBeUndefined();
+    for (const level of [6, 7, 8, 9, 10, 11, 12]) {
+      expect(brand(level), `ур. ${level}`).toBeDefined();
+      expect(brand(level)!.max).toBe(1);
+      expect(brand(level)!.recharge).toBe("short");
+    }
+  });
+
+  it("оба счётчика возвращаются отдыхом — поле recharge, по которому их отбирает лист", () => {
+    const resources = characterResources(BLOOD_HUNTER_ID, null, 6);
+
+    expect(resources.map((r) => r.id)).toEqual([BLOOD_CURSE_RESOURCE_ID, BRAND_OF_CASTIGATION_RESOURCE_ID]);
+    for (const resource of resources) expect(resource.recharge).toBe("short");
+  });
+
+  it("класс не заклинатель: ни ячеек, ни заговоров, ни известных заклинаний", () => {
+    expect(CLASS_PROGRESSION[BLOOD_HUNTER_ID].spellsKnownKind).toBe("none");
+    // Поле обязательное у каждого класса намеренно — объявлено даже там, где ячеек нет.
+    expect(slotRechargeOf(BLOOD_HUNTER_ID)).toBe("long");
+    for (const level of levels) {
+      expect(at(level).spellSlots.every((n) => n === 0), `ур. ${level}`).toBe(true);
+      expect(at(level).cantripsKnown, `ур. ${level}`).toBe(0);
+      expect(at(level).spellsKnown, `ур. ${level}`).toBe(0);
+    }
+  });
+
+  it("увеличение характеристик приходит на 4, 8 и 12 — как у десяти классов SRD", () => {
+    // с. 6 PDF: 4, 8, 12, 16 и 19 уровни; последние два выше потолка.
+    expect(asiLevels(BLOOD_HUNTER_ID)).toEqual([4, 8, 12]);
   });
 });

@@ -3852,6 +3852,105 @@ describe("CharactersPage", () => {
     });
   });
 
+  /**
+   * Лист нашего класса — приёмка `characters-class-blood-hunter`.
+   *
+   * ПОЧЕМУ `topics` КЛАССА НЕ СОДЕРЖАТ. Кровавого охотника нет ни в этом
+   * файле, ни в `rules.json`: на лист он приезжает через `playableClasses`
+   * (ownRuleTopics.ts), откуда `extractClassHitDice` берёт его кость хитов.
+   * Поэтому пробы ниже заодно сторожат тот конец шва, который не видно в
+   * мастере: отбери у листа точку регистрации — и кость хитов класса
+   * пропадёт, а с ней и левел-ап.
+   */
+  describe("Кровавый охотник на листе персонажа", () => {
+    const HUMAN_TOPIC: RuleTopic = {
+      id: "races-human",
+      category: "races",
+      title: "Человек",
+      sourceUrl: "",
+      blocks: [],
+    };
+
+    /** Кровавый охотник заданного уровня с полными счётчиками этого уровня. */
+    function bloodHunter(level: number, featureUses: { featureId: string; usesCurrent: number }[]): Character {
+      return {
+        ...characterWithInventory(),
+        name: "Гаррен",
+        class: "Кровавый охотник",
+        level,
+        // Кость хитов 1к10, модификатор Телосложения 0: 10 + 6 за каждый уровень после первого.
+        maxHp: 10 + (level - 1) * 6,
+        currentHp: 10 + (level - 1) * 6,
+        // Состояние — то же, по которому levelUpRunner ждёт загрузки справочника.
+        conditions: ["Ослеплённое"],
+        featureUses,
+      };
+    }
+
+    it("показывает кость гемокрафта, число известных проклятий и оба счётчика 6 уровня", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [HUMAN_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({
+        characters: [
+          bloodHunter(6, [{ featureId: "blood-curse", usesCurrent: 2 }, { featureId: "brand-of-castigation", usesCurrent: 1 }]),
+        ],
+      });
+      render(<CharactersPage />);
+
+      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
+      expect(within(block).getByText("Проклятая кровь")).toBeInTheDocument();
+      expect(within(block).getByText(/2\/2 использование/)).toBeInTheDocument();
+      // «Клеймо наказания» на листе названо дважды и это верно: строка счётчика
+      // и текст особенности 6 уровня — разные вещи с одним именем.
+      expect(within(block).getAllByText("Клеймо наказания")).toHaveLength(2);
+      expect(within(block).getByText(/1\/1 использование/)).toBeInTheDocument();
+      // Растущие числа таблицы: 6 уровень — кость 1к6, известных проклятий два.
+      expect(within(block).getByText("Кость гемокрафта: 1к6")).toBeInTheDocument();
+      expect(within(block).getByText("Известные проклятья крови: 2")).toBeInTheDocument();
+    });
+
+    it("проклятье тратится, и длинный отдых возвращает счётчик полным", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [HUMAN_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      const start = bloodHunter(6, [{ featureId: "blood-curse", usesCurrent: 2 }, { featureId: "brand-of-castigation", usesCurrent: 1 }]);
+      mockState = baseState({ characters: [start] });
+      const { rerender } = render(<CharactersPage />);
+      await screen.findByText(/Особенности класса/);
+
+      fireEvent.click(screen.getByTitle("Потратить: Проклятая кровь"));
+      let updater = updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character;
+      const spent = updater(start);
+      expect(spent.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 1 });
+
+      mockState = baseState({ characters: [spent] });
+      rerender(<CharactersPage />);
+      await act(async () => {
+        fireEvent.click(screen.getByText("Длинный отдых"));
+      });
+      updater = updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character;
+      const rested = updater(spent);
+
+      // Счётчик помечен «короткий или длинный отдых», и длинный берёт и такие.
+      expect(rested.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 2 });
+      expect(rested.featureUses).toContainEqual({ featureId: "brand-of-castigation", usesCurrent: 1 });
+    });
+
+    it("левел-ап 5 → 6 растит хиты своей костью, даёт второе проклятье и кость 1к6", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, bloodHunter(5, [{ featureId: "blood-curse", usesCurrent: 1 }]));
+      await run.ready();
+
+      run.levelUp();
+      expect(run.char.level).toBe(6);
+      // 1к10 из текста статьи: 10 + 5 × (6 + 0).
+      expect(run.char.maxHp).toBe(40);
+      expect(run.char.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 2 });
+      expect(run.char.featureUses).toContainEqual({ featureId: "brand-of-castigation", usesCurrent: 1 });
+      expect(screen.getByText("Кость гемокрафта: 1к6")).toBeInTheDocument();
+    });
+  });
+
 });
 
 describe("truncateDescription", () => {

@@ -11,8 +11,10 @@ import {
   resourceMax,
 } from "./classProgression";
 import { emptyAbilityScores } from "../state/types";
+import { OWN_RULE_TOPICS } from "./ownRuleTopics";
 
-const ALL_CLASS_IDS = [
+/** Двенадцать классов SRD — факт `rules.json`, проверяется отдельной пробой в ownRuleTopics.test.ts. */
+const SRD_CLASS_IDS = [
   "classes-bard",
   "classes-barbarian",
   "classes-fighter",
@@ -27,8 +29,18 @@ const ALL_CLASS_IDS = [
   "classes-sorcerer",
 ];
 
+/**
+ * Наши классы — из `OWN_RULE_TOPICS`, а не списком руками и не числом: вшитая
+ * «двенадцатка» покраснела бы на следующем классе, который всё сделал
+ * правильно (тот же урок, что у рас, запись 179).
+ */
+const OWN_CLASS_IDS = OWN_RULE_TOPICS.filter((t) => t.category === "classes").map((t) => t.id);
+const ALL_CLASS_IDS = [...SRD_CLASS_IDS, ...OWN_CLASS_IDS];
+
 describe("CLASS_PROGRESSION", () => {
-  it("покрывает все 12 базовых классов на уровнях 1-12", () => {
+  it("покрывает двенадцать классов SRD и наши на уровнях 1-12", () => {
+    expect(SRD_CLASS_IDS).toHaveLength(12);
+    expect(OWN_CLASS_IDS.length).toBeGreaterThan(0);
     expect(Object.keys(CLASS_PROGRESSION).sort()).toEqual([...ALL_CLASS_IDS].sort());
     for (const classId of ALL_CLASS_IDS) {
       for (let level = 1; level <= PROGRESSION_MAX_LEVEL; level++) {
