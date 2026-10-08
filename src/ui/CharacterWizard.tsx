@@ -90,7 +90,7 @@ import { FIRBOLG_ABILITY_BONUS, FIRBOLG_ID, FIRBOLG_SPEED_FEET } from "./firbolg
 import { AASIMAR_ABILITY_BONUS, AASIMAR_ID, AASIMAR_SPEED_FEET } from "./aasimarRace";
 import { GENASI_ABILITY_BONUS, GENASI_ID, GENASI_SPEED_FEET } from "./genasiRace";
 import { SERPENT_ABILITY_BONUS, SERPENT_ID, SERPENT_SPEED_FEET } from "./serpentRace";
-import { playableRaces, raceWizardBlocks } from "./ownRuleTopics";
+import { playableClasses, playableRaces, raceWizardBlocks } from "./ownRuleTopics";
 import "./CharacterWizard.css";
 
 const CUSTOM_BACKGROUND_ID = "custom";
@@ -270,7 +270,11 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   // (ownRuleTopics.ts), и он же единственный владелец факта «кем можно играть».
   // Дальше мастер не различает, откуда раса приехала: форма у всех одна.
   const races = useMemo(() => playableRaces(topics), [topics]);
-  const classes = useMemo(() => topics.filter((t) => t.category === "classes"), [topics]);
+  // Двенадцать классов справочника плюс наши — тем же приёмом, что расы выше:
+  // список собирает playableClasses (ownRuleTopics.ts), и он же единственный
+  // владелец факта «каким классом можно играть». Раньше здесь стоял отбор по
+  // категории, и класса вне rules.json мастер не видел вовсе.
+  const classes = useMemo(() => playableClasses(topics), [topics]);
   const race = races.find((r) => r.id === raceId);
   const klass = classes.find((c) => c.id === classId);
   // Шаг «Класс» показывает только «шапку» класса из SRD (кости хитов,

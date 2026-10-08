@@ -117,6 +117,9 @@ export function raceWizardBlocks(topic: RuleTopic): readonly RuleBlock[] {
 /** Категория, по которой раса попадает в мастер создания, — та же, что у SRD-рас. */
 const RACES_CATEGORY = "races";
 
+/** Категория, по которой класс попадает в мастер создания, — та же, что у SRD-классов. */
+const CLASSES_CATEGORY = "classes";
+
 /**
  * Общая статья «Расовые особенности» из справочника — не раса, играть ею
  * нельзя, поэтому из списка выбора она выброшена.
@@ -151,4 +154,34 @@ export function playableRaces(topics: RuleTopic[]): RuleTopic[] {
   );
   const ownRaces = OWN_RULE_TOPICS.filter((t) => t.category === RACES_CATEGORY);
   return [...srdRaces, ...ownRaces];
+}
+
+/**
+ * Полный список классов для мастера создания и для листа персонажа: двенадцать
+ * из справочника SRD плюс наши. Единственный владелец факта «каким классом
+ * можно играть».
+ *
+ * ЗАЧЕМ ОН ПОЯВИЛСЯ. У рас точка регистрации была с самого начала
+ * (`playableRaces` выше), у классов её не было вовсе: список собирался ДВАЖДЫ
+ * и независимо — `topics.filter((t) => t.category === "classes")` в мастере
+ * создания (`CharacterWizard.tsx`) и тот же отбор внутри
+ * `extractClassHitDice` (`pages/CharactersPage.tsx`), который строит
+ * `classHitDiceByTitle` для левел-апа. Класса, которого нет в `rules.json`,
+ * не видел ни один из них: мастер не показывал его в списке, а лист не знал
+ * его кости хитов. Два владельца одного факта — и оба неполные.
+ *
+ * ПОЧЕМУ ОТБОРА-ИСКЛЮЧЕНИЯ ЗДЕСЬ НЕТ, в отличие от `playableRaces`. У рас из
+ * справочника выброшена общая статья «Расовые особенности» (`races-traits`) —
+ * она лежит в категории `races`, но играть ею нельзя. В категории `classes`
+ * такой статьи нет: все двенадцать тем — тела классов, и каждым из них играют
+ * (проверено по `rules.json`). Появится общая статья о классах — исключение
+ * встанет здесь же, рядом с `RACE_TRAITS_TOPIC_ID`.
+ *
+ * ПОРЯДОК ЗНАЧАЩИЙ, как и у рас: SRD-классы идут первыми в том порядке, в
+ * каком лежат в справочнике, наши — за ними в порядке `OWN_RULE_TOPICS`.
+ */
+export function playableClasses(topics: RuleTopic[]): RuleTopic[] {
+  const srdClasses = topics.filter((t) => t.category === CLASSES_CATEGORY);
+  const ownClasses = OWN_RULE_TOPICS.filter((t) => t.category === CLASSES_CATEGORY);
+  return [...srdClasses, ...ownClasses];
 }

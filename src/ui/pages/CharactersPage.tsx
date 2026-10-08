@@ -137,7 +137,7 @@ import { characterFromPreset, presetSubtitle, type CharacterPreset } from "../ch
 import { CoinIcon } from "../CoinIcon";
 import { characterPortraitUrl } from "../characterPortraits";
 import { abyssElfSpellLine, raceResources, withSunlitPassive } from "../abyssElfRace";
-import { playableRaces } from "../ownRuleTopics";
+import { playableClasses, playableRaces } from "../ownRuleTopics";
 import { playCoinsSound, playLevelUpSound, playLimitSound, playSpellCastSound } from "../../audio/uiSounds";
 import "./CharactersPage.css";
 
@@ -2774,13 +2774,18 @@ function CharacterCard({
 
 /**
  * Кость хитов по классу (для левел-апа), по названию класса (`Character.class`
- * хранит текст, не id топика) — вытащено из тех же топиков rules.json, что уже
+ * хранит текст, не id топика) — вытащено из тех же топиков, что уже
  * загружаются мастером персонажа.
+ *
+ * Список классов берётся у `playableClasses` (`ownRuleTopics.ts`): двенадцать
+ * из справочника SRD плюс наши, и лист не знает, какой из них откуда, — ему
+ * нужны только название и кость хитов. Раньше здесь стоял свой отбор по
+ * категории, независимый от такого же отбора в мастере создания, и оба не
+ * видели класса, которого нет в `rules.json`.
  */
-function extractClassHitDice(topics: RuleTopic[]): Record<string, { id: string; max: number; average: number }> {
+export function extractClassHitDice(topics: RuleTopic[]): Record<string, { id: string; max: number; average: number }> {
   const result: Record<string, { id: string; max: number; average: number }> = {};
-  for (const t of topics) {
-    if (t.category !== "classes") continue;
+  for (const t of playableClasses(topics)) {
     const max = parseHitDie(t);
     const average = parseHitDieAverage(t);
     if (max !== null && average !== null) result[t.title] = { id: t.id, max, average };

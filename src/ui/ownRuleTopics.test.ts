@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import bundledRules from "../../src-tauri/rules/rules.json";
 import type { RuleBlock, RuleTopic } from "../state/types";
-import { isOwnRuleTopic, OWN_RULE_TOPICS, playableRaces, raceWizardBlocks } from "./ownRuleTopics";
+import { isOwnRuleTopic, OWN_RULE_TOPICS, playableClasses, playableRaces, raceWizardBlocks } from "./ownRuleTopics";
 
 const srdTopics = bundledRules as unknown as RuleTopic[];
 
@@ -76,6 +76,43 @@ describe("playableRaces", () => {
     expect(ourRaces).toEqual(OWN_RULE_TOPICS.filter((t) => t.category === "races"));
     // Общая статья «Расовые особенности» — не раса, играть ею нельзя.
     expect(races.some((t) => t.id === "races-traits")).toBe(false);
+  });
+});
+
+/**
+ * ЧИСЛО КЛАССОВ ЗДЕСЬ НЕ ВШИТО — по тому же уроку, что у рас выше (запись 179):
+ * двенадцать классов SRD считаются из `rules.json`, наши — из `OWN_RULE_TOPICS`,
+ * и ждём мы их сумму. Вшитое число покраснело бы на следующем классе, который
+ * всё сделал правильно.
+ */
+describe("playableClasses", () => {
+  it("двенадцать классов справочника плюс наши, каждый по одному разу", () => {
+    const srdClasses = srdTopics.filter((t) => t.category === "classes");
+    const ownClasses = OWN_RULE_TOPICS.filter((t) => t.category === "classes");
+    const classes = playableClasses(srdTopics);
+
+    expect(srdClasses).toHaveLength(12);
+    expect(classes).toHaveLength(srdClasses.length + ownClasses.length);
+    expect(new Set(classes.map((t) => t.id)).size).toBe(classes.length);
+    expect(new Set(classes.map((t) => t.title)).size).toBe(classes.length);
+  });
+
+  it("двенадцать прежних классов не тронуты: идут первыми и в том же порядке", () => {
+    const srdClasses = srdTopics.filter((t) => t.category === "classes");
+
+    expect(playableClasses(srdTopics).slice(0, srdClasses.length)).toEqual(srdClasses);
+  });
+
+  it("наши классы приходят из OWN_RULE_TOPICS и ниоткуда больше", () => {
+    const ourClasses = playableClasses(srdTopics).filter((t) => isOwnRuleTopic(t));
+
+    expect(ourClasses).toEqual(OWN_RULE_TOPICS.filter((t) => t.category === "classes"));
+  });
+
+  it("пустой справочник отдаёт ровно наши классы, а не падает", () => {
+    // Отказ `get_rules` — не то же, что отсутствие наших классов: список
+    // обязан остаться списком.
+    expect(playableClasses([])).toEqual(OWN_RULE_TOPICS.filter((t) => t.category === "classes"));
   });
 });
 
