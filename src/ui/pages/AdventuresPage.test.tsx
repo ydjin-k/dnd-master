@@ -70,9 +70,13 @@ describe("AdventuresPage", () => {
     mockState = emptyState();
   });
 
-  it("экран выбора показывает один вход и не держит заглушек", () => {
+  it("экран выбора показывает два входа и не держит заглушек", () => {
     render(<AdventuresPage />);
     expect(screen.getByText("Сгенерировать события")).toBeInTheDocument();
+    expect(screen.getByText("Странствие")).toBeInTheDocument();
+    // Третьего входа быть не должно: соло-движок мастера снесён
+    // (`adventures-remove-gm-engine`), и вернуться кнопка не имеет права.
+    expect(screen.queryByText("Вести сцену")).not.toBeInTheDocument();
     expect(screen.queryByText(/Начать приключение/)).not.toBeInTheDocument();
     expect(screen.queryByText(/скоро/i)).not.toBeInTheDocument();
     for (const button of screen.getAllByRole("button")) expect(button).not.toBeDisabled();
