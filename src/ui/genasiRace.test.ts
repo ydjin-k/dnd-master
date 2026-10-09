@@ -96,8 +96,8 @@ describe("Дженази попадает в мастер и на лист", () 
     expect(RACE_HP_BONUS[GENASI_ID]).toBeUndefined();
   });
 
-  it("слага портрета у расы нет — портрет человеческий, а не битая картинка", () => {
-    expect(CHARACTER_PORTRAIT_RACES).not.toContain(GENASI_TITLE);
+  it("раса зарегистрирована в библиотеке портретов", () => {
+    expect(CHARACTER_PORTRAIT_RACES).toContain(GENASI_TITLE);
   });
 
   it("раса узнаётся по названию, и только своим", () => {

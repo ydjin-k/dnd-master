@@ -72,7 +72,7 @@ import { CLASS_PROGRESSION, asiLevels, characterResources, progressionAt, resour
 import { firstFeatLevelHint } from "./feats";
 import { preparedSpellsMax } from "./preparedSpells";
 import { hasSpellbook, spellbookMax } from "./spellbook";
-import { CHARACTER_PORTRAIT_VARIANTS, characterPortraitUrl } from "./characterPortraits";
+import { characterPortraitUrl, characterPortraitVariants } from "./characterPortraits";
 import {
   ABYSS_ELF_ABILITY_BONUS,
   ABYSS_ELF_ID,
@@ -1618,7 +1618,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           <fieldset className="wizard__portrait-choice">
             <legend>Портрет</legend>
             <div className="wizard__portrait-options">
-              {CHARACTER_PORTRAIT_VARIANTS.map((variant) => (
+              {characterPortraitVariants(race?.title ?? "").map((variant) => (
                 <button
                   key={variant}
                   type="button"

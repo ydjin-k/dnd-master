@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   CHARACTER_PORTRAIT_GENDERS,
   CHARACTER_PORTRAIT_RACES,
-  CHARACTER_PORTRAIT_VARIANTS,
   characterPortraitUrl,
+  characterPortraitVariants,
 } from "./characterPortraits";
 
 const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
@@ -13,19 +13,30 @@ const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
 });
 
 describe("characterPortraitUrl", () => {
-  it("выдаёт 60 уникальных имён и каждый ожидаемый файл есть в библиотеке", () => {
+  it("выдаёт 122 уникальных имени и каждый ожидаемый файл есть в библиотеке", () => {
     const urls = CHARACTER_PORTRAIT_RACES.flatMap((race) =>
       CHARACTER_PORTRAIT_GENDERS.flatMap((gender) =>
-        CHARACTER_PORTRAIT_VARIANTS.map((variant) => characterPortraitUrl(race, gender, variant)),
+        characterPortraitVariants(race).map((variant) => characterPortraitUrl(race, gender, variant)),
       ),
     );
 
-    expect(urls).toHaveLength(60);
-    expect(new Set(urls).size).toBe(60);
+    expect(urls).toHaveLength(122);
+    expect(new Set(urls).size).toBe(122);
     expect(Object.keys(bundledPortraits).sort()).toEqual(urls.map((url) => `/public${url}`).sort());
     expect(urls).toContain("/character-portraits/dragonborn-female-3.jpg");
     expect(urls).toContain("/character-portraits/half-orc-male-2.jpg");
     expect(urls).toContain("/character-portraits/abyss-elf-female-3.jpg");
+    expect(urls).toContain("/character-portraits/genasi-female-4.jpg");
+  });
+
+  it("оставляет четвёртый вариант Дженази и обрезает его до третьего у трёхвариантной расы", () => {
+    expect(characterPortraitVariants("Дженази")).toEqual([1, 2, 3, 4]);
+    expect(characterPortraitUrl("Дженази", "Женский", 4)).toBe(
+      "/character-portraits/genasi-female-4.jpg",
+    );
+    expect(characterPortraitUrl("Голиаф", "Женский", 4)).toBe(
+      "/character-portraits/goliath-female-3.jpg",
+    );
   });
 
   it("для отсутствующего или произвольного пола предсказуемо берёт мужской вариант той же расы", () => {

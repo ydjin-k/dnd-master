@@ -942,12 +942,18 @@ describe("CharacterWizard", () => {
     // Чужие стихии на обзор не приезжают.
     expect(screen.queryByText("Дыхание под водой")).not.toBeInTheDocument();
 
+    const portraitButtons = screen.getAllByRole("button", { name: /Вариант портрета/ });
+    expect(portraitButtons).toHaveLength(4);
+    fireEvent.click(portraitButtons[3]);
+    expect(portraitButtons[3]).toHaveAttribute("aria-pressed", "true");
+
     fireEvent.change(screen.getByPlaceholderText("Имя персонажа"), { target: { value: "Дженази Тест" } });
     fireEvent.click(screen.getByText("Создать персонажа"));
     await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
     const character = addCharacter.mock.calls[0][0] as Character;
     expect(character.race).toBe("Дженази");
     expect(character.raceVariant).toBe("genasi-fire");
+    expect(character.portraitVariant).toBe(4);
   });
 
   it("leaves raceVariant empty for a race that has no variants at all", async () => {

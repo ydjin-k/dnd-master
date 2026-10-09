@@ -5,8 +5,8 @@ import type { AbilityScoreRoll, Character, RuleTopic } from "../state/types";
 import { RACE_FIXED_SKILLS, RACE_HP_BONUS, RACE_LANGUAGES, RACE_TRAITS } from "./characterCreationData";
 import {
   CHARACTER_PORTRAIT_GENDERS,
-  CHARACTER_PORTRAIT_VARIANTS,
   characterPortraitUrl,
+  characterPortraitVariants,
 } from "./characterPortraits";
 import { GOBLIN_ABILITY_BONUS, GOBLIN_ID, GOBLIN_SPEED_FEET, GOBLIN_TITLE } from "./goblinRace";
 import { SATYR_ABILITY_BONUS, SATYR_ID, SATYR_SPEED_FEET, SATYR_TITLE } from "./satyrRace";
@@ -223,16 +223,15 @@ describe.each(PACK_A)("раса пачки A в мастере: $title", (race) 
 });
 
 /**
- * Портрет новой расы — ЧЕЛОВЕЧЕСКИЙ и не битый, проверено по файлам на диске.
+ * Портрет новой расы — СВОЙ и не битый, проверено по файлам на диске.
  *
  * Это та строка DoD, которую легко «проверить» глазами и ошибиться: битая
  * картинка в маленьком окне выглядит почти как задуманная рамка. Здесь она
  * проверена тем, чем проверяется по-настоящему, — существованием файла.
  *
  * Запас надёжности устроен так: НЕИЗВЕСТНАЯ раса получает человеческий
- * портрет, а известная — файл по своему слагу. Слаг без файлов в
- * `public/character-portraits/` даёт 404, а не человеческое лицо, — поэтому
- * слаги новых рас не заведены, и их приносит `art-ten-races-portraits`.
+ * портрет, а известная — файл по своему слагу. Поэтому здесь сторожатся и
+ * собственный слаг, и наличие каждого файла в production-библиотеке.
  */
 const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
   eager: true,
@@ -241,13 +240,11 @@ const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
 });
 
 describe.each(PACK_A)("портрет расы пачки A: $title", (race) => {
-  it("все шесть сочетаний пол×вариант дают человеческий портрет, и файл каждого лежит на диске", () => {
+  it("все сочетания пол×вариант дают свой портрет, и файл каждого лежит на диске", () => {
     for (const gender of CHARACTER_PORTRAIT_GENDERS) {
-      for (const variant of CHARACTER_PORTRAIT_VARIANTS) {
+      for (const variant of characterPortraitVariants(race.title)) {
         const url = characterPortraitUrl(race.title, gender, variant);
-        // Человеческий — потому что слага у расы нет, и это правильное
-        // поведение до отрисовки портретов, а не недоделка.
-        expect(url).toContain("/human-");
+        expect(url).not.toContain("/human-");
         // И не битый: ровно этот файл есть в библиотеке.
         expect(Object.keys(bundledPortraits)).toContain(`/public${url}`);
       }

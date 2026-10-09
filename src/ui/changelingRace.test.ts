@@ -104,8 +104,8 @@ describe("Чейнджлинг попадает в мастер и на лист
     expect(CHANGELING_LANGUAGES.choiceCount).toBe(1);
   });
 
-  it("слага портрета у расы нет — портрет человеческий, а не битая картинка", () => {
-    expect(CHARACTER_PORTRAIT_RACES).not.toContain(CHANGELING_TITLE);
+  it("раса зарегистрирована в библиотеке портретов", () => {
+    expect(CHARACTER_PORTRAIT_RACES).toContain(CHANGELING_TITLE);
   });
 
   it("раса узнаётся по названию, и только своим", () => {

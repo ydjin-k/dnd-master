@@ -226,6 +226,32 @@ describe("CharactersPage", () => {
     };
   }
 
+  it("четвёртый портрет Дженази переживает перезапуск", () => {
+    const genasi = {
+      ...characterWithInventory(),
+      name: "Воздушная Дженази",
+      race: "Дженази",
+      gender: "Женский",
+      portraitVariant: 4,
+    };
+    mockState = baseState({ characters: [genasi] });
+    render(<CharactersPage />);
+
+    expect(screen.getByAltText(/Портрет персонажа Воздушная Дженази/)).toHaveAttribute(
+      "src",
+      "/character-portraits/genasi-female-4.jpg",
+    );
+
+    // Перезапуск = тот же сохранённый персонаж загружен в новое дерево UI.
+    cleanup();
+    mockState = baseState({ characters: [genasi] });
+    render(<CharactersPage />);
+    expect(screen.getByAltText(/Портрет персонажа Воздушная Дженази/)).toHaveAttribute(
+      "src",
+      "/character-portraits/genasi-female-4.jpg",
+    );
+  });
+
   /**
    * Прогон левел-апа: рендерит карточку, жмёт «Повысить уровень» и применяет
    * полученный updater к персонажу, оставаясь на одном и том же состоянии —

@@ -88,8 +88,8 @@ describe("Сатир попадает в мастер и на лист", () => {
     for (const skill of SATYR_FIXED_SKILLS) expect(ALL_SKILLS).toContain(skill);
   });
 
-  it("слага портрета у расы нет — портрет человеческий, а не битая картинка", () => {
-    expect(CHARACTER_PORTRAIT_RACES).not.toContain(SATYR_TITLE);
+  it("раса зарегистрирована в библиотеке портретов", () => {
+    expect(CHARACTER_PORTRAIT_RACES).toContain(SATYR_TITLE);
   });
 
   it("раса узнаётся по названию, и только своим", () => {

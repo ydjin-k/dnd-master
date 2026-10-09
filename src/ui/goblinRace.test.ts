@@ -96,12 +96,8 @@ describe("Гоблин попадает в мастер и на лист", () =>
     for (const skill of GOBLIN_FIXED_SKILLS) expect(ALL_SKILLS).toContain(skill);
   });
 
-  it("слага портрета у расы нет — портрет человеческий, а не битая картинка", () => {
-    // Запас надёжности: НЕИЗВЕСТНАЯ раса получает человеческий портрет, а
-    // известная — файл по своему слагу. Слаг без файлов в
-    // `public/character-portraits/` дал бы 404, а не человеческое лицо.
-    // Слаги и файлы приносит `art-ten-races-portraits`.
-    expect(CHARACTER_PORTRAIT_RACES).not.toContain(GOBLIN_TITLE);
+  it("раса зарегистрирована в библиотеке портретов", () => {
+    expect(CHARACTER_PORTRAIT_RACES).toContain(GOBLIN_TITLE);
   });
 
   it("раса узнаётся по названию, и только своим", () => {
