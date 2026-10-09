@@ -1,16 +1,12 @@
 mod characters;
 mod combat;
 mod dice;
-mod gm;
 mod model;
 mod rules;
 mod spells;
 mod storage;
 
 use combat::MonsterTemplate;
-use gm::facts::FactSource;
-use gm::result::GmResponse;
-use gm::scene::SceneOutcome;
 use model::{CampaignState, Character};
 use rules::RuleTopic;
 use spells::Spell;
@@ -47,7 +43,7 @@ fn delete_campaign(app: AppHandle, id: String) -> Result<(), String> {
 /// Аргумент назван `state` и не переименован специально: фронт шлёт документ
 /// целиком (`persist(next)`), и ломать вызов ради имени незачем. Важно
 /// другое — тип аргумента больше не `CampaignState`: `FrontOwnedFields`
-/// физически некуда положить `combat` или `engine`, поэтому устаревший снимок
+/// физически некуда положить `combat`, поэтому устаревший снимок
 /// чужого поля не доезжает до диска даже теоретически. Список владений и
 /// обоснование — в `storage::FrontOwnedFields`.
 #[tauri::command]
@@ -106,10 +102,12 @@ fn get_character_presets(app: AppHandle) -> Result<Vec<Character>, String> {
 //
 // Раньше здесь было два захвата — `active(&app)` на чтение и
 // `storage::save_campaign(&app, &state)` на запись целого документа, — и между
-// ними оставалось окно. Команда движка, попавшая внутрь окна, записывала свой
-// `engine`, а идущая за ней запись боя ложилась поверх снимком, снятым ДО неё,
-// и работа движка исчезала. Это тот же класс, что запись 136 в `tasks/DONE.md`
-// и карточка 138, только последний путь, где он оставался.
+// ними оставалось окно: чужая команда, попавшая внутрь, записывала своё поле,
+// а идущая за ней запись боя ложилась поверх снимком, снятым ДО неё, и чужая
+// работа исчезала. Это тот же класс, что запись 136 в `tasks/DONE.md` и
+// карточка 138, только последний путь, где он оставался. Поймано это было на
+// снесённом движке мастера, но причина в захватах, а не в том, кто писал
+// второе поле, — поэтому один замок здесь остаётся.
 
 #[tauri::command]
 fn start_combat(
@@ -276,105 +274,6 @@ fn combat_cast_spell(
     })
 }
 
-// ── движок мастера ───────────────────────────────────────────────────────────
-//
-// Одна команда на действие, и тело каждой — ОДИН вызов
-// `storage::with_active_locked`: чтение с диска, решение, запись — под одним
-// удержанием замка, без окна между ними. Команда получает НАМЕРЕНИЕ, а не
-// состояние: устаревшего снимка у фронта нет, потому что он снимка не
-// передаёт вовсе (ADR раздел 8, пункты 1 и 2).
-
-/// Общая обвязка двух команд ниже: ответ модуля движка нужно вынести наружу
-/// из замыкания, а состояние приходит от самого `with_active_locked` — уже
-/// сохранённым. Без неё пришлось бы писать это дважды слово в слово.
-fn gm_command<F>(app: &AppHandle, decide: F) -> Result<GmResponse, String>
-where
-    F: FnOnce(&mut CampaignState) -> Result<gm::result::ResultObject, String>,
-{
-    let mut result = None;
-    let state = storage::with_active_locked(app, |campaign| {
-        result = Some(decide(campaign)?);
-        Ok(())
-    })?;
-    Ok(GmResponse {
-        state,
-        result: result.expect("решение принято — иначе команда вернула бы ошибку"),
-    })
-}
-
-#[tauri::command]
-fn gm_create_scene(
-    app: AppHandle,
-    location: String,
-    objective: String,
-    participants: Vec<String>,
-    tags: Vec<String>,
-) -> Result<GmResponse, String> {
-    gm_command(&app, |campaign| {
-        gm::scene::create_scene(campaign, location, objective, participants, tags)
-    })
-}
-
-#[tauri::command]
-fn gm_end_scene(app: AppHandle, outcome: SceneOutcome) -> Result<GmResponse, String> {
-    gm_command(&app, |campaign| gm::scene::end_scene(campaign, outcome))
-}
-
-/// Факт, который утверждает мастер (§4.6).
-///
-/// `source` НЕ приходит аргументом, и это не экономия: происхождение факта
-/// определяет тот, кто его заявил, а заявляет здесь мастер — сама команда и
-/// есть его утверждение. Оракул свой факт создаёт у себя и с источником
-/// `oracle`, событие — с `event`. Пришли бы источники аргументом, у этого поля
-/// оказался бы второй владелец — фронт.
-#[tauri::command]
-fn gm_create_fact(
-    app: AppHandle,
-    subject: String,
-    predicate: String,
-    value: bool,
-) -> Result<GmResponse, String> {
-    gm_command(&app, |campaign| {
-        gm::facts::create_fact(campaign, subject, predicate, value, FactSource::Master)
-    })
-}
-
-/// Изменить факт, который мастер уже заявлял (§4.6: факт не перепроверяется,
-/// пока состояние не изменят явно). Создать этим нельзя — неизвестный факт
-/// команда отклоняет, потому что второго пути создания быть не должно.
-#[tauri::command]
-fn gm_update_fact(
-    app: AppHandle,
-    subject: String,
-    predicate: String,
-    value: bool,
-) -> Result<GmResponse, String> {
-    gm_command(&app, |campaign| {
-        gm::facts::update_fact(campaign, subject, predicate, value, FactSource::Master)
-    })
-}
-
-/// Спросить Оракула (§6).
-///
-/// `question` — текст для журнала, и в решении он не участвует: §29.2 прямо
-/// запрещает зависеть от его разбора. Вопрос адресуется парой «субъект +
-/// предикат» — той же, которой адресуется факт, потому что Оракул именно факт
-/// и разрешает. Вероятность выбирает мастер из шкалы §6.1 (§30 ASSISTED GM);
-/// считать её по тегам — это §31/§43 и версия 0.3.
-#[tauri::command]
-fn gm_ask_oracle(
-    app: AppHandle,
-    question: String,
-    subject: String,
-    predicate: String,
-    probability: u8,
-    modifier: i8,
-) -> Result<GmResponse, String> {
-    gm_command(&app, |campaign| {
-        gm::oracle::ask(campaign, question, subject, predicate, probability, modifier)
-    })
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -402,12 +301,7 @@ pub fn run() {
             apply_damage,
             end_turn,
             monster_auto_turn,
-            end_combat,
-            gm_create_scene,
-            gm_end_scene,
-            gm_create_fact,
-            gm_update_fact,
-            gm_ask_oracle
+            end_combat
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

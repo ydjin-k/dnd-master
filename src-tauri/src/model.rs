@@ -363,16 +363,15 @@ pub struct CampaignState {
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
     pub combat: Option<CombatState>,
-    /// Состояние движка мастера (ADR 0001) — ПОЛЕ этого документа, а не второй
-    /// файл: два документа разъезжаются при первой же правке. Сохранения,
-    /// записанные до движка, читаются как `None` структурным `#[serde(default)]`
-    /// у самого `CampaignState` — тем же приёмом, которым уже пережиты
-    /// переименование полей и снос целого движка приключения.
-    pub engine: Option<crate::gm::state::EngineState>,
-    /// Счётчик пути (SRD `[2]`). `None` у кампаний, записанных до него, — тем же
-    /// структурным `#[serde(default)]`, которым пережит приход движка; показ
+    /// Счётчик пути (SRD `[2]`). `None` у кампаний, записанных до него, —
+    /// структурным `#[serde(default)]` у самого `CampaignState`; показ
     /// подставляет умолчание сам (`travelOf` в `travelPace.ts`), поэтому
     /// кампания без темпа открывается обычным темпом и нулями, а не падает.
+    ///
+    /// Этим же `default` читаются и сохранения с полем `engine` снесённого
+    /// движка мастера: поля в структуре больше нет, serde незнакомое молча
+    /// пропускает — сторожит это `campaign_with_the_removed_gm_engine_still_opens`
+    /// в `storage.rs`.
     pub travel: Option<TravelState>,
 }
 
@@ -653,7 +652,6 @@ mod tests {
         let campaign: CampaignState =
             serde_json::from_str(old_json).expect("кампания без счётчика пути должна читаться");
         assert!(campaign.travel.is_none(), "нет поля — значит в путь не выходили");
-        assert!(campaign.engine.is_none());
     }
 
     /// engine-travel-pace: счётчик пути обязан пережить перезапуск приложения.

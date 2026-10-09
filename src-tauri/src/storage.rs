@@ -18,8 +18,8 @@ use crate::model::{CampaignState, Character, JournalEntry, TravelState};
 /// Почему список именно такой: эти три поля меняются ТОЛЬКО с фронта и
 /// нигде больше — имя кампании правится в шапке (`AppShell`), ростер — на
 /// вкладке «Персонажи», дневник — на вкладке «Дневник». `combat` пишет
-/// `combat.rs`, `engine` будет писать `gm/mutate.rs`; у фронта нет пути
-/// изменить ни то, ни другое, а значит и присылать их незачем.
+/// `combat.rs`; у фронта нет пути изменить его, а значит и присылать его
+/// незачем.
 ///
 /// **Чужое поле в полезной нагрузке тихо игнорируется, а не даёт ошибку** —
 /// и это не снисходительность, а следствие формы типа: serde просто не
@@ -315,8 +315,8 @@ where
 }
 
 /// Запись с фронта: документ читается с диска, и из присланного берутся
-/// ТОЛЬКО поля `FrontOwnedFields`. Всё остальное — `combat`, а с движком и
-/// `engine` — остаётся таким, каким лежало на диске.
+/// ТОЛЬКО поля `FrontOwnedFields`. Всё остальное — сегодня это `combat` —
+/// остаётся таким, каким лежало на диске.
 ///
 /// Раньше здесь писался целый присланный документ, и любая запись с фронта
 /// несла с собой его снимок чужих полей: игрок нажимал «В дневник» со
@@ -669,6 +669,91 @@ mod tests {
         assert_eq!(wounded.armor_class, 13);
         assert_eq!(wounded.damage_dice.as_deref(), Some("2d4+2"));
         assert_eq!(wounded.initiative, 17);
+    }
+
+    /// adventures-remove-gm-engine — ГЛАВНАЯ проба карточки, и единственное
+    /// место, где снос движка мастера может ударить по живым данным.
+    ///
+    /// Фикстура не собрана руками: это НАСТОЯЩЕЕ сохранение, записанное этим
+    /// приложением ДО сноса. Кампания создана в окне, в неё взят готовый
+    /// персонаж, записана строка дневника, выбран темп странствия и пройдены
+    /// два часа пути, а движком начата сцена, задан вопрос Оракулу и заявлен
+    /// факт мастера. Поэтому в файле лежит `engine` целиком — сцена, лог
+    /// приключения с вопросом игрока, два факта и три транзакции истории, —
+    /// то есть поле, которого в модели больше нет.
+    ///
+    /// Спрашивается ровно то, что стоит в DoD:
+    /// 1. кампания с `engine` внутри ОТКРЫВАЕТСЯ, а не падает на лишнем поле;
+    /// 2. всё, чем владеет игрок, цело: персонаж, дневник и счётчик пути.
+    ///
+    /// Почему проба обязательна, хотя serde незнакомые поля и так пропускает:
+    /// пропускает он их потому, что на `CampaignState` нет
+    /// `deny_unknown_fields`, а это свойство АТРИБУТА, а не закон природы.
+    ///
+    /// Отрицательная проба прогнана, а не описана: с
+    /// `#[serde(deny_unknown_fields)]` на `CampaignState` в `model.rs` эта
+    /// проба краснеет ровно на открытии — «unknown field `engine`, expected one
+    /// of `id`, `campaignName`, `characters`, `journal`, `combat`, `travel`».
+    /// Краснеет она при этом не одна: тем же атрибутом падают пять проб старых
+    /// сохранений, потому что лишние поля несут и их фикстуры. Это не делает
+    /// проверку лишней — ни одна из тех пяти не несёт именно `engine`, и
+    /// отличить «сохранения вообще открываются» от «сохранение С ДВИЖКОМ
+    /// открывается» может только фикстура с движком внутри.
+    #[test]
+    fn campaign_with_the_removed_gm_engine_still_opens() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("campaign-with-gm-engine.json");
+        let raw = fs::read_to_string(&fixture).expect("прочитать настоящее сохранение до сноса");
+        assert!(
+            raw.contains("\"engine\""),
+            "фикстура обязана нести снесённое поле engine — иначе проба сторожит пустоту"
+        );
+        assert!(
+            raw.contains("\"Горн ещё тёплый?\""),
+            "в фикстуре обязан лежать настоящий лог движка, а не пустой engine"
+        );
+
+        let base = temp_dir("campaign-with-gm-engine");
+        let id = "18dcdabb6ae7a5f4-2f831c3b";
+        fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
+        write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
+
+        let state = load_active_in(&base)
+            .expect("кампания с полем engine обязана открываться, а не падать на лишнем поле")
+            .expect("кампания должна найтись");
+
+        assert_eq!(state.campaign_name, "Снос движка — до правки");
+
+        // Персонаж игрока цел — вместе с тем, что считается по листу.
+        assert_eq!(state.characters.len(), 1);
+        let hero = &state.characters[0];
+        assert_eq!(hero.name, "Аэлин Полутень");
+        assert_eq!(hero.class, "Воин");
+        assert_eq!((hero.current_hp, hero.max_hp), (12, 12));
+        assert!(!hero.inventory.is_empty(), "инвентарь не должен уехать вместе с движком");
+
+        // Дневник цел.
+        assert_eq!(state.journal.len(), 1);
+        assert_eq!(state.journal[0].text, "Запись дневника до сноса движка — обязана уцелеть.");
+
+        // Счётчик пути цел: он отдельное поле, снос движка его не касается.
+        let travel = state.travel.as_ref().expect("счётчик пути обязан уцелеть");
+        assert_eq!(travel.pace, "slow");
+        assert_eq!(travel.hours_today, 2);
+
+        // И запись обратно на диск проходит — то есть кампания не только
+        // читается, но и остаётся рабочей после сноса.
+        save_campaign_in(&base, &state).unwrap();
+        let reread = load_active_in(&base).unwrap().expect("кампания на месте");
+        assert_eq!(reread.characters.len(), 1);
+        assert_eq!(reread.journal.len(), 1);
+        let rewritten = fs::read_to_string(campaign_path(&base, id).unwrap()).unwrap();
+        assert!(
+            !rewritten.contains("\"engine\""),
+            "перезапись обязана уносить снесённое поле, а не возвращать его на диск"
+        );
     }
 
     /// engine-wipe-adventure-and-oracle — ГЛАВНАЯ проба карточки, и она идёт по
@@ -1106,56 +1191,17 @@ mod tests {
         assert_eq!(fields.campaign_name, "Поход");
     }
 
-    /// Вторая половина DoD карточки `save_campaign`: «когда появится `engine` —
-    /// и его». Появился — и запись с фронта его не видит точно так же, как не
-    /// видит боя.
+    /// engine-combat-commands-read-write-window — ГЛАВНАЯ проба той карточки,
+    /// и сторожит она не движок, а сам примитив: команда, которая читает
+    /// документ, меняет его и пишет, обязана делать это под ОДНИМ удержанием
+    /// замка. Вторым писателем здесь был движок мастера; он снесён
+    /// (`adventures-remove-gm-engine`), и его место занял дневник — поле чужое
+    /// боевой команде ровно так же, и запись 136 в `tasks/DONE.md` именно про
+    /// него. Контракт от замены писателя не изменился.
     ///
-    /// Отрицательная проба та же, что у боя: вернуть запись целого присланного
-    /// документа — и строка «движок обязан уцелеть» краснеет.
-    #[test]
-    fn front_save_with_a_stale_snapshot_cannot_wipe_the_engine_either() {
-        let base = temp_dir("front-owned-engine");
-        let created = create_campaign_in(&base, "Поход".into()).unwrap();
-
-        let mut with_engine = created.clone();
-        crate::gm::scene::create_scene(
-            &mut with_engine,
-            "Подземный зал".into(),
-            "Найти выход".into(),
-            vec![],
-            vec![],
-        )
-        .unwrap();
-        save_campaign_in(&base, &with_engine).unwrap();
-
-        save_front_owned_in(
-            &base,
-            FrontOwnedFields {
-                campaign_name: "Поход".into(),
-                characters: vec![],
-                journal: vec![JournalEntry {
-                    id: "note".into(),
-                    timestamp: "2026-09-23T10:00:00Z".into(),
-                    text: "Записал у костра".into(),
-                }],
-                travel: None,
-            },
-        )
-        .unwrap();
-
-        let after = load_active_in(&base).unwrap().expect("кампания на месте");
-        let engine = after.engine.expect("движок обязан уцелеть: фронт им не владеет");
-        assert_eq!(engine.scene().expect("сцена на месте").location, "Подземный зал");
-        assert_eq!(engine.adventure_log().len(), 1, "лог приключения не должен обнулиться");
-        assert_eq!(engine.history().len(), 1);
-        assert_eq!(after.journal.len(), 1, "а дневник, которым фронт владеет, записан");
-    }
-
-    /// engine-combat-commands-read-write-window — ГЛАВНАЯ проба карточки.
-    ///
-    /// Сценарий целиком из жизни: в окне идёт бой, мастер параллельно создаёт
-    /// сцену движком. Боевая команда успела прочитать документ ДО сцены —
-    /// и её запись не имеет права положить свой снимок поверх.
+    /// Сценарий целиком из жизни: в окне идёт бой, игрок параллельно пишет в
+    /// дневник. Боевая команда успела прочитать документ ДО записи — и её
+    /// запись не имеет права положить свой снимок поверх.
     ///
     /// Проба стоит на уровне `storage`, а не команд: тело команды требует
     /// `AppHandle`, которого в тестах нет, поэтому здесь воспроизведена ровно
@@ -1163,20 +1209,18 @@ mod tests {
     /// (два захвата), потом нынешняя (`with_active_locked_in`).
     ///
     /// Отрицательная половина выполняется здесь же, а не описана словами:
-    /// первый блок — это прежняя форма боевой команды, и он ТЕРЯЕТ сцену.
+    /// первый блок — это прежняя форма боевой команды, и он ТЕРЯЕТ запись.
     /// Если он однажды перестанет её терять, значит окна нет и в двух захватах
     /// — и проба перестала проверять то, ради чего написана.
     #[test]
-    fn engine_write_inside_the_window_is_lost_by_two_locks_and_survives_under_one() {
-        let scene = |state: &mut CampaignState| {
-            crate::gm::scene::create_scene(
-                state,
-                "Подземный зал".into(),
-                "Найти выход".into(),
-                vec![],
-                vec![],
-            )
-            .map(|_| ())
+    fn a_write_inside_the_window_is_lost_by_two_locks_and_survives_under_one() {
+        let note = |state: &mut CampaignState| {
+            state.journal.push(JournalEntry {
+                id: "in-the-window".into(),
+                timestamp: "2026-10-09T10:00:00Z".into(),
+                text: "Записал у костра, пока шёл бой".into(),
+            });
+            Ok(())
         };
 
         // ── отрицательная половина: прежняя форма, два захвата с окном ──
@@ -1187,14 +1231,14 @@ mod tests {
         save_campaign_in(&base, &with_combat).unwrap();
 
         let mut snapshot = load_active_in(&base).unwrap().unwrap(); // ← чтение боя
-        with_active_locked_in(&base, scene).unwrap(); //              ← движок в окне
+        with_active_locked_in(&base, note).unwrap(); //                ← запись в окне
         crate::combat::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-0", 1).unwrap();
-        save_campaign_in(&base, &snapshot).unwrap(); //               ← запись боя целым документом
+        save_campaign_in(&base, &snapshot).unwrap(); //                ← запись боя целым документом
 
         let after = load_active_in(&base).unwrap().unwrap();
         assert!(
-            after.engine.is_none(),
-            "два захвата обязаны терять сцену — иначе эта проба ничего не проверяет"
+            after.journal.is_empty(),
+            "два захвата обязаны терять запись — иначе эта проба ничего не проверяет"
         );
 
         // ── нынешняя форма: чтение, мутация и запись под одним удержанием ──
@@ -1204,7 +1248,7 @@ mod tests {
         with_combat.combat = Some(combat_in_progress());
         save_campaign_in(&base, &with_combat).unwrap();
 
-        with_active_locked_in(&base, scene).unwrap();
+        with_active_locked_in(&base, note).unwrap();
         with_active_locked_in(&base, |state| {
             let combat = state.combat.as_mut().ok_or("бой не начат")?;
             crate::combat::apply_damage(combat, "monster-wolf-0", 1)
@@ -1212,9 +1256,8 @@ mod tests {
         .unwrap();
 
         let after = load_active_in(&base).unwrap().unwrap();
-        let engine = after.engine.expect("сцена движка обязана уцелеть: бой ей не владеет");
-        assert_eq!(engine.scene().expect("сцена на месте").location, "Подземный зал");
-        assert_eq!(engine.history().len(), 1, "история движка не должна откатиться");
+        assert_eq!(after.journal.len(), 1, "запись обязана уцелеть: бой дневником не владеет");
+        assert_eq!(after.journal[0].id, "in-the-window");
         // И ровно то, чем владеет бой, записано — иначе окно закрыли отказом
         // от записи.
         let combat = after.combat.expect("бой обязан уцелеть");
@@ -1223,48 +1266,47 @@ mod tests {
     }
 
     /// Та же пара, но в двух потоках: наблюдаемое поведение из критериев
-    /// тестирования — после хода боя сцена на месте, после создания сцены бой
-    /// не откатился, в каком бы порядке замок их ни пропустил.
+    /// тестирования — после хода боя запись дневника на месте, после записи
+    /// дневника бой не откатился, в каком бы порядке замок их ни пропустил.
     #[test]
-    fn combat_and_engine_writes_in_parallel_both_survive() {
-        let base = temp_dir("combat-engine-parallel");
+    fn combat_and_journal_writes_in_parallel_both_survive() {
+        let base = temp_dir("combat-journal-parallel");
         let created = create_campaign_in(&base, "Поход".into()).unwrap();
         let mut with_combat = created.clone();
         with_combat.combat = Some(combat_in_progress());
         save_campaign_in(&base, &with_combat).unwrap();
 
         let base_combat = base.clone();
-        let base_engine = base.clone();
+        let base_journal = base.clone();
         let combat_thread = std::thread::spawn(move || {
             with_active_locked_in(&base_combat, |state| {
                 let combat = state.combat.as_mut().ok_or("бой не начат")?;
                 crate::combat::apply_damage(combat, "monster-wolf-0", 1)
             })
         });
-        let engine_thread = std::thread::spawn(move || {
-            with_active_locked_in(&base_engine, |state| {
-                crate::gm::scene::create_scene(
-                    state,
-                    "Подземный зал".into(),
-                    "Найти выход".into(),
-                    vec![],
-                    vec![],
-                )
-                .map(|_| ())
+        let journal_thread = std::thread::spawn(move || {
+            with_active_locked_in(&base_journal, |state| {
+                state.journal.push(JournalEntry {
+                    id: "parallel".into(),
+                    timestamp: "2026-10-09T10:00:00Z".into(),
+                    text: "Записал у костра".into(),
+                });
+                Ok(())
             })
         });
         combat_thread.join().unwrap().unwrap();
-        engine_thread.join().unwrap().unwrap();
+        journal_thread.join().unwrap().unwrap();
 
         let after = load_active_in(&base).unwrap().unwrap();
         assert_eq!(
-            after.engine.expect("сцена обязана уцелеть").scene().unwrap().location,
-            "Подземный зал"
+            after.journal.len(),
+            1,
+            "запись дневника обязана уцелеть: её не должен затирать ход боя"
         );
         assert_eq!(
             after.combat.expect("бой обязан уцелеть").combatants[0].current_hp,
             3,
-            "урон боя не должен быть затёрт записью движка"
+            "урон боя не должен быть затёрт записью дневника"
         );
     }
 
