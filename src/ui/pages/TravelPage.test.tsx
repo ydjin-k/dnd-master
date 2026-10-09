@@ -35,7 +35,7 @@ function hero(over: Partial<Character> = {}): Character {
 }
 
 function stateWith(travel: TravelState | null, characters: Character[] = [hero()]): CampaignState {
-  return { id: "c1", campaignName: "Тест", characters, journal: [], combat: null, engine: null, travel };
+  return { id: "c1", campaignName: "Тест", characters, journal: [], combat: null, travel };
 }
 
 /** Кость движка, которая всегда даёт `total` (модификатор уже внутри). */

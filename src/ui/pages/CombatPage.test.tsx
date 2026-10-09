@@ -124,7 +124,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
     ],
     journal: [],
     combat: null,
-    engine: null,
+   
     ...overrides,
   };
 }

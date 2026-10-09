@@ -14,20 +14,19 @@ import {
   type EventTable,
   type EventTableRow,
 } from "../eventTables";
-import { ScenePage } from "./ScenePage";
 import { TravelPage } from "./TravelPage";
 import "./AdventuresPage.css";
 
 /**
- * Раздел приключений из двух входов: «Вести сцену» (движок мастера, ADR 0001)
- * и «Сгенерировать события» (таблицы к100). Первый вход был оставлен
- * раскладкой и появился здесь вместе с ядром движка.
+ * Раздел приключений из двух входов: «Сгенерировать события» (таблицы к100) и
+ * «Странствие» (темп отряда и счётчик пути).
  *
- * Два входа — не два владельца: таблицы к100 дают описательную строку, которую
- * мастер читает за столом, движок — решение с машинными последствиями. Сливать
- * их нельзя (ADR раздел 9, пункт 14).
+ * Два входа — не два владельца, и сливать их нельзя: таблицы отвечают на «что
+ * случилось в пути», счётчик — на «сколько пути пройдено». Первое рождается
+ * броском и уезжает в дневник одной строкой, второе живёт в состоянии кампании
+ * полем `travel` и переживает перезапуск. Общего у них только место в меню.
  */
-type View = "menu" | "generator" | "scene" | "travel";
+type View = "menu" | "generator" | "travel";
 
 /** Что показано игроку после броска. Держится до следующего броска. */
 interface Outcome {
@@ -94,16 +93,6 @@ export function AdventuresPage() {
           <button
             type="button"
             className="adventures-page__entry dm-button--primary"
-            onClick={() => setView("scene")}
-          >
-            <span className="adventures-page__entry-title">Вести сцену</span>
-            <span className="adventures-page__entry-hint">
-              Место, цель и напряжение сцены, лог приключения
-            </span>
-          </button>
-          <button
-            type="button"
-            className="adventures-page__entry dm-button--primary"
             onClick={() => setView("generator")}
           >
             <span className="adventures-page__entry-title">Сгенерировать события</span>
@@ -122,17 +111,6 @@ export function AdventuresPage() {
             </span>
           </button>
         </div>
-      </section>
-    );
-  }
-
-  if (view === "scene") {
-    return (
-      <section className="adventures-page">
-        <button type="button" onClick={() => setView("menu")}>
-          ← К приключениям
-        </button>
-        <ScenePage />
       </section>
     );
   }

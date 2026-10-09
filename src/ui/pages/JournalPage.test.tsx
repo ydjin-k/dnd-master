@@ -40,7 +40,7 @@ describe("JournalPage", () => {
       characters: [],
       journal: [{ id: "e1", timestamp: new Date("2026-01-01T10:00:00Z").toISOString(), text: "Старая запись" }],
       combat: null,
-      engine: null,
+     
     };
     render(<JournalPage />);
 
@@ -68,7 +68,7 @@ describe("JournalPage", () => {
       characters: [],
       journal: [{ id: "entry-to-remove", timestamp: "2026-01-01T10:00:00Z", text: "Старая запись" }],
       combat: null,
-      engine: null,
+     
     };
     render(<JournalPage />);
 
@@ -157,7 +157,7 @@ describe("JournalPage", () => {
         { id: "new", timestamp: new Date("2026-01-01T10:00:00Z").toISOString(), text: "Своя запись" },
       ],
       combat: null,
-      engine: null,
+     
     };
     render(<JournalPage />);
 
@@ -193,6 +193,6 @@ function createStateWithEntries(count: number, textLength = 0): CampaignState {
       text: `Запись ${index + 1} ${"т".repeat(textLength)}`,
     })),
     combat: null,
-    engine: null,
+   
   };
 }

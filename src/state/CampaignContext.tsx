@@ -11,10 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   type CampaignState,
   type Character,
-  type GmResponse,
   type JournalEntry,
-  type ResultObject,
-  type SceneOutcome,
   type TravelState,
   emptyCampaignState,
 } from "./types";
@@ -25,16 +22,6 @@ interface CampaignContextValue {
   state: CampaignState;
   loading: boolean;
   error: string | null;
-  /**
-   * Последний ответ движка (§33) — для отладочного экрана §38.
-   *
-   * Живёт в памяти вкладки и НЕ попадает в состояние кампании: `trace`
-   * рассказывает об одном вызове, владельца в документе у него нет (ADR
-   * раздел 3). Владелец здесь один — этот провайдер, потому что ответ
-   * рождается ровно тут, на границе `invoke`. Экран его только читает и ничему
-   * не учит: своего `useState` на эти данные он не заводит.
-   */
-  lastResult: ResultObject | null;
   addCharacter: (character: Character) => Promise<void>;
   removeCharacter: (id: string) => Promise<void>;
   updateCharacter: (id: string, updater: (character: Character) => Character) => Promise<void>;
@@ -50,22 +37,6 @@ interface CampaignContextValue {
   endTurn: () => Promise<void>;
   monsterAutoTurn: () => Promise<void>;
   endCombat: () => Promise<void>;
-  gmCreateScene: (
-    location: string,
-    objective: string,
-    participants: string[],
-    tags: string[],
-  ) => Promise<ResultObject | null>;
-  gmEndScene: (outcome: SceneOutcome) => Promise<ResultObject | null>;
-  gmCreateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
-  gmUpdateFact: (subject: string, predicate: string, value: boolean) => Promise<ResultObject | null>;
-  gmAskOracle: (
-    question: string,
-    subject: string,
-    predicate: string,
-    probability: number,
-    modifier: number,
-  ) => Promise<ResultObject | null>;
 }
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
@@ -74,7 +45,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CampaignState>(emptyCampaignState());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<ResultObject | null>(null);
 
   /**
    * Свежее состояние для тех, кто не может ждать перерисовки.
@@ -273,69 +243,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
-  /**
-   * Команда движка: намерение уезжает аргументами, состояние приезжает в
-   * ответе и кладётся существующим `commit`. Фронт не вычисляет ничего и
-   * снимка не передаёт — передавать нечего, поэтому устаревшим снимком он
-   * ничего затереть не может (ADR 0001, раздел 8).
-   *
-   * `ResultObject` в состояние кампании НЕ попадает: это рассказ об одном
-   * вызове, и владельца в документе у него нет. Последний ответ запоминается
-   * здесь, в памяти вкладки, — его показывает отладочный экран (§38), и
-   * умирает он вместе с окном, как и положено рассказу об одном вызове.
-   */
-  const runGmAction = useCallback(
-    async (command: string, args: Record<string, unknown>) => {
-      try {
-        const response = await invoke<GmResponse>(command, args);
-        commit(response.state);
-        setLastResult(response.result);
-        setError(null);
-        return response.result;
-      } catch (e) {
-        setError(String(e));
-        return null;
-      }
-    },
-    [commit],
-  );
-
-  const gmCreateScene = useCallback(
-    (location: string, objective: string, participants: string[], tags: string[]) =>
-      runGmAction("gm_create_scene", { location, objective, participants, tags }),
-    [runGmAction],
-  );
-  const gmEndScene = useCallback(
-    (outcome: SceneOutcome) => runGmAction("gm_end_scene", { outcome }),
-    [runGmAction],
-  );
-  // Источник факта (§4.6) аргументом НЕ уезжает: его назначает команда, потому
-  // что сама команда и есть утверждение мастера. Фронт происхождением фактов не
-  // владеет — иначе у `source` появился бы второй владелец.
-  const gmCreateFact = useCallback(
-    (subject: string, predicate: string, value: boolean) =>
-      runGmAction("gm_create_fact", { subject, predicate, value }),
-    [runGmAction],
-  );
-  const gmUpdateFact = useCallback(
-    (subject: string, predicate: string, value: boolean) =>
-      runGmAction("gm_update_fact", { subject, predicate, value }),
-    [runGmAction],
-  );
-  // Вопрос уезжает ТЕКСТОМ и парой «субъект + предикат». Текст — для человека,
-  // решает пара: §29.2 запрещает зависеть от разбора формулировки, и фронт её
-  // тоже не разбирает — он её просто везёт.
-  const gmAskOracle = useCallback(
-    (
-      question: string,
-      subject: string,
-      predicate: string,
-      probability: number,
-      modifier: number,
-    ) => runGmAction("gm_ask_oracle", { question, subject, predicate, probability, modifier }),
-    [runGmAction],
-  );
-
   const startCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
       runServerAction("start_combat", { monsterIds, characterIds }),
@@ -373,7 +280,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         state,
         loading,
         error,
-        lastResult,
         addCharacter,
         removeCharacter,
         updateCharacter,
@@ -389,11 +295,6 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         endTurn,
         monsterAutoTurn,
         endCombat,
-        gmCreateScene,
-        gmEndScene,
-        gmCreateFact,
-        gmUpdateFact,
-        gmAskOracle,
       }}
     >
       {children}

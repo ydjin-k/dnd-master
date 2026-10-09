@@ -335,171 +335,6 @@ export interface MonsterTemplate {
   imageAsset: string | null;
 }
 
-/**
- * Как закончилась сцена (§7.2). Зеркало `SceneOutcome` в
- * `src-tauri/src/gm/scene.rs`.
- */
-export type SceneOutcome = "calmer" | "unchanged" | "worse";
-
-export type SceneStatus = "active" | "resolved";
-
-/** Состояние сцены (§4.2). Читается, но не собирается на фронте: сцену
- *  создаёт и меняет движок, интерфейс её только показывает. */
-export interface SceneState {
-  id: string;
-  status: SceneStatus;
-  location: string;
-  objective: string;
-  tension: number;
-  participants: string[];
-  activeThreats: string[];
-  sceneTags: string[];
-  startedAtTurn: number;
-  resolvedConditions: string[];
-}
-
-/**
- * Строка лога приключения — КЛЮЧ И ЧИСЛА, а не готовая фраза.
- *
- * Владелец текста один, и это интерфейс (`src/ui/gm/adventureLog.ts`): движок
- * владеет тем, что произошло, интерфейс — тем, как это звучит по-русски.
- * Иначе одна и та же фраза жила бы в Rust и в TS сразу.
- */
-/** Четыре исхода Оракула (§6.2). Зеркало `Outcome` в `src-tauri/src/gm/oracle.rs`. */
-export type OracleOutcome = "strongYes" | "yes" | "no" | "strongNo";
-
-export type LogLine =
-  | { kind: "sceneStarted"; location: string; objective: string; tension: number }
-  | {
-      kind: "sceneEnded";
-      location: string;
-      objective: string;
-      outcome: SceneOutcome;
-      tensionBefore: number;
-      tensionAfter: number;
-    }
-  | {
-      kind: "oracleAnswered";
-      /** Текст мастера. Хранится для человека, в решении не участвует (§29.2). */
-      question: string;
-      subject: string;
-      predicate: string;
-      /** Итоговая вероятность после модификатора (§6.4). */
-      probability: number;
-      /** `null` — броска НЕ БЫЛО, ответ пришёл из факта (§6.3). */
-      roll: number | null;
-      outcome: OracleOutcome;
-      value: boolean;
-    };
-
-export interface LogEntry {
-  id: string;
-  turn: number;
-  line: LogLine;
-}
-
-/** Откуда факт взялся (§4.6). Зеркало `FactSource` в `src-tauri/src/gm/facts.rs`. */
-export type FactSource = "oracle" | "exploration" | "event" | "master";
-
-/** Достоверность (§4.6). Шкалы в v0.1 нет намеренно — одно значение. */
-export type Certainty = "confirmed";
-
-/**
- * Подтверждённый факт мира (§4.6).
- *
- * Пара «субъект + предикат» — личность факта: двух фактов с одной парой в
- * состоянии не бывает, второе создание движок отклоняет (§6.3). Собирать факт
- * на фронте нельзя — его создаёт команда движка.
- */
-export interface Fact {
-  id: string;
-  subject: string;
-  predicate: string;
-  value: boolean;
-  source: FactSource;
-  certainty: Certainty;
-}
-
-/**
- * Курсор потока ГСЧ кампании (§22).
- *
- * Числа СТРОКАМИ, и это не небрежность: `u64` в Rust больше, чем точное целое
- * в JavaScript, и число в JSON потеряло бы младшие разряды — то есть отладочный
- * экран показал бы не то состояние, с которым бросал движок. Считать их здесь
- * нечем и не нужно: они только показываются.
- */
-export interface RngCursor {
-  state: string;
-  draws: string;
-}
-
-/** Типизированное изменение состояния (§33 без строковых путей). */
-export type Mutation =
-  | ({ kind: "sceneCreated" } & SceneState)
-  | { kind: "sceneEnded"; outcome: SceneOutcome; tension: number }
-  | { kind: "logged"; id: string; turn: number; line: LogLine }
-  | ({ kind: "rngAdvanced" } & RngCursor)
-  | ({ kind: "factCreated" } & Fact)
-  | { kind: "factUpdated"; id: string; value: boolean; source: FactSource };
-
-export interface Transaction {
-  id: number;
-  turn: number;
-  action: string;
-  mutations: Mutation[];
-}
-
-export interface RollTrace {
-  die: string;
-  value: number;
-  modifier: number;
-  total: number;
-  target: number | null;
-}
-
-/** Ответ команды движка (§33). `trace` живёт один ответ и в состояние не
- *  попадает — его заполняет тот, кто принял решение. */
-export interface ResultObject {
-  success: boolean;
-  resultType: string;
-  summaryKey: string;
-  rolls: RollTrace[];
-  stateChanges: Mutation[];
-  generatedEvents: string[];
-  choices: string[];
-  trace: string[];
-}
-
-/**
- * Состояние движка мастера. Поля приватны на стороне Rust и меняются только
- * через `mutate::apply` — здесь они только читаются. Своего `useState` на эти
- * данные заводить нельзя: это признак опровержения решения ADR 0001
- * (раздел 4, признак 2).
- */
-export interface EngineState {
-  scene: SceneState | null;
-  /** Лог приключения — игроку. Дневник кампании движок не трогает вовсе. */
-  adventureLog: LogEntry[];
-  /** Журнал транзакций — движку, наружу не показывается (§29.2). */
-  history: Transaction[];
-  turn: number;
-  /** Подтверждённые факты мира (§4.6) — показываются в панели «Активно». */
-  facts: Fact[];
-  /** Сид кампании (§22). Ставится один раз при рождении движка и не меняется
-   *  ничем; показывается на отладочном экране. Строкой — см. `RngCursor`. */
-  seed: string;
-  /** Состояние потока ГСЧ. Двигает только `gm/rng.rs`. */
-  rngState: string;
-  /** Сколько обращений к ГСЧ уже было — «обращение №14» на отладке. */
-  rngDraws: string;
-}
-
-/** Что возвращает команда движка: состояние для показа и ответ для объяснения. */
-export interface GmResponse {
-  state: CampaignState;
-  result: ResultObject;
-}
-
 /** Строка таблицы темпа перемещения (`rules.json` `[2]/blocks[15]`) — см. `travelPace.ts`. */
 export type TravelPaceId = "fast" | "normal" | "slow";
 
@@ -535,13 +370,11 @@ export interface CampaignState {
   characters: Character[];
   journal: JournalEntry[];
   combat: CombatState | null;
-  /** Состояние движка мастера. `null` у кампаний, созданных до него. */
-  engine: EngineState | null;
   /**
    * Счётчик пути (SRD `[2]` «Передвижение»). У кампаний, записанных до него,
    * приезжает со значениями по умолчанию структурным `#[serde(default)]` на
-   * стороне Rust — тем же приёмом, которым пережит приход движка. Читать его
-   * надо через `travelOf` из `travelPace.ts`: он и подставляет умолчание.
+   * стороне Rust. Читать его надо через `travelOf` из `travelPace.ts`: он и
+   * подставляет умолчание.
    */
   travel: TravelState | null;
 }
@@ -622,6 +455,5 @@ export const emptyCampaignState = (): CampaignState => ({
   characters: [],
   journal: [],
   combat: null,
-  engine: null,
   travel: null,
 });
