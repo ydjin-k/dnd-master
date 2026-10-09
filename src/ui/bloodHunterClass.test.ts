@@ -33,6 +33,7 @@ import {
   maxHpForLevel,
   parseHitDie,
   parseHitDieAverage,
+  proficiencyBonusForLevel,
   toolProficienciesFor,
   weaponProficienciesFor,
 } from "./characterCreationData";
@@ -121,6 +122,58 @@ describe("Кровавый охотник — наш класс в справо�
 
     expect(levels).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(Math.max(...levels)).toBeLessThanOrEqual(PROGRESSION_MAX_LEVEL);
+  });
+
+  /**
+   * Таблица класса лежит у нас ДВАЖДЫ, и это намеренно: `LEVEL_TABLE` в
+   * bloodHunterClass.ts — текст статьи, который игрок читает во вкладке
+   * «Правила», а `CLASS_PROGRESSION` в classProgression.ts — механика, по
+   * которой лист персонажа считает счётчики. Читатели разные, и сводить их в
+   * один список нечем: таблица статьи это разметка, а не числа.
+   *
+   * НО КОПИЯ ОБЯЗАНА БЫТЬ НАКРЫТА СТОРОЖЕМ. Довод «у двенадцати SRD-классов
+   * таблица тоже задвоена с rules.json» здесь не работает: rules.json —
+   * привозной SRD, его никто не правит, а `LEVEL_TABLE` наш и правиться будет.
+   * Без этой пробы сдвиг ступени в classProgression.ts оставил бы статью
+   * врать, и ворота бы этого не поймали: соседняя проба сверяет только СТОЛБЕЦ
+   * УРОВНЯ.
+   *
+   * Сверяется каждая из двенадцати строк, столбец в столбец. Бонус мастерства
+   * механика класса не хранит вовсе (он общий для всех классов), поэтому он
+   * сверяется с той самой функцией, которая считает его для листа, —
+   * `proficiencyBonusForLevel`.
+   */
+  it("каждая строка таблицы статьи сходится с механикой: кость гемокрафта, известные проклятья, бонус мастерства", () => {
+    const table = BLOOD_HUNTER_TOPIC.blocks.find((b) => b.type === "table");
+    expect(table).toBeDefined();
+    const rows = (table as Extract<RuleBlock, { type: "table" }>).rows;
+
+    const header = rows[0]!;
+    const proficiencyColumn = header.indexOf("Бонус мастерства");
+    const hemocraftColumn = header.indexOf("Кость гемокрафта");
+    const cursesColumn = header.indexOf("Известные проклятья крови");
+    // Столбцы ищутся по подписи, а не по номеру: переименуют шапку — проба
+    // скажет об этом прямо, а не начнёт молча сверять не те клетки.
+    expect(
+      [proficiencyColumn, hemocraftColumn, cursesColumn].every((column) => column > 0),
+      `шапка таблицы статьи изменилась: ${header.join(" | ")}`,
+    ).toBe(true);
+
+    const bodyRows = rows.slice(1);
+    expect(bodyRows).toHaveLength(PROGRESSION_MAX_LEVEL);
+
+    for (const row of bodyRows) {
+      const level = Number(row[0]);
+      const progression = progressionAt(BLOOD_HUNTER_ID, level);
+      expect(progression, `механика не знает ${level} уровня`).toBeDefined();
+      const scalingValue = (name: string) => progression!.scaling.find((entry) => entry.name === name)?.value;
+
+      expect(scalingValue("Кость гемокрафта"), `${level} уровень: кость гемокрафта`).toBe(row[hemocraftColumn]);
+      expect(scalingValue("Известные проклятья крови"), `${level} уровень: известные проклятья крови`).toBe(
+        row[cursesColumn],
+      );
+      expect(`+${proficiencyBonusForLevel(level)}`, `${level} уровень: бонус мастерства`).toBe(row[proficiencyColumn]);
+    }
   });
 
   it("боевые стили класса — четыре из шести, и каждый есть в общем списке стилей", () => {
