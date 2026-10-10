@@ -8,7 +8,7 @@ export type Tab =
   | "adventures" | "combat" | "dice" | "characters"
   | "journal" | "rules" | "spells" | "bestiary" | "soundboard";
 
-const TABS: { id: Tab; label: string }[] = [
+export const TABS: { id: Tab; label: string }[] = [
   { id: "adventures", label: "Приключения" },
   { id: "combat", label: "Бой" },
   { id: "dice", label: "Кубики" },
