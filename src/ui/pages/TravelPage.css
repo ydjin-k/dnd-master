@@ -6,7 +6,7 @@
   padding: 1rem 1.1rem 1.2rem;
   border: 1px solid rgba(114, 214, 208, 0.25);
   border-radius: var(--dm-radius-panel);
-  background: linear-gradient(145deg, rgba(23, 38, 70, 0.55), rgba(7, 15, 33, 0.55));
+  background: linear-gradient(145deg, rgba(23, 38, 70, 0.96), rgba(7, 15, 33, 0.96));
 }
 
 .travel-page__block h3 {
