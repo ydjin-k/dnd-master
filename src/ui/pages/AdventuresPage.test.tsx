@@ -4,18 +4,18 @@ import { AdventuresPage, journalTextFor, journalTextForChain } from "./Adventure
 import { findTable, rowForRoll } from "../eventTables";
 import type { CampaignState } from "../../state/types";
 
-const { invokeMock, addJournalEntry, playDiceRollSound, startCombat } = vi.hoisted(() => ({
+const { invokeMock, addJournalEntry, playDiceRollSound, addToCombat } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   addJournalEntry: vi.fn(),
   playDiceRollSound: vi.fn(),
-  startCombat: vi.fn(),
+  addToCombat: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("../../audio/uiSounds", () => ({ playDiceRollSound }));
 
 let mockState: CampaignState;
 vi.mock("../../state/CampaignContext", () => ({
-  useCampaign: () => ({ state: mockState, addJournalEntry, startCombat }),
+  useCampaign: () => ({ state: mockState, addJournalEntry, addToCombat }),
 }));
 
 /** Бросок движка, который всегда даёт `total`. */
@@ -66,7 +66,7 @@ describe("AdventuresPage", () => {
     invokeMock.mockReset();
     addJournalEntry.mockReset();
     playDiceRollSound.mockClear();
-    startCombat.mockReset();
+    addToCombat.mockReset();
     mockState = emptyState();
   });
 
@@ -226,9 +226,9 @@ describe("AdventuresPage", () => {
     fireEvent.click(screen.getByText("Бросить"));
     fireEvent.click(await screen.findByText("Поднять бой"));
 
-    await waitFor(() => expect(startCombat).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(addToCombat).toHaveBeenCalledTimes(1));
     // Противники — из строки и только из неё; со стороны отряда выходят все.
-    expect(startCombat.mock.calls[0]).toEqual([["rybolyud"], ["ch1"]]);
+    expect(addToCombat.mock.calls[0]).toEqual([["rybolyud"], ["ch1"]]);
     expect(await screen.findByText(/Бой начат/)).toBeInTheDocument();
   });
 
@@ -255,7 +255,7 @@ describe("AdventuresPage", () => {
 
     expect(await screen.findByText("Поднять бой")).toBeDisabled();
     expect(screen.getByText(/добавьте персонажей/i)).toBeInTheDocument();
-    expect(startCombat).not.toHaveBeenCalled();
+    expect(addToCombat).not.toHaveBeenCalled();
   });
 
   it("отказ движка показан игроку, а не проглочен", async () => {

@@ -1,5 +1,6 @@
 mod bestiary;
 mod characters;
+mod combat;
 mod dice;
 mod model;
 mod rules;
@@ -109,15 +110,46 @@ fn get_character_presets(app: AppHandle) -> Result<Vec<Character>, String> {
 // снесённом движке мастера, но причина в захватах, а не в том, кто писал
 // второе поле, — поэтому один замок здесь остаётся.
 
+/// Добавить участников: существ по `id` шаблона (повтор `id` — ещё один боец
+/// того же вида, так приходят «пять волков») и персонажей кампании. Боя нет —
+/// он заводится первым добавлением.
+///
+/// Этой же командой поднимает бой генератор событий («Поднять бой» на строке с
+/// `monsterIds`): твари строки и все персонажи кампании; уже стоящие в бою
+/// персонажи вторично не встают.
+fn add_to_combat_action(
+    state: &mut CampaignState,
+    monsters: &[MonsterTemplate],
+    character_ids: &[String],
+) -> Result<(), String> {
+    let characters: Vec<Character> = character_ids
+        .iter()
+        .map(|id| {
+            state
+                .characters
+                .iter()
+                .find(|c| &c.id == id)
+                .cloned()
+                .ok_or_else(|| format!("персонаж {id:?} не найден"))
+        })
+        .collect::<Result<_, String>>()?;
+
+    let combat_state = state.combat.get_or_insert_with(combat::new_combat);
+    for m in monsters {
+        combat::add_monsters(combat_state, m, 1)?;
+    }
+    combat::add_characters(combat_state, &characters);
+    Ok(())
+}
+
 #[tauri::command]
-fn start_combat(
+fn combat_add(
     app: AppHandle,
     monster_ids: Vec<String>,
     character_ids: Vec<String>,
 ) -> Result<CampaignState, String> {
-    // Бестиарий — ресурс приложения, а не кампании: читается ДО взятия замка,
-    // тем же порядком, что заклинания в `combat_cast_spell`. Под замком
-    // остаётся только работа с документом кампании.
+    // Бестиарий — ресурс приложения, а не кампании: читается ДО взятия замка.
+    // Под замком остаётся только работа с документом кампании.
     let bestiary = bestiary::load_bestiary(&app)?;
     let monsters: Vec<MonsterTemplate> = monster_ids
         .iter()
@@ -126,79 +158,68 @@ fn start_combat(
                 .iter()
                 .find(|m| &m.id == id)
                 .cloned()
-                .ok_or_else(|| format!("монстр {id:?} не найден в бестиарии"))
+                .ok_or_else(|| format!("существо {id:?} не найдено в бестиарии"))
         })
         .collect::<Result<_, String>>()?;
 
     storage::with_active_locked(&app, |state| {
-        let characters: Vec<model::Character> = character_ids
-            .iter()
-            .map(|id| {
-                state
-                    .characters
-                    .iter()
-                    .find(|c| &c.id == id)
-                    .cloned()
-                    .ok_or_else(|| format!("персонаж {id:?} не найден"))
-            })
-            .collect::<Result<_, String>>()?;
-
-        state.combat = Some(bestiary::start_combat(&monsters, &characters)?);
-        Ok(())
+        add_to_combat_action(state, &monsters, &character_ids)
     })
 }
 
 #[tauri::command]
-fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Result<CampaignState, String> {
+fn combat_roll_initiative(
+    app: AppHandle,
+    dex_modifiers: std::collections::HashMap<String, i32>,
+) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
-        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        bestiary::move_combatant(combat_state, &combatant_id, x, y)
+        let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+        combat::roll_initiative(combat_state, &dex_modifiers)
     })
 }
 
 #[tauri::command]
-fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Result<CampaignState, String> {
+fn combat_next_turn(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
-        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        bestiary::attack(combat_state, &attacker_id, &target_id)
+        let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+        combat::next_turn(combat_state)
     })
 }
 
 #[tauri::command]
 fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
-        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        bestiary::apply_damage(combat_state, &target_id, delta)
+        let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+        combat::apply_damage(combat_state, &target_id, delta)
     })
 }
 
-#[tauri::command]
-fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        bestiary::end_turn(combat_state)
-    })
+/// Перенос боевых хитов в листы — ТОЛЬКО по нажатию, отдельной командой.
+/// Бой при этом продолжается. Обратная сторона той же границы —
+/// `end_combat_action` ниже: сам по себе бой лист не правит.
+fn transfer_hp_action(state: &mut CampaignState) -> Result<(), String> {
+    let combat_state = state.combat.as_ref().ok_or("боя нет")?;
+    combat::transfer_hp_to_sheets(combat_state, &mut state.characters);
+    Ok(())
 }
 
 #[tauri::command]
-fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
-    storage::with_active_locked(&app, |state| {
-        let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        bestiary::monster_auto_turn(combat_state)?;
-        Ok(())
-    })
+fn combat_transfer_hp_to_sheets(app: AppHandle) -> Result<CampaignState, String> {
+    storage::with_active_locked(&app, transfer_hp_action)
 }
 
 /// Завершение боя: боевое состояние выбрасывается целиком — и ничего из него
 /// НЕ переезжает в листы персонажей.
 ///
 /// `Combatant.current_hp` — рабочая копия на время боя, а владелец
-/// `Character.current_hp` один, и это игрок: урон, полученный в бою, он
-/// переносит на лист сам, когда сочтёт нужным (решение владельца 24.09.2026,
-/// карточка `combat-damage-reaches-character-sheet`). Раньше тут напрашивался
-/// автоматический перенос — он отменён, и вернуть его молча нельзя: тело
-/// команды вынесено сюда отдельной функцией ровно затем, чтобы проба
-/// `combat_damage_never_reaches_the_character_sheet` держала его за руку.
+/// `Character.current_hp` один, и это игрок: урон, полученный в бою, на лист
+/// переносит человек — вручную на листе или кнопкой «Перенести хиты в листы»
+/// (`transfer_hp_action`), когда сочтёт нужным (решение владельца 24.09.2026,
+/// карточка `combat-damage-reaches-character-sheet`, уточнено 09.10.2026
+/// карточкой `combat-reduce-to-tracker`). Автоматический перенос отменён, и
+/// вернуть его молча нельзя: тело команды вынесено сюда отдельной функцией
+/// ровно затем, чтобы проба `combat_damage_never_reaches_the_character_sheet`
+/// держала его за руку.
 fn end_combat_action(state: &mut CampaignState) -> Result<(), String> {
     state.combat = None;
     Ok(())
@@ -207,71 +228,6 @@ fn end_combat_action(state: &mut CampaignState) -> Result<(), String> {
 #[tauri::command]
 fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, end_combat_action)
-}
-
-/// Владелец списания ячейки заклинания: `bestiary::cast_spell` не видит `Character`
-/// (ячейки — ресурс персонажа между боями, не боевого состояния), поэтому проверка
-/// «известно ли заклинание» и списание ячейки 1 круга происходят здесь, на уровне
-/// команды. Слот проверяется и тратится вокруг единственного резолва эффекта — если
-/// `bestiary::cast_spell` вернёт ошибку (нет цели, заклинатель повержен и т.п.), ячейка
-/// не будет потрачена впустую.
-fn cast_spell_action(
-    state: &mut CampaignState,
-    caster_id: &str,
-    spell: &Spell,
-    target_id: Option<&str>,
-) -> Result<(), String> {
-    let character = state
-        .characters
-        .iter()
-        .find(|c| c.id == caster_id)
-        .ok_or_else(|| format!("персонаж {caster_id:?} не найден"))?;
-
-    if spell.level == 0 {
-        if !character.known_cantrips.contains(&spell.id) {
-            return Err(format!("заговор «{}» не изучен персонажем", spell.name));
-        }
-    } else {
-        if !character.castable_spells.contains(&spell.id) {
-            return Err(format!("заклинание «{}» не изучено персонажем", spell.name));
-        }
-        if character.free_spell_slot_index(spell.level).is_none() {
-            return Err(format!("нет свободных ячеек {} круга или выше", spell.level));
-        }
-    }
-
-    let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    bestiary::cast_spell(combat_state, caster_id, spell, target_id)?;
-
-    if spell.level > 0 {
-        let caster = state
-            .characters
-            .iter_mut()
-            .find(|c| c.id == caster_id)
-            .unwrap();
-        let slot = caster.free_spell_slot_index(spell.level).unwrap();
-        caster.spell_slots_current[slot] -= 1;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-fn combat_cast_spell(
-    app: AppHandle,
-    caster_id: String,
-    spell_id: String,
-    target_id: Option<String>,
-) -> Result<CampaignState, String> {
-    let spells = spells::load_spells(&app)?;
-    let spell = spells
-        .into_iter()
-        .find(|s| s.id == spell_id)
-        .ok_or_else(|| format!("заклинание {spell_id:?} не найдено"))?;
-
-    storage::with_active_locked(&app, |state| {
-        cast_spell_action(state, &caster_id, &spell, target_id.as_deref())
-    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -294,13 +250,11 @@ pub fn run() {
             get_rules,
             get_spells,
             get_character_presets,
-            start_combat,
-            move_combatant,
-            combat_attack,
-            combat_cast_spell,
+            combat_add,
+            combat_roll_initiative,
+            combat_next_turn,
             apply_damage,
-            end_turn,
-            monster_auto_turn,
+            combat_transfer_hp_to_sheets,
             end_combat
         ])
         .run(tauri::generate_context!())
@@ -310,202 +264,115 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use model::{CombatState, Combatant};
 
-    fn combatant(id: &str) -> Combatant {
-        Combatant {
-            id: id.into(),
-            name: id.into(),
-            is_monster: false,
-            x: 0,
-            y: 0,
-            speed_feet: 30,
-            max_hp: 10,
-            current_hp: 10,
-            armor_class: 10,
-            attack_bonus: Some(3),
-            damage_dice: Some("1d6".into()),
-            initiative: 0,
-            feet_moved_this_turn: 0,
+    fn campaign_with_hero() -> CampaignState {
+        CampaignState {
+            characters: vec![model::Character {
+                id: "pc".into(),
+                name: "Герой".into(),
+                max_hp: 12,
+                current_hp: 12,
+                ..Default::default()
+            }],
+            ..Default::default()
         }
     }
 
-    fn combat_state_with(combatant: Combatant) -> CombatState {
-        CombatState {
-            grid_width: 12,
-            grid_height: 10,
-            turn_order: vec![combatant.id.clone()],
-            combatants: vec![combatant],
-            current_turn_index: 0,
-            round: 1,
-            log: Vec::new(),
-            finished: false,
-        }
-    }
-
-    fn test_spell(level: u8) -> Spell {
-        Spell {
-            id: "test-spell".into(),
-            name: "Тестовое заклинание".into(),
-            level,
-            school: "Testing".into(),
-            casting_time: "1 действие".into(),
-            range: "60 футов".into(),
-            components: "В, С".into(),
-            duration: "Мгновенная".into(),
-            concentration: false,
-            ritual: false,
-            classes: vec![],
-            description: String::new(),
-            damage_dice: None,
-            damage_type: None,
-            attack_roll: false,
-            saving_throw: None,
-        }
-    }
-
-    #[test]
-    fn cast_spell_action_rejects_unknown_spell() {
-        let mut state = CampaignState {
-            characters: vec![model::Character {
-                id: "pc".into(),
-                name: "pc".into(),
-                ..Default::default()
-            }],
-            combat: Some(combat_state_with(combatant("pc"))),
-            ..Default::default()
-        };
-        let spell = test_spell(1);
-
-        let err = cast_spell_action(&mut state, "pc", &spell, None).unwrap_err();
-        assert!(err.contains("не изучено"));
-    }
-
-    #[test]
-    fn cast_spell_action_second_cast_with_no_slots_left_is_rejected_and_slot_stays_at_zero() {
-        let mut state = CampaignState {
-            characters: vec![model::Character {
-                id: "pc".into(),
-                name: "pc".into(),
-                castable_spells: vec!["test-spell".into()],
-                spell_slots_max: vec![1, 0, 0, 0, 0],
-                spell_slots_current: vec![1, 0, 0, 0, 0],
-                ..Default::default()
-            }],
-            combat: Some(combat_state_with(combatant("pc"))),
-            ..Default::default()
-        };
-        let spell = test_spell(1);
-
-        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
-        assert_eq!(state.characters[0].spell_slots_current[0], 0);
-
-        let err = cast_spell_action(&mut state, "pc", &spell, None).unwrap_err();
-        assert!(err.contains("ячеек"));
-        assert_eq!(
-            state.characters[0].spell_slots_current[0], 0,
-            "ячейка не должна уйти в минус"
-        );
-    }
-
-    #[test]
-    fn cast_spell_action_cantrip_never_touches_slots() {
-        let mut state = CampaignState {
-            characters: vec![model::Character {
-                id: "pc".into(),
-                name: "pc".into(),
-                known_cantrips: vec!["test-spell".into()],
-                spell_slots_max: vec![1, 0, 0, 0, 0],
-                spell_slots_current: vec![1, 0, 0, 0, 0],
-                ..Default::default()
-            }],
-            combat: Some(combat_state_with(combatant("pc"))),
-            ..Default::default()
-        };
-        let spell = test_spell(0);
-
-        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
-        cast_spell_action(&mut state, "pc", &spell, None).unwrap();
-
-        assert_eq!(state.characters[0].spell_slots_current[0], 1);
+    fn combatant_hp(state: &CampaignState, id: &str) -> i32 {
+        state
+            .combat
+            .as_ref()
+            .unwrap()
+            .combatants
+            .iter()
+            .find(|c| c.id == id)
+            .unwrap()
+            .current_hp
     }
 
     /// ОТРИЦАТЕЛЬНАЯ проба: бой ранил персонажа и кончился — на листе те же
     /// хиты, с какими персонаж в бой вошёл.
     ///
     /// Это ожидаемый исход, а не дефект: владелец 24.09.2026 решил, что хиты
-    /// на листе уменьшает сам игрок, вручную (карточка
-    /// `combat-damage-reaches-character-sheet`). Проба стоит сторожем на этом
+    /// на листе сами не уменьшаются (карточка
+    /// `combat-damage-reaches-character-sheet`), а 09.10.2026 уточнил: переносит
+    /// человек, кнопкой (`transfer_hp_action`). Проба стоит сторожем на этом
     /// решении — она обязана покраснеть, если кто-нибудь когда-нибудь вернёт
     /// автоматический перенос хитов из боя в лист.
     #[test]
     fn combat_damage_never_reaches_the_character_sheet() {
-        let mut state = CampaignState {
-            characters: vec![model::Character {
-                id: "pc".into(),
-                name: "Герой".into(),
-                max_hp: 12,
-                current_hp: 12,
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
+        let mut state = campaign_with_hero();
         let monsters = vec![bestiary::test_monster_template("wolf")];
 
-        state.combat = Some(bestiary::start_combat(&monsters, &state.characters).unwrap());
-        bestiary::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
+        add_to_combat_action(&mut state, &monsters, &["pc".into()]).unwrap();
+        combat::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
 
         // В бою урон дошёл — рабочая копия бойца его получила.
-        let in_combat = state
-            .combat
-            .as_ref()
-            .unwrap()
-            .combatants
-            .iter()
-            .find(|c| c.id == "pc")
-            .unwrap();
-        assert_eq!(in_combat.current_hp, 5, "боец в бою обязан получить урон");
+        assert_eq!(combatant_hp(&state, "pc"), 5, "боец в бою обязан получить урон");
+        assert_eq!(state.characters[0].current_hp, 12, "пока бой идёт, лист тоже не тронут");
 
         end_combat_action(&mut state).unwrap();
 
         assert!(state.combat.is_none(), "бой закончился — боевого состояния нет");
         assert_eq!(
             state.characters[0].current_hp, 12,
-            "лист персонажа бой НЕ правит: хиты уменьшает сам игрок, вручную"
+            "лист персонажа бой НЕ правит: хиты переносит человек"
         );
         assert_eq!(state.characters[0].max_hp, 12);
     }
 
+    /// Обратная проба к предыдущей: кнопка переноса — и только она — кладёт
+    /// боевые хиты на лист каждому персонажу-участнику. Существа переноса не
+    /// касаются, бой после переноса продолжается.
+    ///
+    /// Отрицательная проба: оставить `transfer_hp_to_sheets` пустой — краснеет
+    /// строка про лист героя.
+    #[test]
+    fn transfer_button_puts_combat_hit_points_on_every_character_sheet() {
+        let mut state = campaign_with_hero();
+        state.characters.push(model::Character {
+            id: "bard".into(),
+            name: "Бард".into(),
+            max_hp: 9,
+            current_hp: 9,
+            ..Default::default()
+        });
+        state.characters.push(model::Character {
+            id: "away".into(),
+            name: "Не в бою".into(),
+            max_hp: 8,
+            current_hp: 8,
+            ..Default::default()
+        });
+        let monsters = vec![bestiary::test_monster_template("wolf")];
+        add_to_combat_action(&mut state, &monsters, &["pc".into(), "bard".into()]).unwrap();
+        let combat_state = state.combat.as_mut().unwrap();
+        combat::apply_damage(combat_state, "pc", 5).unwrap();
+        combat::apply_damage(combat_state, "bard", 9).unwrap();
+        combat::apply_damage(combat_state, "monster-wolf-1", 4).unwrap();
+
+        transfer_hp_action(&mut state).unwrap();
+
+        assert_eq!(state.characters[0].current_hp, 7, "лист героя получил боевые хиты");
+        assert_eq!(state.characters[1].current_hp, 0, "и лист барда — тоже, ноль тоже число");
+        assert_eq!(state.characters[2].current_hp, 8, "кто не в бою — того перенос не касается");
+        assert_eq!(state.characters[0].max_hp, 12, "максимум переносом не трогается");
+        assert_eq!(combatant_hp(&state, "monster-wolf-1"), 7, "бой продолжается как был");
+    }
+
     /// Обратное направление той же границы: урон, нанесённый монстру, боя не
     /// переживает, а шаблон бестиария не трогается вовсе — монстр в бестиарии
-    /// запись-образец, а не существо со своей судьбой.
+    /// запись-образец, а не существо со своей судьбой. Перенос в листы его
+    /// тоже не трогает.
     #[test]
     fn monster_damage_dies_with_the_combat_and_never_touches_the_bestiary_template() {
-        let mut state = CampaignState {
-            characters: vec![model::Character {
-                id: "pc".into(),
-                name: "Герой".into(),
-                max_hp: 12,
-                current_hp: 12,
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
+        let mut state = campaign_with_hero();
         let monsters = vec![bestiary::test_monster_template("wolf")];
         let template_hp_before = monsters[0].max_hp;
 
-        state.combat = Some(bestiary::start_combat(&monsters, &state.characters).unwrap());
-        let monster_id = state
-            .combat
-            .as_ref()
-            .unwrap()
-            .combatants
-            .iter()
-            .find(|c| c.is_monster)
-            .unwrap()
-            .id
-            .clone();
-        bestiary::apply_damage(state.combat.as_mut().unwrap(), &monster_id, 4).unwrap();
+        add_to_combat_action(&mut state, &monsters, &["pc".into()]).unwrap();
+        combat::apply_damage(state.combat.as_mut().unwrap(), "monster-wolf-1", 4).unwrap();
+        transfer_hp_action(&mut state).unwrap();
 
         end_combat_action(&mut state).unwrap();
 

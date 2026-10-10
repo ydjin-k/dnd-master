@@ -778,7 +778,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
       fightingStyle: finalFightingStyle,
       // Заговор расы приходит и не-заклинателю: «Пляшущие огоньки» эльфа бездны
       // ячейки не требуют, норму класса не занимают и на листе лежат в общих
-      // заговорах — там же, где их ищет `cast_spell_action` в Rust.
+      // заговорах.
       knownCantrips: [...new Set([...(spellAbility ? knownCantrips : []), ...raceCantrips])],
       // Заклинания домена архетипа всегда подготовлены и не считаются в норму
       // класса — добавляются поверх выбранных игроком (SRD, «Заклинания домена»).

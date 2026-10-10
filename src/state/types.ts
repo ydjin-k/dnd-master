@@ -159,8 +159,8 @@ export interface Character {
    * применение: у класса с известным списком (Бард/Колдун/Чародей/Следопыт)
    * сюда попадает выученное навсегда, у класса с подготовкой
    * (Жрец/Друид/Волшебник/Паладин) — подготовленное после последнего отдыха
-   * (см. preparedSpells.ts). Единственный, кто это право проверяет, —
-   * `cast_spell_action` в Rust: заклинания не из этого списка он не пускает.
+   * (см. preparedSpells.ts). Проверявший это право в бою `cast_spell_action`
+   * снесён вместе с заклинаниями в бою (`combat-reduce-to-tracker`).
    *
    * `spellbook` — третья сущность, а не синоним: книга это «выучено вообще», и
    * творить она сама по себе не даёт. Заговоры — четвёртая: они в
@@ -233,33 +233,43 @@ export interface JournalEntry {
   text: string;
 }
 
-export interface Combatant {
-  id: string;
-  name: string;
-  isMonster: boolean;
-  x: number;
-  y: number;
-  speedFeet: number;
-  maxHp: number;
-  currentHp: number;
-  armorClass: number;
-  /** Нет вовсе, если у существа нет ни одной атаки в стат-блоке SRD:
-   *  такой боец стоит на поле и получает урон, но атаковать ему нечем. */
-  attackBonus?: number;
-  damageDice?: string;
-  initiative: number;
-  feetMovedThisTurn: number;
+/**
+ * Откуда боец — зеркало `CombatantSource` в `src-tauri/src/model.rs`. Имени
+ * здесь нет: подпись выводит `combatantLabel` (`src/ui/combatTracker.ts`) из
+ * ссылки и номера, второй копии имени бой не хранит.
+ */
+export type CombatantSource =
+  | { kind: "character"; characterId: string }
+  | { kind: "monster"; templateId: string; number: number };
+
+/**
+ * Бросок инициативы: грань к20 и модификатор Ловкости порознь, итог считает
+ * `initiativeTotal`. Не путать с `Character.initiative` — то МОДИФИКАТОР на
+ * листе, а это РЕЗУЛЬТАТ броска.
+ */
+export interface InitiativeRoll {
+  d20: number;
+  dexModifier: number;
 }
 
+export interface Combatant {
+  id: string;
+  source: CombatantSource;
+  maxHp: number;
+  currentHp: number;
+  /** null — инициатива этому бойцу ещё не брошена. */
+  initiativeRoll: InitiativeRoll | null;
+}
+
+/**
+ * Бой — учёт: участники, указатель хода и раунд. Порядок ходов и отметки
+ * «походил» не хранятся, их выводит `src/ui/combatTracker.ts`.
+ */
 export interface CombatState {
-  gridWidth: number;
-  gridHeight: number;
   combatants: Combatant[];
-  turnOrder: string[];
+  /** Позиция указателя в порядке ходов (`turnOrder`). */
   currentTurnIndex: number;
   round: number;
-  log: string[];
-  finished: boolean;
 }
 
 /** Спасбросок из шапки стат-блока. `ability` — ключ `AbilityScores`, русскую

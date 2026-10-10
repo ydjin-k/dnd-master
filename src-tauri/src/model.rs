@@ -270,17 +270,6 @@ impl Character {
         self.spell_slots_level1_max = 0;
         self.spell_slots_level1_current = 0;
     }
-
-    /// Индекс наименьшей свободной ячейки круга `circle` или выше — SRD
-    /// позволяет творить заклинание ячейкой своего круга и любого старше, а
-    /// Колдун вообще получает ячейки только высшего доступного круга.
-    pub fn free_spell_slot_index(&self, circle: u8) -> Option<usize> {
-        if circle == 0 {
-            return None;
-        }
-        (usize::from(circle) - 1..self.spell_slots_current.len())
-            .find(|&i| self.spell_slots_current[i] > 0)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -291,45 +280,91 @@ pub struct JournalEntry {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// Откуда взялся боец. Имени здесь НЕТ намеренно: подпись «Волк 3» выводится
+/// из ссылки и номера (`combatantLabel` в `src/ui/combatTracker.ts`), а не
+/// хранится второй копией — иначе переименование существа в бестиарии или
+/// персонажа на листе разъехалось бы с боем.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum CombatantSource {
+    /// Персонаж кампании — `Character.id`.
+    #[serde(rename_all = "camelCase")]
+    Character { character_id: String },
+    /// Существо из бестиария — `MonsterTemplate.id` и порядковый номер среди
+    /// бойцов этого вида. Номер выдаётся при добавлении и больше не меняется:
+    /// добавили трёх волков, потом ещё двух — новые четвёртый и пятый.
+    #[serde(rename_all = "camelCase")]
+    Monster { template_id: String, number: u32 },
+}
+
+/// Бросок инициативы: грань к20 и модификатор Ловкости, с которым он брошен,
+/// — порознь. Итог (`d20 + dex_modifier`) считается, а не лежит третьим
+/// числом. Модификатор персонажа — его `Character.initiative`, существа —
+/// `abilityMod` его Ловкости; оба выбирает фронт одним местом
+/// (`initiativeModifierOf`), здесь число только запоминается.
+///
+/// Не путать с `Character.initiative`: то МОДИФИКАТОР на листе («+2»), а это
+/// РЕЗУЛЬТАТ броска. Поэтому у бойца поле и называется `initiative_roll`, а не
+/// `initiative`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InitiativeRoll {
+    pub d20: i32,
+    pub dex_modifier: i32,
+}
+
+/// Участник боя — учёт, а не правила: ссылка на источник, хиты и бросок
+/// инициативы. Ни КД, ни атак, ни координат у бойца больше нет (карточка
+/// `combat-reduce-to-tracker`): попадания, урон и перемещение разрешает Мастер
+/// за столом.
+///
+/// `current_hp` — рабочая копия на время боя. В лист персонажа она уходит
+/// только кнопкой переноса (`combat::transfer_hp_to_sheets`), никогда сама.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Combatant {
     pub id: String,
-    pub name: String,
-    pub is_monster: bool,
-    pub x: i32,
-    pub y: i32,
-    pub speed_feet: i32,
+    pub source: CombatantSource,
     pub max_hp: i32,
     pub current_hp: i32,
-    pub armor_class: i32,
-    /// Плоский бонус атаки и кости урона — для монстров из бестиария; для
-    /// игровых персонажей это грубая заглушка (полноценных бонусов от оружия
-    /// и владения в модели персонажа пока нет). Игрок может вместо `attack`
-    /// бросить свою настоящую атаку на вкладке «Кубики» и применить урон
-    /// через apply_damage — движок это не запрещает.
-    /// Ничего, если атаки нет вовсе (существо из бестиария без единой атаки в
-    /// стат-блоке SRD). Такой боец стоит на поле, ходит и получает урон, но
-    /// `attack` по нему честно отказывает вместо броска по выдуманным числам.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub attack_bonus: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub damage_dice: Option<String>,
-    pub initiative: i32,
-    pub feet_moved_this_turn: i32,
+    /// `None` — инициатива этому бойцу ещё не брошена (добавлен до кнопки
+    /// «Рассчитать инициативу» или после неё).
+    #[serde(default)]
+    pub initiative_roll: Option<InitiativeRoll>,
 }
 
+/// Бой: участники, указатель хода и раунд.
+///
+/// Порядка ходов здесь нет: он выводится из бросков (`turnOrder` в
+/// `src/ui/combatTracker.ts`) правилом «итог, затем модификатор Ловкости,
+/// затем имя», и потому воспроизводим на каждом перечитывании. Отметки
+/// «походил» тоже нет: походили все, кто в порядке стоит выше указателя, —
+/// указатель её единственный владелец.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CombatState {
-    pub grid_width: i32,
-    pub grid_height: i32,
     pub combatants: Vec<Combatant>,
-    pub turn_order: Vec<String>,
+    /// Позиция указателя в порядке ходов.
     pub current_turn_index: usize,
     pub round: i32,
-    pub log: Vec<String>,
-    pub finished: bool,
+}
+
+/// Чтение `CampaignState.combat`, которое не роняет кампанию.
+///
+/// В файлах кампаний лежит бой ДРУГОЙ формы — тактический, с сеткой, журналом
+/// и бойцами без `source` (до `combat-reduce-to-tracker`). Строгое чтение такого
+/// боя провалило бы разбор всего файла, а с ним персонажей и дневник. Поэтому
+/// бой читается отдельно: не разобрался — значит боя нет, а кампания
+/// открывается. Новому разделу показать старый бой на сетке всё равно нечего.
+///
+/// Сторожит `legacy_campaign_with_a_tactical_combat_opens_without_the_combat`
+/// в `storage.rs`.
+fn combat_or_none<'de, D>(deserializer: D) -> Result<Option<CombatState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(raw.and_then(|value| serde_json::from_value(value).ok()))
 }
 
 /// Счётчик пути отряда (SRD 5.1, раздел `[2]` «Передвижение»).
@@ -362,6 +397,8 @@ pub struct CampaignState {
     pub campaign_name: String,
     pub characters: Vec<Character>,
     pub journal: Vec<JournalEntry>,
+    /// Бой старой формы читается как `None`, а не ошибкой — см. `combat_or_none`.
+    #[serde(deserialize_with = "combat_or_none")]
     pub combat: Option<CombatState>,
     /// Счётчик пути (SRD `[2]`). `None` у кампаний, записанных до него, —
     /// структурным `#[serde(default)]` у самого `CampaignState`; показ

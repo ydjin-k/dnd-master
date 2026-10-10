@@ -1,310 +1,269 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import type { MonsterTemplate, Spell } from "../../state/types";
+import type { MonsterTemplate } from "../../state/types";
+import { fmtMod } from "../characterCreationData";
+import {
+  combatantLabel,
+  hasActed,
+  initiativeModifierOf,
+  initiativeTotal,
+  searchMonsters,
+  turnOrder,
+} from "../combatTracker";
 import { UIIcon } from "../UIIcon";
 import "./CombatPage.css";
 
-function StartCombatPanel() {
-  const { state, startCombat } = useCampaign();
+/**
+ * Раздел «Бой» — трекер: добавить участников, бросить инициативу, вести
+ * указатель по линии и считать хиты. Ничего сверх этого (решение владельца
+ * 09.10.2026): атаки, урон, заклинания и перемещение разрешает Мастер за
+ * столом. Всё, что здесь выводится из боя, — в `combatTracker.ts`.
+ */
+export function CombatPage() {
+  const {
+    state,
+    addToCombat,
+    rollInitiative,
+    nextTurn,
+    applyDamage,
+    transferHpToSheets,
+    endCombat,
+  } = useCampaign();
+  const combat = state.combat;
   const [bestiary, setBestiary] = useState<MonsterTemplate[]>([]);
-  const [monsterIds, setMonsterIds] = useState<string[]>([]);
-  const [characterIds, setCharacterIds] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [bestiaryError, setBestiaryError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  /** Сколько существ этого вида добавить — по id шаблона; по умолчанию 1. */
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  /** На сколько хитов сдвинуть — по id бойца. */
+  const [hpAmounts, setHpAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     invoke<MonsterTemplate[] | null>("get_bestiary")
       .then((loaded) => setBestiary(loaded ?? []))
-      .catch((e) => setError(String(e)));
+      .catch((e) => setBestiaryError(String(e)));
   }, []);
 
-  function toggle(list: string[], set: (v: string[]) => void, id: string) {
-    set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
-  }
-
-  return (
-    <div className="combat-start">
-      <h2>Бой</h2>
-      <p className="combat-start__hint dm-hint">Выбери противников и участников, затем начни бой.</p>
-
-      {error && <p className="combat-page__error">Не удалось загрузить бестиарий: {error}</p>}
-
-      <h3>Противники</h3>
-      <div className="combat-start__list">
-        {bestiary.map((m) => (
-          <label key={m.id} className="combat-start__option">
-            <input
-              type="checkbox"
-              checked={monsterIds.includes(m.id)}
-              onChange={() => toggle(monsterIds, setMonsterIds, m.id)}
-            />
-            {m.name} (КД {m.armorClass}, {m.maxHp} HP)
-          </label>
-        ))}
-      </div>
-
-      <h3>Персонажи</h3>
-      <div className="combat-start__list">
-        {state.characters.map((c) => (
-          <label key={c.id} className="combat-start__option">
-            <input
-              type="checkbox"
-              checked={characterIds.includes(c.id)}
-              onChange={() => toggle(characterIds, setCharacterIds, c.id)}
-            />
-            {c.name} ({c.currentHp}/{c.maxHp} HP)
-          </label>
-        ))}
-        {state.characters.length === 0 && (
-          <p className="combat-start__empty">
-            Персонажей нет — добавь их на вкладке «Персонажи».
-          </p>
-        )}
-      </div>
-
-      <button
-        className="dm-button--primary"
-        disabled={monsterIds.length === 0 || characterIds.length === 0}
-        onClick={() => startCombat(monsterIds, characterIds)}
-      >
-        Начать бой
-      </button>
-    </div>
+  const found = useMemo(() => searchMonsters(bestiary, search), [bestiary, search]);
+  const order = combat ? turnOrder(combat, state.characters, bestiary) : [];
+  const inCombat = new Set(
+    combat?.combatants.flatMap((c) =>
+      c.source.kind === "character" ? [c.source.characterId] : [],
+    ) ?? [],
   );
-}
 
-export function CombatPage() {
-  const {
-    state,
-    moveCombatant,
-    combatAttack,
-    combatCastSpell,
-    applyDamage,
-    endTurn,
-    monsterAutoTurn,
-    endCombat,
-  } = useCampaign();
-  const combat = state.combat;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [targetId, setTargetId] = useState<string>("");
-  const [spells, setSpells] = useState<Spell[]>([]);
-  const [castSpellId, setCastSpellId] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    invoke<Spell[] | null>("get_spells")
-      .then((s) => setSpells(s ?? []))
-      .catch((e) => setError(String(e)));
-  }, []);
-
-  if (!combat) {
-    return <StartCombatPanel />;
+  const modifiers: Record<string, number> = {};
+  let everyModifierKnown = order.length > 0;
+  for (const c of order) {
+    const mod = initiativeModifierOf(c, state.characters, bestiary);
+    if (mod === null) everyModifierKnown = false;
+    else modifiers[c.id] = mod;
   }
 
-  const currentId = combat.turnOrder[combat.currentTurnIndex];
-  const current = combat.combatants.find((c) => c.id === currentId);
-  const currentCharacter =
-    current && !current.isMonster ? state.characters.find((c) => c.id === current.id) : undefined;
-  // Что боец может творить прямо сейчас: заговоры плюс `castableSpells` —
-  // подготовленное у класса с подготовкой, известное у класса с известным
-  // списком. Разбирать, чьё тут что, бою не нужно, и права творить он не
-  // пересчитывает: его владелец — `cast_spell_action` на стороне Rust.
-  const castableSpellIds = currentCharacter
-    ? [...currentCharacter.knownCantrips, ...currentCharacter.castableSpells]
-    : [];
-  const castableSpellList = spells.filter((s) => castableSpellIds.includes(s.id));
-  const selectedSpell = castableSpellList.find((s) => s.id === castSpellId);
-  const spellNeedsTarget = !!selectedSpell && (selectedSpell.attackRoll || !!selectedSpell.savingThrow);
-  /** SRD: заклинание творится ячейкой своего круга или любого старшего — у Колдуна доступен только высший. */
-  function hasFreeSlotFor(circle: number): boolean {
-    const slots = currentCharacter?.spellSlotsCurrent ?? [];
-    return slots.slice(circle - 1).some((free) => free > 0);
-  }
-  const spellBlockedBySlot = !!selectedSpell && selectedSpell.level > 0 && !hasFreeSlotFor(selectedSpell.level);
-  const cells = Array.from({ length: combat.gridWidth * combat.gridHeight });
-
-  function combatantAt(x: number, y: number) {
-    return combat!.combatants.find((c) => c.x === x && c.y === y);
+  function countOf(templateId: string): number {
+    const n = Math.floor(Number(counts[templateId] ?? "1"));
+    return Number.isFinite(n) && n >= 1 ? n : 0;
   }
 
-  function handleCellClick(x: number, y: number) {
-    const occupant = combatantAt(x, y);
-    if (occupant && occupant.currentHp > 0) {
-      setSelectedId(occupant.id);
-      return;
-    }
-    if (selectedId) {
-      moveCombatant(selectedId, x, y);
-    }
+  function addMonsters(templateId: string) {
+    const n = countOf(templateId);
+    if (n < 1) return;
+    addToCombat(Array.from({ length: n }, () => templateId), []);
+  }
+
+  function hpAmountOf(id: string): number {
+    const n = Math.floor(Number(hpAmounts[id] ?? ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
   }
 
   return (
     <div className="combat-page">
-      {error && <p className="combat-page__error">Не удалось загрузить заклинания: {error}</p>}
-      <div className="combat-page__layout">
-        <div
-          className="combat-grid"
-          style={{
-            gridTemplateColumns: `repeat(${combat.gridWidth}, 1fr)`,
-            gridTemplateRows: `repeat(${combat.gridHeight}, 1fr)`,
-          }}
-        >
-          {cells.map((_, i) => {
-            const x = i % combat.gridWidth;
-            const y = Math.floor(i / combat.gridWidth);
-            const occupant = combatantAt(x, y);
-            return (
-              <div
-                key={i}
-                className="combat-grid__cell"
-                onClick={() => handleCellClick(x, y)}
-              >
-                {occupant && (
-                  <div
-                    className={
-                      "combat-token" +
-                      (occupant.isMonster ? " combat-token--monster" : " combat-token--player") +
-                      (occupant.id === selectedId ? " combat-token--selected" : "") +
-                      (occupant.id === currentId ? " combat-token--current" : "") +
-                      (occupant.currentHp <= 0 ? " combat-token--down" : "")
-                    }
-                    title={`${occupant.name}: ${occupant.currentHp}/${occupant.maxHp} HP`}
-                  >
-                    {occupant.name.slice(0, 2)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <aside className="combat-sidebar">
-          <p className={`combat-sidebar__round dm-pill ${combat.finished ? "dm-pill--done" : "dm-pill--progress"}`}>
-            Раунд {combat.round} {combat.finished && "— бой завершён"}
-          </p>
-          <p className="combat-sidebar__turn">
-            Ходит: <strong>{current?.name ?? "—"}</strong>
-          </p>
-
-          <div className="combat-sidebar__heading dm-card-head">
-            <UIIcon name="combat" />
-            <h3>Порядок хода</h3>
-          </div>
-          <ul className="combat-sidebar__order">
-            {combat.turnOrder.map((id, index) => {
-              const c = combat.combatants.find((c) => c.id === id);
-              if (!c) return null;
-              const hpPercent = Math.max(0, Math.min(100, (c.currentHp / c.maxHp) * 100));
-              return (
-                <li
-                  key={id}
-                  className={
-                    "combat-sidebar__order-item dm-rank-row" +
-                    (id === currentId ? " combat-sidebar__order-item--current" : "")
-                  }
-                >
-                  <span className="dm-rank-row__index" aria-hidden="true">{index + 1}</span>
-                  <span className="combat-sidebar__avatar" aria-hidden="true">{c.name.slice(0, 2)}</span>
-                  <span className="combat-sidebar__order-name">{c.name}</span>
-                  <span className="combat-sidebar__initiative">Иниц. {c.initiative}</span>
-                  <span className="combat-sidebar__order-meta">{c.currentHp}/{c.maxHp} HP</span>
-                  <span className="combat-sidebar__hp" title={`${c.currentHp}/${c.maxHp} HP`}>
-                    <span className="dm-rank-row__bar" style={{ width: `${hpPercent}%` }} />
-                  </span>
-                  <span className="combat-sidebar__status" aria-hidden="true" />
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="combat-sidebar__actions">
-            {current?.isMonster && !combat.finished && (
-              <button onClick={() => monsterAutoTurn()}>Авто-ход существа</button>
-            )}
-
-            <label>
-              Цель:
-              <select value={targetId} onChange={(e) => setTargetId(e.currentTarget.value)}>
-                <option value="">—</option>
-                {combat.combatants
-                  .filter((c) => c.id !== selectedId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              className="dm-button--primary"
-              disabled={!selectedId || !targetId || combat.finished}
-              onClick={() => selectedId && targetId && combatAttack(selectedId, targetId)}
-            >
-              Атаковать выбранным
-            </button>
-
-            {currentCharacter && castableSpellList.length > 0 && (
-              <div className="combat-sidebar__spellcasting">
-                <label>
-                  Заклинание:
-                  <select
-                    value={castSpellId}
-                    onChange={(e) => setCastSpellId(e.currentTarget.value)}
-                  >
-                    <option value="">—</option>
-                    {castableSpellList.map((s) => {
-                      const noSlots = s.level > 0 && !hasFreeSlotFor(s.level);
-                      return (
-                        <option key={s.id} value={s.id} disabled={noSlots}>
-                          {s.name}
-                          {noSlots ? " (нет свободных ячеек)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <button
-                  disabled={
-                    !selectedSpell ||
-                    combat.finished ||
-                    spellBlockedBySlot ||
-                    (spellNeedsTarget && !targetId)
-                  }
-                  onClick={() =>
-                    selectedSpell &&
-                    combatCastSpell(
-                      currentId,
-                      selectedSpell.id,
-                      spellNeedsTarget ? targetId : null,
-                    )
-                  }
-                >
-                  Сотворить
-                </button>
-              </div>
-            )}
-
-            {selectedId && (
-              <div className="combat-sidebar__hp-controls">
-                <button onClick={() => applyDamage(selectedId, 5)}>−5 HP</button>
-                <button onClick={() => applyDamage(selectedId, -5)}>+5 HP</button>
-              </div>
-            )}
-
-            <button className="dm-button--primary" disabled={combat.finished} onClick={() => endTurn()}>
-              Закончить ход
-            </button>
-            <button onClick={() => endCombat()}>Завершить бой</button>
-          </div>
-        </aside>
+      <div className="combat-page__head dm-card-head">
+        <UIIcon name="combat" />
+        <h2>Бой</h2>
+        {combat && (
+          <span className="combat-page__round dm-pill dm-pill--progress">Раунд {combat.round}</span>
+        )}
       </div>
 
-      <h3>Журнал боя</h3>
-      <ul className="combat-log">
-        {combat.log.map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
-      </ul>
+      <div className="combat-page__layout">
+        <section className="combat-add" aria-label="Добавить в бой">
+          <h3>Персонажи</h3>
+          <ul className="combat-add__list">
+            {state.characters.map((c) => (
+              <li key={c.id} className="combat-add__row">
+                <span className="combat-add__name">{c.name}</span>
+                <span className="combat-add__meta">
+                  {c.currentHp}/{c.maxHp} хитов
+                </span>
+                <button
+                  type="button"
+                  disabled={inCombat.has(c.id)}
+                  onClick={() => addToCombat([], [c.id])}
+                >
+                  {inCombat.has(c.id) ? "В бою" : "Добавить"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {state.characters.length === 0 && (
+            <p className="combat-add__empty">Персонажей нет — добавь их на вкладке «Персонажи».</p>
+          )}
+
+          <h3>Существа</h3>
+          <input
+            type="text"
+            className="combat-add__search dm-field--search"
+            placeholder="Поиск по бестиарию..."
+            aria-label="Поиск существ"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {bestiaryError && (
+            <p className="combat-page__error">Не удалось загрузить бестиарий: {bestiaryError}</p>
+          )}
+          {search.trim() !== "" && found.length === 0 && (
+            <p className="combat-add__empty">Никого не нашлось.</p>
+          )}
+          <ul className="combat-add__list combat-add__found">
+            {found.map((m) => (
+              <li key={m.id} className="combat-add__row">
+                <span className="combat-add__name">{m.name}</span>
+                <span className="combat-add__meta">
+                  КД {m.armorClass}, {m.maxHp} хитов
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  className="combat-add__count"
+                  aria-label={`Сколько: ${m.name}`}
+                  value={counts[m.id] ?? "1"}
+                  onChange={(e) => setCounts({ ...counts, [m.id]: e.target.value })}
+                />
+                <button
+                  type="button"
+                  disabled={countOf(m.id) < 1}
+                  onClick={() => addMonsters(m.id)}
+                >
+                  Добавить
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="combat-line" aria-label="Порядок ходов">
+          {!combat ? (
+            <p className="combat-line__empty">Боя нет — добавь персонажей и существ.</p>
+          ) : (
+            <>
+              <div className="combat-line__controls">
+                <button
+                  type="button"
+                  className="dm-button--primary"
+                  disabled={!everyModifierKnown}
+                  onClick={() => rollInitiative(modifiers)}
+                >
+                  Рассчитать инициативу
+                </button>
+                <button
+                  type="button"
+                  disabled={order.length === 0}
+                  onClick={() => nextTurn()}
+                >
+                  Следующий
+                </button>
+              </div>
+
+              <ol className="combat-line__list">
+                {order.map((c, position) => {
+                  const label = combatantLabel(c, combat, state.characters, bestiary);
+                  const current = position === combat.currentTurnIndex;
+                  const acted = hasActed(combat, position);
+                  const amount = hpAmountOf(c.id);
+                  return (
+                    <li
+                      key={c.id}
+                      className={
+                        "combat-line__row" +
+                        (current ? " combat-line__row--current" : "") +
+                        (acted ? " combat-line__row--acted" : "") +
+                        (c.currentHp <= 0 ? " combat-line__row--down" : "")
+                      }
+                      aria-current={current ? "step" : undefined}
+                      data-testid="combat-row"
+                    >
+                      <span className="combat-line__pointer" aria-hidden="true">
+                        {current ? "▶" : ""}
+                      </span>
+                      <span className="combat-line__name">{label}</span>
+                      <span className="combat-line__initiative">
+                        {c.initiativeRoll ? (
+                          <>
+                            <strong>{initiativeTotal(c.initiativeRoll)}</strong>
+                            <span className="combat-line__roll">
+                              {" "}
+                              (к20: {c.initiativeRoll.d20} {fmtMod(c.initiativeRoll.dexModifier)})
+                            </span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                      <span className="combat-line__hp">
+                        {c.currentHp}/{c.maxHp}
+                      </span>
+                      <span className="combat-line__acted">
+                        {current ? "его ход" : acted ? "походил" : ""}
+                      </span>
+                      <span className="combat-line__hp-controls">
+                        <input
+                          type="number"
+                          min={1}
+                          className="combat-line__hp-amount"
+                          aria-label={`Хиты: ${label}`}
+                          value={hpAmounts[c.id] ?? ""}
+                          onChange={(e) => setHpAmounts({ ...hpAmounts, [c.id]: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Отнять хиты: ${label}`}
+                          disabled={amount === 0}
+                          onClick={() => applyDamage(c.id, amount)}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Вернуть хиты: ${label}`}
+                          disabled={amount === 0}
+                          onClick={() => applyDamage(c.id, -amount)}
+                        >
+                          +
+                        </button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <div className="combat-line__controls">
+                <button
+                  type="button"
+                  disabled={inCombat.size === 0}
+                  onClick={() => transferHpToSheets()}
+                >
+                  Перенести хиты в листы
+                </button>
+                <button type="button" onClick={() => endCombat()}>
+                  Закончить бой
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

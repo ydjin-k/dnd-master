@@ -123,7 +123,7 @@ export function AdventuresPage() {
 }
 
 function EventGenerator({ onBack }: { onBack: () => void }) {
-  const { state, addJournalEntry, startCombat } = useCampaign();
+  const { state, addJournalEntry, addToCombat } = useCampaign();
   const [tableId, setTableId] = useState(EVENT_TABLES[0].id);
   /**
    * Цепочка выпавшего: обычная таблица даёт одно звено, распределитель
@@ -197,12 +197,14 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
    * `monsterIds`. Противники берутся у строки и только у неё: выдумывать за
    * таблицу, кто ещё вышел из темноты, приложение не вправе. Со стороны отряда
    * выходят все персонажи кампании — кого оставить в стороне, решают за столом,
-   * состав боя правится на вкладке «Бой».
+   * состав боя правится на вкладке «Бой». Идёт тем же путём, что добавление
+   * на вкладке «Бой» (`combat_add`): уже идущий бой не затирается, твари
+   * встают в его линию, а стоящие в бою персонажи вторично не добавляются.
    */
   async function raiseCombat(monsterIds: readonly string[]) {
     setError(null);
     try {
-      await startCombat([...monsterIds], state.characters.map((c) => c.id));
+      await addToCombat([...monsterIds], state.characters.map((c) => c.id));
       setCombatRaised(true);
     } catch (e) {
       setError(String(e));

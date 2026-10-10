@@ -219,14 +219,9 @@ describe("триггер всплеска", () => {
 
 describe("ключ хода", () => {
   const combat = (extra: Partial<CombatState> = {}): CombatState => ({
-    gridWidth: 5,
-    gridHeight: 5,
     combatants: [],
-    turnOrder: ["hero", "goblin"],
     currentTurnIndex: 0,
     round: 1,
-    log: [],
-    finished: false,
     ...extra,
   });
 
@@ -236,9 +231,9 @@ describe("ключ хода", () => {
     expect(wildMagicTurnKey(combat({ round: 2 }))).not.toBe(wildMagicTurnKey(combat()));
   });
 
-  it("вне боя и после боя ключа нет", () => {
+  it("вне боя ключа нет — закончившийся бой выбрасывается целиком", () => {
     expect(wildMagicTurnKey(null)).toBeNull();
-    expect(wildMagicTurnKey(combat({ finished: true }))).toBeNull();
+    expect(wildMagicTurnKey(undefined)).toBeNull();
   });
 });
 

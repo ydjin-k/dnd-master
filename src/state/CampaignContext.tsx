@@ -29,13 +29,13 @@ interface CampaignContextValue {
   removeJournalEntry: (id: string) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
   setTravel: (updater: (travel: TravelState) => TravelState) => Promise<void>;
-  startCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
-  moveCombatant: (combatantId: string, x: number, y: number) => Promise<void>;
-  combatAttack: (attackerId: string, targetId: string) => Promise<void>;
-  combatCastSpell: (casterId: string, spellId: string, targetId: string | null) => Promise<void>;
+  /** Существа по id шаблона (повтор id — ещё один боец того же вида) и персонажи кампании. */
+  addToCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
+  /** Модификатор Ловкости каждого бойца по его id — из `initiativeModifierOf`. */
+  rollInitiative: (dexModifiers: Record<string, number>) => Promise<void>;
+  nextTurn: () => Promise<void>;
   applyDamage: (targetId: string, delta: number) => Promise<void>;
-  endTurn: () => Promise<void>;
-  monsterAutoTurn: () => Promise<void>;
+  transferHpToSheets: () => Promise<void>;
   endCombat: () => Promise<void>;
 }
 
@@ -227,7 +227,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   );
 
   // Бой сохраняется на бэкенде внутри команды — тут только применяем
-  // результат. Общий враппер вместо семи одинаковых try/catch.
+  // результат. Общий враппер вместо шести одинаковых try/catch.
   const runServerAction = useCallback(
     async (command: string, args?: Record<string, unknown>) => {
       try {
@@ -243,33 +243,23 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [commit],
   );
 
-  const startCombat = useCallback(
+  const addToCombat = useCallback(
     (monsterIds: string[], characterIds: string[]) =>
-      runServerAction("start_combat", { monsterIds, characterIds }),
+      runServerAction("combat_add", { monsterIds, characterIds }),
     [runServerAction],
   );
-  const moveCombatant = useCallback(
-    (combatantId: string, x: number, y: number) =>
-      runServerAction("move_combatant", { combatantId, x, y }),
+  const rollInitiative = useCallback(
+    (dexModifiers: Record<string, number>) =>
+      runServerAction("combat_roll_initiative", { dexModifiers }),
     [runServerAction],
   );
-  const combatAttack = useCallback(
-    (attackerId: string, targetId: string) =>
-      runServerAction("combat_attack", { attackerId, targetId }),
-    [runServerAction],
-  );
-  const combatCastSpell = useCallback(
-    (casterId: string, spellId: string, targetId: string | null) =>
-      runServerAction("combat_cast_spell", { casterId, spellId, targetId }),
-    [runServerAction],
-  );
+  const nextTurn = useCallback(() => runServerAction("combat_next_turn"), [runServerAction]);
   const applyDamage = useCallback(
     (targetId: string, delta: number) => runServerAction("apply_damage", { targetId, delta }),
     [runServerAction],
   );
-  const endTurn = useCallback(() => runServerAction("end_turn"), [runServerAction]);
-  const monsterAutoTurn = useCallback(
-    () => runServerAction("monster_auto_turn"),
+  const transferHpToSheets = useCallback(
+    () => runServerAction("combat_transfer_hp_to_sheets"),
     [runServerAction],
   );
   const endCombat = useCallback(() => runServerAction("end_combat"), [runServerAction]);
@@ -287,13 +277,11 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         removeJournalEntry,
         setCampaignName,
         setTravel,
-        startCombat,
-        moveCombatant,
-        combatAttack,
-        combatCastSpell,
+        addToCombat,
+        rollInitiative,
+        nextTurn,
         applyDamage,
-        endTurn,
-        monsterAutoTurn,
+        transferHpToSheets,
         endCombat,
       }}
     >

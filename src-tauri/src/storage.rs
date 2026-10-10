@@ -379,7 +379,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Character, CombatState, Combatant};
+    use crate::model::{Character, CombatState, Combatant, CombatantSource, InitiativeRoll};
 
     fn temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("dnd-master-storage-test-{name}-{}", generate_id()));
@@ -620,55 +620,46 @@ mod tests {
         assert_eq!(wizard.spellbook.len(), 6, "книга волшебника должна остаться целой");
     }
 
-    /// bestiary-record-full-stat-block — кампания с боем, НАЧАТЫМ ДО
-    /// расширения записи существа, обязана открыться без потерь.
+    /// combat-reduce-to-tracker — ГЛАВНАЯ проба карточки, и единственное место,
+    /// где снос боевого поля может ударить по живым данным владельца.
     ///
-    /// Почему проба нужна, хотя в сохранении нет ни одного нового поля: это и
-    /// есть проверяемое утверждение. Боец (`Combatant`) — плоский снимок
-    /// (хиты, КД, бонус атаки, кости урона), а не ссылка на `MonsterTemplate`
-    /// и не его копия, поэтому расширение стат-блока сохранений не касается.
-    /// Проба сторожит именно эту развязку: если кто-нибудь однажды положит
-    /// шаблон существа внутрь боя, старые бои перестанут читаться, и красной
-    /// станет эта строка, а не жалоба игрока.
+    /// Фикстура — НАСТОЯЩЕЕ сохранение старой формы, то же, что однажды уже
+    /// сторожило чтение боя, когда рос стат-блок
+    /// (`bestiary-record-full-stat-block`): кампания с боем в разгаре на сетке —
+    /// бойцы с `x`/`y`, `speedFeet`, `attackBonus`, журнал, `finished`, —
+    /// и без `source`, без которого боец новой формы не разбирается.
     ///
-    /// Отрицательная проба: добавить в `Combatant` поле без `#[serde(default)]`
-    /// — фикстура перестанет разбираться, и краснеет именно она.
+    /// Спрашивается ровно то, что стоит в DoD: кампания ОТКРЫВАЕТСЯ, персонажи
+    /// целы. Старый бой при этом не восстанавливается — это допустимо: раздел
+    /// показывает «боя нет», тактическому бою в трекере показать нечего.
+    ///
+    /// Отрицательная проба прогнана, а не описана: без
+    /// `#[serde(deserialize_with = "combat_or_none")]` на `CampaignState.combat`
+    /// эта проба краснеет на открытии — «missing field `source`», — и с ней
+    /// падает чтение всего файла кампании, а не только боя.
     #[test]
-    fn legacy_campaign_with_combat_in_progress_opens_after_stat_block_grew() {
+    fn legacy_campaign_with_a_tactical_combat_opens_without_the_combat() {
         let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("fixtures")
             .join("legacy-campaign-combat-in-progress.json");
         let raw = fs::read_to_string(&fixture).expect("прочитать сохранение с боем");
+        assert!(
+            raw.contains("\"gridWidth\"") && raw.contains("\"feetMovedThisTurn\""),
+            "фикстура обязана нести бой СТАРОЙ формы, иначе проба ничего не проверяет"
+        );
 
         let base = temp_dir("legacy-combat-in-progress");
         let id = "18d2261063107fb4-b886b8a7";
         fs::write(campaign_path(&base, id).unwrap(), &raw).unwrap();
         write_active_pointer(&base, &ActivePointer { active_id: Some(id.into()) }).unwrap();
 
-        let state = load_active_in(&base).unwrap().expect("кампания должна открыться");
-        let combat = state.combat.expect("бой должен уцелеть, а не обнулиться");
+        let state = load_active_in(&base).unwrap().expect("кампания обязана открыться");
 
-        assert_eq!(combat.round, 2);
-        assert_eq!(combat.current_turn_index, 1);
-        assert_eq!(combat.combatants.len(), 3);
-        assert_eq!(combat.turn_order.len(), 3);
-        assert_eq!(combat.log.len(), 3);
-        assert!(!combat.finished);
-
-        // Раненый волк — именно то, что теряется молча: хиты бойца это
-        // состояние боя, а не число из шаблона существа.
-        let wounded = combat
-            .combatants
-            .iter()
-            .find(|c| c.id == "monster-wolf-0")
-            .expect("раненый волк на месте");
-        assert_eq!(wounded.name, "Волк");
-        assert!(wounded.is_monster);
-        assert_eq!((wounded.current_hp, wounded.max_hp), (4, 11));
-        assert_eq!(wounded.armor_class, 13);
-        assert_eq!(wounded.damage_dice.as_deref(), Some("2d4+2"));
-        assert_eq!(wounded.initiative, 17);
+        assert!(state.combat.is_none(), "старый бой на сетке новому разделу не показать");
+        assert_eq!(state.campaign_name, "Vox Machina");
+        assert!(!state.characters.is_empty(), "персонажи старого сохранения целы");
+        assert_eq!(state.characters[0].name, "Дарин Светоч");
     }
 
     /// adventures-remove-gm-engine — ГЛАВНАЯ проба карточки, и единственное
@@ -986,23 +977,21 @@ mod tests {
     /// котором в его снимке может не быть ни слова.
     fn combat_in_progress() -> CombatState {
         CombatState {
-            grid_width: 12,
-            grid_height: 10,
-            turn_order: vec!["monster-wolf-0".into()],
             combatants: vec![Combatant {
-                id: "monster-wolf-0".into(),
-                name: "Волк".into(),
-                is_monster: true,
+                id: "monster-wolf-1".into(),
+                source: CombatantSource::Monster {
+                    template_id: "wolf".into(),
+                    number: 1,
+                },
                 current_hp: 4,
                 max_hp: 11,
-                armor_class: 13,
-                initiative: 17,
-                ..Default::default()
+                initiative_roll: Some(InitiativeRoll {
+                    d20: 15,
+                    dex_modifier: 2,
+                }),
             }],
             current_turn_index: 0,
             round: 3,
-            log: vec!["Волк ранен".into()],
-            finished: false,
         }
     }
 
@@ -1232,7 +1221,7 @@ mod tests {
 
         let mut snapshot = load_active_in(&base).unwrap().unwrap(); // ← чтение боя
         with_active_locked_in(&base, note).unwrap(); //                ← запись в окне
-        crate::bestiary::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-0", 1).unwrap();
+        crate::combat::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-1", 1).unwrap();
         save_campaign_in(&base, &snapshot).unwrap(); //                ← запись боя целым документом
 
         let after = load_active_in(&base).unwrap().unwrap();
@@ -1251,7 +1240,7 @@ mod tests {
         with_active_locked_in(&base, note).unwrap();
         with_active_locked_in(&base, |state| {
             let combat = state.combat.as_mut().ok_or("бой не начат")?;
-            crate::bestiary::apply_damage(combat, "monster-wolf-0", 1)
+            crate::combat::apply_damage(combat, "monster-wolf-1", 1)
         })
         .unwrap();
 
@@ -1281,7 +1270,7 @@ mod tests {
         let combat_thread = std::thread::spawn(move || {
             with_active_locked_in(&base_combat, |state| {
                 let combat = state.combat.as_mut().ok_or("бой не начат")?;
-                crate::bestiary::apply_damage(combat, "monster-wolf-0", 1)
+                crate::combat::apply_damage(combat, "monster-wolf-1", 1)
             })
         });
         let journal_thread = std::thread::spawn(move || {

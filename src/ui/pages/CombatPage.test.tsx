@@ -1,12 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { CombatPage } from "./CombatPage";
-import { emptyCoins, type CampaignState, type MonsterTemplate, type Spell } from "../../state/types";
+import {
+  emptyCoins,
+  type CampaignState,
+  type Combatant,
+  type MonsterTemplate,
+} from "../../state/types";
 
-const bestiary: MonsterTemplate[] = [
-  {
-    id: "wolf",
-    name: "Волк",
+function template(id: string, name: string, dexterity: number): MonsterTemplate {
+  return {
+    id,
+    name,
     origin: "srd",
     maxHp: 11,
     hitDice: "2d8+2",
@@ -18,39 +23,24 @@ const bestiary: MonsterTemplate[] = [
     creatureType: "зверь",
     size: "Средний",
     description: "",
-    abilities: { strength: 12, dexterity: 15, constitution: 12, intelligence: 3, wisdom: 12, charisma: 6 },
+    abilities: { strength: 12, dexterity, constitution: 12, intelligence: 3, wisdom: 12, charisma: 6 },
     passivePerception: 13,
     traits: [],
     actions: [],
     imageAsset: null,
-  },
-];
+  };
+}
 
-const spells: Spell[] = [
-  {
-    id: "fire-bolt",
-    name: "Огненный снаряд",
-    level: 0,
-    school: "Воплощение",
-    castingTime: "1 действие",
-    range: "120 футов",
-    components: "В, С",
-    duration: "Мгновенная",
-    concentration: false,
-    ritual: false,
-    classes: ["classes-wizard"],
-    description: "",
-    damageDice: "1d10",
-    damageType: "огонь",
-    attackRoll: true,
-    savingThrow: null,
-  },
+// Нарочно не по алфавиту: порядок в выдаче поиска обязан дать сортировка.
+const bestiary: MonsterTemplate[] = [
+  template("winter-wolf", "Зимний волк", 13),
+  template("goblin", "Гоблин", 14),
+  template("wolf", "Волк", 15),
 ];
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async (cmd: string) => {
     if (cmd === "get_bestiary") return bestiary;
-    if (cmd === "get_spells") return spells;
     return null;
   }),
 }));
@@ -100,7 +90,7 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
         hitDiceSpent: 0,
         armorClass: 14,
         speedFeet: 30,
-        initiative: 1,
+        initiative: 3,
         passivePerception: 11,
         conditions: [],
         inventory: [],
@@ -129,228 +119,136 @@ function baseState(overrides: Partial<CampaignState> = {}): CampaignState {
   };
 }
 
-const startCombat = vi.fn();
-const moveCombatant = vi.fn();
-const combatAttack = vi.fn();
-const combatCastSpell = vi.fn();
+const addToCombat = vi.fn();
+const rollInitiative = vi.fn();
+const nextTurn = vi.fn();
 const applyDamage = vi.fn();
-const endTurn = vi.fn();
-const monsterAutoTurn = vi.fn();
+const transferHpToSheets = vi.fn();
 const endCombat = vi.fn();
 
 let mockState = baseState();
 vi.mock("../../state/CampaignContext", () => ({
   useCampaign: () => ({
     state: mockState,
-    startCombat,
-    moveCombatant,
-    combatAttack,
-    combatCastSpell,
+    addToCombat,
+    rollInitiative,
+    nextTurn,
     applyDamage,
-    endTurn,
-    monsterAutoTurn,
+    transferHpToSheets,
     endCombat,
   }),
 }));
 
+function wolf(number: number, d20: number): Combatant {
+  return {
+    id: `monster-wolf-${number}`,
+    source: { kind: "monster", templateId: "wolf", number },
+    maxHp: 11,
+    currentHp: 11,
+    initiativeRoll: { d20, dexModifier: 2 },
+  };
+}
+
+/** Герой и пять волков, брошено всем; указатель на четвёртом месте. */
+function combatInProgress(): CampaignState["combat"] {
+  return {
+    combatants: [
+      wolf(1, 5),
+      wolf(2, 12),
+      {
+        id: "hero",
+        source: { kind: "character", characterId: "hero" },
+        maxHp: 12,
+        currentHp: 12,
+        initiativeRoll: { d20: 15, dexModifier: 3 },
+      },
+      wolf(3, 20),
+      wolf(4, 1),
+      wolf(5, 9),
+    ],
+    currentTurnIndex: 3,
+    round: 2,
+  };
+}
+
 describe("CombatPage", () => {
-  it("renders the pre-combat panel and lets you pick monsters/characters without crashing", async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
     mockState = baseState();
-    render(<CombatPage />);
-
-    expect(await screen.findByText(/Волк/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/Волк/));
-    fireEvent.click(screen.getByText(/Герой/));
-    fireEvent.click(screen.getByText("Начать бой"));
-    expect(startCombat).toHaveBeenCalledWith(["wolf"], ["hero"]);
   });
 
-  it("renders an active combat grid, selecting a token and attacking does not crash", async () => {
-    mockState = baseState({
-      combat: {
-        gridWidth: 3,
-        gridHeight: 3,
-        combatants: [
-          {
-            id: "hero",
-            name: "Герой",
-            isMonster: false,
-            x: 0,
-            y: 0,
-            speedFeet: 30,
-            maxHp: 12,
-            currentHp: 12,
-            armorClass: 14,
-            attackBonus: 4,
-            damageDice: "1d8",
-            initiative: 15,
-            feetMovedThisTurn: 0,
-          },
-          {
-            id: "wolf",
-            name: "Волк",
-            isMonster: true,
-            x: 1,
-            y: 1,
-            speedFeet: 40,
-            maxHp: 11,
-            currentHp: 11,
-            armorClass: 13,
-            attackBonus: 4,
-            damageDice: "2d4+2",
-            initiative: 10,
-            feetMovedThisTurn: 0,
-          },
-        ],
-        turnOrder: ["hero", "wolf"],
-        currentTurnIndex: 0,
-        round: 1,
-        log: ["Бой начался."],
-        finished: false,
-      },
-    });
+  it("существа добавляются поиском, а не из кучи: пять волков одним действием", async () => {
     render(<CombatPage />);
+    const search = screen.getByLabelText("Поиск существ");
+    expect(search).toHaveClass("dm-field--search");
 
-    // Grid renders without crashing; select the hero token by clicking its cell.
-    const heroToken = await screen.findByTitle(/Герой: 12\/12 HP/);
-    fireEvent.click(heroToken);
+    fireEvent.change(search, { target: { value: "волк" } });
+    const names = (await screen.findAllByText(/волк/i)).map((el) => el.textContent);
+    expect(names).toEqual(["Волк", "Зимний волк"]);
+    expect(screen.queryByText("Гоблин")).not.toBeInTheDocument();
 
-    const select = screen.getByRole("combobox");
-    fireEvent.change(select, { target: { value: "wolf" } });
+    // Бестиарий загружен, а пустой запрос не высыпает его кучей.
+    fireEvent.change(search, { target: { value: "" } });
+    expect(screen.queryByText("Волк")).not.toBeInTheDocument();
+    expect(screen.queryByText("Гоблин")).not.toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "волк" } });
 
-    const attackButton = screen.getByText("Атаковать выбранным");
-    await waitFor(() => expect(attackButton).not.toBeDisabled());
-    fireEvent.click(attackButton);
-    expect(combatAttack).toHaveBeenCalledWith("hero", "wolf");
-
-    fireEvent.click(screen.getByText("Закончить ход"));
-    expect(endTurn).toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText("Завершить бой"));
-    expect(endCombat).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Сколько: Волк"), { target: { value: "5" } });
+    const wolfRow = screen.getByText("Волк").closest("li")!;
+    fireEvent.click(within(wolfRow).getByText("Добавить"));
+    expect(addToCombat).toHaveBeenCalledWith(["wolf", "wolf", "wolf", "wolf", "wolf"], []);
   });
 
-  it("clicking a cell with a downed combatant moves the selected combatant there instead of selecting the body", async () => {
-    mockState = baseState({
-      combat: {
-        gridWidth: 3,
-        gridHeight: 3,
-        combatants: [
-          {
-            id: "hero",
-            name: "Герой",
-            isMonster: false,
-            x: 0,
-            y: 0,
-            speedFeet: 30,
-            maxHp: 12,
-            currentHp: 12,
-            armorClass: 14,
-            attackBonus: 4,
-            damageDice: "1d8",
-            initiative: 15,
-            feetMovedThisTurn: 0,
-          },
-          {
-            id: "wolf",
-            name: "Волк",
-            isMonster: true,
-            x: 2,
-            y: 2,
-            speedFeet: 40,
-            maxHp: 11,
-            currentHp: 0,
-            armorClass: 13,
-            attackBonus: 4,
-            damageDice: "2d4+2",
-            initiative: 10,
-            feetMovedThisTurn: 0,
-          },
-        ],
-        turnOrder: ["hero", "wolf"],
-        currentTurnIndex: 0,
-        round: 1,
-        log: ["Бой начался."],
-        finished: false,
-      },
-    });
+  it("линия стоит по инициативе сверху вниз, с номерами, отметками и указателем", async () => {
+    mockState = baseState({ combat: combatInProgress() });
     render(<CombatPage />);
+    await screen.findByText("Волк 3");
 
-    const heroToken = await screen.findByTitle(/Герой: 12\/12 HP/);
-    fireEvent.click(heroToken);
-
-    const deadWolfToken = screen.getByTitle(/Волк: 0\/11 HP/);
-    fireEvent.click(deadWolfToken);
-
-    expect(moveCombatant).toHaveBeenCalledWith("hero", 2, 2);
+    const rows = screen.getAllByTestId("combat-row");
+    const text = rows.map((r) => r.querySelector(".combat-line__name")!.textContent);
+    expect(text).toEqual(["Волк 3", "Герой", "Волк 2", "Волк 5", "Волк 1", "Волк 4"]);
+    expect(rows[1]).toHaveTextContent("18 (к20: 15 +3)");
+    expect(rows.slice(0, 3).every((r) => r.textContent!.includes("походил"))).toBe(true);
+    expect(rows[3]).toHaveAttribute("aria-current", "step");
+    expect(rows[3]).toHaveTextContent("его ход");
+    expect(rows[4]).not.toHaveTextContent("походил");
+    expect(screen.getByText("Раунд 2")).toBeInTheDocument();
+    expect(screen.getByText("В бою")).toBeDisabled();
   });
 
-  it("lets the current spellcaster pick a target and cast a known cantrip", async () => {
-    mockState = baseState({
-      characters: [
-        {
-          ...baseState().characters[0],
-          knownCantrips: ["fire-bolt"],
-        },
-      ],
-      combat: {
-        gridWidth: 3,
-        gridHeight: 3,
-        combatants: [
-          {
-            id: "hero",
-            name: "Герой",
-            isMonster: false,
-            x: 0,
-            y: 0,
-            speedFeet: 30,
-            maxHp: 12,
-            currentHp: 12,
-            armorClass: 14,
-            attackBonus: 4,
-            damageDice: "1d8",
-            initiative: 15,
-            feetMovedThisTurn: 0,
-          },
-          {
-            id: "wolf",
-            name: "Волк",
-            isMonster: true,
-            x: 1,
-            y: 1,
-            speedFeet: 40,
-            maxHp: 11,
-            currentHp: 11,
-            armorClass: 13,
-            attackBonus: 4,
-            damageDice: "2d4+2",
-            initiative: 10,
-            feetMovedThisTurn: 0,
-          },
-        ],
-        turnOrder: ["hero", "wolf"],
-        currentTurnIndex: 0,
-        round: 1,
-        log: ["Бой начался."],
-        finished: false,
-      },
-    });
+  it("«Рассчитать инициативу» шлёт модификатор с листа персонажа и из Ловкости существа", async () => {
+    mockState = baseState({ combat: combatInProgress() });
     render(<CombatPage />);
+    await screen.findByText("Волк 3");
 
-    const spellSelect = await screen.findByText("Заклинание:");
-    const select = spellSelect.closest("label")!.querySelector("select")!;
-    fireEvent.change(select, { target: { value: "fire-bolt" } });
+    fireEvent.click(screen.getByText("Рассчитать инициативу"));
+    expect(rollInitiative).toHaveBeenCalledWith({
+      hero: 3,
+      "monster-wolf-1": 2,
+      "monster-wolf-2": 2,
+      "monster-wolf-3": 2,
+      "monster-wolf-4": 2,
+      "monster-wolf-5": 2,
+    });
+    fireEvent.click(screen.getByText("Следующий"));
+    expect(nextTurn).toHaveBeenCalledTimes(1);
+  });
 
-    const castButton = screen.getByText("Сотворить");
-    // Заговор с броском атаки требует цель — без неё кнопка недоступна.
-    expect(castButton).toBeDisabled();
+  it("хиты отнимаются и возвращаются любым числом; перенос и конец боя — отдельные кнопки", async () => {
+    mockState = baseState({ combat: combatInProgress() });
+    render(<CombatPage />);
+    await screen.findByText("Волк 2");
 
-    const targetLabel = screen.getByText("Цель:");
-    const targetSelectEl = targetLabel.closest("label")!.querySelector("select")!;
-    fireEvent.change(targetSelectEl, { target: { value: "wolf" } });
+    fireEvent.change(screen.getByLabelText("Хиты: Волк 2"), { target: { value: "7" } });
+    fireEvent.click(screen.getByLabelText("Отнять хиты: Волк 2"));
+    expect(applyDamage).toHaveBeenLastCalledWith("monster-wolf-2", 7);
+    fireEvent.click(screen.getByLabelText("Вернуть хиты: Волк 2"));
+    expect(applyDamage).toHaveBeenLastCalledWith("monster-wolf-2", -7);
+    expect(transferHpToSheets).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(castButton).not.toBeDisabled());
-    fireEvent.click(castButton);
-    expect(combatCastSpell).toHaveBeenCalledWith("hero", "fire-bolt", "wolf");
+    fireEvent.click(screen.getByText("Перенести хиты в листы"));
+    expect(transferHpToSheets).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText("Закончить бой"));
+    expect(endCombat).toHaveBeenCalledTimes(1);
   });
 });

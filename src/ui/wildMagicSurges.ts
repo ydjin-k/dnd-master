@@ -210,10 +210,12 @@ export function isWildMagicSorcerer(subclassName: string | null | undefined): bo
 /**
  * Ключ хода для ограничения «не чаще раза за ход»: раунд и место в очереди
  * идущего боя. Вне боя ходов нет вовсе (`null`) — там ограничивать нечего, и
- * бросок делается на каждое наложенное заклинание.
+ * бросок делается на каждое наложенное заклинание. Закончившийся бой
+ * выбрасывается целиком (`end_combat`), поэтому «бой окончен» и «боя нет» —
+ * одно и то же.
  */
 export function wildMagicTurnKey(combat: CombatState | null | undefined): string | null {
-  if (!combat || combat.finished) return null;
+  if (!combat) return null;
   return `${combat.round}:${combat.currentTurnIndex}`;
 }
 
