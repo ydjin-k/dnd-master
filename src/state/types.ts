@@ -283,7 +283,7 @@ export interface MonsterSense {
 
 /**
  * Чей это контент — и, значит, какой подписью его подписывает вкладка
- * «Бестиарий». Зеркало `MonsterOrigin` в `src-tauri/src/combat.rs`.
+ * «Бестиарий». Зеркало `MonsterOrigin` в `src-tauri/src/bestiary.rs`.
  *
  * Значение приезжает от Rust и НЕ лежит в данных: его ставит загрузчик по
  * файлу, из которого запись прочитана (`bestiary.json` — SRD, CC BY 4.0;
@@ -297,7 +297,7 @@ export type MonsterOrigin = "srd" | "own";
  *
  * Необязательные поля ОТСУТСТВУЮТ у существа, которому они не положены, а не
  * стоят пустыми: пустая строка в карточке читается как потерянные данные.
- * Зеркало этой схемы — `MonsterTemplate` в `src-tauri/src/combat.rs`;
+ * Зеркало этой схемы — `MonsterTemplate` в `src-tauri/src/bestiary.rs`;
  * расхождение ловит проба `monster_template_matches_frontend_type`.
  */
 export interface MonsterTemplate {

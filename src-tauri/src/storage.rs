@@ -74,7 +74,7 @@ pub struct CampaignSummary {
     pub character_count: usize,
 }
 
-/// `pub(crate)` (было приватным) — `combat::thumbnail_cache_dir` переиспользует
+/// `pub(crate)` (было приватным) — `bestiary::thumbnail_cache_dir` переиспользует
 /// этот же каталог данных приложения для кэша превью бестиария, см. карточку
 /// `bestiary-thumbnail-loading-at-scale`. Логика самой функции не менялась.
 pub(crate) fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -1232,7 +1232,7 @@ mod tests {
 
         let mut snapshot = load_active_in(&base).unwrap().unwrap(); // ← чтение боя
         with_active_locked_in(&base, note).unwrap(); //                ← запись в окне
-        crate::combat::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-0", 1).unwrap();
+        crate::bestiary::apply_damage(snapshot.combat.as_mut().unwrap(), "monster-wolf-0", 1).unwrap();
         save_campaign_in(&base, &snapshot).unwrap(); //                ← запись боя целым документом
 
         let after = load_active_in(&base).unwrap().unwrap();
@@ -1251,7 +1251,7 @@ mod tests {
         with_active_locked_in(&base, note).unwrap();
         with_active_locked_in(&base, |state| {
             let combat = state.combat.as_mut().ok_or("бой не начат")?;
-            crate::combat::apply_damage(combat, "monster-wolf-0", 1)
+            crate::bestiary::apply_damage(combat, "monster-wolf-0", 1)
         })
         .unwrap();
 
@@ -1281,7 +1281,7 @@ mod tests {
         let combat_thread = std::thread::spawn(move || {
             with_active_locked_in(&base_combat, |state| {
                 let combat = state.combat.as_mut().ok_or("бой не начат")?;
-                crate::combat::apply_damage(combat, "monster-wolf-0", 1)
+                crate::bestiary::apply_damage(combat, "monster-wolf-0", 1)
             })
         });
         let journal_thread = std::thread::spawn(move || {

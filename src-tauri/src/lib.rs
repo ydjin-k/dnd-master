@@ -1,12 +1,12 @@
+mod bestiary;
 mod characters;
-mod combat;
 mod dice;
 mod model;
 mod rules;
 mod spells;
 mod storage;
 
-use combat::MonsterTemplate;
+use bestiary::MonsterTemplate;
 use model::{CampaignState, Character};
 use rules::RuleTopic;
 use spells::Spell;
@@ -63,17 +63,17 @@ fn roll_ability_scores() -> Vec<dice::AbilityScoreRoll> {
 
 #[tauri::command]
 fn get_bestiary(app: AppHandle) -> Result<Vec<MonsterTemplate>, String> {
-    combat::load_bestiary(&app)
+    bestiary::load_bestiary(&app)
 }
 
 #[tauri::command]
 fn get_bestiary_image(
     app: AppHandle,
-    semaphore: tauri::State<combat::ResizeSemaphore>,
+    semaphore: tauri::State<bestiary::ResizeSemaphore>,
     image_asset: String,
     max_size: u32,
 ) -> Result<String, String> {
-    combat::load_bestiary_image(&app, &image_asset, max_size, &semaphore)
+    bestiary::load_bestiary_image(&app, &image_asset, max_size, &semaphore)
 }
 
 #[tauri::command]
@@ -118,7 +118,7 @@ fn start_combat(
     // Бестиарий — ресурс приложения, а не кампании: читается ДО взятия замка,
     // тем же порядком, что заклинания в `combat_cast_spell`. Под замком
     // остаётся только работа с документом кампании.
-    let bestiary = combat::load_bestiary(&app)?;
+    let bestiary = bestiary::load_bestiary(&app)?;
     let monsters: Vec<MonsterTemplate> = monster_ids
         .iter()
         .map(|id| {
@@ -143,7 +143,7 @@ fn start_combat(
             })
             .collect::<Result<_, String>>()?;
 
-        state.combat = Some(combat::start_combat(&monsters, &characters)?);
+        state.combat = Some(bestiary::start_combat(&monsters, &characters)?);
         Ok(())
     })
 }
@@ -152,7 +152,7 @@ fn start_combat(
 fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        combat::move_combatant(combat_state, &combatant_id, x, y)
+        bestiary::move_combatant(combat_state, &combatant_id, x, y)
     })
 }
 
@@ -160,7 +160,7 @@ fn move_combatant(app: AppHandle, combatant_id: String, x: i32, y: i32) -> Resul
 fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        combat::attack(combat_state, &attacker_id, &target_id)
+        bestiary::attack(combat_state, &attacker_id, &target_id)
     })
 }
 
@@ -168,7 +168,7 @@ fn combat_attack(app: AppHandle, attacker_id: String, target_id: String) -> Resu
 fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        combat::apply_damage(combat_state, &target_id, delta)
+        bestiary::apply_damage(combat_state, &target_id, delta)
     })
 }
 
@@ -176,7 +176,7 @@ fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<Campaig
 fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        combat::end_turn(combat_state)
+        bestiary::end_turn(combat_state)
     })
 }
 
@@ -184,7 +184,7 @@ fn end_turn(app: AppHandle) -> Result<CampaignState, String> {
 fn monster_auto_turn(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-        combat::monster_auto_turn(combat_state)?;
+        bestiary::monster_auto_turn(combat_state)?;
         Ok(())
     })
 }
@@ -209,11 +209,11 @@ fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, end_combat_action)
 }
 
-/// Владелец списания ячейки заклинания: `combat::cast_spell` не видит `Character`
+/// Владелец списания ячейки заклинания: `bestiary::cast_spell` не видит `Character`
 /// (ячейки — ресурс персонажа между боями, не боевого состояния), поэтому проверка
 /// «известно ли заклинание» и списание ячейки 1 круга происходят здесь, на уровне
 /// команды. Слот проверяется и тратится вокруг единственного резолва эффекта — если
-/// `combat::cast_spell` вернёт ошибку (нет цели, заклинатель повержен и т.п.), ячейка
+/// `bestiary::cast_spell` вернёт ошибку (нет цели, заклинатель повержен и т.п.), ячейка
 /// не будет потрачена впустую.
 fn cast_spell_action(
     state: &mut CampaignState,
@@ -241,7 +241,7 @@ fn cast_spell_action(
     }
 
     let combat_state = state.combat.as_mut().ok_or("бой не начат")?;
-    combat::cast_spell(combat_state, caster_id, spell, target_id)?;
+    bestiary::cast_spell(combat_state, caster_id, spell, target_id)?;
 
     if spell.level > 0 {
         let caster = state
@@ -279,7 +279,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(combat::ResizeSemaphore::new(combat::default_resize_concurrency()))
+        .manage(bestiary::ResizeSemaphore::new(bestiary::default_resize_concurrency()))
         .invoke_handler(tauri::generate_handler![
             load_active_campaign,
             list_campaigns,
@@ -450,10 +450,10 @@ mod tests {
             }],
             ..Default::default()
         };
-        let monsters = vec![combat::test_monster_template("wolf")];
+        let monsters = vec![bestiary::test_monster_template("wolf")];
 
-        state.combat = Some(combat::start_combat(&monsters, &state.characters).unwrap());
-        combat::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
+        state.combat = Some(bestiary::start_combat(&monsters, &state.characters).unwrap());
+        bestiary::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
 
         // В бою урон дошёл — рабочая копия бойца его получила.
         let in_combat = state
@@ -491,10 +491,10 @@ mod tests {
             }],
             ..Default::default()
         };
-        let monsters = vec![combat::test_monster_template("wolf")];
+        let monsters = vec![bestiary::test_monster_template("wolf")];
         let template_hp_before = monsters[0].max_hp;
 
-        state.combat = Some(combat::start_combat(&monsters, &state.characters).unwrap());
+        state.combat = Some(bestiary::start_combat(&monsters, &state.characters).unwrap());
         let monster_id = state
             .combat
             .as_ref()
@@ -505,7 +505,7 @@ mod tests {
             .unwrap()
             .id
             .clone();
-        combat::apply_damage(state.combat.as_mut().unwrap(), &monster_id, 4).unwrap();
+        bestiary::apply_damage(state.combat.as_mut().unwrap(), &monster_id, 4).unwrap();
 
         end_combat_action(&mut state).unwrap();
 
