@@ -260,7 +260,6 @@ summary { font-family: var(--dm-font-display); letter-spacing: 0.025em; }
 .rule-block__table-wrap,
 .spell-view,
 .bestiary-statblock,
-.combat-sidebar,
 .launcher__item {
   background: linear-gradient(145deg, rgba(23, 40, 74, 0.97), rgba(13, 25, 49, 0.97));
   border: 1px solid var(--dm-border);
