@@ -6,6 +6,7 @@ import type {
   MonsterTemplate,
 } from "../state/types";
 import { abilityMod } from "./characterCreationData";
+import { clampDeathSaveCount, deathSavesOf, type DeathSaves } from "./deathSaves";
 
 /**
  * Трекер боя: всё, что раздел «Бой» ВЫВОДИТ из сохранённого состояния, — одним
@@ -98,12 +99,62 @@ export function turnOrder(
 
 /**
  * Походил ли боец на месте `position` в этом раунде. Отдельно не хранится:
- * «Следующий» ведёт по линии без пропусков, поэтому походили ровно те, кто
- * стоит выше указателя. С оборотом раунда указатель встаёт на первого — и
- * отметки снимаются сами.
+ * «Следующий» ведёт по линии, пропуская только павших, поэтому походили те,
+ * кто стоит выше указателя (павшего выше указателя экран подписывает «пал», а
+ * не «походил»). С оборотом раунда указатель встаёт на первого — и отметки
+ * снимаются сами.
  */
 export function hasActed(combat: CombatState, position: number): boolean {
   return position < combat.currentTurnIndex;
+}
+
+/**
+ * Боец на нуле хитов — по БОЕВЫМ хитам (`Combatant.currentHp`), а не по листу:
+ * в бою хиты листа — старая копия до кнопки переноса. Единственный владелец
+ * факта «лежит» в трекере; что из этого следует, решают две функции ниже.
+ */
+export function isDown(combatant: Combatant): boolean {
+  return combatant.currentHp <= 0;
+}
+
+/**
+ * Пал — и «Следующий» его пропускает: существо на нуле без переключателя
+ * «по правилам персонажа» (SRD, «Чудовища и смерть»: большинство чудовищ сразу
+ * умирает на 0 хитов). Слово владельца 14.10.2026. Шаг по линии делает Rust
+ * (`next_turn`), а кто пал — решается здесь и уходит туда флагом на место.
+ */
+export function isFallen(combatant: Combatant): boolean {
+  return isDown(combatant) && combatant.source.kind === "monster" && !combatant.playerRules;
+}
+
+/** Лежит и бросает спасброски от смерти: персонаж — всегда, существо — с переключателем. */
+export function rollsDeathSaves(combatant: Combatant): boolean {
+  return isDown(combatant) && !isFallen(combatant);
+}
+
+/** Флаг «пал» на каждое место в порядке ходов — то, что уходит в `combat_next_turn`. */
+export function fallenFlags(order: readonly Combatant[]): boolean[] {
+  return order.map(isFallen);
+}
+
+/**
+ * Счёт спасбросков бойца. Персонажа — С ЛИСТА (`deathSavesOf`): счёт пишется
+ * туда, второй копии в бою нет. Существа — из бойца: листа у него нет.
+ * `null` — лист персонажа удалён, писать некуда.
+ */
+export function combatantDeathSaves(
+  combatant: Combatant,
+  characters: readonly Character[],
+): DeathSaves | null {
+  const source = combatant.source;
+  if (source.kind === "character") {
+    const sheet = characters.find((c) => c.id === source.characterId);
+    return sheet ? deathSavesOf(sheet) : null;
+  }
+  return {
+    successes: clampDeathSaveCount(combatant.deathSaveSuccesses),
+    failures: clampDeathSaveCount(combatant.deathSaveFailures),
+  };
 }
 
 /**

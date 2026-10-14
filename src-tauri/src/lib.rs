@@ -179,10 +179,31 @@ fn combat_roll_initiative(
 }
 
 #[tauri::command]
-fn combat_next_turn(app: AppHandle) -> Result<CampaignState, String> {
+fn combat_next_turn(app: AppHandle, fallen: Vec<bool>) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, |state| {
         let combat_state = state.combat.as_mut().ok_or("боя нет")?;
-        combat::next_turn(combat_state)
+        combat::next_turn(combat_state, &fallen)
+    })
+}
+
+#[tauri::command]
+fn combat_set_player_rules(app: AppHandle, target_id: String, on: bool) -> Result<CampaignState, String> {
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+        combat::set_player_rules(combat_state, &target_id, on)
+    })
+}
+
+#[tauri::command]
+fn combat_set_death_saves(
+    app: AppHandle,
+    target_id: String,
+    successes: u32,
+    failures: u32,
+) -> Result<CampaignState, String> {
+    storage::with_active_locked(&app, |state| {
+        let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+        combat::set_death_saves(combat_state, &target_id, successes, failures)
     })
 }
 
@@ -275,6 +296,8 @@ pub fn run() {
             combat_add,
             combat_roll_initiative,
             combat_next_turn,
+            combat_set_player_rules,
+            combat_set_death_saves,
             apply_damage,
             combat_remove,
             combat_transfer_hp_to_sheets,

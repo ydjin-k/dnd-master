@@ -44,6 +44,9 @@ pub fn add_characters(state: &mut CombatState, characters: &[Character]) {
             max_hp: ch.max_hp,
             current_hp: ch.current_hp,
             initiative_roll: None,
+            player_rules: false,
+            death_save_successes: 0,
+            death_save_failures: 0,
         });
     }
 }
@@ -85,6 +88,9 @@ pub fn add_monsters(
             max_hp: template.max_hp,
             current_hp: template.max_hp,
             initiative_roll: None,
+            player_rules: false,
+            death_save_successes: 0,
+            death_save_failures: 0,
         });
     }
     Ok(())
@@ -123,25 +129,90 @@ pub fn roll_initiative(
     Ok(())
 }
 
-/// «Следующий»: указатель на следующего по порядку; с последнего — на первого,
-/// и раунд растёт. Отметку «походил» ставить отдельно не нужно — её выводит
-/// фронт из указателя.
+/// «Следующий»: указатель на следующего по порядку, кто ходит; с последнего —
+/// на первого, и раунд растёт. Отметку «походил» ставить отдельно не нужно —
+/// её выводит фронт из указателя.
 ///
-/// Повержённых указатель НЕ пропускает, и это решение, а не недоделка: раздел
-/// не судит, кто может ходить, — персонаж на нуле хитов кидает спасброски от
-/// смерти, и Мастер сам решает, остановиться на нём или идти дальше.
-pub fn next_turn(state: &mut CombatState) -> Result<(), String> {
-    if state.combatants.is_empty() {
+/// **Павших указатель пропускает** — слово владельца 14.10.2026: чудовище на
+/// нуле хитов пало (SRD, «Чудовища и смерть»), и «Следующий» через него
+/// перешагивает. Персонаж на нуле НЕ пропускается: его ход — спасбросок от
+/// смерти, и бросает его Мастер кнопкой в строке. Существо с переключателем
+/// «по правилам персонажа» — так же, как персонаж.
+///
+/// Кто пал, решает не эта функция: `fallen` — флаг на каждое МЕСТО в порядке
+/// ходов, его собирает фронт (`isFallen` в `src/ui/combatTracker.ts`) тем же
+/// приёмом, что место у `remove_combatant`: Rust порядка не знает, а указатель
+/// — это место в том порядке. Здесь только шаг по линии.
+///
+/// Пали все — ходить некому: ошибка, линия и раунд не трогаются. Шагов не
+/// больше, чем мест в линии, поэтому зациклиться обход не может ни при каком
+/// `fallen`.
+pub fn next_turn(state: &mut CombatState, fallen: &[bool]) -> Result<(), String> {
+    let len = state.combatants.len();
+    if len == 0 {
         return Err("в бою никого нет".into());
     }
-    let next = state.current_turn_index + 1;
-    if next >= state.combatants.len() {
-        state.current_turn_index = 0;
-        state.round += 1;
-    } else {
-        state.current_turn_index = next;
+    if fallen.len() != len {
+        return Err(format!(
+            "флагов павших {} на {len} мест в линии — порядок устарел",
+            fallen.len()
+        ));
     }
+    let mut index = state.current_turn_index;
+    let mut wrapped = false;
+    for _ in 0..len {
+        index += 1;
+        if index >= len {
+            index = 0;
+            wrapped = true;
+        }
+        if !fallen[index] {
+            state.current_turn_index = index;
+            if wrapped {
+                state.round += 1;
+            }
+            return Ok(());
+        }
+    }
+    Err("все в бою пали — ходить некому".into())
+}
+
+/// Переключатель «по правилам персонажа» у существа (см. `Combatant::player_rules`).
+/// Персонажу его ставить не к чему: он на нуле бросает спасброски всегда.
+pub fn set_player_rules(state: &mut CombatState, target_id: &str, on: bool) -> Result<(), String> {
+    let c = monster_mut(state, target_id)?;
+    c.player_rules = on;
     Ok(())
+}
+
+/// Записать счёт спасбросков существа. Чем обернулся бросок, решает фронт
+/// (`applyDeathSaveRoll` в `src/ui/deathSaves.ts` — единственный владелец
+/// правила); здесь число только ложится в бойца. Счёт персонажа сюда не
+/// пишется — он живёт на листе.
+pub fn set_death_saves(
+    state: &mut CombatState,
+    target_id: &str,
+    successes: u32,
+    failures: u32,
+) -> Result<(), String> {
+    let c = monster_mut(state, target_id)?;
+    c.death_save_successes = successes;
+    c.death_save_failures = failures;
+    Ok(())
+}
+
+fn monster_mut<'a>(state: &'a mut CombatState, target_id: &str) -> Result<&'a mut Combatant, String> {
+    let c = state
+        .combatants
+        .iter_mut()
+        .find(|c| c.id == target_id)
+        .ok_or("боец не найден")?;
+    match c.source {
+        CombatantSource::Monster { .. } => Ok(c),
+        CombatantSource::Character { .. } => {
+            Err("у персонажа спасброски живут на листе, а не в бою".into())
+        }
+    }
 }
 
 /// Отнять (`delta > 0`) или вернуть (`delta < 0`) хиты любым числом. Зажим
@@ -285,9 +356,10 @@ mod tests {
         ]);
 
         roll_initiative(&mut state, &mods).unwrap();
-        next_turn(&mut state).unwrap();
-        next_turn(&mut state).unwrap();
-        next_turn(&mut state).unwrap();
+        let nobody_fallen = [false; 3];
+        next_turn(&mut state, &nobody_fallen).unwrap();
+        next_turn(&mut state, &nobody_fallen).unwrap();
+        next_turn(&mut state, &nobody_fallen).unwrap();
         assert_eq!((state.round, state.current_turn_index), (2, 0));
 
         roll_initiative(&mut state, &mods).unwrap();
@@ -309,20 +381,91 @@ mod tests {
         assert!(state.combatants.iter().all(|c| c.initiative_roll.is_none()));
     }
 
-    /// «Следующий» с последнего места: раунд++, указатель на первом. Повержённый
-    /// не пропускается — указатель встаёт и на бойца с нулём хитов.
+    /// «Следующий» с последнего места: раунд++, указатель на первом. Павшего
+    /// указатель перешагивает — слово владельца 14.10.2026 (раньше проба
+    /// звалась `..._does_not_skip_the_downed` и держала обратное решение).
+    /// Отрицательная проба: снять `if !fallen[index]` — и указатель встанет на
+    /// волка 2.
     #[test]
-    fn next_turn_walks_the_line_wraps_into_a_new_round_and_does_not_skip_the_downed() {
+    fn next_turn_walks_the_line_wraps_into_a_new_round_and_skips_the_fallen() {
         let mut state = new_combat();
         add_monsters(&mut state, &test_monster_template("wolf"), 3).unwrap();
-        apply_damage(&mut state, "monster-wolf-2", 99).unwrap();
+        let wolf_2_fallen = [false, true, false];
 
-        next_turn(&mut state).unwrap();
-        assert_eq!(state.current_turn_index, 1, "повержённый волк — тоже ход");
-        next_turn(&mut state).unwrap();
-        assert_eq!((state.round, state.current_turn_index), (1, 2));
-        next_turn(&mut state).unwrap();
+        next_turn(&mut state, &wolf_2_fallen).unwrap();
+        assert_eq!((state.round, state.current_turn_index), (1, 2), "павший волк 2 перешагнут");
+        next_turn(&mut state, &wolf_2_fallen).unwrap();
         assert_eq!((state.round, state.current_turn_index), (2, 0));
+
+        // Павший на первом месте: оборот раунда и пропуск — одним нажатием.
+        let wolf_1_fallen = [true, false, false];
+        state.current_turn_index = 2;
+        next_turn(&mut state, &wolf_1_fallen).unwrap();
+        assert_eq!((state.round, state.current_turn_index), (3, 1), "раунд вырос, первый перешагнут");
+    }
+
+    /// Тот, кто не пал, — ходит, даже если он единственный: «Следующий»
+    /// обходит линию целиком и возвращается к нему же новым раундом.
+    #[test]
+    fn the_last_one_standing_gets_every_turn_in_a_new_round() {
+        let mut state = new_combat();
+        add_monsters(&mut state, &test_monster_template("wolf"), 3).unwrap();
+        state.current_turn_index = 1;
+
+        next_turn(&mut state, &[true, false, true]).unwrap();
+        assert_eq!((state.round, state.current_turn_index), (2, 1));
+    }
+
+    /// Пали все — ошибка, а не вечный обход: линия и раунд не тронуты. Тот же
+    /// исход после «убрать из боя», когда убрали последнего стоящего.
+    #[test]
+    fn when_everyone_has_fallen_next_turn_refuses_instead_of_looping() {
+        let mut state = new_combat();
+        add_characters(&mut state, &[hero("pc", 10, 10)]);
+        add_monsters(&mut state, &test_monster_template("wolf"), 2).unwrap();
+
+        assert!(next_turn(&mut state, &[true, true, true]).is_err());
+        assert_eq!((state.round, state.current_turn_index), (1, 0));
+
+        // Ходит персонаж, оба волка пали; персонажа убрали — указатель ушёл
+        // на павшего волка, и «Следующему» идти некуда.
+        remove_combatant(&mut state, "pc", 0).unwrap();
+        assert_eq!(state.combatants.len(), 2);
+        let round = state.round;
+        let at = state.current_turn_index;
+        assert!(next_turn(&mut state, &[true, true]).is_err());
+        assert_eq!((state.round, state.current_turn_index), (round, at), "ошибка линию не трогает");
+    }
+
+    /// Флаги павших — по месту в линии, и их ровно столько, сколько мест:
+    /// устаревший порядок с фронта не сдвигает указатель наугад.
+    #[test]
+    fn next_turn_rejects_flags_that_do_not_match_the_line() {
+        let mut state = new_combat();
+        add_monsters(&mut state, &test_monster_template("wolf"), 3).unwrap();
+        assert!(next_turn(&mut state, &[false, false]).is_err());
+        assert_eq!((state.round, state.current_turn_index), (1, 0));
+    }
+
+    /// Переключатель «по правилам персонажа» и счёт спасбросков ложатся только
+    /// в существо: у персонажа счёт на листе, второй его копии в бою не будет.
+    #[test]
+    fn player_rules_and_death_saves_are_stored_on_monsters_only() {
+        let mut state = new_combat();
+        add_characters(&mut state, &[hero("pc", 0, 10)]);
+        add_monsters(&mut state, &test_monster_template("wolf"), 1).unwrap();
+
+        set_player_rules(&mut state, "monster-wolf-1", true).unwrap();
+        set_death_saves(&mut state, "monster-wolf-1", 2, 1).unwrap();
+        let wolf = &state.combatants[1];
+        assert!(wolf.player_rules);
+        assert_eq!((wolf.death_save_successes, wolf.death_save_failures), (2, 1));
+
+        assert!(set_player_rules(&mut state, "pc", true).is_err());
+        assert!(set_death_saves(&mut state, "pc", 1, 0).is_err());
+        let pc = &state.combatants[0];
+        assert!(!pc.player_rules);
+        assert_eq!((pc.death_save_successes, pc.death_save_failures), (0, 0));
     }
 
     #[test]

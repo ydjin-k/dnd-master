@@ -3145,8 +3145,13 @@ export function CharactersPage() {
               хитов (ввод игрока, Кость Хитов, длинный отдых, пул лечения
               архетипа, левел-ап): пять владельцев одного факта разошлись бы, а
               шестой путь прошёл бы мимо всех пяти — см. normalizeDeathSaves.
+              Бой передаётся затем, что в бою «лежит ли персонаж» решают боевые
+              хиты, а не хиты листа: иначе правка листа стёрла бы счёт,
+              набранный в трекере.
             */
-            onUpdate={(updater) => updateCharacter(c.id, (ch) => normalizeDeathSaves(updater(ch)))}
+            onUpdate={(updater) =>
+              updateCharacter(c.id, (ch) => normalizeDeathSaves(updater(ch), state.combat))
+            }
           />
         ))}
         {state.characters.length === 0 && (

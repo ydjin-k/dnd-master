@@ -1,4 +1,4 @@
-import type { Character, RuleTopic } from "../state/types";
+import type { Character, CombatState, RuleTopic } from "../state/types";
 
 /**
  * Правило нуля хитов на листе персонажа — спасброски от смерти.
@@ -203,27 +203,61 @@ export const DEATH_SAVE_STATE_LABELS: Record<Exclude<DeathSaveState, "rolling">,
 };
 
 /**
- * ЕДИНСТВЕННОЕ место, где счётчики обнуляются.
+ * Счёт после того, как у бойца стало `hp` хитов: выше нуля — обнулён, на нуле
+ * — как был (с обрезкой до предела). ЕДИНСТВЕННОЕ место, где решается сброс:
+ * им пользуются и лист (`normalizeDeathSaves`), и существо в бою со счётом
+ * «по правилам персонажа» (`CampaignContext`, после команды хитов).
  *
  * Правило SRD — «и те и другие сбрасываются до нуля, когда вы восстанавливаете
- * любое количество хитов», — а путей записи хитов на листе пять: ввод игрока,
- * Кость Хитов, длинный отдых, пул лечения архетипа и левел-ап. Обнулять в
- * каждом значило бы завести пять владельцев одного факта, и шестой путь,
- * добавленный позже, молча прошёл бы мимо. Поэтому функция стоит НЕ на путях
- * записи хитов, а на общей воронке листа: через `onUpdate` проходит каждая
- * запись в персонажа, какой бы кнопкой она ни началась.
+ * любое количество хитов». Условие — «хиты больше нуля», а не «хиты выросли»:
+ * состояние важнее события, и заодно сюда попадает старое сохранение, в котором
+ * счётчики почему-то остались при живых хитах.
+ */
+export function deathSavesAtHp(saves: DeathSaves, hp: number): DeathSaves {
+  if (hp > 0) return NO_DEATH_SAVES;
+  return { successes: clampDeathSaveCount(saves.successes), failures: clampDeathSaveCount(saves.failures) };
+}
+
+/**
+ * Хиты, по которым решается, лежит ли персонаж. **Владелец факта «лежит» —
+ * бой, пока персонаж в нём стоит**: тогда это `Combatant.currentHp`, а хиты
+ * листа — старая копия, которую переносит только кнопка «Перенести хиты в
+ * листы» (решение владельца 24.09 / 09.10.2026). Вне боя — хиты листа.
  *
- * Условие — «хиты больше нуля», а не «хиты выросли»: состояние важнее события,
- * и заодно сюда попадает старое сохранение, в котором счётчики почему-то
- * остались при живых хитах.
+ * Без этого правило разошлось бы с собой в обе стороны: персонаж упал в бою,
+ * а лист ещё помнит 12 хитов — и любая запись листа стёрла бы счёт, набранный
+ * в трекере; персонажа подняли лечением в бою, а на листе 0 после переноса —
+ * и старый счёт дожил бы до следующего падения.
+ */
+export function deathSaveHpOf(character: Character, combat: CombatState | null): number {
+  const combatant = combat?.combatants.find(
+    (c) => c.source.kind === "character" && c.source.characterId === character.id,
+  );
+  return combatant ? combatant.currentHp : character.currentHp;
+}
+
+/**
+ * ЕДИНСТВЕННОЕ место, где счётчики персонажа обнуляются.
+ *
+ * Путей записи хитов на листе пять: ввод игрока, Кость Хитов, длинный отдых,
+ * пул лечения архетипа и левел-ап, — а шестой, лечение в трекере боя, пишет
+ * хиты вовсе не в лист. Обнулять в каждом значило бы завести шесть владельцев
+ * одного факта, и седьмой путь, добавленный позже, молча прошёл бы мимо.
+ * Поэтому функция стоит НЕ на путях записи хитов, а на воронках: через
+ * `onUpdate` листа проходит каждая запись в персонажа, а `CampaignContext`
+ * зовёт её же после каждой команды хитов боя.
+ *
+ * `combat` — бой кампании: пока персонаж в нём, «лежит ли он» решают боевые
+ * хиты (`deathSaveHpOf`). Без боя — хиты листа, как было до трекера.
  *
  * Тот же объект возвращается, когда менять нечего: лишняя запись в кампанию не
  * нужна.
  */
-export function normalizeDeathSaves(character: Character): Character {
-  const alive = character.currentHp > 0;
-  const successes = alive ? 0 : clampDeathSaveCount(character.deathSaveSuccesses);
-  const failures = alive ? 0 : clampDeathSaveCount(character.deathSaveFailures);
+export function normalizeDeathSaves(character: Character, combat: CombatState | null = null): Character {
+  const { successes, failures } = deathSavesAtHp(
+    { successes: character.deathSaveSuccesses, failures: character.deathSaveFailures },
+    deathSaveHpOf(character, combat),
+  );
   if (successes === character.deathSaveSuccesses && failures === character.deathSaveFailures) return character;
   return { ...character, deathSaveSuccesses: successes, deathSaveFailures: failures };
 }

@@ -1,16 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
-import type { MonsterTemplate } from "../../state/types";
+import { useDiceLog } from "../../state/DiceLogContext";
+import type { Combatant, MonsterTemplate, RollResult } from "../../state/types";
 import { fmtMod } from "../characterCreationData";
 import {
+  combatantDeathSaves,
   combatantLabel,
+  fallenFlags,
   hasActed,
   initiativeModifierOf,
   initiativeTotal,
+  isFallen,
+  rollsDeathSaves,
   searchMonsters,
   turnOrder,
 } from "../combatTracker";
+import {
+  DEATH_SAVE_EXPRESSION,
+  DEATH_SAVE_FAILURES_TO_DEATH,
+  DEATH_SAVE_STATE_LABELS,
+  DEATH_SAVE_SUCCESSES_TO_STABLE,
+  applyDeathSaveRoll,
+  deathSaveRollLabel,
+  deathSaveState,
+  deathSaveVerdict,
+  deathSavesOf,
+} from "../deathSaves";
 import { UIIcon } from "../UIIcon";
 import "./CombatPage.css";
 
@@ -26,11 +42,15 @@ export function CombatPage() {
     addToCombat,
     rollInitiative,
     nextTurn,
+    setPlayerRules,
+    setCombatantDeathSaves,
+    updateCharacter,
     applyDamage,
     removeFromCombat,
     transferHpToSheets,
     endCombat,
   } = useCampaign();
+  const { recordRoll } = useDiceLog();
   const combat = state.combat;
   const [bestiary, setBestiary] = useState<MonsterTemplate[]>([]);
   const [bestiaryError, setBestiaryError] = useState<string | null>(null);
@@ -41,6 +61,11 @@ export function CombatPage() {
   const [hpAmounts, setHpAmounts] = useState<Record<string, string>>({});
   /** «Закончить бой» спрашивает подтверждение: бой стирается целиком. */
   const [confirmingEnd, setConfirmingEnd] = useState(false);
+  /** Последний спасбросок от смерти — по id бойца: выпавшее число для подписи «успех / провал». */
+  const [lastDeathSave, setLastDeathSave] = useState<Record<string, number>>({});
+  const [deathSaveError, setDeathSaveError] = useState<string | null>(null);
+  /** Кто сейчас бросает: второй щелчок до ответа движка не должен сложиться с первым. */
+  const deathSaveRolling = useRef(new Set<string>());
 
   useEffect(() => {
     invoke<MonsterTemplate[] | null>("get_bestiary")
@@ -72,6 +97,53 @@ export function CombatPage() {
       const sheet = state.characters.find((ch) => ch.id === characterId);
       return sheet && sheet.currentHp !== c.currentHp ? [sheet.name] : [];
     }) ?? [];
+
+  /**
+   * Спасбросок от смерти из строки трекера — тем же правилом, что на листе:
+   * кость бросает движок (`roll_dice`), чем обернулось — решает
+   * `applyDeathSaveRoll`, второй копии правила здесь нет.
+   *
+   * Счёт персонажа пишется в ЕГО ЛИСТ и считается внутри updater'а от свежего
+   * персонажа (как у кнопки на листе), счёт существа — в бойца. «20» даёт хит
+   * БОЕВОМУ бойцу той же командой хитов, что и кнопки «−/+»: хиты листа трекер
+   * не трогает (перенос — только кнопкой).
+   */
+  async function rollDeathSave(c: Combatant, label: string) {
+    if (deathSaveRolling.current.has(c.id)) return;
+    deathSaveRolling.current.add(c.id);
+    setDeathSaveError(null);
+    try {
+      const result = await invoke<RollResult>("roll_dice", { expression: DEATH_SAVE_EXPRESSION });
+      recordRoll(deathSaveRollLabel(label), result);
+      const roll = result.total;
+      setLastDeathSave((prev) => ({ ...prev, [c.id]: roll }));
+
+      let hp: number | null = null;
+      const source = c.source;
+      if (source.kind === "character") {
+        await updateCharacter(source.characterId, (ch) => {
+          const outcome = applyDeathSaveRoll(deathSavesOf(ch), roll);
+          hp = outcome.hp;
+          return {
+            ...ch,
+            deathSaveSuccesses: outcome.saves.successes,
+            deathSaveFailures: outcome.saves.failures,
+          };
+        });
+      } else {
+        const saves = combatantDeathSaves(c, state.characters);
+        if (!saves) return;
+        const outcome = applyDeathSaveRoll(saves, roll);
+        hp = outcome.hp;
+        await setCombatantDeathSaves(c.id, outcome.saves);
+      }
+      if (hp !== null) await applyDamage(c.id, c.currentHp - hp);
+    } catch (e) {
+      setDeathSaveError(String(e));
+    } finally {
+      deathSaveRolling.current.delete(c.id);
+    }
+  }
 
   function countOf(templateId: string): number {
     const n = Math.floor(Number(counts[templateId] ?? "1"));
@@ -181,12 +253,16 @@ export function CombatPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={order.length === 0}
-                  onClick={() => nextTurn()}
+                  disabled={order.length === 0 || order.every(isFallen)}
+                  title={order.length > 0 && order.every(isFallen) ? "Все пали — ходить некому" : undefined}
+                  onClick={() => nextTurn(fallenFlags(order))}
                 >
                   Следующий
                 </button>
               </div>
+              {deathSaveError && (
+                <p className="combat-page__error">Спасбросок не удался: {deathSaveError}</p>
+              )}
 
               <ol className="combat-line__list">
                 {order.map((c, position) => {
@@ -194,6 +270,10 @@ export function CombatPage() {
                   const current = position === combat.currentTurnIndex;
                   const acted = hasActed(combat, position);
                   const amount = hpAmountOf(c.id);
+                  const fallen = isFallen(c);
+                  const saves = rollsDeathSaves(c) ? combatantDeathSaves(c, state.characters) : null;
+                  const savesState = saves ? deathSaveState(saves) : null;
+                  const lastRoll = lastDeathSave[c.id];
                   return (
                     <li
                       key={c.id}
@@ -227,8 +307,42 @@ export function CombatPage() {
                         {c.currentHp}/{c.maxHp}
                       </span>
                       <span className="combat-line__acted">
-                        {current ? "его ход" : acted ? "походил" : ""}
+                        {fallen ? "пал" : current ? "его ход" : acted ? "походил" : ""}
                       </span>
+                      {saves && savesState && (
+                        <span className="combat-line__death-saves" aria-label={`Спасброски от смерти: ${label}`}>
+                          <span className="combat-line__death-count">
+                            Успехи {saves.successes}/{DEATH_SAVE_SUCCESSES_TO_STABLE} · Провалы{" "}
+                            {saves.failures}/{DEATH_SAVE_FAILURES_TO_DEATH}
+                          </span>
+                          {savesState === "rolling" ? (
+                            <button
+                              type="button"
+                              aria-label={`Спасбросок от смерти: ${label}`}
+                              onClick={() => rollDeathSave(c, label)}
+                            >
+                              Бросить к20
+                            </button>
+                          ) : (
+                            <span className="combat-line__death-state">{DEATH_SAVE_STATE_LABELS[savesState]}</span>
+                          )}
+                          {lastRoll !== undefined && (
+                            <span className="combat-line__death-last">
+                              Выпало {lastRoll} — {deathSaveVerdict(lastRoll)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {c.source.kind === "monster" && (
+                        <label className="combat-line__player-rules">
+                          <input
+                            type="checkbox"
+                            checked={c.playerRules}
+                            onChange={(e) => setPlayerRules(c.id, e.target.checked)}
+                          />
+                          по правилам персонажа
+                        </label>
+                      )}
                       <span className="combat-line__hp-controls">
                         <input
                           type="number"

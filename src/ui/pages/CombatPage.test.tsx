@@ -127,6 +127,9 @@ const removeFromCombat = vi.fn();
 const transferHpToSheets = vi.fn();
 const endCombat = vi.fn();
 
+const recordRoll = vi.fn();
+vi.mock("../../state/DiceLogContext", () => ({ useDiceLog: () => ({ recordRoll }) }));
+
 let mockState = baseState();
 vi.mock("../../state/CampaignContext", () => ({
   useCampaign: () => ({
@@ -148,6 +151,7 @@ function wolf(number: number, d20: number): Combatant {
     maxHp: 11,
     currentHp: 11,
     initiativeRoll: { d20, dexModifier: 2 },
+    playerRules: false, deathSaveSuccesses: 0, deathSaveFailures: 0,
   };
 }
 
@@ -163,6 +167,7 @@ function combatInProgress(): CampaignState["combat"] {
         maxHp: 12,
         currentHp: 12,
         initiativeRoll: { d20: 15, dexModifier: 3 },
+        playerRules: false, deathSaveSuccesses: 0, deathSaveFailures: 0,
       },
       wolf(3, 20),
       wolf(4, 1),

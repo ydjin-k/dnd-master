@@ -17,6 +17,7 @@ import {
 } from "./types";
 import { travelOf } from "../ui/travelPace";
 import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
+import { deathSavesAtHp, normalizeDeathSaves, type DeathSaves } from "../ui/deathSaves";
 
 interface CampaignContextValue {
   state: CampaignState;
@@ -33,7 +34,13 @@ interface CampaignContextValue {
   addToCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   /** Модификатор Ловкости каждого бойца по его id — из `initiativeModifierOf`. */
   rollInitiative: (dexModifiers: Record<string, number>) => Promise<void>;
-  nextTurn: () => Promise<void>;
+  /** `fallen` — флаг «пал» на каждое место в `turnOrder` (`fallenFlags`): павших «Следующий» пропускает. */
+  nextTurn: (fallen: boolean[]) => Promise<void>;
+  /** Переключатель «по правилам персонажа» у существа. */
+  setPlayerRules: (targetId: string, on: boolean) => Promise<void>;
+  /** Счёт спасбросков существа — посчитанный `applyDeathSaveRoll`; у персонажа счёт на листе. */
+  setCombatantDeathSaves: (targetId: string, saves: DeathSaves) => Promise<void>;
+  /** Хиты в бою; поднятому с нуля следом обнуляется счёт спасбросков. */
   applyDamage: (targetId: string, delta: number) => Promise<void>;
   /** Убрать бойца; `position` — его место в `turnOrder`, по нему Rust ведёт указатель. */
   removeFromCombat: (targetId: string, position: number) => Promise<void>;
@@ -255,10 +262,57 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
       runServerAction("combat_roll_initiative", { dexModifiers }),
     [runServerAction],
   );
-  const nextTurn = useCallback(() => runServerAction("combat_next_turn"), [runServerAction]);
-  const applyDamage = useCallback(
-    (targetId: string, delta: number) => runServerAction("apply_damage", { targetId, delta }),
+  const nextTurn = useCallback(
+    (fallen: boolean[]) => runServerAction("combat_next_turn", { fallen }),
     [runServerAction],
+  );
+  const setPlayerRules = useCallback(
+    (targetId: string, on: boolean) => runServerAction("combat_set_player_rules", { targetId, on }),
+    [runServerAction],
+  );
+  const setCombatantDeathSaves = useCallback(
+    (targetId: string, saves: DeathSaves) =>
+      runServerAction("combat_set_death_saves", {
+        targetId,
+        successes: saves.successes,
+        failures: saves.failures,
+      }),
+    [runServerAction],
+  );
+
+  /**
+   * Хиты в бою — и следом сброс счёта спасбросков, если боец поднялся с нуля.
+   *
+   * Лечение в бою пишет хиты НЕ в лист (перенос — только кнопкой), поэтому
+   * воронка листа (`onUpdate` → `normalizeDeathSaves`) его не видит, а счёт
+   * обязан обнулиться: SRD сбрасывает его любым восстановлением хитов. Здесь
+   * зовётся тот же владелец сброса — `normalizeDeathSaves` с боем для персонажа
+   * и `deathSavesAtHp` для существа, — а не третье «если хиты > 0».
+   *
+   * Считается от `latest`, то есть от ответа команды хитов, а не от снимка
+   * рендера: иначе сброс смотрел бы на хиты ДО лечения.
+   */
+  const applyDamage = useCallback(
+    async (targetId: string, delta: number) => {
+      await runServerAction("apply_damage", { targetId, delta });
+      const current = latest.current;
+      const combatant = current.combat?.combatants.find((c) => c.id === targetId);
+      if (!combatant) return;
+      const source = combatant.source;
+      if (source.kind === "character") {
+        const sheet = current.characters.find((c) => c.id === source.characterId);
+        if (sheet && normalizeDeathSaves(sheet, current.combat) !== sheet) {
+          await updateCharacter(sheet.id, (ch) => normalizeDeathSaves(ch, latest.current.combat));
+        }
+        return;
+      }
+      const saves = { successes: combatant.deathSaveSuccesses, failures: combatant.deathSaveFailures };
+      const settled = deathSavesAtHp(saves, combatant.currentHp);
+      if (settled.successes !== saves.successes || settled.failures !== saves.failures) {
+        await setCombatantDeathSaves(targetId, settled);
+      }
+    },
+    [runServerAction, updateCharacter, setCombatantDeathSaves],
   );
   const removeFromCombat = useCallback(
     (targetId: string, position: number) =>
@@ -287,6 +341,8 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         addToCombat,
         rollInitiative,
         nextTurn,
+        setPlayerRules,
+        setCombatantDeathSaves,
         applyDamage,
         removeFromCombat,
         transferHpToSheets,

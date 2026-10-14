@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Character, CombatState, Combatant, MonsterTemplate } from "../state/types";
-import { combatantLabel, initiativeModifierOf, turnOrder } from "./combatTracker";
+import {
+  combatantDeathSaves,
+  combatantLabel,
+  fallenFlags,
+  initiativeModifierOf,
+  isFallen,
+  rollsDeathSaves,
+  turnOrder,
+} from "./combatTracker";
 
 const wolfTemplate = {
   id: "wolf",
@@ -25,6 +33,7 @@ function wolf(number: number, d20: number | null): Combatant {
     maxHp: 11,
     currentHp: 11,
     initiativeRoll: d20 === null ? null : { d20, dexModifier: 2 },
+    playerRules: false, deathSaveSuccesses: 0, deathSaveFailures: 0,
   };
 }
 
@@ -61,6 +70,7 @@ describe("трекер боя", () => {
         maxHp: 12,
         currentHp: 12,
         initiativeRoll: null,
+        playerRules: false, deathSaveSuccesses: 0, deathSaveFailures: 0,
       },
       wolf(1, null),
     ]);
@@ -82,6 +92,7 @@ describe("трекер боя", () => {
       currentHp: 7,
       // 17 + 1 = 18 — как у волков ниже, но модификатор меньше.
       initiativeRoll: { d20: 17, dexModifier: 1 },
+      playerRules: false, deathSaveSuccesses: 0, deathSaveFailures: 0,
     };
     const wolves = [10, 2, 1].map((n) => wolf(n, 16)); // итог 18 у всех трёх
     const late = wolf(11, null); // добавлен после броска
@@ -94,5 +105,37 @@ describe("трекер боя", () => {
 
     expect(labels(a)).toEqual(["Волк 3", "Волк 1", "Волк 2", "Волк 10", "Гоблин", "Волк 11"]);
     expect(labels(b)).toEqual(labels(a));
+  });
+
+  /**
+   * Слово владельца 14.10.2026: чудовище на нуле пало и пропускается,
+   * персонаж на нуле бросает спасброски, существо с переключателем — как
+   * персонаж. Решают БОЕВЫЕ хиты: у героя на листе хитов нет вовсе (заготовка
+   * выше), а в бою 0 — и он лежит.
+   */
+  it("кто пал, а кто бросает спасброски — по боевым хитам и переключателю", () => {
+    const pcDown: Combatant = {
+      id: "hero",
+      source: { kind: "character", characterId: "hero" },
+      maxHp: 12,
+      currentHp: 0,
+      initiativeRoll: null,
+      playerRules: false,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+    };
+    const wolfDown = { ...wolf(1, null), currentHp: 0 };
+    const villainDown = { ...wolf(2, null), currentHp: 0, playerRules: true, deathSaveFailures: 9 };
+    const wolfUp = wolf(3, null);
+
+    expect(fallenFlags([pcDown, wolfDown, villainDown, wolfUp])).toEqual([false, true, false, false]);
+    expect([pcDown, wolfDown, villainDown, wolfUp].map(rollsDeathSaves)).toEqual([true, false, true, false]);
+    expect(isFallen({ ...wolfDown, playerRules: true })).toBe(false);
+
+    // Счёт персонажа — с листа, существа — из бойца, с тем же пределом 0..3.
+    const sheet = { ...hero, deathSaveSuccesses: 2, deathSaveFailures: 1 } as Character;
+    expect(combatantDeathSaves(pcDown, [sheet])).toEqual({ successes: 2, failures: 1 });
+    expect(combatantDeathSaves(pcDown, [])).toBeNull();
+    expect(combatantDeathSaves(villainDown, [sheet])).toEqual({ successes: 0, failures: 3 });
   });
 });

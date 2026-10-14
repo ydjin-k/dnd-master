@@ -259,6 +259,17 @@ export interface Combatant {
   currentHp: number;
   /** null — инициатива этому бойцу ещё не брошена. */
   initiativeRoll: InitiativeRoll | null;
+  /**
+   * Существо «по правилам персонажа» (SRD, «Чудовища и смерть»): на нуле хитов
+   * не пало, а бросает спасброски от смерти. У персонажа не значит ничего.
+   */
+  playerRules: boolean;
+  /**
+   * Счёт спасбросков СУЩЕСТВА с переключателем — листа у него нет. Счёт
+   * персонажа лежит на листе (`Character.deathSave*`), эти поля у него нули.
+   */
+  deathSaveSuccesses: number;
+  deathSaveFailures: number;
 }
 
 /**
