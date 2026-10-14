@@ -11,7 +11,8 @@
 .app-shell[data-active-tab="combat"] { --section-accent: #ef6f68; --section-accent-rgb: 239, 111, 104; }
 .app-shell[data-active-tab="dice"] { --section-accent: #b58af0; --section-accent-rgb: 181, 138, 240; }
 .app-shell[data-active-tab="characters"] { --section-accent: #72a7f2; --section-accent-rgb: 114, 167, 242; }
-.app-shell[data-active-tab="rules"] { --section-accent: #e7a95a; --section-accent-rgb: 231, 169, 90; }
+.app-shell[data-active-tab="rules"] { --section-accent: #58c2dc; --section-accent-rgb: 88, 194, 220; }
+.app-shell[data-active-tab="journal"] { --section-accent: #f0c766; --section-accent-rgb: 240, 199, 102; }
 .app-shell[data-active-tab="bestiary"] { --section-accent: #78c79a; --section-accent-rgb: 120, 199, 154; }
 .app-shell[data-active-tab="soundboard"] { --section-accent: #ef8ac4; --section-accent-rgb: 239, 138, 196; }
 
@@ -142,11 +143,15 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.18em;
+  /* Просторнее по просьбе владельца 14.10.2026: подпись не должна упираться в следующий значок. */
+  gap: 0.45em;
 }
 
 .app-shell__nav-item {
   --nav-accent: var(--dm-accent);
+  /* Не сжиматься в невысоком окне: сжатая вкладка заводит подпись на следующий значок.
+     Не хватает высоты — прокручивается рельс. */
+  flex-shrink: 0;
   text-align: center;
   background: transparent;
   border: 1px solid transparent;
@@ -154,8 +159,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.18em;
-  padding: 0.25em;
+  gap: 0.3em;
+  padding: 0.4em 0.25em;
   font-family: var(--dm-font-display);
   font-size: 0.72em;
   line-height: 1.15;
@@ -169,7 +174,8 @@
 .app-shell__nav-item[data-tab="combat"] { --nav-accent: #ef6f68; }
 .app-shell__nav-item[data-tab="dice"] { --nav-accent: #b58af0; }
 .app-shell__nav-item[data-tab="characters"] { --nav-accent: #72a7f2; }
-.app-shell__nav-item[data-tab="rules"] { --nav-accent: #e7a95a; }
+.app-shell__nav-item[data-tab="rules"] { --nav-accent: #58c2dc; }
+.app-shell__nav-item[data-tab="journal"] { --nav-accent: #f0c766; }
 .app-shell__nav-item[data-tab="bestiary"] { --nav-accent: #78c79a; }
 .app-shell__nav-item[data-tab="soundboard"] { --nav-accent: #ef8ac4; }
 
@@ -215,11 +221,11 @@
 .app-shell[data-active-tab="combat"] .app-shell__content { background-image: repeating-linear-gradient(135deg, rgba(239, 111, 104, 0.035) 0 1px, transparent 1px 32px); }
 .app-shell[data-active-tab="dice"] .app-shell__content { background-image: radial-gradient(circle, rgba(181, 138, 240, 0.11) 1px, transparent 1.5px); background-size: 30px 30px; }
 .app-shell[data-active-tab="characters"] .app-shell__content { background-image: radial-gradient(ellipse at 50% 0, rgba(114, 167, 242, 0.09), transparent 38rem); }
-.app-shell[data-active-tab="rules"] .app-shell__content { background-image: linear-gradient(90deg, transparent 49.9%, rgba(231, 169, 90, 0.045) 50%, transparent 50.1%); }
+.app-shell[data-active-tab="rules"] .app-shell__content { background-image: linear-gradient(90deg, transparent 49.9%, rgba(var(--section-accent-rgb), 0.045) 50%, transparent 50.1%); }
 .app-shell[data-active-tab="bestiary"] .app-shell__content { background-image: repeating-linear-gradient(120deg, rgba(120, 199, 154, 0.025) 0 2px, transparent 2px 34px); }
 
 .app-shell[data-active-tab="dice"] .dice-page__roller,
 .app-shell[data-active-tab="dice"] .dice-log-entry { border-color: rgba(181, 138, 240, 0.52); }
 .app-shell[data-active-tab="characters"] .character-card { border-color: rgba(114, 167, 242, 0.46); border-radius: 18px 18px 8px 8px; }
-.app-shell[data-active-tab="rules"] .rules-page__content { padding-inline: clamp(1rem, 3vw, 2rem); border-inline: 3px double rgba(231, 169, 90, 0.3); }
+.app-shell[data-active-tab="rules"] .rules-page__content { padding-inline: clamp(1rem, 3vw, 2rem); border-inline: 3px double rgba(var(--section-accent-rgb), 0.3); }
 .app-shell[data-active-tab="bestiary"] .bestiary-statblock { border-color: rgba(120, 199, 154, 0.55); border-radius: 4px 18px 4px 18px; }
