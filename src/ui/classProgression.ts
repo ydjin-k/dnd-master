@@ -1,4 +1,9 @@
-import { abilityMod, subclassGrants, type AbilityKey } from "./characterCreationData";
+import {
+  abilityMod,
+  effectiveSubclassGrants,
+  proficiencyBonusForLevel,
+  type AbilityKey,
+} from "./characterCreationData";
 // Первый наш класс: id и id его счётчиков принадлежат модулю класса, и
 // второй копии этих строк здесь быть не должно — по тем же id лист ищет
 // `Character.featureUses`. Встречного импорта оттуда нет.
@@ -8,6 +13,19 @@ import {
   BLOOD_HUNTER_ID,
   BRAND_OF_CASTIGATION_RESOURCE_ID,
 } from "./bloodHunterClass";
+import {
+  ALCHEMIST_ID,
+  BOMBS_RESOURCE_ID,
+  BOMB_DAMAGE_STEPS,
+  BOMB_FORMULAS_KNOWN_STEPS,
+  DISCOVERIES_CHOICE_ID,
+  DISCOVERIES_KNOWN_STEPS,
+  READY_TO_BLOW_DISCOVERY_ID,
+  REAGENT_DICE_RESOURCE_ID,
+  bombsAt,
+  knownAt,
+  reagentDiceAt,
+} from "./alchemistClass";
 import type { AbilityScores } from "../state/types";
 
 /** Потолок уровня приложения — вся таблица ниже заполнена только до него (см. MAX_LEVEL в CharactersPage.tsx). */
@@ -87,6 +105,15 @@ export interface ClassProgression {
    * и возвращать отдыху нечего.
    */
   slotRecharge: "short" | "long";
+  /**
+   * СЛ спасброска, которую класс объявляет НЕ заклинаниями (их СЛ — у
+   * `spellSaveDc`): 8 + бонус мастерства + модификатор `ability`. Первая —
+   * СЛ бомб Алхимика. `boostedBy` — вариант классового выбора, который
+   * прибавляет к ней половину бонуса мастерства с округлением вниз
+   * («Сейчас рванёт»). Считает `classSaveDc`; поле, а не сверка id класса,
+   * по той же причине, что `slotRecharge`.
+   */
+  saveDc?: { name: string; ability: AbilityKey; boostedBy?: { choiceId: string; optionId: string } };
   byLevel: Record<number, ClassLevelProgression>;
 }
 
@@ -569,6 +596,57 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       ],
     })),
   },
+  // Алхимик, таблица с. 1 PDF владельца. Не заклинатель: зелья и бомбы — не
+  // ячейки и через механизм ячеек не идут. Оба запаса — обычные `ClassResource`:
+  // кости реагентов возвращает ДЛИННЫЙ отдых (с. 4), бомбы собираются заново на
+  // коротком или длинном (с. 2) — и с записей 158-159 кнопки отдыха вернут их
+  // сами, читая поле `recharge`, без строчки кода про алхимика.
+  [ALCHEMIST_ID]: {
+    spellsKnownKind: "none",
+    slotRecharge: "long",
+    // СЛ бомб — с. 3 PDF, «Сейчас рванёт» — с. 15.
+    saveDc: {
+      name: "СЛ спасброска от бомб",
+      ability: "intelligence",
+      boostedBy: { choiceId: DISCOVERIES_CHOICE_ID, optionId: READY_TO_BLOW_DISCOVERY_ID },
+    },
+    byLevel: levels((level) => ({
+      spellSlots: NO_SLOTS,
+      cantripsKnown: 0,
+      spellsKnown: 0,
+      resources: [
+        {
+          id: BOMBS_RESOURCE_ID,
+          name: "Бомбы",
+          description: "Готовые алхимические бомбы: собираются заново на коротком или длинном отдыхе, через сутки портятся.",
+          max: bombsAt(level),
+          recharge: "short",
+          unit: "бомба",
+        },
+        ...(reagentDiceAt(level) > 0
+          ? [
+              {
+                id: REAGENT_DICE_RESOURCE_ID,
+                name: "Кости реагентов",
+                description: "Кости для зелий и для усиления заряженной бомбы, не больше бонуса мастерства за бросок.",
+                max: reagentDiceAt(level),
+                recharge: "long",
+                unit: "кость",
+              } as ClassResource,
+            ]
+          : []),
+      ],
+      scaling: [
+        { name: "Урон заряженной бомбы", value: byStep(level, BOMB_DAMAGE_STEPS.map(([from, dice]) => [from, dice] as [number, string])) },
+        ...(knownAt(BOMB_FORMULAS_KNOWN_STEPS, level) > 0
+          ? [{ name: "Известные формулы", value: String(knownAt(BOMB_FORMULAS_KNOWN_STEPS, level)) }]
+          : []),
+        ...(knownAt(DISCOVERIES_KNOWN_STEPS, level) > 0
+          ? [{ name: "Известные открытия", value: String(knownAt(DISCOVERIES_KNOWN_STEPS, level)) }]
+          : []),
+      ],
+    })),
+  },
   "classes-sorcerer": {
     spellsKnownKind: "known",
     slotRecharge: "long",
@@ -652,9 +730,12 @@ export function characterResources(
   classId: string | null | undefined,
   subclassName: string | null | undefined,
   level: number,
+  subclassChoices?: Record<string, string[]>,
 ): ClassResource[] {
   const classResources = progressionAt(classId, level)?.resources ?? [];
-  const own = subclassGrants(classId, subclassName)?.resources ?? [];
+  // С выбранными вариантами архетипа: трансплантат ксенохимика «раз на отдых»
+  // приносит свой счётчик в гранты варианта, и без них он бы молча пропал.
+  const own = effectiveSubclassGrants(classId, subclassName, subclassChoices)?.resources ?? [];
   const extra = own.filter((r) => !classResources.some((c) => c.id === r.id));
   return [...classResources, ...extra];
 }
@@ -693,3 +774,26 @@ export function highestSpellCircle(classId: string | null | undefined, level: nu
   return 0;
 }
 
+/**
+ * СЛ спасброска класса не от заклинаний (`ClassProgression.saveDc`) на этом
+ * уровне — строкой для таблицы листа (та же форма `{ name, value }`, что у
+ * `scaling`), или `null` у класса без такой СЛ. В персонаже число не хранится:
+ * оно считается из характеристик при каждом показе, и улучшение Интеллекта на
+ * 4 уровне двигает его само.
+ */
+export function classSaveDc(
+  classId: string | null | undefined,
+  abilities: AbilityScores,
+  level: number,
+  classChoices: Record<string, string[]> | undefined,
+): { name: string; value: string } | null {
+  const saveDc = classId ? CLASS_PROGRESSION[classId]?.saveDc : undefined;
+  if (!saveDc) return null;
+  const proficiency = proficiencyBonusForLevel(level);
+  const boost = saveDc.boostedBy;
+  const boosted = boost ? classChoices?.[boost.choiceId]?.includes(boost.optionId) : false;
+  return {
+    name: saveDc.name,
+    value: String(8 + proficiency + abilityMod(abilities[saveDc.ability]) + (boosted ? Math.floor(proficiency / 2) : 0)),
+  };
+}

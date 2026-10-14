@@ -67,7 +67,10 @@ describe("Кровавый охотник — наш класс в справо�
     expect(isOwnRuleTopic(topic)).toBe(true);
     expect(classes.filter((t) => t.id === BLOOD_HUNTER_ID)).toHaveLength(1);
     // Наш класс идёт ПОСЛЕ классов справочника — порядок списка значащий.
-    expect(classes[classes.length - 1]!.id).toBe(BLOOD_HUNTER_ID);
+    // Последним он был, пока оставался единственным нашим; с Алхимиком за ним
+    // идут другие наши классы, но ни одного SRD-класса.
+    const index = classes.findIndex((t) => t.id === BLOOD_HUNTER_ID);
+    expect(classes.slice(index).every((t) => isOwnRuleTopic(t))).toBe(true);
   });
 
   it("в rules.json его нет — ни по id, ни по названию", () => {
@@ -620,7 +623,8 @@ describe("Кровавый охотник — проклятья крови ка
     expect(BLOOD_CURSES_KNOWN_STEPS.map(([from]) => from)).toEqual([1, 6, 10]);
   });
 
-  it("проклятья крови есть только у нашего класса — в CLASS_CHOICES больше никого", () => {
-    expect(Object.keys(CLASS_CHOICES)).toEqual([BLOOD_HUNTER_ID]);
+  it("проклятья крови есть только у нашего класса — у SRD-классов в CLASS_CHOICES никого", () => {
+    // Второй хозяин классового выбора — Алхимик (формулы и открытия), тоже наш.
+    expect(Object.keys(CLASS_CHOICES)).toEqual([BLOOD_HUNTER_ID, "classes-alchemist"]);
   });
 });

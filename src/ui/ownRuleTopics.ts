@@ -13,6 +13,8 @@ import { GENASI_TOPIC } from "./genasiRace";
 // Первый наш класс (`characters-class-blood-hunter`). Тем же приёмом, что расы:
 // всё содержание класса живёт в его модуле, здесь — одна строка регистрации.
 import { BLOOD_HUNTER_TOPIC } from "./bloodHunterClass";
+// Второй наш класс (`characters-class-alchemist`) — та же одна строка регистрации.
+import { ALCHEMIST_TOPIC } from "./alchemistClass";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -72,6 +74,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   AASIMAR_TOPIC,
   GENASI_TOPIC,
   BLOOD_HUNTER_TOPIC,
+  ALCHEMIST_TOPIC,
 ];
 
 

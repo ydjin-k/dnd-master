@@ -54,6 +54,20 @@ import {
   BLOOD_HUNTER_FIGHTING_STYLE_NAMES,
   BLOOD_HUNTER_ID,
 } from "./bloodHunterClass";
+// Второй наш класс (`characters-class-alchemist`) — тем же приёмом: всё
+// содержание в `alchemistClass.ts`, здесь по строке на карту.
+import {
+  ALCHEMIST_DISCOVERIES,
+  ALCHEMIST_ID,
+  ALCHEMIST_LEVEL_FEATURES,
+  ALCHEMIST_SPECIALIZATIONS,
+  ALCHEMIST_SPECIALIZATION_LEVEL,
+  BOMB_FORMULAS,
+  BOMB_FORMULAS_CHOICE_ID,
+  BOMB_FORMULAS_KNOWN_STEPS,
+  DISCOVERIES_CHOICE_ID,
+  DISCOVERIES_KNOWN_STEPS,
+} from "./alchemistClass";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -353,6 +367,30 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
     weapons: [],
     tools: ["Инструменты алхимика"],
   },
+  // Алхимик, с. 2 PDF владельца: спасброски Ловкость и Интеллект, три навыка из
+  // восьми, только лёгкие доспехи, простое оружие и бомбы, инструменты
+  // алхимика и набор травника. «Бомба» — НАЗВАНИЕМ в `weapons`, а не третьей
+  // категорией рядом с простым и воинским: в PDF это одно экзотическое оружие
+  // (с. 3), и категорию ради одной строки заводить незачем.
+  [ALCHEMIST_ID]: {
+    savingThrows: ["dexterity", "intelligence"],
+    savingThrowLabels: ["Ловкость", "Интеллект"],
+    skillCount: 3,
+    skillOptions: [
+      "Восприятие",
+      "Выживание",
+      "История",
+      "Ловкость рук",
+      "Магия",
+      "Медицина",
+      "Природа",
+      "Проницательность",
+    ],
+    armor: ["light"],
+    weaponCategories: ["simple"],
+    weapons: ["Бомба"],
+    tools: ["Инструменты алхимика", "Набор травника"],
+  },
   "classes-sorcerer": {
     savingThrows: ["constitution", "charisma"],
     savingThrowLabels: ["Телосложение", "Харизма"],
@@ -474,6 +512,22 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
     slot(["Лёгкий арбалет и 20 болтов", ["Арбалет, лёгкий", "Арбалетные болты ×20"]]),
     slot(["Проклёпанная кожа", ["Проклёпанная кожа"]], ["Чешуйчатый доспех", ["Чешуйчатый доспех"]]),
     slot(["Набор путешественника и инструменты алхимика", ["Набор путешественника", "Инструменты алхимика"]]),
+  ],
+  // Алхимик, с. 2 PDF владельца. Имена предметов — из каталогов этого файла
+  // («Арбалет, лёгкий», «Кислота (флакон)», «Алхимический огонь (фляга)»,
+  // «Яд, базовый (флакон)»), а не из PDF: по ним инвентарь находит вес и цену.
+  [ALCHEMIST_ID]: [
+    slot(
+      ["Лёгкий арбалет и 20 болтов", ["Арбалет, лёгкий", "Арбалетные болты ×20"]],
+      ["Любое простое оружие", ["Простое оружие (на выбор)"]],
+    ),
+    slot(["Набор путешественника", ["Набор путешественника"]], ["Набор учёного", ["Набор учёного"]]),
+    slot(
+      ["Инструменты алхимика и флакон кислоты", ["Инструменты алхимика", "Кислота (флакон)"]],
+      ["Инструменты алхимика и фляга алхимического огня", ["Инструменты алхимика", "Алхимический огонь (фляга)"]],
+      ["Инструменты алхимика и флакон простого яда", ["Инструменты алхимика", "Яд, базовый (флакон)"]],
+    ),
+    slot(["Кожаный доспех и кинжал", ["Кожаный доспех", "Кинжал"]]),
   ],
 };
 
@@ -2028,6 +2082,10 @@ export const CLASS_LEVEL_FEATURES: Record<string, Record<number, ClassLevelFeatu
     11: [],
     12: [],
   },
+  // Алхимик, с. 1 (таблица) и с. 2-5 (тексты) PDF владельца. Тексты живут в
+  // модуле класса (`ALCHEMIST_LEVEL_FEATURES`), из того же списка собирается
+  // статья справочника — второй копии здесь нет.
+  [ALCHEMIST_ID]: ALCHEMIST_LEVEL_FEATURES,
   "classes-sorcerer": {
     2: [
       {
@@ -2144,6 +2202,12 @@ export interface SubclassScalingValue {
 export interface SubclassChoiceOption {
   id: string;
   label: string;
+  /**
+   * Что вариант даёт словами — у вариантов, чьё имя само ничего не говорит
+   * (трансплантаты ксенохимика). Показывается под именем в панели выбора и на
+   * листе; у навыков и местностей не заполнено — там имя и есть описание.
+   */
+  description?: string;
   grants: SubclassGrants;
 }
 
@@ -2424,6 +2488,17 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
         },
       },
     ],
+  },
+  /**
+   * Алхимик: одиннадцать специализаций (с. 16-35 PDF владельца), выбор на 2
+   * уровне — так в PDF (таблица на с. 1 и «Специализация, 2-й уровень» на
+   * с. 3), хотя карточка называла 3. Содержание и механика специализаций —
+   * в модуле класса (`ALCHEMIST_SPECIALIZATIONS`), из того же списка собрана
+   * статья справочника.
+   */
+  [ALCHEMIST_ID]: {
+    chosenAtLevel: ALCHEMIST_SPECIALIZATION_LEVEL,
+    subclasses: ALCHEMIST_SPECIALIZATIONS,
   },
   "classes-cleric": {
     chosenAtLevel: 1,
@@ -5270,6 +5345,24 @@ export const CLASS_CHOICES: Record<string, readonly ClassChoice[]> = {
       // те же числа читает `scaling` в classProgression.ts.
       knownByLevel: BLOOD_CURSES_KNOWN_STEPS,
       options: BLOOD_CURSES,
+    },
+  ],
+  // Алхимик: формулы бомб с 2 уровня и открытия с 4 (с. 1 PDF). Ступени — у
+  // модуля класса, их же читает строка таблицы на листе.
+  [ALCHEMIST_ID]: [
+    {
+      id: BOMB_FORMULAS_CHOICE_ID,
+      name: "Формулы бомб",
+      unit: "формулу бомбы",
+      knownByLevel: BOMB_FORMULAS_KNOWN_STEPS,
+      options: BOMB_FORMULAS,
+    },
+    {
+      id: DISCOVERIES_CHOICE_ID,
+      name: "Открытия",
+      unit: "открытие",
+      knownByLevel: DISCOVERIES_KNOWN_STEPS,
+      options: ALCHEMIST_DISCOVERIES,
     },
   ],
 };
