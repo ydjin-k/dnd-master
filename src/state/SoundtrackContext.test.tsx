@@ -49,9 +49,18 @@ function renderApp() {
   );
 }
 
-// Именно кнопки: «Саундборд» и «Бой» есть и в нав-меню, и как заголовки на странице.
-const openTab = (label: string) => fireEvent.click(screen.getByRole("button", { name: label }));
-const play = (label: string) => fireEvent.click(screen.getByRole("button", { name: label }));
+// getByRole с именем по всему дереву считает роль и имя каждого узла: на открытом
+// саундборде это ~100 мс на вызов, и под нагрузкой полного прогона проба упиралась
+// в 5 с таймаута. Поэтому ищем узко, не теряя строгости: вкладку — среди кнопок
+// нав-меню («Саундборд» и «Бой» есть ещё и заголовками на странице), трек — по
+// aria-label с проверкой, что это кнопка.
+const openTab = (label: string) =>
+  fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: label }));
+const play = (label: string) => {
+  const button = screen.getByLabelText(label);
+  expect(button).toHaveRole("button");
+  fireEvent.click(button);
+};
 // Хедер отдельной группой: подписи «Пауза: X» есть и на странице, и в нём.
 const header = () => within(screen.getByRole("group", { name: "Сейчас звучит" }));
 const headerClick = (label: string) => fireEvent.click(header().getByRole("button", { name: label }));
