@@ -123,6 +123,7 @@ const addToCombat = vi.fn();
 const rollInitiative = vi.fn();
 const nextTurn = vi.fn();
 const applyDamage = vi.fn();
+const removeFromCombat = vi.fn();
 const transferHpToSheets = vi.fn();
 const endCombat = vi.fn();
 
@@ -134,6 +135,7 @@ vi.mock("../../state/CampaignContext", () => ({
     rollInitiative,
     nextTurn,
     applyDamage,
+    removeFromCombat,
     transferHpToSheets,
     endCombat,
   }),
@@ -249,6 +251,40 @@ describe("CombatPage", () => {
     fireEvent.click(screen.getByText("Перенести хиты в листы"));
     expect(transferHpToSheets).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText("Закончить бой"));
+    fireEvent.click(screen.getByText("Да, закончить"));
+    expect(endCombat).toHaveBeenCalledTimes(1);
+  });
+
+  it("участника можно убрать: на сервер уходит его место в линии, а не в массиве", async () => {
+    mockState = baseState({ combat: combatInProgress() });
+    render(<CombatPage />);
+    await screen.findByText("Волк 2");
+
+    // Линия: Волк 3, Герой, Волк 2, ... — Волк 2 третий, хотя в массиве второй.
+    fireEvent.click(screen.getByLabelText("Убрать из боя: Волк 2"));
+    expect(removeFromCombat).toHaveBeenCalledWith("monster-wolf-2", 2);
+  });
+
+  it("«Закончить бой» сначала спрашивает и называет персонажей с неперенесёнными хитами", async () => {
+    const combat = combatInProgress()!;
+    combat.combatants = combat.combatants.map((c) =>
+      c.id === "hero" ? { ...c, currentHp: 4 } : c,
+    );
+    mockState = baseState({ combat });
+    render(<CombatPage />);
+    await screen.findByText("Волк 2");
+
+    fireEvent.click(screen.getByText("Закончить бой"));
+    expect(endCombat).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog", { name: "Закончить бой?" });
+    expect(dialog).toHaveTextContent("Хиты не перенесены в листы: Герой.");
+
+    fireEvent.click(within(dialog).getByText("Отмена"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(endCombat).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Закончить бой"));
+    fireEvent.click(screen.getByText("Да, закончить"));
     expect(endCombat).toHaveBeenCalledTimes(1);
   });
 });

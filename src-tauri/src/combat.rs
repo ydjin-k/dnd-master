@@ -156,6 +156,40 @@ pub fn apply_damage(state: &mut CombatState, target_id: &str, delta: i32) -> Res
     Ok(())
 }
 
+/// Убрать участника из боя (лишний волк, сбежавший разбойник). `position` —
+/// его место в порядке ходов, который выводит фронт (`turnOrder`): Rust порядка
+/// не знает, а указатель хода — это именно место в том порядке.
+///
+/// Указатель остаётся на том же бойце: убрали стоящего выше — указатель
+/// сдвигается вверх вместе с линией. Убрали того, чей ход, — ход переходит к
+/// следующему, а с последнего — к первому нового раунда, как у «Следующего».
+/// Хиты убранного персонажа в лист сами не переносятся.
+pub fn remove_combatant(
+    state: &mut CombatState,
+    target_id: &str,
+    position: usize,
+) -> Result<(), String> {
+    if position >= state.combatants.len() {
+        return Err(format!("места {position} в линии нет"));
+    }
+    let at = state
+        .combatants
+        .iter()
+        .position(|c| c.id == target_id)
+        .ok_or("боец не найден")?;
+    state.combatants.remove(at);
+
+    if position < state.current_turn_index {
+        state.current_turn_index -= 1;
+    } else if state.current_turn_index >= state.combatants.len() {
+        state.current_turn_index = 0;
+        if !state.combatants.is_empty() {
+            state.round += 1;
+        }
+    }
+    Ok(())
+}
+
 /// Кнопка «Перенести хиты в листы»: каждому персонажу-участнику на лист ложатся
 /// его боевые хиты. Существ перенос не касается вовсе — шаблон бестиария урон
 /// не запоминает. Бой при этом продолжается: переносить можно когда угодно.
@@ -304,5 +338,45 @@ mod tests {
         assert_eq!(state.combatants[0].current_hp, 5);
         apply_damage(&mut state, "pc", -50).unwrap();
         assert_eq!(state.combatants[0].current_hp, 12, "выше максимума не поднимается");
+    }
+
+    #[test]
+    fn removing_a_combatant_keeps_the_pointer_on_whoever_was_acting() {
+        // Без бросков порядок ходов — порядок добавления, так что место в
+        // линии совпадает с индексом в массиве.
+        let mut state = new_combat();
+        add_monsters(&mut state, &test_monster_template("wolf"), 4).unwrap();
+        state.current_turn_index = 2; // ходит волк 3
+
+        remove_combatant(&mut state, "monster-wolf-1", 0).unwrap();
+        assert_eq!(numbers_of(&state, "wolf"), vec![2, 3, 4]);
+        assert_eq!(state.current_turn_index, 1, "убрали стоящего выше — указатель на том же волке 3");
+        assert_eq!(state.combatants[state.current_turn_index].id, "monster-wolf-3");
+
+        remove_combatant(&mut state, "monster-wolf-4", 2).unwrap();
+        assert_eq!(state.current_turn_index, 1, "убрали стоящего ниже — указатель не двигается");
+        assert_eq!(state.round, 1);
+    }
+
+    #[test]
+    fn removing_the_one_whose_turn_it_is_passes_the_turn_on() {
+        let mut state = new_combat();
+        add_monsters(&mut state, &test_monster_template("wolf"), 3).unwrap();
+        state.current_turn_index = 1;
+
+        remove_combatant(&mut state, "monster-wolf-2", 1).unwrap();
+        assert_eq!(state.combatants[state.current_turn_index].id, "monster-wolf-3");
+        assert_eq!(state.round, 1);
+
+        remove_combatant(&mut state, "monster-wolf-3", 1).unwrap();
+        assert_eq!(
+            (state.round, state.current_turn_index),
+            (2, 0),
+            "убрали последнего в линии, пока он ходил, — новый раунд с первого",
+        );
+
+        assert!(remove_combatant(&mut state, "monster-wolf-1", 5).is_err());
+        assert!(remove_combatant(&mut state, "нет-такого", 0).is_err());
+        assert_eq!(state.combatants.len(), 1, "ошибка не трогает линию");
     }
 }

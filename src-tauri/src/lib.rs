@@ -194,6 +194,28 @@ fn apply_damage(app: AppHandle, target_id: String, delta: i32) -> Result<Campaig
     })
 }
 
+/// Убрать участника. Если в линии никого не осталось, боя больше нет —
+/// как и до первого добавления.
+fn remove_combatant_action(
+    state: &mut CampaignState,
+    target_id: &str,
+    position: usize,
+) -> Result<(), String> {
+    let combat_state = state.combat.as_mut().ok_or("боя нет")?;
+    combat::remove_combatant(combat_state, target_id, position)?;
+    if combat_state.combatants.is_empty() {
+        state.combat = None;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn combat_remove(app: AppHandle, target_id: String, position: usize) -> Result<CampaignState, String> {
+    storage::with_active_locked(&app, |state| {
+        remove_combatant_action(state, &target_id, position)
+    })
+}
+
 /// Перенос боевых хитов в листы — ТОЛЬКО по нажатию, отдельной командой.
 /// Бой при этом продолжается. Обратная сторона той же границы —
 /// `end_combat_action` ниже: сам по себе бой лист не правит.
@@ -254,6 +276,7 @@ pub fn run() {
             combat_roll_initiative,
             combat_next_turn,
             apply_damage,
+            combat_remove,
             combat_transfer_hp_to_sheets,
             end_combat
         ])
@@ -381,5 +404,20 @@ mod tests {
             monsters[0].max_hp, template_hp_before,
             "шаблон бестиария урон не запоминает"
         );
+    }
+
+    #[test]
+    fn removing_the_last_combatant_ends_the_combat_and_leaves_the_sheet_alone() {
+        let mut state = campaign_with_hero();
+        let monsters = vec![bestiary::test_monster_template("wolf")];
+        add_to_combat_action(&mut state, &monsters, &["pc".into()]).unwrap();
+        combat::apply_damage(state.combat.as_mut().unwrap(), "pc", 7).unwrap();
+
+        remove_combatant_action(&mut state, "pc", 1).unwrap();
+        assert_eq!(state.combat.as_ref().unwrap().combatants.len(), 1, "волк остался");
+        assert_eq!(state.characters[0].current_hp, 12, "убранный персонаж хиты в лист не несёт");
+
+        remove_combatant_action(&mut state, "monster-wolf-1", 0).unwrap();
+        assert!(state.combat.is_none(), "в линии никого — боя нет");
     }
 }

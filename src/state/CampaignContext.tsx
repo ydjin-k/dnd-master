@@ -35,6 +35,8 @@ interface CampaignContextValue {
   rollInitiative: (dexModifiers: Record<string, number>) => Promise<void>;
   nextTurn: () => Promise<void>;
   applyDamage: (targetId: string, delta: number) => Promise<void>;
+  /** Убрать бойца; `position` — его место в `turnOrder`, по нему Rust ведёт указатель. */
+  removeFromCombat: (targetId: string, position: number) => Promise<void>;
   transferHpToSheets: () => Promise<void>;
   endCombat: () => Promise<void>;
 }
@@ -258,6 +260,11 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     (targetId: string, delta: number) => runServerAction("apply_damage", { targetId, delta }),
     [runServerAction],
   );
+  const removeFromCombat = useCallback(
+    (targetId: string, position: number) =>
+      runServerAction("combat_remove", { targetId, position }),
+    [runServerAction],
+  );
   const transferHpToSheets = useCallback(
     () => runServerAction("combat_transfer_hp_to_sheets"),
     [runServerAction],
@@ -281,6 +288,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         rollInitiative,
         nextTurn,
         applyDamage,
+        removeFromCombat,
         transferHpToSheets,
         endCombat,
       }}

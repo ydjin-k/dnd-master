@@ -27,6 +27,7 @@ export function CombatPage() {
     rollInitiative,
     nextTurn,
     applyDamage,
+    removeFromCombat,
     transferHpToSheets,
     endCombat,
   } = useCampaign();
@@ -38,6 +39,8 @@ export function CombatPage() {
   const [counts, setCounts] = useState<Record<string, string>>({});
   /** На сколько хитов сдвинуть — по id бойца. */
   const [hpAmounts, setHpAmounts] = useState<Record<string, string>>({});
+  /** «Закончить бой» спрашивает подтверждение: бой стирается целиком. */
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
 
   useEffect(() => {
     invoke<MonsterTemplate[] | null>("get_bestiary")
@@ -60,6 +63,15 @@ export function CombatPage() {
     if (mod === null) everyModifierKnown = false;
     else modifiers[c.id] = mod;
   }
+
+  /** Персонажи, чьи боевые хиты расходятся с листом, — их потеряет конец боя без переноса. */
+  const notTransferred =
+    combat?.combatants.flatMap((c) => {
+      if (c.source.kind !== "character") return [];
+      const characterId = c.source.characterId;
+      const sheet = state.characters.find((ch) => ch.id === characterId);
+      return sheet && sheet.currentHp !== c.currentHp ? [sheet.name] : [];
+    }) ?? [];
 
   function countOf(templateId: string): number {
     const n = Math.floor(Number(counts[templateId] ?? "1"));
@@ -243,6 +255,15 @@ export function CombatPage() {
                           +
                         </button>
                       </span>
+                      <button
+                        type="button"
+                        className="combat-line__remove"
+                        aria-label={`Убрать из боя: ${label}`}
+                        title="Убрать из боя"
+                        onClick={() => removeFromCombat(c.id, position)}
+                      >
+                        ✕
+                      </button>
                     </li>
                   );
                 })}
@@ -256,10 +277,34 @@ export function CombatPage() {
                 >
                   Перенести хиты в листы
                 </button>
-                <button type="button" onClick={() => endCombat()}>
-                  Закончить бой
-                </button>
+                {!confirmingEnd && (
+                  <button type="button" onClick={() => setConfirmingEnd(true)}>
+                    Закончить бой
+                  </button>
+                )}
               </div>
+              {confirmingEnd && (
+                <div className="combat-line__confirm" role="alertdialog" aria-label="Закончить бой?">
+                  <p>
+                    Закончить бой? Линия, броски и хиты существ пропадут.
+                    {notTransferred.length > 0 &&
+                      ` Хиты не перенесены в листы: ${notTransferred.join(", ")}.`}
+                  </p>
+                  <button
+                    type="button"
+                    className="combat-line__confirm-yes"
+                    onClick={() => {
+                      setConfirmingEnd(false);
+                      endCombat();
+                    }}
+                  >
+                    Да, закончить
+                  </button>
+                  <button type="button" onClick={() => setConfirmingEnd(false)}>
+                    Отмена
+                  </button>
+                </div>
+              )}
             </>
           )}
         </section>
