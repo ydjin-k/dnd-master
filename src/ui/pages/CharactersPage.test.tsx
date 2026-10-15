@@ -909,6 +909,49 @@ describe("CharactersPage", () => {
     expect(updater(withWeight(150)).inventory[0].quantity).toBe(2);
   });
 
+  it("деньги любым числом: +37 золотых одной операцией, звук монет один раз", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    fireEvent.change(screen.getByLabelText("Сколько: Золотые монеты"), { target: { value: "37" } });
+    fireEvent.click(screen.getAllByText("Прибавить")[0]);
+
+    expect(updateCharacter).toHaveBeenCalledTimes(1);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater(characterWithInventory()).coins.gold).toBe(characterWithInventory().coins.gold + 37);
+    expect(sounds.playCoinsSound).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText("Сколько: Золотые монеты")).toHaveValue(null);
+  });
+
+  it("отнять больше, чем есть, нельзя: операции нет, звучит предел", () => {
+    const poor = { ...characterWithInventory(), coins: { ...emptyCoins(), gold: 10 } };
+    mockState = baseState({ characters: [poor] });
+    render(<CharactersPage />);
+
+    fireEvent.change(screen.getByLabelText("Сколько: Золотые монеты"), { target: { value: "11" } });
+    fireEvent.click(screen.getAllByText("Отнять")[0]);
+    expect(updateCharacter).not.toHaveBeenCalled();
+    expect(sounds.playLimitSound).toHaveBeenCalled();
+    expect(sounds.playCoinsSound).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Сколько: Золотые монеты"), { target: { value: "10" } });
+    fireEvent.click(screen.getAllByText("Отнять")[0]);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    expect(updater(poor).coins.gold).toBe(0);
+  });
+
+  it("«Стрелы (20)» из каталога на листе ложатся двадцатью стрелами", () => {
+    mockState = baseState({ characters: [characterWithInventory()] });
+    render(<CharactersPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Новый предмет"), { target: { value: "Стрелы (20)" } });
+    fireEvent.click(screen.getAllByText("Добавить")[0]);
+    const updater = updateCharacter.mock.calls[0][1] as (c: Character) => Character;
+    const arrows = updater(characterWithInventory()).inventory.find((i) => i.name === "Стрелы");
+    expect(arrows?.quantity).toBe(20);
+    expect(arrows?.weightLb).toBeCloseTo(0.05);
+  });
+
   it("the level-1 'Использовать' button is disabled at 0 slots, and the updater itself floors at 0 too", async () => {
     const empty = { ...spellcaster(), spellSlotsCurrent: [0, 0, 0, 0, 0] };
     mockState = baseState({ characters: [empty] });

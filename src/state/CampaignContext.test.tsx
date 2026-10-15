@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { CampaignProvider, useCampaign } from "./CampaignContext";
-import type { CampaignState, Character } from "./types";
+import { CampaignProvider, unpackStackedInventory, useCampaign } from "./CampaignContext";
+import { emptyCampaignState, type CampaignState, type Character } from "./types";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -164,5 +164,26 @@ describe("CampaignContext: две записи в персонажа подря�
       "Ослеплённое",
       "Безумие (ур. 1, к100 7, 1к10 6)",
     ]);
+  });
+});
+
+describe("мягкая миграция пачек при загрузке", () => {
+  const withInventory = (inventory: Character["inventory"]) =>
+    ({ ...emptyCampaignState(), characters: [{ id: "old", inventory } as Character] });
+
+  it("«Стрелы ×20» количеством 1 становятся двадцатью стрелами, общий вес строки прежний", () => {
+    const loaded = withInventory([
+      { id: "a", name: "Стрелы ×20", quantity: 1, notes: "колчан", weightLb: 1 },
+      { id: "b", name: "Кольчуга", quantity: 1, notes: "", weightLb: 55 },
+    ]);
+    const [arrows, mail] = unpackStackedInventory(loaded).characters[0].inventory;
+    expect(arrows).toMatchObject({ id: "a", name: "Стрелы", quantity: 20, notes: "колчан" });
+    expect(arrows.weightLb * arrows.quantity).toBeCloseTo(1);
+    expect(mail).toBe(loaded.characters[0].inventory[1]);
+  });
+
+  it("сохранение без пачек возвращается тем же объектом", () => {
+    const loaded = withInventory([{ id: "b", name: "Кольчуга", quantity: 1, notes: "", weightLb: 55 }]);
+    expect(unpackStackedInventory(loaded)).toBe(loaded);
   });
 });
