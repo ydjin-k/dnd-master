@@ -33,6 +33,7 @@
 
 .combat-line {
   flex: 2 1 28rem;
+  container-type: inline-size;
 }
 
 .combat-add h3 {
@@ -109,10 +110,13 @@
 
 .combat-line__row {
   display: grid;
-  grid-template-columns: 1.2em minmax(0, 1fr) auto 4.5em 4.5em auto auto;
+  grid-template-columns: 1.2em minmax(7rem, 1fr) minmax(12rem, auto) 4.5em minmax(4.5em, auto) 44px;
+  grid-template-areas:
+    "pointer name initiative hp acted remove"
+    ". details details details details remove";
   align-items: center;
-  gap: 0.5em;
-  padding: 0.35em 0.5em;
+  gap: 0.55em 0.7em;
+  padding: 0.55em 0.65em;
   border: 1px solid transparent;
   border-radius: var(--dm-radius-control);
   background: var(--dm-panel-raised);
@@ -133,14 +137,33 @@
 }
 
 .combat-line__pointer {
+  grid-area: pointer;
   color: var(--dm-accent);
 }
 
 .combat-line__name {
+  grid-area: name;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.combat-line__initiative {
+  grid-area: initiative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em 0.4em;
+  min-width: 0;
+}
+
+.combat-line__initiative-label {
+  color: var(--dm-text-muted);
+  font-size: 0.76em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .combat-line__roll,
@@ -151,12 +174,109 @@
 }
 
 .combat-line__hp {
+  grid-area: hp;
   text-align: right;
+  white-space: nowrap;
+}
+
+.combat-line__acted {
+  grid-area: acted;
+  min-height: 1.3em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.combat-line__details {
+  grid-area: details;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 0.9em;
+  min-width: 0;
+  padding-top: 0.15em;
+  border-top: 1px solid color-mix(in srgb, var(--dm-border) 45%, transparent);
+}
+
+.combat-line__death-saves {
+  flex: 1 1 17rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 0.65em;
+  min-width: 0;
+}
+
+.combat-line__death-count {
+  white-space: nowrap;
+}
+
+.combat-line__death-state,
+.combat-line__death-last {
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.combat-line__player-rules {
+  flex: 1 1 15rem;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  min-height: 44px;
+  padding: 0.45em 0.55em;
+  border-radius: var(--dm-radius-control);
+  color: var(--dm-text-muted);
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.combat-line__player-rules:hover {
+  background: color-mix(in srgb, var(--dm-periwinkle) 10%, transparent);
+  color: var(--dm-text);
 }
 
 .combat-line__hp-controls {
+  flex: 0 0 auto;
   display: flex;
   gap: 0.3em;
+  margin-left: auto;
+}
+
+.combat-line__hp-controls button,
+.combat-line__remove {
+  width: 44px;
+  min-width: 44px;
+  padding-inline: 0;
+}
+
+.combat-line__remove {
+  grid-area: remove;
+  align-self: start;
+  height: 44px;
+  color: var(--dm-text-muted);
+}
+
+.combat-line__remove:hover {
+  color: var(--dm-danger);
+  border-color: var(--dm-danger);
+}
+
+@container (max-width: 44rem) {
+  .combat-line__row {
+    grid-template-columns: 1.2em minmax(0, 1fr) auto 44px;
+    grid-template-areas:
+      "pointer name hp remove"
+      ". initiative initiative remove"
+      ". acted acted remove"
+      "details details details details";
+  }
+
+  .combat-line__acted {
+    text-align: left;
+  }
+
+  .combat-line__details {
+    margin-top: 0.1em;
+  }
 }
 
 /* Подтверждение конца боя: рамка цвета опасности, кнопки в строку. */

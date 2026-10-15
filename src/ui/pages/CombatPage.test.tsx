@@ -214,7 +214,7 @@ describe("CombatPage", () => {
     const rows = screen.getAllByTestId("combat-row");
     const text = rows.map((r) => r.querySelector(".combat-line__name")!.textContent);
     expect(text).toEqual(["Волк 3", "Герой", "Волк 2", "Волк 5", "Волк 1", "Волк 4"]);
-    expect(rows[1]).toHaveTextContent("18 (к20: 15 +3)");
+    expect(rows[1]).toHaveTextContent("Инициатива 18 (к20: 15 +3)");
     expect(rows.slice(0, 3).every((r) => r.textContent!.includes("походил"))).toBe(true);
     expect(rows[3]).toHaveAttribute("aria-current", "step");
     expect(rows[3]).toHaveTextContent("его ход");

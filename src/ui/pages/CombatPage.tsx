@@ -291,11 +291,11 @@ export function CombatPage() {
                       </span>
                       <span className="combat-line__name">{label}</span>
                       <span className="combat-line__initiative">
+                        <span className="combat-line__initiative-label">Инициатива</span>{" "}
                         {c.initiativeRoll ? (
                           <>
-                            <strong>{initiativeTotal(c.initiativeRoll)}</strong>
+                            <strong>{initiativeTotal(c.initiativeRoll)}</strong>{" "}
                             <span className="combat-line__roll">
-                              {" "}
                               (к20: {c.initiativeRoll.d20} {fmtMod(c.initiativeRoll.dexModifier)})
                             </span>
                           </>
@@ -309,66 +309,71 @@ export function CombatPage() {
                       <span className="combat-line__acted">
                         {fallen ? "пал" : current ? "его ход" : acted ? "походил" : ""}
                       </span>
-                      {saves && savesState && (
-                        <span className="combat-line__death-saves" aria-label={`Спасброски от смерти: ${label}`}>
-                          <span className="combat-line__death-count">
-                            Успехи {saves.successes}/{DEATH_SAVE_SUCCESSES_TO_STABLE} · Провалы{" "}
-                            {saves.failures}/{DEATH_SAVE_FAILURES_TO_DEATH}
-                          </span>
-                          {savesState === "rolling" ? (
-                            <button
-                              type="button"
-                              aria-label={`Спасбросок от смерти: ${label}`}
-                              onClick={() => rollDeathSave(c, label)}
-                            >
-                              Бросить к20
-                            </button>
-                          ) : (
-                            <span className="combat-line__death-state">{DEATH_SAVE_STATE_LABELS[savesState]}</span>
-                          )}
-                          {lastRoll !== undefined && (
-                            <span className="combat-line__death-last">
-                              Выпало {lastRoll} — {deathSaveVerdict(lastRoll)}
+                      <div className="combat-line__details">
+                        {saves && savesState && (
+                          <span className="combat-line__death-saves" aria-label={`Спасброски от смерти: ${label}`}>
+                            <span className="combat-line__death-count">
+                              Успехи {saves.successes}/{DEATH_SAVE_SUCCESSES_TO_STABLE} · Провалы{" "}
+                              {saves.failures}/{DEATH_SAVE_FAILURES_TO_DEATH}
                             </span>
-                          )}
-                        </span>
-                      )}
-                      {c.source.kind === "monster" && (
-                        <label className="combat-line__player-rules">
+                            {savesState === "rolling" ? (
+                              <button
+                                type="button"
+                                aria-label={`Спасбросок от смерти: ${label}`}
+                                onClick={() => rollDeathSave(c, label)}
+                              >
+                                Бросить к20
+                              </button>
+                            ) : (
+                              <span className="combat-line__death-state">{DEATH_SAVE_STATE_LABELS[savesState]}</span>
+                            )}
+                            {lastRoll !== undefined && (
+                              <span className="combat-line__death-last">
+                                Выпало {lastRoll} — {deathSaveVerdict(lastRoll)}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {c.source.kind === "monster" && (
+                          <label
+                            className="combat-line__player-rules"
+                            title="На 0 хитов существо бросает спасброски от смерти, а не погибает сразу"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={c.playerRules}
+                              onChange={(e) => setPlayerRules(c.id, e.target.checked)}
+                            />
+                            Спасброски от смерти как у персонажа
+                          </label>
+                        )}
+                        <span className="combat-line__hp-controls">
                           <input
-                            type="checkbox"
-                            checked={c.playerRules}
-                            onChange={(e) => setPlayerRules(c.id, e.target.checked)}
+                            type="number"
+                            min={1}
+                            className="combat-line__hp-amount"
+                            aria-label={`Хиты: ${label}`}
+                            value={hpAmounts[c.id] ?? ""}
+                            onChange={(e) => setHpAmounts({ ...hpAmounts, [c.id]: e.target.value })}
                           />
-                          по правилам персонажа
-                        </label>
-                      )}
-                      <span className="combat-line__hp-controls">
-                        <input
-                          type="number"
-                          min={1}
-                          className="combat-line__hp-amount"
-                          aria-label={`Хиты: ${label}`}
-                          value={hpAmounts[c.id] ?? ""}
-                          onChange={(e) => setHpAmounts({ ...hpAmounts, [c.id]: e.target.value })}
-                        />
-                        <button
-                          type="button"
-                          aria-label={`Отнять хиты: ${label}`}
-                          disabled={amount === 0}
-                          onClick={() => applyDamage(c.id, amount)}
-                        >
-                          −
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Вернуть хиты: ${label}`}
-                          disabled={amount === 0}
-                          onClick={() => applyDamage(c.id, -amount)}
-                        >
-                          +
-                        </button>
-                      </span>
+                          <button
+                            type="button"
+                            aria-label={`Отнять хиты: ${label}`}
+                            disabled={amount === 0}
+                            onClick={() => applyDamage(c.id, amount)}
+                          >
+                            −
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Вернуть хиты: ${label}`}
+                            disabled={amount === 0}
+                            onClick={() => applyDamage(c.id, -amount)}
+                          >
+                            +
+                          </button>
+                        </span>
+                      </div>
                       <button
                         type="button"
                         className="combat-line__remove"

@@ -229,7 +229,7 @@ describe("спасброски от смерти в трекере", () => {
   });
 
   /**
-   * С переключателем «по правилам персонажа» существо на нуле не пало: не
+   * С переключателем спасбросков существа существо на нуле не пало: не
    * пропускается и бросает спасброски, а счёт живёт в бою — листа у него нет.
    */
   it("с переключателем существо не пропускается и бросает, счёт в бою", async () => {
@@ -237,8 +237,13 @@ describe("спасброски от смерти в трекере", () => {
     renderPage();
     await screen.findByText("Волк 1");
 
+    const toggle = within(row("Волк 1")).getByLabelText("Спасброски от смерти как у персонажа");
+    expect(toggle.closest("label")).toHaveAttribute(
+      "title",
+      "На 0 хитов существо бросает спасброски от смерти, а не погибает сразу",
+    );
     await act(async () => {
-      fireEvent.click(within(row("Волк 1")).getByLabelText("по правилам персонажа"));
+      fireEvent.click(toggle);
     });
     expect(invoke).toHaveBeenCalledWith("combat_set_player_rules", { targetId: "monster-wolf-1", on: true });
     await screen.findByLabelText("Спасбросок от смерти: Волк 1");
