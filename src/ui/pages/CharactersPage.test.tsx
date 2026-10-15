@@ -4223,6 +4223,163 @@ describe("CharactersPage", () => {
     });
   });
 
+  /**
+   * Лист Алхимика — приёмка `characters-class-alchemist`. Класса, как и
+   * Кровавого охотника, нет ни в этом файле, ни в rules.json: кость хитов 1к6
+   * лист берёт через `playableClasses`.
+   */
+  describe("Алхимик на листе персонажа", () => {
+    const HUMAN_TOPIC: RuleTopic = { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] };
+
+    /** Алхимик заданного уровня: Интеллект 16, Телосложение 10, полные счётчики, выбор по уровню сделан. */
+    function alchemist(level: number, extra: Partial<Character> = {}): Character {
+      return {
+        ...characterWithInventory(),
+        name: "Изольда",
+        class: "Алхимик",
+        level,
+        abilities: { ...characterWithInventory().abilities, intelligence: 16, constitution: 10 },
+        // 1к6, Телосложение 0: 6 + 4 за каждый уровень после первого.
+        maxHp: 6 + (level - 1) * 4,
+        currentHp: 6 + (level - 1) * 4,
+        conditions: ["Ослеплённое"],
+        subclass: level >= 2 ? "Апотекарий" : "",
+        classChoices: {
+          "bomb-formulas": level >= 2 ? ["bomb-acid", "bomb-smoke", "bomb-freezing"] : [],
+          "alchemist-discoveries": level >= 4 ? ["discovery-syringe", "discovery-raven-mask"] : [],
+        },
+        featureUses: [
+          { featureId: "alchemist-bombs", usesCurrent: 10 + 2 * level },
+          ...(level >= 3 ? [{ featureId: "reagent-dice", usesCurrent: level }] : []),
+        ],
+        ...extra,
+      };
+    }
+
+    function renderAlchemist(char: Character) {
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) =>
+        cmd === "get_rules" ? [HUMAN_TOPIC, CONDITIONS_TOPIC] : [],
+      );
+      mockState = baseState({ characters: [char] });
+      return render(<CharactersPage />);
+    }
+
+    it("4 уровень: кости реагентов 4, бомбы 18, СЛ бомб 13 числом и Кости Хитов 1к6", async () => {
+      renderAlchemist(alchemist(4));
+      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
+      expect(within(block).getByText(/4\/4 кость/)).toBeInTheDocument();
+      expect(within(block).getByText(/18\/18 бомба/)).toBeInTheDocument();
+      // 8 + 2 (мастерство) + 3 (Интеллект 16) — формула с. 3 PDF.
+      expect(within(block).getByText("СЛ спасброска от бомб: 13")).toBeInTheDocument();
+      expect(within(block).getByText("Урон заряженной бомбы: 1к10")).toBeInTheDocument();
+      // Формулы и открытия — поимённо, списком.
+      expect(within(block).getByText("Формулы бомб:")).toBeInTheDocument();
+      expect(within(block).getByText("Кислотная бомба")).toBeInTheDocument();
+      expect(within(block).getByText("Открытия:")).toBeInTheDocument();
+      expect(within(block).getByText("Маска ворона")).toBeInTheDocument();
+      // Третий путь кости 1к6 — счётчик Костей Хитов.
+      expect(await screen.findByText("4/4 (1к6)")).toBeInTheDocument();
+    });
+
+    it("кости реагентов: короткий отдых их НЕ возвращает, длинный — все; бомбы возвращает и короткий", async () => {
+      const spent = alchemist(4, {
+        featureUses: [
+          { featureId: "alchemist-bombs", usesCurrent: 5 },
+          { featureId: "reagent-dice", usesCurrent: 1 },
+        ],
+      });
+      const { rerender } = renderAlchemist(spent);
+      await screen.findByText(/Особенности класса/);
+
+      fireEvent.click(screen.getByText("Короткий отдых"));
+      const short = (updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character)(spent);
+      expect(short.featureUses).toContainEqual({ featureId: "reagent-dice", usesCurrent: 1 });
+      expect(short.featureUses).toContainEqual({ featureId: "alchemist-bombs", usesCurrent: 18 });
+
+      mockState = baseState({ characters: [short] });
+      rerender(<CharactersPage />);
+      await act(async () => {
+        fireEvent.click(screen.getByText("Длинный отдых"));
+      });
+      const long = (updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character)(short);
+      expect(long.featureUses).toContainEqual({ featureId: "reagent-dice", usesCurrent: 4 });
+    });
+
+    /**
+     * Сторож цепочки левел-апа. На 4 уровне у Алхимика совпадают открытия и
+     * увеличение характеристик; раньше подтверждение открытий сразу поднимало
+     * уровень, и увеличение характеристик терялось насовсем.
+     */
+    it("левел-ап 3 → 4 спрашивает два открытия И увеличение характеристик, кости реагентов — четыре", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, alchemist(3));
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText(/Выберите «Открытия» \(4 уровень\)/)).toBeInTheDocument();
+        fireEvent.click(screen.getByText("Шприц").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Гренадёр").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+        const asi = screen.getByText(/Улучшение характеристик \(4 уровень\)/).closest(".character-card__asi") as HTMLElement;
+        fireEvent.click(within(asi).getAllByRole("checkbox")[3]);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(4);
+      expect(run.char.classChoices["alchemist-discoveries"]).toEqual(["discovery-syringe", "discovery-grenadier"]);
+      expect(run.char.abilities.intelligence).toBe(18);
+      expect(run.char.featureUses).toContainEqual({ featureId: "reagent-dice", usesCurrent: 4 });
+      // 1к6 «(или 4)»: 6 + 3 × 4.
+      expect(run.char.maxHp).toBe(18);
+    });
+
+    it("левел-ап 1 → 2 спрашивает специализацию из одиннадцати, потом три формулы — оба шага доезжают", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, alchemist(1));
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText("Выберите архетип (2 уровень):")).toBeInTheDocument();
+        expect(document.querySelectorAll('input[name="subclass-choice"]')).toHaveLength(11);
+        fireEvent.click(screen.getByText("Мастер ядов").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+
+        expect(screen.getByText(/Выберите «Формулы бомб» \(2 уровень\)/)).toBeInTheDocument();
+        for (const name of ["Кислотная бомба", "Дымовая бомба", "Святая бомба"]) {
+          fireEvent.click(screen.getByText(name).closest("label")!.querySelector("input")!);
+        }
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(2);
+      expect(run.char.subclass).toBe("Мастер ядов");
+      expect(run.char.classChoices["bomb-formulas"]).toEqual(["bomb-acid", "bomb-smoke", "bomb-holy"]);
+      expect(run.char.toolProficiencies).toContain("Набор для отравления");
+      expect(run.char.maxHp).toBe(10);
+    });
+
+    it("ксенохимик выбирает два трансплантата: они видны на листе поимённо, «раз на отдых» — счётчиком", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, alchemist(1));
+      await run.ready();
+
+      run.levelUp(() => {
+        fireEvent.click(screen.getByText("Ксенохимик").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+        fireEvent.click(screen.getByText("Регенерация (внутренности)").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Тёмное зрение (голова)").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+        for (const name of ["Кислотная бомба", "Дымовая бомба", "Святая бомба"]) {
+          fireEvent.click(screen.getByText(name).closest("label")!.querySelector("input")!);
+        }
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.subclassChoices["alchemist-xeno-grafts"]).toEqual(["graft-regeneration", "graft-darkvision"]);
+      const block = screen.getByText(/Особенности класса/).closest("details") as HTMLElement;
+      expect(within(block).getByText("Тёмное зрение (голова)")).toBeInTheDocument();
+      expect(run.char.featureUses).toContainEqual({ featureId: "graft-regeneration", usesCurrent: 1 });
+    });
+  });
+
 });
 
 describe("truncateDescription", () => {
