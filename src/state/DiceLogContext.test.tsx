@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { DiceLogProvider } from "./DiceLogContext";
 import App from "../App";
 import { DicePage } from "../ui/pages/DicePage";
@@ -44,6 +44,28 @@ const switchTabAndBack = () => {
   fireEvent.click(screen.getByText("Сменить вкладку"));
 };
 
+/**
+ * Один бросок кнопкой «Бросить», доведённый до записи в журнал.
+ *
+ * Бросок ждёт и движок, и анимацию — настоящий `setTimeout` на 550 мс в DicePage.
+ * Раньше проба ждала запись через `waitFor(..., { timeout: 1000 })`: на запас
+ * оставалось ~450 мс, а под нагрузкой двух полных прогонов процесс простаивает
+ * дольше, и `waitFor` по истечении срока не перепроверяет, а отдаёт последнюю
+ * ошибку — «не найден .dice-log-entry__total», хотя бросок уже лёг. Поэтому
+ * таймеры на время броска поддельные: анимация доигрывается сразу и целиком,
+ * окна реального времени нет. Длительность анимации проба не знает — гоняет
+ * все отложенные таймеры, — а запись после этого проверяет синхронно.
+ */
+async function roll() {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await act(() => vi.runOnlyPendingTimersAsync());
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 const totals = () =>
   screen.getAllByText(/.*/, { selector: ".dice-log-entry__total" }).map((el) => el.textContent);
 
@@ -75,10 +97,10 @@ describe("журнал бросков в контексте", () => {
 
   it("держит записи при уходе на другую вкладку и возврате", async () => {
     render(<DiceLogProvider><TabSwitcher /></DiceLogProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(totals()).toEqual(["1"]), { timeout: 1000 });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(totals()).toEqual(["2", "1"]), { timeout: 1000 });
+    await roll();
+    expect(totals()).toEqual(["1"]);
+    await roll();
+    expect(totals()).toEqual(["2", "1"]);
 
     switchTabAndBack();
 
@@ -87,8 +109,8 @@ describe("журнал бросков в контексте", () => {
 
   it("после «Очистить историю» журнал пуст и остаётся пустым после смены вкладки", async () => {
     render(<DiceLogProvider><TabSwitcher /></DiceLogProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByText("Очистить историю")).toBeInTheDocument(), { timeout: 1000 });
+    await roll();
+    expect(screen.getByText("Очистить историю")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Очистить историю"));
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
 
@@ -100,10 +122,9 @@ describe("журнал бросков в контексте", () => {
 
   it("режет журнал до десяти записей, и предел верен после смены вкладки", async () => {
     render(<DiceLogProvider><TabSwitcher /></DiceLogProvider>);
-    const rollButton = screen.getByRole("button", { name: "Бросить" });
     for (let i = 0; i < 11; i += 1) {
-      fireEvent.click(rollButton);
-      await waitFor(() => expect(rollButton).not.toBeDisabled(), { timeout: 1000 });
+      await roll();
+      expect(screen.getByRole("button", { name: "Бросить" })).not.toBeDisabled();
     }
     expect(screen.getAllByRole("listitem")).toHaveLength(10);
 
@@ -121,8 +142,8 @@ describe("журнал бросков в контексте", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Открыть кампанию Стол" }, { timeout: 2000 }));
     fireEvent.click(screen.getByRole("button", { name: /Начать|Продолжить/ }));
     fireEvent.click(await screen.findByText("Кубики", {}, { timeout: 2000 }));
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(totals()).toEqual(["1"]), { timeout: 1000 });
+    await roll();
+    expect(totals()).toEqual(["1"]);
 
     // Другая вкладка и обратно — журнал на месте (это уже настоящий AppShell).
     fireEvent.click(screen.getByText("Бой"));

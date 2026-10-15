@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { AppShell, type Tab } from "./AppShell";
 import { SoundtrackProvider } from "../state/SoundtrackContext";
 import type { CampaignState } from "../state/types";
@@ -43,11 +43,20 @@ describe("AppShell", () => {
     // engine-event-generator: вкладка вернулась на прежнее место — первой в
     // рельсе, — но стартовой осталась «Персонажи» (проверено выше). Остальные
     // восемь стоят в прежнем порядке и открываются.
+    //
+    // Вкладки ищем внутри <nav> по тексту и проверяем имя найденной кнопки,
+    // а не getByRole с именем: тот считает роль и имя каждой кнопки на каждый
+    // вызов, и девять вызовов были главной статьёй пробы — под нагрузкой двух
+    // полных прогонов она упиралась в 5 с таймаута. Строже прежнего: вкладка
+    // обязана стоять в <nav>, и в <nav> нет кнопок, кроме вкладок.
+    const nav = screen.getByRole("navigation");
     expect(
-      screen.getAllByRole("button").map((b) => b.getAttribute("data-tab")).filter(Boolean),
+      Array.from(nav.querySelectorAll("button"), (b) => b.getAttribute("data-tab")),
     ).toEqual(["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]);
     for (const id of ["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]) {
-      fireEvent.click(screen.getByRole("button", { name: TAB_LABELS[id] }));
+      const tabButton = within(nav).getByText(TAB_LABELS[id]).closest("button");
+      expect(tabButton).toHaveAccessibleName(TAB_LABELS[id]);
+      fireEvent.click(tabButton!);
       expect(screen.getByTestId("tab-content")).toHaveTextContent(id);
     }
 

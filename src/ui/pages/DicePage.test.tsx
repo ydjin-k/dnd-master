@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { DicePage } from "./DicePage";
 import { DiceLogProvider } from "../../state/DiceLogContext";
 import type { RollResult } from "../../state/types";
@@ -18,6 +18,22 @@ vi.mock("../../audio/uiSounds", () => sounds);
 // страница монтируется под провайдером, как в App.tsx.
 const renderDicePage = () => render(<DiceLogProvider><DicePage /></DiceLogProvider>);
 
+/**
+ * Бросок кнопкой «Бросить», доведённый до записи в журнал. Анимация броска —
+ * настоящий `setTimeout` на 550 мс, и `waitFor` с пределом в 1 с под нагрузкой
+ * полного прогона не успевал; таймеры на время броска поддельные, окна
+ * реального времени нет. Подробнее — в `src/state/DiceLogContext.test.tsx`.
+ */
+async function roll() {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await act(() => vi.runOnlyPendingTimersAsync());
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 describe("DicePage", () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -35,9 +51,9 @@ describe("DicePage", () => {
     fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Модификатор"), { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText("Преимущество или помеха"), { target: { value: "adv" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
+    await roll();
     expect(invokeMock).toHaveBeenCalledWith("roll_dice", { expression: "2d6+3adv" });
-    await waitFor(() => expect(screen.getByText("2d6+3adv")).toBeInTheDocument(), { timeout: 1000 });
+    expect(screen.getByText("2d6+3adv")).toBeInTheDocument();
     expect(sounds.playDiceRollSound).toHaveBeenCalledTimes(1);
     expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
     expect(sounds.playCriticalFailSound).not.toHaveBeenCalled();
@@ -45,8 +61,8 @@ describe("DicePage", () => {
 
   it("hides redundant roll detail for one unmodified die", async () => {
     renderDicePage();
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByLabelText("Кость d20, результат 4")).toBeInTheDocument(), { timeout: 1000 });
+    await roll();
+    expect(screen.getByLabelText("Кость d20, результат 4")).toBeInTheDocument();
     expect(screen.queryByText("[4]")).not.toBeInTheDocument();
   });
 
@@ -56,16 +72,16 @@ describe("DicePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
     fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("Модификатор"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByText(/\[4, 5\]/)).toHaveTextContent("[4, 5] +3"), { timeout: 1000 });
+    await roll();
+    expect(screen.getByText(/\[4, 5\]/)).toHaveTextContent("[4, 5] +3");
   });
 
   it("keeps the dropped set visible without duplicating a single chosen roll", async () => {
     invokeMock.mockResolvedValueOnce({ expression: "d20adv", rolls: [18], modifier: 0, total: 18, dropped: [7] });
     renderDicePage();
     fireEvent.change(screen.getByLabelText("Преимущество или помеха"), { target: { value: "adv" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByText(/отброшено: 7/)).toBeInTheDocument(), { timeout: 1000 });
+    await roll();
+    expect(screen.getByText(/отброшено: 7/)).toBeInTheDocument();
     expect(screen.queryByText("[18]", { exact: false })).not.toBeInTheDocument();
   });
 
@@ -156,10 +172,9 @@ describe("DicePage", () => {
       return { expression: args.expression, rolls: [expression], modifier: 0, total: expression, dropped: null };
     });
     renderDicePage();
-    const rollButton = screen.getByRole("button", { name: "Бросить" });
     for (let i = 0; i < 11; i += 1) {
-      fireEvent.click(rollButton);
-      await waitFor(() => expect(rollButton).not.toBeDisabled(), { timeout: 1000 });
+      await roll();
+      expect(screen.getByRole("button", { name: "Бросить" })).not.toBeDisabled();
     }
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(10);
@@ -170,8 +185,8 @@ describe("DicePage", () => {
   it("shows a clear-history button only when the log has entries, and clears on click", async () => {
     renderDicePage();
     expect(screen.queryByText("Очистить историю")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByText("Очистить историю")).toBeInTheDocument(), { timeout: 1000 });
+    await roll();
+    expect(screen.getByText("Очистить историю")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Очистить историю"));
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.queryByText("Очистить историю")).not.toBeInTheDocument();
@@ -204,8 +219,8 @@ describe("DicePage", () => {
     renderDicePage();
     fireEvent.click(screen.getByRole("button", { name: "Выбрать d6" }));
     fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(screen.getByText("3d6")).toBeInTheDocument(), { timeout: 1000 });
+    await roll();
+    expect(screen.getByText("3d6")).toBeInTheDocument();
     expect(screen.getByLabelText("Кость d6, результат 2")).toBeInTheDocument();
     expect(screen.getByLabelText("Кость d6, результат 5")).toBeInTheDocument();
     expect(screen.getByLabelText("Кость d6, результат 6")).toBeInTheDocument();
@@ -218,8 +233,8 @@ describe("DicePage", () => {
   it("plays the critical success sound instead of the normal sound on a natural 20", async () => {
     invokeMock.mockResolvedValueOnce({ expression: "d20", rolls: [20], modifier: 0, total: 20, dropped: null });
     renderDicePage();
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    await roll();
+    expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Кость d20, результат 20")).toHaveClass("dice-icon--log");
     expect(sounds.playDiceRollSound).not.toHaveBeenCalled();
     expect(sounds.playCriticalFailSound).not.toHaveBeenCalled();
@@ -228,8 +243,8 @@ describe("DicePage", () => {
   it("plays the critical fail sound instead of the normal sound on a natural 1", async () => {
     invokeMock.mockResolvedValueOnce({ expression: "d20", rolls: [1], modifier: 0, total: 1, dropped: null });
     renderDicePage();
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(sounds.playCriticalFailSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    await roll();
+    expect(sounds.playCriticalFailSound).toHaveBeenCalledTimes(1);
     expect(sounds.playDiceRollSound).not.toHaveBeenCalled();
     expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
   });
@@ -238,8 +253,8 @@ describe("DicePage", () => {
     invokeMock.mockResolvedValueOnce({ expression: "2d20", rolls: [20, 20], modifier: 0, total: 40, dropped: null });
     renderDicePage();
     fireEvent.change(screen.getByLabelText("Количество костей"), { target: { value: "2" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(sounds.playDiceRollSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    await roll();
+    expect(sounds.playDiceRollSound).toHaveBeenCalledTimes(1);
     expect(sounds.playCriticalSuccessSound).not.toHaveBeenCalled();
   });
 
@@ -247,7 +262,7 @@ describe("DicePage", () => {
     invokeMock.mockResolvedValueOnce({ expression: "d20adv", rolls: [20], modifier: 0, total: 20, dropped: [7] });
     renderDicePage();
     fireEvent.change(screen.getByLabelText("Преимущество или помеха"), { target: { value: "adv" } });
-    fireEvent.click(screen.getByRole("button", { name: "Бросить" }));
-    await waitFor(() => expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    await roll();
+    expect(sounds.playCriticalSuccessSound).toHaveBeenCalledTimes(1);
   });
 });
