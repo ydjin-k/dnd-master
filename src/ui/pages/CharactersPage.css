@@ -446,7 +446,7 @@
 }
 
 .character-card__coin-amount {
-  width: 7ch;
+  width: 11ch;
   margin-left: 0.5em;
 }
 
@@ -456,7 +456,7 @@
 }
 
 .character-card__short-rest input {
-  width: 5ch;
+  width: 7ch;
 }
 
 .character-card__conditions {
