@@ -4380,6 +4380,105 @@ describe("CharactersPage", () => {
     });
   });
 
+  /**
+   * Лист Изобретателя — приёмка `characters-class-artificer`. Класса нет ни в
+   * этом файле, ни в rules.json: кость хитов 1к8 лист берёт через
+   * `playableClasses`, список заклинаний — из модуля класса.
+   */
+  describe("Изобретатель на листе персонажа", () => {
+    const HUMAN_TOPIC: RuleTopic = { id: "races-human", category: "races", title: "Человек", sourceUrl: "", blocks: [] };
+    const FOUR_INFUSIONS = ["Улучшенное оружие", "Улучшенная защита", "Целебная мазь", "Повторный выстрел"];
+
+    /** Изобретатель заданного уровня: Интеллект 16, Телосложение 10, ячейки по таблице PDF. */
+    function artificer(level: number, extra: Partial<Character> = {}): Character {
+      const slots: Record<number, number[]> = { 1: [2], 2: [2], 3: [3], 4: [3], 5: [4, 2] };
+      const max = [...(slots[level] ?? []), 0, 0, 0, 0, 0, 0, 0, 0, 0].slice(0, 9);
+      return {
+        ...characterWithInventory(),
+        name: "Ви",
+        class: "Изобретатель",
+        level,
+        abilities: { ...characterWithInventory().abilities, intelligence: 16, constitution: 10 },
+        // 1к8, Телосложение 0: 8 + 5 за каждый уровень после первого.
+        maxHp: 8 + (level - 1) * 5,
+        currentHp: 8 + (level - 1) * 5,
+        conditions: ["Ослеплённое"],
+        knownCantrips: ["mending", "fire-bolt"],
+        castableSpells: ["cure-wounds"],
+        spellSlotsMax: max,
+        spellSlotsCurrent: [...max],
+        subclass: level >= 3 ? "Артиллерист" : "",
+        classChoices: {
+          "artificer-infusions":
+            level >= 2 ? ["infusion-enhanced-weapon", "infusion-enhanced-defense", "infusion-healing-salve", "infusion-repeating-shot"] : [],
+        },
+        featureUses: [],
+        ...extra,
+      };
+    }
+
+    it("левел-ап 1 → 2 спрашивает четыре инфузии без инфузий 6 уровня; выбор виден на листе поимённо", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, artificer(1, { classChoices: {} }));
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText(/Выберите «Инфузии» \(2 уровень\)/)).toBeInTheDocument();
+        expect(screen.queryByText("Шлем осведомлённости")).not.toBeInTheDocument();
+        expect(screen.queryByText("Доспех сопротивления")).not.toBeInTheDocument();
+        for (const name of FOUR_INFUSIONS) {
+          fireEvent.click(screen.getByText(name).closest("label")!.querySelector("input")!);
+        }
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(2);
+      expect(run.char.classChoices["artificer-infusions"]).toEqual([
+        "infusion-enhanced-weapon",
+        "infusion-enhanced-defense",
+        "infusion-healing-salve",
+        "infusion-repeating-shot",
+      ]);
+      // 1к8 «(или 5)»: 8 + 5.
+      expect(run.char.maxHp).toBe(13);
+      const block = screen.getByText(/Особенности класса/).closest("details") as HTMLElement;
+      expect(within(block).getByText("Инфузии:")).toBeInTheDocument();
+      expect(within(block).getByText("Целебная мазь")).toBeInTheDocument();
+      expect(within(block).getByText("Предметы с инфузией: 2")).toBeInTheDocument();
+    });
+
+    it("левел-ап 2 → 3 спрашивает специальность из восьми; артиллерист получает инструменты и свои заклинания", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, artificer(2));
+      await run.ready();
+
+      run.levelUp(() => {
+        expect(screen.getByText("Выберите архетип (3 уровень):")).toBeInTheDocument();
+        expect(document.querySelectorAll('input[name="subclass-choice"]')).toHaveLength(8);
+        fireEvent.click(screen.getByText("Артиллерист").closest("label")!.querySelector("input")!);
+        fireEvent.click(screen.getByText("Подтвердить и повысить уровень"));
+      });
+
+      expect(run.char.level).toBe(3);
+      expect(run.char.subclass).toBe("Артиллерист");
+      expect(run.char.toolProficiencies).toContain("Инструменты резчика по дереву");
+      // Заклинания специальности всегда подготовлены, сверх нормы.
+      expect(run.char.castableSpells).toEqual(expect.arrayContaining(["cure-wounds", "thunderwave", "shield"]));
+      expect(run.char.spellSlotsMax.slice(0, 3)).toEqual([3, 0, 0]);
+    });
+
+    it("левел-ап 4 → 5: ячейки 4 и 2, заклинания артиллериста 5 уровня, умение специальности видно на листе", async () => {
+      const run = levelUpRunner(HUMAN_TOPIC, artificer(4));
+      await run.ready();
+
+      run.levelUp();
+
+      expect(run.char.level).toBe(5);
+      expect(run.char.spellSlotsMax.slice(0, 3)).toEqual([4, 2, 0]);
+      expect(run.char.castableSpells).toEqual(expect.arrayContaining(["shatter", "scorching-ray"]));
+      expect(await screen.findByText(/Мистическое огнестрельное оружие/)).toBeInTheDocument();
+      expect(await screen.findByText("5/5 (1к8)")).toBeInTheDocument();
+    });
+  });
+
 });
 
 describe("truncateDescription", () => {
