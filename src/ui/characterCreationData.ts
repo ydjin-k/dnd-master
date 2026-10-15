@@ -5443,6 +5443,46 @@ export function chosenClassChoices(
   return result;
 }
 
+/**
+ * Слияние выбранного по классовым выборам: к уже выбранному дописывается новое,
+ * без повторов. Нужно левел-апу, который копит выбор нескольких панелей одного
+ * уровня, прежде чем записать его в персонажа одной записью.
+ */
+export function mergeChoiceIds(
+  base: Record<string, string[]> | undefined,
+  extra: Record<string, string[]> | undefined,
+): Record<string, string[]> {
+  const merged: Record<string, string[]> = { ...base };
+  for (const [choiceId, ids] of Object.entries(extra ?? {})) {
+    merged[choiceId] = [...new Set([...(merged[choiceId] ?? []), ...ids])];
+  }
+  return merged;
+}
+
+/**
+ * Выбранное игроком ВНУТРИ архетипа (`SubclassChoice`) — поимённо, но только
+ * варианты С ОПИСАНИЕМ. Добыча охотника, Круг земли и выбор навыков видны на
+ * листе своими следствиями (приёмом, заклинанием, владением) — и показывать их
+ * второй раз незачем: «Заклинания круга: Арктика» на 2 уровне друида обещало бы
+ * заклинания, которые придут только на 3. Трансплантаты ксенохимика следствий
+ * на листе почти не имеют, поэтому у них есть описание — и без этого показа
+ * игрок не узнал бы, какие два выбрал.
+ */
+export function chosenSubclassChoices(
+  classId: string | null | undefined,
+  subclassName: string | null | undefined,
+  subclassChoices: Record<string, string[]> | undefined,
+): { choice: SubclassChoice; options: SubclassChoiceOption[] }[] {
+  const result: { choice: SubclassChoice; options: SubclassChoiceOption[] }[] = [];
+  for (const choice of subclassGrants(classId, subclassName)?.choices ?? []) {
+    const options = (subclassChoices?.[choice.id] ?? [])
+      .map((id) => choice.options.find((option) => option.id === id))
+      .filter((option): option is SubclassChoiceOption => !!option?.description);
+    if (options.length > 0) result.push({ choice, options });
+  }
+  return result;
+}
+
 export interface FightingStyle {
   name: string;
   description: string;

@@ -31,7 +31,9 @@ import {
   coinsTotalGold,
   computeArmorClass,
   chosenClassChoices,
+  chosenSubclassChoices,
   classChoiceOptionsAt,
+  mergeChoiceIds,
   effectiveSubclassGrants,
   fightingStyleByName,
   classChoicesFor,
@@ -68,6 +70,7 @@ import {
   CLASS_PROGRESSION,
   PROGRESSION_MAX_LEVEL,
   characterResources,
+  classSaveDc,
   highestSpellCircle,
   isAsiLevel,
   progressionAt,
@@ -260,6 +263,22 @@ export function truncateDescription(text: string, max = 90): string {
 export function clampCurrentHp(value: number, maxHp: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(maxHp, Math.trunc(value)));
+}
+
+/**
+ * Шаги одного левел-апа, уже сделанные в его панелях, — то, что потом одной
+ * записью уходит в `applyLevelUp` (см. `advanceLevelUp`). `asiDone` отдельно от
+ * `abilities`: «+1 к двум» могло упереться в потолок 20 и вернуть те же числа,
+ * и по самим характеристикам сделанный шаг не отличить от несделанного.
+ */
+interface LevelUpDraft {
+  subclassName?: string;
+  subclassChoices?: Record<string, string[]>;
+  fightingStyle?: string;
+  classChoiceIds?: Record<string, string[]>;
+  asiDone?: boolean;
+  abilities?: AbilityScores;
+  featId?: string;
 }
 
 /**
@@ -465,6 +484,12 @@ function CharacterCard({
   const [pendingChoice, setPendingChoice] = useState<SubclassChoice | null>(null);
   const [pendingChoiceSubclassName, setPendingChoiceSubclassName] = useState<string | undefined>(undefined);
   const [choiceSelections, setChoiceSelections] = useState<string[]>([]);
+  /**
+   * Уже сделанные шаги ЭТОГО левел-апа, пока открыта следующая панель (см.
+   * `advanceLevelUp`). В сохранение не идёт: это незаконченный левел-ап, а не
+   * состояние персонажа, и отмена любой панели его выбрасывает целиком.
+   */
+  const [levelUpDraft, setLevelUpDraft] = useState<LevelUpDraft>({});
   const [chosenCantrips, setChosenCantrips] = useState<string[]>([]);
   const [chosenSpells, setChosenSpells] = useState<string[]>([]);
   // Выбор подготовки держится отдельно от выбора «выучить»: у класса с
@@ -1152,9 +1177,14 @@ function CharacterCard({
   }
 
   /** Ещё не сделанный выбор архетипа (SubclassChoice), открывающийся на этом уровне. */
-  function pendingChoiceFor(subclassName: string | undefined, newLevel: number): SubclassChoice | undefined {
+  function pendingChoiceFor(
+    subclassName: string | undefined,
+    newLevel: number,
+    madeNow?: Record<string, string[]>,
+  ): SubclassChoice | undefined {
     return subclassGrants(classId, subclassName)?.choices?.find(
-      (choice) => choice.minLevel <= newLevel && !(c.subclassChoices[choice.id]?.length),
+      (choice) =>
+        choice.minLevel <= newLevel && !(c.subclassChoices[choice.id]?.length) && !(madeNow?.[choice.id]?.length),
     );
   }
 
@@ -1212,11 +1242,11 @@ function CharacterCard({
     // собирается списком заново, и не попавший в него счётчик исчез бы с
     // первым же левел-апом. Лесенка у расы своя — оттого и уровень отдельно.
     const newResources = [
-      ...characterResources(dice?.id, subclassName, newLevel),
+      ...characterResources(dice?.id, subclassName, newLevel, { ...c.subclassChoices, ...newSubclassChoices }),
       ...raceResources(c.race, newLevel),
     ];
     const oldResources = [
-      ...characterResources(dice?.id, c.subclass, c.level),
+      ...characterResources(dice?.id, c.subclass, c.level, c.subclassChoices),
       ...raceResources(c.race, c.level),
     ];
     onUpdate((ch) => {
@@ -1322,27 +1352,60 @@ function CharacterCard({
       playLimitSound();
       return;
     }
+    advanceLevelUp({});
+  }
+
+  /**
+   * Следующий шаг левел-апа после уже сделанных (`draft`). Ветки прежние и в
+   * прежнем порядке — архетип, выбор внутри архетипа, боевой стиль, классовый
+   * выбор, увеличение характеристик, — но теперь это ЦЕПОЧКА, а не «первая
+   * подошедшая ветка и сразу левел-ап». Раньше подтверждение любой панели
+   * сразу звало `applyLevelUp`, и совпавшие на одном уровне шаги терялись:
+   * у Алхимика на 4 уровне открытия съедали увеличение характеристик (а его
+   * задним числом не спрашивает никто), на 2 — специализация съедала формулы
+   * бомб, на 9 — формулы съедали открытие. У двенадцати SRD-классов и у
+   * Кровавого охотника такие совпадения не встречались, поэтому прежний
+   * порядок прерывания и не ловил их.
+   *
+   * Каждая панель, подтверждаясь, дописывает свой шаг в черновик и зовёт эту
+   * функцию снова; когда спрашивать больше нечего, уровень поднимается ОДНОЙ
+   * записью со всем сделанным.
+   */
+  function advanceLevelUp(draft: LevelUpDraft) {
+    setLevelUpDraft(draft);
     const newLevel = c.level + 1;
     const dice = classHitDiceByTitle[c.class];
     const subclassInfo = dice ? CLASS_SUBCLASSES[dice.id] : undefined;
-    if (subclassInfo && !c.subclass && newLevel >= subclassInfo.chosenAtLevel && subclassInfo.subclasses.length > 1) {
+    if (
+      subclassInfo &&
+      !c.subclass &&
+      draft.subclassName === undefined &&
+      newLevel >= subclassInfo.chosenAtLevel &&
+      subclassInfo.subclasses.length > 1
+    ) {
       setSubclassChoiceIndex(0);
       setSubclassPanelOpen(true);
       return;
     }
-    const grantedSubclassName = subclassNameAfterLevelUp(newLevel);
-    const choice = pendingChoiceFor(grantedSubclassName, newLevel);
+    const grantedSubclassName = subclassNameAfterLevelUp(newLevel, draft.subclassName);
+    const choice = pendingChoiceFor(grantedSubclassName, newLevel, draft.subclassChoices);
     if (choice) {
       openChoicePanel(choice, grantedSubclassName);
       return;
     }
     const styleChoice = fightingStyleChoiceFor(dice?.id);
-    if (styleChoice && styleChoice.level > 1 && newLevel >= styleChoice.level && !c.fightingStyle) {
+    if (
+      styleChoice &&
+      styleChoice.level > 1 &&
+      newLevel >= styleChoice.level &&
+      !c.fightingStyle &&
+      !draft.fightingStyle
+    ) {
       setFightingStyleIndex(0);
       setFightingStylePanelOpen(true);
       return;
     }
-    const classChoice = pendingClassChoice(dice?.id, newLevel, c.classChoices);
+    const classChoice = pendingClassChoice(dice?.id, newLevel, mergeChoiceIds(c.classChoices, draft.classChoiceIds));
     if (classChoice) {
       setClassChoiceSelections([]);
       setClassChoicePending({ choiceId: classChoice.choice.id, missing: classChoice.missing });
@@ -1350,14 +1413,27 @@ function CharacterCard({
     }
     // Уровни ASI берутся из таблицы класса (classProgression.ts): стандартные
     // 4/8/12 плюс дополнительные точки Воина (6) и Плута (10).
-    if (isAsiLevel(dice?.id, newLevel)) {
+    if (isAsiLevel(dice?.id, newLevel) && !draft.asiDone) {
       setAsiMode("plus2");
       setAsiKeys([]);
       setAsiFeatId(null);
       setAsiPanelOpen(true);
       return;
     }
-    applyLevelUp(c.abilities);
+    setLevelUpDraft({});
+    applyLevelUp(
+      draft.abilities ?? c.abilities,
+      draft.subclassName,
+      draft.subclassChoices,
+      draft.featId,
+      draft.fightingStyle,
+      draft.classChoiceIds,
+    );
+  }
+
+  /** Отмена любой панели левел-апа выбрасывает и уже сделанные шаги: уровень не поднят, выбирать заново. */
+  function dropLevelUpDraft() {
+    setLevelUpDraft({});
   }
 
   const levelUpDice = subclassPanelOpen ? classHitDiceByTitle[c.class] : undefined;
@@ -1367,12 +1443,7 @@ function CharacterCard({
     const chosen = levelUpSubclassInfo?.subclasses[subclassChoiceIndex]?.name;
     if (!chosen) return;
     setSubclassPanelOpen(false);
-    const choice = pendingChoiceFor(chosen, c.level + 1);
-    if (choice) {
-      openChoicePanel(choice, chosen);
-      return;
-    }
-    applyLevelUp(c.abilities, chosen);
+    advanceLevelUp({ ...levelUpDraft, subclassName: chosen });
   }
 
   /** Боевые стили класса для панели левел-апа — те же данные, что у мастера создания. */
@@ -1382,7 +1453,7 @@ function CharacterCard({
     const chosen = levelUpFightingStyles[fightingStyleIndex]?.name;
     if (!chosen) return;
     setFightingStylePanelOpen(false);
-    applyLevelUp(c.abilities, undefined, undefined, undefined, chosen);
+    advanceLevelUp({ ...levelUpDraft, fightingStyle: chosen });
   }
 
   /**
@@ -1406,12 +1477,13 @@ function CharacterCard({
     const added = classChoiceSelections;
     setClassChoicePending(null);
     setClassChoiceSelections([]);
-    applyLevelUp(c.abilities, undefined, undefined, undefined, undefined, { [choiceId]: added });
+    advanceLevelUp({ ...levelUpDraft, classChoiceIds: mergeChoiceIds(levelUpDraft.classChoiceIds, { [choiceId]: added }) });
   }
 
   function cancelClassChoice() {
     setClassChoicePending(null);
     setClassChoiceSelections([]);
+    dropLevelUpDraft();
   }
 
   function openChoicePanel(choice: SubclassChoice, subclassName?: string) {
@@ -1427,16 +1499,22 @@ function CharacterCard({
 
   function confirmChoice() {
     if (!pendingChoice || choiceSelections.length !== pendingChoice.pick) return;
-    applyLevelUp(c.abilities, pendingChoiceSubclassName, { [pendingChoice.id]: choiceSelections });
+    const draft: LevelUpDraft = {
+      ...levelUpDraft,
+      subclassName: pendingChoiceSubclassName ?? levelUpDraft.subclassName,
+      subclassChoices: { ...levelUpDraft.subclassChoices, [pendingChoice.id]: choiceSelections },
+    };
     setPendingChoice(null);
     setPendingChoiceSubclassName(undefined);
     setChoiceSelections([]);
+    advanceLevelUp(draft);
   }
 
   function cancelChoice() {
     setPendingChoice(null);
     setPendingChoiceSubclassName(undefined);
     setChoiceSelections([]);
+    dropLevelUpDraft();
   }
 
   function setAsiModeAndReset(mode: "plus2" | "plus1plus1" | "feat") {
@@ -1486,16 +1564,21 @@ function CharacterCard({
     // не заводится, поэтому нормализация на воронке листа видит и эту запись.
     if (asiMode === "feat") {
       if (!chosenFeat) return;
-      applyLevelUp(abilitiesWithFeat(c.abilities, chosenFeat), undefined, undefined, chosenFeat.id);
       setAsiPanelOpen(false);
       setAsiFeatId(null);
+      advanceLevelUp({
+        ...levelUpDraft,
+        asiDone: true,
+        abilities: abilitiesWithFeat(c.abilities, chosenFeat),
+        featId: chosenFeat.id,
+      });
       return;
     }
     const abilities = { ...c.abilities };
     const bump = asiMode === "plus2" ? 2 : 1;
     for (const key of asiKeys) abilities[key] = Math.min(20, abilities[key] + bump);
-    applyLevelUp(abilities);
     setAsiPanelOpen(false);
+    advanceLevelUp({ ...levelUpDraft, asiDone: true, abilities });
   }
 
   /**
@@ -1533,7 +1616,7 @@ function CharacterCard({
   const missingSpells =
     spellsKnownKind === "known" ? Math.max(0, (progression?.spellsKnown ?? 0) - c.castableSpells.length) : 0;
   // Ресурсы класса и архетипа с общим счётчиком (classProgression.ts).
-  const classResources = characterResources(classId, c.subclass, c.level);
+  const classResources = characterResources(classId, c.subclass, c.level, c.subclassChoices);
   /**
    * Расовое — отдельным блоком и отдельными списками, а не подмешанное в
    * классовое: «Особенности класса» ниже подписаны классом, и счётчик расы,
@@ -1551,7 +1634,12 @@ function CharacterCard({
   const hitDiceRemaining = hitDiceLeft(c.hitDiceSpent, c.level);
   /** Возвращает ли короткий отдых ячейки — ПОЛЕ данных класса, а не сверка его id. */
   const shortRestReturnsSlots = slotRechargeOf(classId) === "short";
-  const classScaling = progression?.scaling ?? [];
+  // СЛ класса не от заклинаний (СЛ бомб Алхимика) — строкой той же таблицы:
+  // она зависит от характеристик, поэтому считается здесь, а не лежит в ней.
+  const saveDcRow = classSaveDc(classId, c.abilities, c.level, c.classChoices);
+  const classScaling = [...(saveDcRow ? [saveDcRow] : []), ...(progression?.scaling ?? [])];
+  /** Выбранное внутри архетипа — поимённо, с описанием, если оно есть (трансплантаты ксенохимика). */
+  const chosenSubclassOptions = chosenSubclassChoices(classId, c.subclass, c.subclassChoices);
   /** Выбранный боевой стиль с его текстом — или `undefined`, если класс стиля не выбирает или ещё не выбрал. */
   const chosenFightingStyle = fightingStyleByName(c.fightingStyle);
   /** Выбранные варианты классового выбора — с именами и текстами, не id и не числом. */
@@ -2002,7 +2090,13 @@ function CharacterCard({
             <button type="button" onClick={confirmSubclass} data-own-sound>
               Подтвердить и повысить уровень
             </button>
-            <button type="button" onClick={() => setSubclassPanelOpen(false)}>
+            <button
+              type="button"
+              onClick={() => {
+                setSubclassPanelOpen(false);
+                dropLevelUpDraft();
+              }}
+            >
               Отмена
             </button>
           </div>
@@ -2028,7 +2122,13 @@ function CharacterCard({
             <button type="button" onClick={confirmFightingStyle} data-own-sound>
               Подтвердить и повысить уровень
             </button>
-            <button type="button" onClick={() => setFightingStylePanelOpen(false)}>
+            <button
+              type="button"
+              onClick={() => {
+                setFightingStylePanelOpen(false);
+                dropLevelUpDraft();
+              }}
+            >
               Отмена
             </button>
           </div>
@@ -2104,6 +2204,7 @@ function CharacterCard({
                   onChange={() => toggleChoiceOption(option.id)}
                 />{" "}
                 {option.label}
+                {option.description && <span className="character-card__hint"> — {option.description}</span>}
               </label>
             ))}
           </div>
@@ -2220,7 +2321,13 @@ function CharacterCard({
             <button type="button" onClick={confirmAsi} disabled={!asiReady} data-own-sound>
               Подтвердить и повысить уровень
             </button>
-            <button type="button" onClick={() => setAsiPanelOpen(false)}>
+            <button
+              type="button"
+              onClick={() => {
+                setAsiPanelOpen(false);
+                dropLevelUpDraft();
+              }}
+            >
               Отмена
             </button>
           </div>
@@ -2347,7 +2454,7 @@ function CharacterCard({
         damageResistances: grants?.damageResistances,
         healingBonus,
         fightingStyle: chosenFightingStyle,
-        classChoices: chosenClassOptions,
+        classChoices: [...chosenClassOptions, ...chosenSubclassOptions],
       }) && (
         <details className="character-card__class-features" open>
           <summary>Особенности класса ({classFeatures.length + classResources.length})</summary>
@@ -2449,6 +2556,19 @@ function CharacterCard({
                 {options.map((option) => (
                   <li key={option.id}>
                     <strong>{option.name}</strong> — {option.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          {chosenSubclassOptions.map(({ choice, options }) => (
+            <div key={choice.id}>
+              <p className="character-card__prof">{choice.name}:</p>
+              <ul className="character-card__traits">
+                {options.map((option) => (
+                  <li key={option.id}>
+                    <strong>{option.label}</strong>
+                    {option.description && <> — {option.description}</>}
                   </li>
                 ))}
               </ul>
