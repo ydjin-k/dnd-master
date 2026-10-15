@@ -54,6 +54,7 @@ import {
   subclassSpellsUpToLevel,
   toggleChoiceSelection,
   toolProficienciesFor,
+  isClassSpell,
   unproficientArmorIssue,
   weaponAttackFor,
   weaponProficienciesFor,
@@ -1695,12 +1696,12 @@ function CharacterCard({
     ([, dice]) => dice.id === grants?.bonusCantrips?.fromClassId,
   )?.[0];
   const learnableCantrips = spells.filter(
-    (sp) => sp.level === 0 && sp.classes.some((id) => cantripClassIds.includes(id)) && !c.knownCantrips.includes(sp.id),
+    (sp) => sp.level === 0 && cantripClassIds.some((id) => isClassSpell(sp, id)) && !c.knownCantrips.includes(sp.id),
   );
   const learnableSpells = classId
     ? spells.filter(
         (sp) =>
-          sp.level >= 1 && sp.level <= highestCircle && sp.classes.includes(classId) && !c.castableSpells.includes(sp.id),
+          sp.level >= 1 && sp.level <= highestCircle && isClassSpell(sp, classId) && !c.castableSpells.includes(sp.id),
       )
     : [];
 

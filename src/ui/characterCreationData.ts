@@ -1,4 +1,4 @@
-import type { AbilityScores, Coins, RuleTopic } from "../state/types";
+import type { AbilityScores, Coins, RuleTopic, Spell } from "../state/types";
 // Только тип: ресурсы архетипа считаются тем же механизмом, что и классовые
 // (classProgression.ts владеет и типом, и таблицей классов). Импорт типа
 // стирается сборкой, так что встречного цикла с classProgression.ts нет.
@@ -68,6 +68,18 @@ import {
   DISCOVERIES_CHOICE_ID,
   DISCOVERIES_KNOWN_STEPS,
 } from "./alchemistClass";
+// Третий наш класс (`characters-class-artificer`) — тем же приёмом: всё
+// содержание в `artificerClass.ts`, здесь по строке на карту.
+import {
+  ARTIFICER_ID,
+  ARTIFICER_INFUSIONS,
+  ARTIFICER_LEVEL_FEATURES,
+  ARTIFICER_SPECIALTIES,
+  ARTIFICER_SPECIALTY_LEVEL,
+  ARTIFICER_SPELL_IDS,
+  INFUSIONS_CHOICE_ID,
+  INFUSIONS_KNOWN_STEPS,
+} from "./artificerClass";
 
 export type AbilityKey = keyof AbilityScores;
 
@@ -191,6 +203,15 @@ export interface ClassProficiencies {
    * хранить (см. `toolProficienciesFor`).
    */
   tools?: string[];
+  /**
+   * Класс сверх `tools` даёт ОДИН набор инструментов ремесленника на выбор
+   * игрока (`ARTISAN_TOOLS`) — впервые у Изобретателя («один тип инструментов
+   * ремесленника на ваш выбор», с. 3 PDF). Выбор спрашивает мастер создания и
+   * показывает «Итог». Поле, а не сверка id класса: у Монаха такой же выбор
+   * идёт своей веткой (ремесленник ИЛИ музыкальный инструмент), и её это поле
+   * не трогает.
+   */
+  artisanToolChoice?: boolean;
 }
 
 export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
@@ -391,6 +412,23 @@ export const CLASS_PROFICIENCIES: Record<string, ClassProficiencies> = {
     weapons: ["Бомба"],
     tools: ["Инструменты алхимика", "Набор травника"],
   },
+  // Изобретатель, с. 3 PDF владельца: спасброски Телосложение и Интеллект, два
+  // навыка из семи, лёгкие и средние доспехи плюс щиты, простое оружие;
+  // воровские инструменты, инструменты ремонтника и один ремесленный набор на
+  // выбор. «Инструменты ремонтника» PDF — это tinker's tools, в таблице
+  // инструментов SRD этого файла они названы «Инструменты жестянщика»: имя
+  // взято оттуда, по нему инвентарь находит вес и цену.
+  [ARTIFICER_ID]: {
+    savingThrows: ["constitution", "intelligence"],
+    savingThrowLabels: ["Телосложение", "Интеллект"],
+    skillCount: 2,
+    skillOptions: ["Восприятие", "История", "Ловкость рук", "Магия", "Медицина", "Природа", "Расследование"],
+    armor: ["light", "medium", "shields"],
+    weaponCategories: ["simple"],
+    weapons: [],
+    tools: ["Воровские инструменты", "Инструменты жестянщика"],
+    artisanToolChoice: true,
+  },
   "classes-sorcerer": {
     savingThrows: ["constitution", "charisma"],
     savingThrowLabels: ["Телосложение", "Харизма"],
@@ -528,6 +566,15 @@ export const CLASS_EQUIPMENT: Record<string, EquipmentSlot[]> = {
       ["Инструменты алхимика и флакон простого яда", ["Инструменты алхимика", "Яд, базовый (флакон)"]],
     ),
     slot(["Кожаный доспех и кинжал", ["Кожаный доспех", "Кинжал"]]),
+  ],
+  // Изобретатель, с. 3 PDF владельца. Два простых оружия — двумя
+  // плейсхолдерами, как у Кровавого охотника; имена доспехов и арбалета — из
+  // каталогов этого файла.
+  [ARTIFICER_ID]: [
+    slot(["Два простых оружия", ["Простое оружие (на выбор)", "Простое оружие (на выбор)"]]),
+    slot(["Лёгкий арбалет и 20 болтов", ["Арбалет, лёгкий", "Арбалетные болты ×20"]]),
+    slot(["Проклёпанная кожа", ["Проклёпанная кожа"]], ["Чешуйчатый доспех", ["Чешуйчатый доспех"]]),
+    slot(["Воровские инструменты и набор исследователя подземелий", ["Воровские инструменты", "Набор исследователя подземелий"]]),
   ],
 };
 
@@ -2086,6 +2133,9 @@ export const CLASS_LEVEL_FEATURES: Record<string, Record<number, ClassLevelFeatu
   // модуле класса (`ALCHEMIST_LEVEL_FEATURES`), из того же списка собирается
   // статья справочника — второй копии здесь нет.
   [ALCHEMIST_ID]: ALCHEMIST_LEVEL_FEATURES,
+  // Изобретатель, с. 1 (таблица) и с. 3-6 (тексты) PDF владельца — тот же
+  // приём: тексты в модуле класса, статья собирается из того же списка.
+  [ARTIFICER_ID]: ARTIFICER_LEVEL_FEATURES,
   "classes-sorcerer": {
     2: [
       {
@@ -2499,6 +2549,15 @@ export const CLASS_SUBCLASSES: Record<string, ClassSubclassInfo> = {
   [ALCHEMIST_ID]: {
     chosenAtLevel: ALCHEMIST_SPECIALIZATION_LEVEL,
     subclasses: ALCHEMIST_SPECIALIZATIONS,
+  },
+  /**
+   * Изобретатель: восемь специальностей (с. 11-26 PDF владельца — четыре
+   * основные и четыре дополнительные), выбор на 3 уровне. Содержание — в
+   * модуле класса (`ARTIFICER_SPECIALTIES`).
+   */
+  [ARTIFICER_ID]: {
+    chosenAtLevel: ARTIFICER_SPECIALTY_LEVEL,
+    subclasses: ARTIFICER_SPECIALTIES,
   },
   "classes-cleric": {
     chosenAtLevel: 1,
@@ -5219,6 +5278,8 @@ export const CLASS_SPELLCASTING_ABILITY: Record<string, string> = {
   "classes-sorcerer": "Харизма",
   "classes-warlock": "Харизма",
   "classes-wizard": "Интеллект",
+  // Изобретатель колдует с 1 уровня (с. 1, 4 PDF): две ячейки 1 круга и два заговора.
+  [ARTIFICER_ID]: "Интеллект",
 };
 
 /**
@@ -5239,7 +5300,29 @@ export const CLASS_SPELLCASTING_ABILITY_KEY: Record<string, AbilityKey> = {
   "classes-sorcerer": "charisma",
   "classes-warlock": "charisma",
   "classes-wizard": "intelligence",
+  [ARTIFICER_ID]: "intelligence",
 };
+
+/**
+ * Списки заклинаний НАШИХ классов — по id из `spells.json`. У SRD-классов
+ * список живёт в самом заклинании (`Spell.classes`), но наш класс туда
+ * вписать нельзя: `spells.json` — SRD, и дописывать в него запрещено. Поэтому
+ * список нашего класса принадлежит его модулю, а здесь только регистрация.
+ */
+const OWN_CLASS_SPELL_LISTS: Record<string, readonly string[]> = {
+  [ARTIFICER_ID]: ARTIFICER_SPELL_IDS,
+};
+
+/**
+ * Входит ли заклинание в список класса. ЕДИНСТВЕННЫЙ владелец вопроса: его
+ * задают мастер создания (заговоры и 1 круг), лист (что выучить) и
+ * `preparableSpells` (что подготовить) — раньше каждый сверял `spell.classes`
+ * сам, и класс со списком вне `spells.json` не увидел бы ни один из них. Для
+ * SRD-классов ответ прежний: `spell.classes`.
+ */
+export function isClassSpell(spell: Pick<Spell, "id" | "classes">, classId: string): boolean {
+  return spell.classes.includes(classId) || (OWN_CLASS_SPELL_LISTS[classId]?.includes(spell.id) ?? false);
+}
 
 /**
  * Дварф: «Владение инструментами. Вы владеете ремесленными инструментами по
@@ -5363,6 +5446,18 @@ export const CLASS_CHOICES: Record<string, readonly ClassChoice[]> = {
       unit: "открытие",
       knownByLevel: DISCOVERIES_KNOWN_STEPS,
       options: ALCHEMIST_DISCOVERIES,
+    },
+  ],
+  // Изобретатель: инфузии со 2 уровня (с. 1, 5 PDF). Инфузия — описательная
+  // особенность, а не предмет: выбор хранит, какие известны, а сколько
+  // одновременно активно — строка таблицы на листе (classProgression.ts).
+  [ARTIFICER_ID]: [
+    {
+      id: INFUSIONS_CHOICE_ID,
+      name: "Инфузии",
+      unit: "инфузию",
+      knownByLevel: INFUSIONS_KNOWN_STEPS,
+      options: ARTIFICER_INFUSIONS,
     },
   ],
 };

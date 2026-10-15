@@ -101,6 +101,8 @@ describe("подготовка заклинаний", () => {
     );
     expect([...prepares].sort()).toEqual([...byData].sort());
     expect([...prepares].sort()).toEqual([
+      // Наш класс (`characters-class-artificer`): готовит, как Паладин, с половиной уровня.
+      "classes-artificer",
       "classes-cleric",
       "classes-druid",
       "classes-paladin",

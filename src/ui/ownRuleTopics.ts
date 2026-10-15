@@ -15,6 +15,8 @@ import { GENASI_TOPIC } from "./genasiRace";
 import { BLOOD_HUNTER_TOPIC } from "./bloodHunterClass";
 // Второй наш класс (`characters-class-alchemist`) — та же одна строка регистрации.
 import { ALCHEMIST_TOPIC } from "./alchemistClass";
+// Третий наш класс (`characters-class-artificer`) — снова одна строка.
+import { ARTIFICER_TOPIC } from "./artificerClass";
 
 /**
  * Наши собственные темы справочника — те, что приложение показывает во вкладке
@@ -75,6 +77,7 @@ export const OWN_RULE_TOPICS: readonly RuleTopic[] = [
   GENASI_TOPIC,
   BLOOD_HUNTER_TOPIC,
   ALCHEMIST_TOPIC,
+  ARTIFICER_TOPIC,
 ];
 
 

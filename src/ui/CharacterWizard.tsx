@@ -30,6 +30,7 @@ import {
   CLASS_PROFICIENCIES,
   CLASS_SPELLCASTING_ABILITY,
   CLASS_SUBCLASSES,
+  isClassSpell,
   catalogWeightLb,
   computeArmorClass,
   COIN_DENOMINATIONS,
@@ -233,6 +234,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const [rangerTerrain, setRangerTerrain] = useState("");
   const [monkToolCategory, setMonkToolCategory] = useState<"craft" | "music">("craft");
   const [chosenMonkTool, setChosenMonkTool] = useState("");
+  /** Набор ремесленника на выбор у класса с `artisanToolChoice` (Изобретатель). */
+  const [chosenArtisanTool, setChosenArtisanTool] = useState("");
   const [bardInstruments, setBardInstruments] = useState<string[]>([]);
   const [chosenBackgroundLanguages, setChosenBackgroundLanguages] = useState<string[]>([]);
   const [classSkills, setClassSkills] = useState<string[]>([]);
@@ -340,6 +343,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const monkToolOptions = monkToolCategory === "craft" ? ARTISAN_TOOLS : INSTRUMENTS;
   const finalMonkTool = isMonk ? chosenMonkTool || monkToolOptions[0]?.name : undefined;
   const finalDwarfTool = dwarfToolChoices.length > 0 ? chosenDwarfTool || dwarfToolChoices[0].name : undefined;
+  const finalArtisanTool =
+    classId && CLASS_PROFICIENCIES[classId]?.artisanToolChoice ? chosenArtisanTool || ARTISAN_TOOLS[0].name : undefined;
   const displayedRaceTraits = raceTraits.map((t) =>
     t.name === "Владение инструментами" && finalDwarfTool
       ? { ...t, description: `Инструменты кузнеца, пивовара или каменщика — выбрано: ${finalDwarfTool}.` }
@@ -558,8 +563,8 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
   const level1Progression = progressionAt(classId, 1);
   const level1SubclassSpells = subclassSpellsUpToLevel(classId, level1Subclass?.name, 1);
   const level1SpellSlots = spellSlotsForLevel(classId, 1);
-  const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && sp.classes.includes(classId)) : [];
-  const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && sp.classes.includes(classId)) : [];
+  const classCantrips = classId ? spells.filter((sp) => sp.level === 0 && isClassSpell(sp, classId)) : [];
+  const classLevel1Spells = classId ? spells.filter((sp) => sp.level === 1 && isClassSpell(sp, classId)) : [];
   const requiredCantrips = level1Progression?.cantripsKnown ?? 0;
   // Число заклинаний 1 уровня: у класса с известным списком — из таблицы, у
   // «подготавливающего» (Волшебник/Друид/Жрец) его считает preparedSpellsMax —
@@ -772,6 +777,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
           ...toolProficienciesFor(classId, level1Subclass?.name),
           ...(isBard ? bardInstruments : []),
           ...(isMonk && finalMonkTool ? [finalMonkTool] : []),
+          ...(finalArtisanTool ? [finalArtisanTool] : []),
           ...(finalDwarfTool ? [finalDwarfTool] : []),
         ]),
       ],
@@ -1222,6 +1228,18 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
                       onChange={(e) => setChosenMonkTool(e.currentTarget.value)}
                     >
                       {monkToolOptions.map((tool) => (
+                        <option key={tool.name} value={tool.name}>
+                          {tool.name} ({tool.cost}, {tool.weight})
+                        </option>
+                      ))}
+                    </select>
+                  </p>
+                )}
+                {finalArtisanTool && (
+                  <p className="wizard__hint">
+                    Инструменты ремесленника (на выбор):{" "}
+                    <select value={finalArtisanTool} onChange={(e) => setChosenArtisanTool(e.currentTarget.value)}>
+                      {ARTISAN_TOOLS.map((tool) => (
                         <option key={tool.name} value={tool.name}>
                           {tool.name} ({tool.cost}, {tool.weight})
                         </option>
@@ -1862,6 +1880,7 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
               </li>
             )}
             {isMonk && <li>Владение инструментами: {finalMonkTool}</li>}
+            {finalArtisanTool && <li>Инструменты ремесленника на выбор: {finalArtisanTool}</li>}
             {isBard && <li>Владение музыкальными инструментами: {bardInstruments.join(", ")}</li>}
             {spellAbility && (
               <li>

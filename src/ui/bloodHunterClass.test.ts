@@ -624,7 +624,8 @@ describe("Кровавый охотник — проклятья крови ка
   });
 
   it("проклятья крови есть только у нашего класса — у SRD-классов в CLASS_CHOICES никого", () => {
-    // Второй хозяин классового выбора — Алхимик (формулы и открытия), тоже наш.
-    expect(Object.keys(CLASS_CHOICES)).toEqual([BLOOD_HUNTER_ID, "classes-alchemist"]);
+    // Второй хозяин классового выбора — Алхимик (формулы и открытия), третий —
+    // Изобретатель (инфузии); оба тоже наши.
+    expect(Object.keys(CLASS_CHOICES)).toEqual([BLOOD_HUNTER_ID, "classes-alchemist", "classes-artificer"]);
   });
 });

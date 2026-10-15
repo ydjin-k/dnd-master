@@ -26,6 +26,16 @@ import {
   knownAt,
   reagentDiceAt,
 } from "./alchemistClass";
+import {
+  ARTIFICER_CANTRIPS_STEPS,
+  ARTIFICER_ID,
+  ARTIFICER_SLOTS,
+  FLASH_OF_GENIUS_RESOURCE_ID,
+  INFUSED_ITEMS_STEPS,
+  INFUSIONS_KNOWN_STEPS,
+  SPELL_STORING_ITEM_RESOURCE_ID,
+  stepAt,
+} from "./artificerClass";
 import type { AbilityScores } from "../state/types";
 
 /** Потолок уровня приложения — вся таблица ниже заполнена только до него (см. MAX_LEVEL в CharactersPage.tsx). */
@@ -68,7 +78,11 @@ export interface ClassResource {
    */
   description: string;
   max?: number;
-  maxFrom?: { ability: AbilityKey; plus: number; min: number };
+  /**
+   * `times` — множитель модификатора (по умолчанию 1): «удвоенный модификатор
+   * Интеллекта» Хранящего заклинания предмета Изобретателя.
+   */
+  maxFrom?: { ability: AbilityKey; plus: number; min: number; times?: number };
   /** На каком отдыхе восстанавливается (SRD-текст умения). */
   recharge: "short" | "long";
   /** Единица счёта для показа: «использование», «очко», «хит». */
@@ -647,6 +661,62 @@ export const CLASS_PROGRESSION: Record<string, ClassProgression> = {
       ],
     })),
   },
+  /**
+   * Изобретатель, таблицы с. 1-2 PDF владельца. Готовит заклинания
+   * (`prepared`, с. 5: «Интеллект + половина уровня»; формулу считает
+   * preparedSpells.ts), ячейки возвращает длинный отдых.
+   *
+   * ЯЧЕЙКИ — СВОЯ ТАБЛИЦА (`ARTIFICER_SLOTS` в модуле класса), а не
+   * `HALF_CASTER_SLOTS`: у Паладина и Следопыта на 1 уровне ячеек нет, у
+   * изобретателя их две первого круга. Круги 4-9 изобретатель внутри потолка
+   * не получает, и строка добивается нулями до длины SPELL_CIRCLES.
+   *
+   * ИНФУЗИИ — две строки таблицы, обе не тратятся: «Известные инфузии» — длина
+   * списка выбранного (ту же лесенку читает CLASS_CHOICES), «Предметы с
+   * инфузией» — сколько их активно одновременно.
+   */
+  [ARTIFICER_ID]: {
+    spellsKnownKind: "prepared",
+    slotRecharge: "long",
+    byLevel: levels((level) => ({
+      spellSlots: [...ARTIFICER_SLOTS[level], 0, 0, 0, 0, 0, 0],
+      cantripsKnown: stepAt(ARTIFICER_CANTRIPS_STEPS, level),
+      spellsKnown: 0,
+      resources: [
+        ...(level >= 7
+          ? [
+              {
+                id: FLASH_OF_GENIUS_RESOURCE_ID,
+                name: "Проблеск гениальности",
+                description: "Реакцией прибавляет модификатор Интеллекта к проверке или спасброску — вашему или видимого союзника рядом.",
+                maxFrom: { ability: "intelligence", plus: 0, min: 1 },
+                recharge: "long",
+                unit: "использование",
+              } as ClassResource,
+            ]
+          : []),
+        ...(level >= 11
+          ? [
+              {
+                id: SPELL_STORING_ITEM_RESOURCE_ID,
+                name: "Хранящий заклинания предмет",
+                description: "Заклинание невысокого круга, вложенное в предмет после длинного отдыха: держащий выпускает его действием.",
+                maxFrom: { ability: "intelligence", plus: 0, min: 2, times: 2 },
+                recharge: "long",
+                unit: "использование",
+              } as ClassResource,
+            ]
+          : []),
+      ],
+      scaling:
+        level >= 2
+          ? [
+              { name: "Известные инфузии", value: String(stepAt(INFUSIONS_KNOWN_STEPS, level)) },
+              { name: "Предметы с инфузией", value: String(stepAt(INFUSED_ITEMS_STEPS, level)) },
+            ]
+          : [],
+    })),
+  },
   "classes-sorcerer": {
     spellsKnownKind: "known",
     slotRecharge: "long",
@@ -743,8 +813,8 @@ export function characterResources(
 /** Максимум использований ресурса — либо число из таблицы, либо от модификатора характеристики (Вдохновение барда, Божественное чувство). */
 export function resourceMax(resource: ClassResource, abilities: AbilityScores): number {
   if (resource.maxFrom) {
-    const { ability, plus, min } = resource.maxFrom;
-    return Math.max(min, abilityMod(abilities[ability]) + plus);
+    const { ability, plus, min, times = 1 } = resource.maxFrom;
+    return Math.max(min, abilityMod(abilities[ability]) * times + plus);
   }
   return resource.max ?? 0;
 }

@@ -1,4 +1,5 @@
-import { CLASS_SPELLCASTING_ABILITY_KEY, abilityMod } from "./characterCreationData";
+import { CLASS_SPELLCASTING_ABILITY_KEY, abilityMod, isClassSpell } from "./characterCreationData";
+import { ARTIFICER_ID } from "./artificerClass";
 import { CLASS_PROGRESSION, highestSpellCircle } from "./classProgression";
 import type { AbilityScores, Spell } from "../state/types";
 
@@ -54,7 +55,12 @@ export function preparesSpells(classId: string | null | undefined): boolean {
  * спрашивают готовое число и про долю уровня не знают — иначе у формулы
  * завёлся бы второй владелец в каждом вызывающем.
  */
-const HALF_LEVEL_PREPARED: ReadonlySet<string> = new Set(["classes-paladin"]);
+const HALF_LEVEL_PREPARED: ReadonlySet<string> = new Set([
+  "classes-paladin",
+  // Изобретатель (наш класс, с. 5 PDF владельца): «модификатор Интеллекта +
+  // половина уровня изобретателя, округлённая вниз (минимум одно)».
+  ARTIFICER_ID,
+]);
 
 /** Уровень, идущий в формулу подготовки: у полузаклинателя — половина, округляя вниз. */
 function levelInFormula(classId: string, level: number): number {
@@ -155,7 +161,7 @@ export function preparableSpells(
     (sp) =>
       sp.level >= 1 &&
       sp.level <= highestCircle &&
-      sp.classes.includes(classId) &&
+      isClassSpell(sp, classId) &&
       !alreadyPrepared.includes(sp.id),
   );
 }
