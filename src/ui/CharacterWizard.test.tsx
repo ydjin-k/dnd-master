@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { CharacterWizard } from "./CharacterWizard";
 import type { AbilityScoreRoll, Character, RuleTopic, Spell } from "../state/types";
@@ -178,6 +178,16 @@ function fillStandardAbilities() {
 }
 
 describe("CharacterWizard", () => {
+  // Первый getComputedStyle в процессе jsdom стоит ~80 мс даже на пустом
+  // <body> — разовая инициализация, а не счёт по дереву (на «Итоге» мастера
+  // всего ~160 узлов и ни одной таблицы стилей). Её платит первая проба файла,
+  // где запрос по роли проверяет доступность узла: это была проба «Дженази»
+  // (getAllByRole портретов), и под нагрузкой двух полных прогонов один этот
+  // вызов стоил ~1 с, до 1,8 с, при пороге 5 с. Платим здесь, вне пробы.
+  beforeAll(() => {
+    void window.getComputedStyle(document.body).display;
+  });
+
   it("switching to manual ability entry and typing a value does not crash the tree", async () => {
     // Regression test: baseCell()'s manual-mode onChange used to read
     // e.currentTarget.value *inside* the setManual updater callback. React
