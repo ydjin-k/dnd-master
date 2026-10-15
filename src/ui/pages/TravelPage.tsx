@@ -390,8 +390,10 @@ export function TravelPage({ onBack }: { onBack: () => void }) {
 
       <section className="travel-page__block">
         <h3>Сбор еды</h3>
+        {/* До 15.10.2026 подсказка начиналась с «Наше правило, не SRD:» — метка
+            происхождения снята с экрана (`content-strip-provenance-notes`). */}
         <p className="travel-page__hint">
-          Наше правило, не SRD: проверка Мудрости ({FORAGE_SKILL}) против Сложности зоны, при успехе 1к
+          Проверка Мудрости ({FORAGE_SKILL}) против Сложности зоны, при успехе 1к
           {FORAGE_YIELD_DIE} + модификатор Мудрости фунтов еды и столько же галлонов воды. Фунт еды и галлон
           воды — суточная норма одного персонажа.
         </p>

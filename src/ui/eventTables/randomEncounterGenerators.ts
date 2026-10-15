@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Случайные встречи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Курьер с неверным адресом — Ищет дом, которого уже нет на этой улице." },
       { from: 2, to: 2, text: "Переноска тяжёлого груза — Рабочим нужен проход, который кто-то перекрыл." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Случайные встречи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Следопыт на обратном пути — Идёт быстрее обычного и советует обходить перевал." },
       { from: 2, to: 2, text: "Раненое животное — Прячет под собой не собственное детёныша." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Случайные встречи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Дрейфующий плот — На нём есть провизия и две пары сухих сапог." },
       { from: 2, to: 2, text: "Сигнал на горизонте — Огонь повторяется через равные промежутки времени." },
@@ -69,7 +66,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Случайные встречи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Строители рифа — Размещают камни так, чтобы направить течение." },
       { from: 2, to: 2, text: "Ракообразные у ниши — Защищают вход, но не интересуются пловцами вдали от него." },

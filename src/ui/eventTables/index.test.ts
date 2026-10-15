@@ -156,29 +156,33 @@ describe("таблицы генератора событий", () => {
   const EIGHT_THEME_GROUPS: readonly string[] = TABLE_GROUPS.slice(5);
 
   /**
-   * Таблица восьми тем, подписанная чужой подписью, — иначе `null`.
+   * Таблица восьми тем с неверной записью о происхождении — иначе `null`.
    *
-   * Подпись у этих 34 таблиц обязана отличаться от `OWNER_SUPPLIED`: та
+   * Запись у этих 34 таблиц обязана отличаться от `OWNER_SUPPLIED`: та
    * говорит «пометок авторства в исходнике нет», а этот документ объявляет
-   * авторство сам, первой страницей. Прежняя подпись на нём — не
-   * неточность, а неправда игроку, поэтому у неё есть страж.
+   * авторство сам, первой страницей. Прежняя подпись на нём — неправда.
+   *
+   * До 15.10.2026 запись стояла и в `sourceNote`, то есть на экране, и страж
+   * требовал её там. Владелец назвал такие подписи служебными («убрать вообще
+   * всё», `content-strip-provenance-notes`), и страж перевёрнут: запись живёт
+   * в `source`, а на экран (`sourceNote`) возвращаться не должна.
    */
   function findWrongProvenance(table: EventTable): string | null {
     if (!EIGHT_THEME_GROUPS.includes(table.group)) return null;
     if (table.source !== OWNER_AUTHORED_EIGHT_THEMES) {
       return `${table.id} → source: подпись не своя`;
     }
-    if (table.sourceNote !== OWNER_AUTHORED_EIGHT_THEMES) {
-      return `${table.id} → sourceNote: игрок не увидит подписи`;
+    if (table.sourceNote === OWNER_AUTHORED_EIGHT_THEMES) {
+      return `${table.id} → sourceNote: служебная подпись вернулась на экран`;
     }
     return null;
   }
 
-  it("все 34 таблицы восьми тем подписаны своей подписью, и она видна игроку", () => {
+  it("все 34 таблицы восьми тем помнят своё происхождение, но на экран его не выносят", () => {
     const signed = EVENT_TABLES.filter((t) => EIGHT_THEME_GROUPS.includes(t.group));
     expect(signed).toHaveLength(34);
     expect(signed.map(findWrongProvenance).filter((hit) => hit !== null)).toEqual([]);
-    // Подпись — текст на экране: она называет, ЧТО игрок держит в руках.
+    // Запись для своих называет, ЧТО это за документ.
     expect(OWNER_AUTHORED_EIGHT_THEMES).toContain("Авторский сборник владельца");
     expect(OWNER_AUTHORED_EIGHT_THEMES).toContain("не перепечатка таблиц");
     expect(OWNER_AUTHORED_EIGHT_THEMES).not.toBe(OWNER_SUPPLIED);
@@ -244,13 +248,13 @@ describe("таблицы генератора событий", () => {
     const reverted: EventTable = {
       ...table,
       source: OWNER_SUPPLIED,
-      sourceNote: OWNER_SUPPLIED,
     };
     expect(findWrongProvenance(reverted)).toContain("source");
-    // И отдельно — подпись, пропавшая с экрана, хотя в `source` она верна.
-    expect(findWrongProvenance({ ...table, sourceNote: undefined })).toContain(
-      "sourceNote",
-    );
+    // И отдельно — служебная подпись, вернувшаяся на экран, хотя в `source`
+    // запись верна: ровно то, что владелец снял 15.10.2026.
+    expect(
+      findWrongProvenance({ ...table, sourceNote: OWNER_AUTHORED_EIGHT_THEMES }),
+    ).toContain("sourceNote");
   });
 
   it("нахлёст диапазонов краснеет и называет таблицу и число", () => {

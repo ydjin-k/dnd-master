@@ -398,9 +398,14 @@ describe("BestiaryPage", () => {
     );
 
     // Про наше существо подпись не смеет сказать, что это перевод SRD под CC BY.
-    expect(attribution()).toMatch(/не входит в System Reference Document 5\.1/);
-    expect(attribution()).not.toMatch(/перевод официального System Reference Document/);
-    expect(attribution()).toMatch(/CC BY 4\.0 на него не распространяется/);
+    // До 15.10.2026 вместо неё стояла своя («не входит в System Reference
+    // Document 5.1… CC BY 4.0 на него не распространяется»); владелец назвал её
+    // служебной (`content-strip-provenance-notes`), и под нашим существом
+    // подписи теперь нет вовсе.
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    const page = document.body.textContent ?? "";
+    expect(page).not.toMatch(/System Reference Document/);
+    expect(page).not.toMatch(/CC BY/);
 
     // И обратно: у SRD-существа подпись прежняя.
     fireEvent.click(screen.getByText("Разбойник"));

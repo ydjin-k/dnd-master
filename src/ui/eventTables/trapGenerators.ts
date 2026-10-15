@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Ловушки и препятствия",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Дверь под нагрузкой — Подпирать её удобнее с одной стороны, но шум слышен дальше." },
       { from: 2, to: 2, text: "Подтопленный проход — Глубина неизвестна; вдоль стены тянется узкий сухой бортик." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Ловушки и препятствия",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Нажимная плита — Она прикрыта тонким слоем пыли другой окраски." },
       { from: 2, to: 2, text: "Натянутая нить — Крепится к двум предметам, которые стоят несимметрично." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Ловушки и препятствия",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Следы только до порога — За ним пыль ничем не нарушена." },
       { from: 2, to: 2, text: "Одинаковые царапины — Высота и направление царапин повторяются на стенах." },
@@ -69,7 +66,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Ловушки и препятствия",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Запирание — Проход закрывается, оставляя безопасную точку доступа к механизму." },
       { from: 2, to: 2, text: "Сигнал — Громкий звук предупреждает обитателей следующего помещения." },
@@ -87,7 +83,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Ловушки и препятствия",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Заклинить механизм — Подходит подходящий инструмент или прочный клин." },
       { from: 2, to: 2, text: "Изменить нагрузку — Вес переносится на безопасную опору." },

@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Дикая местность",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Сухой ветер — Пыль подчёркивает свежие следы, но скрывает дальний горизонт." },
       { from: 2, to: 2, text: "Холодный туман — Звуки слышны раньше, чем становятся видны их источники." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Дикая местность",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Каменная игла — На одной грани высечены мерки прежних уровней воды." },
       { from: 2, to: 2, text: "Сухое дерево — На ветках привязаны выцветшие знаки нескольких путников." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Дикая местность",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Роща без ветра — Кроны неподвижны даже во время сильных порывов." },
       { from: 2, to: 2, text: "Озеро с двойным эхом — Ответный звук повторяется дважды с разных берегов." },

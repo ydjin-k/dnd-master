@@ -30,13 +30,16 @@ const ABILITY_LABEL: Record<keyof AbilityScores, string> = Object.fromEntries(
  * файлу-источнику (`combat.rs`, `MonsterOrigin`) — показ его не выводит и не
  * угадывает. Текст подписи живёт здесь и только здесь.
  */
-const ATTRIBUTION: Record<MonsterOrigin, string> = {
+const ATTRIBUTION: Record<MonsterOrigin, string | null> = {
   srd:
     "Стат-блок — перевод официального System Reference Document 5.1 от Wizards of the Coast, " +
     "распространяется по лицензии CC BY 4.0.",
-  own:
-    "Существо не входит в System Reference Document 5.1: имя, описание, особые свойства и " +
-    "действия написаны для D&D Master, лицензия CC BY 4.0 на него не распространяется.",
+  // До 15.10.2026 здесь стояло «Существо не входит в System Reference Document
+  // 5.1: имя, описание, особые свойства и действия написаны для D&D Master,
+  // лицензия CC BY 4.0 на него не распространяется». Владелец назвал метку
+  // «не SRD» служебной: под своим существом подписи нет вовсе, а SRD-подпись
+  // по-прежнему стоит только под SRD (`content-strip-provenance-notes`).
+  own: null,
 };
 
 /**
@@ -343,7 +346,7 @@ export function BestiaryPage() {
           </article>
         )}
 
-        {selected && (
+        {selected && ATTRIBUTION[selected.origin] && (
           <footer className="bestiary-page__attribution">{ATTRIBUTION[selected.origin]}</footer>
         )}
       </div>

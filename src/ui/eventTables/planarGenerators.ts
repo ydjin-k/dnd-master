@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Беззвучный след — За движущимся существом тянется видимая нить воспоминаний." },
       { from: 2, to: 2, text: "Далёкий зов — Каждый слышит голос знакомого человека с другой стороны." },
@@ -31,7 +30,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Проступающая стена — Сквозь камень на миг виден предмет в соседнем помещении." },
       { from: 2, to: 2, text: "Бледный силуэт — Он повторяет путь живого существа с задержкой." },
@@ -47,7 +45,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Лишний рассвет — Небо светлеет на несколько минут и снова темнеет." },
       { from: 2, to: 2, text: "Невыполненное приглашение — Сервированный стол ждёт гостя по имени." },
@@ -63,7 +60,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Исчезнувший цвет — Один заметный предмет становится серым до конца сцены." },
       { from: 2, to: 2, text: "Сонная память — Кто-то едва помнит, зачем пришёл, пока не увидит знакомую вещь." },
@@ -79,7 +75,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Пятно перемены — Материал предмета начинает походить на органическую ткань." },
       { from: 2, to: 2, text: "Спорящие символы — Надпись меняет смысл, когда её читают вслух." },
@@ -95,7 +90,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Планарные эффекты",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Огонь — Пламя на миг повторяет силуэты людей поблизости." },
       { from: 2, to: 2, text: "Вода — Поток несёт пузырь с воздухом и запиской внутри." },

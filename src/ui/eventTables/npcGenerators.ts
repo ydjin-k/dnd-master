@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Седая прядь — Остальные волосы тщательно окрашены." },
       { from: 2, to: 2, text: "Потёртые перчатки — Носит их даже в помещении." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Считает паузы — Отвечает только после короткого молчания." },
       { from: 2, to: 2, text: "Меняет обращение — По-разному называет человека при свидетелях и без них." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Помнит маршруты — Может восстановить дорогу по одному ориентиру." },
       { from: 2, to: 2, text: "Распознаёт подделки — Особенно в бумагах и печатях." },
@@ -69,7 +66,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Осторожное радушие — Предложит помощь, но спросит, кто вас прислал." },
       { from: 2, to: 2, text: "Деловой интерес — Сразу хочет знать, чем обменяться." },
@@ -87,7 +83,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Честный обмен — Обе стороны должны понимать цену соглашения." },
       { from: 2, to: 2, text: "Верность слову — Обещание важнее выгоды." },
@@ -105,7 +100,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Младший родственник — Он уверен, что персонаж давно уехал." },
       { from: 2, to: 2, text: "Старый наставник — Письма от него перестали приходить." },
@@ -123,7 +117,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Неигровые персонажи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Боится публичного провала — Поэтому тянет с решением при свидетелях." },
       { from: 2, to: 2, text: "Скрывает долг — Кредитор появляется в неподходящий момент." },

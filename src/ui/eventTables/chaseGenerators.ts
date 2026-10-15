@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Погоня",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Разгрузка повозки — Проход на миг перегорожен ящиками; есть путь поверх них." },
       { from: 2, to: 2, text: "Рыночный навес — Он провисает под весом, зато скрывает путь от взгляда." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Погоня",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Брод через ручей — Вода мелкая; на противоположном берегу грязь по колено." },
       { from: 2, to: 2, text: "Осыпь — Быстрый путь под гору поднимает град камней." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Погоня",
     die: 6,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Случайный свидетель — Он видел обоих участников, но сперва говорит с тем, кто ближе." },
       { from: 2, to: 2, text: "Упавший предмет — Потерянная вещь раскрывает имя, маршрут или цель беглеца." },

@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Злодеи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Стереть долг — Уничтожить запись о сделке, которую нельзя исполнить." },
       { from: 2, to: 2, text: "Получить признание — Присвоить чужое открытие перед важным собранием." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Злодеи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Посредники — Каждый исполнитель знает только небольшую часть поручения." },
       { from: 2, to: 2, text: "Законная процедура — План осуществляется через разрешения, налоги и запреты." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Злодеи",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Не знает новой детали — План строился до недавнего события, изменившего обстоятельства." },
       { from: 2, to: 2, text: "Зависит от свидетеля — Один человек способен подтвердить подмену." },

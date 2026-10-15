@@ -15,7 +15,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Последствия опасностей",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Непрошеное воспоминание — До конца сцены знакомый звук напоминает об увиденном. Персонаж понимает причину и может её описать." },
       { from: 2, to: 2, text: "Навязчивый счёт — Персонаж старается пересчитать предметы вокруг; беседа или минутная передышка возвращает внимание." },
@@ -33,7 +32,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Последствия опасностей",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Вывих — До оказания помощи больно пользоваться конечностью; вправление требует времени и спокойной обстановки." },
       { from: 2, to: 2, text: "Рассечённая бровь — Кровь мешает видеть, пока рану не перевяжут. После остаётся заметная отметина." },
@@ -51,7 +49,6 @@ export const TABLES: readonly EventTable[] = [
     group: "Последствия опасностей",
     die: 8,
     source: OWNER_AUTHORED_EIGHT_THEMES,
-    sourceNote: OWNER_AUTHORED_EIGHT_THEMES,
     rows: [
       { from: 1, to: 1, text: "Потеря равновесия — Существо оказывается на земле, но может действовать дальше." },
       { from: 2, to: 2, text: "Сбитое дыхание — До начала следующего хода трудно говорить длинными фразами." },

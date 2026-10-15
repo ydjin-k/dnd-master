@@ -92,8 +92,14 @@ describe("RulesPage", () => {
  * ПОЧЕМУ ОБЕ ПОЛОВИНЫ. Подпись разводится по принадлежности списку, а не по
  * категории: у Эльфа бездны категория `races` та же, что у Человека из SRD.
  * Проверка одной половины пропустила бы ровно те две ошибки, которых карточка
- * и боится, — SRD-подпись под нашей темой и наша подпись под SRD-темой.
- * Поэтому у каждой половины проверяется и то, что видно, и то, что НЕ видно.
+ * и боится, — SRD-подпись под нашей темой и потерянная SRD-подпись под
+ * SRD-темой. Поэтому у каждой половины проверяется и то, что видно, и то, что
+ * НЕ видно.
+ *
+ * До 15.10.2026 под нашей темой стояла своя подпись («Этот раздел не входит в
+ * SRD 5.1 — он написан для D&D Master…»), и проба требовала её. Владелец
+ * назвал её служебной («убрать вообще всё», `content-strip-provenance-notes`):
+ * теперь под нашей темой подписи нет вовсе, и проба ловит её возврат.
  */
 describe("RulesPage: наши темы и подпись об источнике", () => {
   const SRD_MARK = /перевод SRD 5\.1/;
@@ -122,16 +128,19 @@ describe("RulesPage: наши темы и подпись об источнике
     expect(screen.getByRole("heading", { name: ownRaceTitle })).toBeInTheDocument();
   });
 
-  it("под нашей темой — наша подпись, и SRD-подписи под ней нет", async () => {
+  it("под нашей темой подписи нет вовсе: ни SRD-подписи, ни метки «не входит в SRD»", async () => {
     render(<RulesPage />);
 
     await waitFor(() => expect(screen.getByText(ownRaceTitle)).toBeInTheDocument());
     fireEvent.click(screen.getByText(ownRaceTitle));
 
-    await waitFor(() => expect(attribution()).toMatch(OWN_MARK));
-    expect(attribution()).toMatch(/написан для D&D Master/);
-    expect(attribution()).not.toMatch(SRD_MARK);
-    expect(attribution()).not.toMatch(SRD_LICENSE);
+    await waitFor(() => expect(screen.getByRole("heading", { name: ownRaceTitle })).toBeInTheDocument());
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+    const page = document.body.textContent ?? "";
+    expect(page).not.toMatch(OWN_MARK);
+    expect(page).not.toMatch(/написан для D&D Master/);
+    expect(page).not.toMatch(SRD_MARK);
+    expect(page).not.toMatch(SRD_LICENSE);
   });
 
   it("под SRD-темой той же категории — прежняя SRD-подпись, и нашей под ней нет", async () => {
