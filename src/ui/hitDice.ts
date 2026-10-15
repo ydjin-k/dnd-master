@@ -48,8 +48,29 @@ export function hitDiceLeft(spent: number, level: number): number {
  * и подпись — забота вызывающего, как у `spendResource` на листе.
  */
 export function spendHitDie(spent: number, level: number): number {
+  return spendHitDice(spent, level, 1);
+}
+
+/**
+ * Трата `count` костей разом (короткий отдых) — новое значение `hitDiceSpent`.
+ * Больше остатка не потратится: просьба обрезается здесь, а не у кнопки.
+ * Нечисловое и отрицательное `count` не тратят ничего, дробное — вниз.
+ */
+export function spendHitDice(spent: number, level: number, count: number): number {
   const current = clampSpent(spent, level);
-  return hitDiceLeft(current, level) > 0 ? current + 1 : current;
+  const asked = Math.floor(count);
+  const take = Math.min(Math.max(0, Number.isFinite(asked) ? asked : 0), hitDiceLeft(current, level));
+  return current + take;
+}
+
+/**
+ * Хиты от потраченных костей по SRD (gameplay-rest): к КАЖДОЙ выпавшей кости
+ * прибавляется модификатор Телосложения, и каждая лечит минимум на 0. Поэтому
+ * сумма считается по костям, а не «сумма бросков + N×мод» одним числом: при
+ * отрицательном Телосложении единица на одной кости не съедает выпавшее на другой.
+ */
+export function hitDiceHealing(rolls: number[], conMod: number): number {
+  return rolls.reduce((sum, roll) => sum + Math.max(0, roll + conMod), 0);
 }
 
 /**

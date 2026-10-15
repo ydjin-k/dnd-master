@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import bundledSpells from "../../src-tauri/rules/spells.json";
+import bundledRules from "../../src-tauri/rules/rules.json";
 import {
   armorProficienciesFor,
   carryingCapacityLb,
@@ -14,8 +15,11 @@ import {
   computeArmorClass,
   effectiveSubclassGrants,
   healingPoolSelfHeal,
+  inventoryEntryFromName,
   inventoryWeightLb,
   parseItemWeightLb,
+  BACKGROUNDS,
+  CLASS_EQUIPMENT,
   spellSaveDc,
   subclassEffectValue,
   subclassGrants,
@@ -574,6 +578,66 @@ describe("parseItemWeightLb", () => {
 
   it("treats a dash (no weight in SRD) as 0", () => {
     expect(parseItemWeightLb("—")).toBe(0);
+  });
+
+  it("reads the catalog's decimal comma: «1,5 фнт.» is one and a half, not one", () => {
+    expect(parseItemWeightLb("1,5 фнт.")).toBe(1.5);
+  });
+});
+
+/** Строка таблицы снаряжения rules.json по первой ячейке — источник чисел пробы ниже. */
+function rulesRow(firstCell: string): string[] | undefined {
+  const stack: unknown[] = [bundledRules];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (Array.isArray(node)) {
+      if (node[0] === firstCell && node.every((cell) => typeof cell === "string")) return node as string[];
+      stack.push(...node);
+    } else if (node && typeof node === "object") {
+      stack.push(...Object.values(node));
+    }
+  }
+  return undefined;
+}
+
+describe("inventoryEntryFromName — расходники пачкой", () => {
+  it("болты стартового снаряжения ложатся 20 штуками, вес поштучно из таблицы SRD", () => {
+    // Источник — rules.json, а не каталог кода: пачка 20 болтов весит 1,5 фнт.
+    expect(rulesRow("Арбалетные болты (20)")?.[2]).toBe("1,5 фнт.");
+    const bolts = inventoryEntryFromName("Арбалетные болты ×20");
+    expect(bolts.name).toBe("Арбалетные болты");
+    expect(bolts.quantity).toBe(20);
+    expect(bolts.weightLb).toBeCloseTo(0.075);
+    expect(inventoryWeightLb([bolts])).toBeCloseTo(1.5);
+    // Убавили один — вес от количества: 19 × 0,075.
+    expect(inventoryWeightLb([{ ...bolts, quantity: 19 }])).toBeCloseTo(1.425);
+  });
+
+  it("пачка каталога «Стрелы (20)» — та же дорога, что «Стрелы ×20»", () => {
+    expect(rulesRow("Стрелы (20)")?.[2]).toBe("1 фнт.");
+    expect(inventoryEntryFromName("Стрелы (20)")).toEqual({ name: "Стрелы", quantity: 20, weightLb: 0.05 });
+    expect(inventoryEntryFromName("Стрелы ×20")).toEqual({ name: "Стрелы", quantity: 20, weightLb: 0.05 });
+    // Набранное руками без числа — одна стрела, вес штуки из пачки каталога.
+    expect(inventoryEntryFromName("Стрелы")).toEqual({ name: "Стрелы", quantity: 1, weightLb: 0.05 });
+  });
+
+  it("поштучное оружие пачкой: «Дротик ×10» — десять дротиков по 1/4 фнт.", () => {
+    expect(inventoryEntryFromName("Дротик ×10")).toEqual({ name: "Дротик", quantity: 10, weightLb: 0.25 });
+  });
+
+  it("скобки без числа пачкой не считаются: «Рационы (1 день)» — одна штука под своим именем", () => {
+    expect(inventoryEntryFromName("Рационы (1 день)")).toEqual({ name: "Рационы (1 день)", quantity: 1, weightLb: 2 });
+    expect(inventoryEntryFromName("Кольчуга")).toEqual({ name: "Кольчуга", quantity: 1, weightLb: 55 });
+  });
+
+  it("в стартовом снаряжении не осталось пачек, которые разбор не узнаёт", () => {
+    // Любая строка с числом штук обязана быть вида «Имя ×N» — иначе она ляжет одной штукой.
+    const items = [
+      ...Object.values(CLASS_EQUIPMENT).flatMap((slots) => slots.flatMap((s) => s.options.flatMap((o) => o.items))),
+      ...BACKGROUNDS.flatMap((b) => b.equipment),
+    ];
+    const leadingCount = items.filter((item) => /^\d+ /.test(item));
+    expect(leadingCount).toEqual([]);
   });
 });
 

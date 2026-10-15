@@ -287,7 +287,11 @@ describe("пресеты готовых персонажей", () => {
     expect(copy.id).not.toBe(BARD_PRESET.id);
     expect(copy.id).toBeTruthy();
     expect(new Set(copy.inventory.map((i) => i.id)).size).toBe(copy.inventory.length);
-    expect(copy.inventory.map((i) => i.name)).toEqual(BARD_PRESET.inventory.map((i) => i.name));
+    // Пачка в имени пресета становится количеством, прочие имена — как в пресете.
+    expect(copy.inventory.map((i) => i.name)).toEqual(
+      BARD_PRESET.inventory.map((i) => (i.name === "Снаряды для пращи (20)" ? "Снаряды для пращи" : i.name)),
+    );
+    expect(copy.inventory.find((i) => i.name === "Снаряды для пращи")?.quantity).toBe(20);
     expect({ ...copy, id: BARD_PRESET.id, inventory: [] }).toEqual({ ...BARD_PRESET, inventory: [] });
   });
 

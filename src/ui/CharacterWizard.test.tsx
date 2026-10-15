@@ -427,10 +427,17 @@ describe("CharacterWizard", () => {
     const armor = character.inventory.find((item) => item.name === "Кольчуга");
     expect(armor?.weightLb).toBeGreaterThan(0);
 
-    // "Арбалетные болты ×20" — предмет из стартового снаряжения, добавленный
-    // пачкой (не по прямому имени из каталога): раньше оставался с weightLb: 0.
-    const ammo = character.inventory.find((item) => item.name === "Арбалетные болты ×20");
-    expect(ammo?.weightLb).toBeGreaterThan(0);
+    // "Арбалетные болты ×20" — пачка стартового снаряжения: ложится 20 штуками
+    // под именем без «×20», вес хранится поштучно. Числа — литералами из
+    // каталога SRD («Арбалетные болты (20)» — 1,5 фнт.), а не из той же функции.
+    expect(character.inventory.some((item) => item.name === "Арбалетные болты ×20")).toBe(false);
+    const ammo = character.inventory.find((item) => item.name === "Арбалетные болты");
+    expect(ammo?.quantity).toBe(20);
+    expect(ammo?.weightLb).toBeCloseTo(1.5 / 20);
+    expect((ammo?.weightLb ?? 0) * (ammo?.quantity ?? 0)).toBeCloseTo(1.5);
+    // Пачка предыстории Послушника — та же дорога.
+    const incense = character.inventory.find((item) => item.name === "Палочки ладана");
+    expect(incense?.quantity).toBe(5);
   });
 
   it("has the full Acolyte-plus-12-archetypes set of backgrounds", () => {
@@ -1899,7 +1906,7 @@ describe("CharacterWizard", () => {
     expect(character.skillProficiencies).toHaveLength(5);
     // Стартовое снаряжение по умолчанию: первый вариант каждого слота.
     const inventory = character.inventory.map((i) => i.name);
-    expect(inventory).toEqual(expect.arrayContaining(["Арбалет, лёгкий", "Арбалетные болты ×20", "Проклёпанная кожа", "Набор путешественника", "Инструменты алхимика"]));
+    expect(inventory).toEqual(expect.arrayContaining(["Арбалет, лёгкий", "Арбалетные болты", "Проклёпанная кожа", "Набор путешественника", "Инструменты алхимика"]));
     // Проклёпанная кожа — КД 12, Ловкость 10 (+0).
     expect(character.armorClass).toBe(12);
     // Класс не заклинатель: ни ячеек, ни заговоров.

@@ -9,6 +9,7 @@ import {
   canLevelUp,
   carryingCapacityLb,
   catalogWeightLb,
+  inventoryEntryFromName,
   CLASS_LEVEL_FEATURES,
   CLASS_SUBCLASSES,
   COIN_DENOMINATIONS,
@@ -129,7 +130,7 @@ import {
 } from "../feats";
 import { preparableSpells, preparedSpells, preparedSpellsFormulaLabel, preparesSpells } from "../preparedSpells";
 import { restoreAllSlots, restoreSlots, spentSlots } from "../spellSlots";
-import { hitDiceLeft, restoreHitDice, spendHitDie } from "../hitDice";
+import { hitDiceHealing, hitDiceLeft, restoreHitDice, spendHitDice } from "../hitDice";
 import { travelOf } from "../travelPace";
 import {
   EXHAUSTION_MAX_LEVEL,
@@ -164,15 +165,13 @@ type Panel = "none" | "wizard" | "presets";
 const MAX_LEVEL = PROGRESSION_MAX_LEVEL;
 
 /**
- * Правило траты Костей Хитов — словами, а не машиной состояний. По SRD кости
- * тратятся в конце короткого отдыха, по одной, с правом остановиться после
- * каждого броска. Состояния «идёт отдых» в приложении нет намеренно: час
- * простоя объявляет Мастер за столом, и поддельная машина состояний врала бы о
- * том, чего приложение не знает, — поэтому кнопка тратит ровно одну кость за
- * нажатие, а правило стоит здесь текстом.
+ * Правило траты Костей Хитов — словами. Отдельной кнопки траты нет (решение
+ * владельца 15.10.2026): кости тратятся только в составе короткого отдыха,
+ * который сам спрашивает, сколько их бросить. Час простоя объявляет Мастер за
+ * столом — приложение время не считает.
  */
 const HIT_DICE_HINT =
-  "Кости Хитов тратятся в конце короткого отдыха — по одной, останавливаясь после каждого броска, и не больше, чем костей по уровню. Час отдыха объявляет Мастер: приложение время не считает.";
+  "Кости Хитов тратятся на коротком отдыхе: к каждой выпавшей кости прибавляется модификатор Телосложения, хитов не больше максимума. Длинный отдых возвращает половину Костей Хитов. Час отдыха объявляет Мастер: приложение время не считает.";
 
 /**
  * Что возвращает короткий отдых — правило SRD словами; числа за кнопкой.
@@ -181,7 +180,7 @@ const HIT_DICE_HINT =
  * подпись пересказывает правило, а не подменяет владельца.
  */
 const SHORT_REST_HINT =
-  "Короткий отдых (не меньше часа) возвращает то, что помечено «короткий или длинный отдых», и ячейки Магии договора. Сам по себе хиты он не поднимает — их растит только потраченная Кость Хитов.";
+  "Короткий отдых (не меньше часа) возвращает то, что помечено «короткий или длинный отдых», и ячейки Магии договора. Хиты поднимают только потраченные на нём Кости Хитов.";
 
 /**
  * Что возвращает длинный отдых и чего от него ждать словами. Два правила SRD
@@ -520,14 +519,19 @@ function CharacterCard({
   // первым, подняв лестницу на две ступени за один жест. Кнопка с `disabled`
   // от этого не спасает по той же причине.
   const madnessRollingRef = useRef(false);
-  // Итог последнего отдыха или броска Кости Хитов — одна строка для игрока.
+  // Итог последнего отдыха — одна строка для игрока.
   // Живёт в листе, а не в персонаже: в сейв уходит только результат (хиты,
   // счётчик костей, ячейки), как и у броска безумия выше.
   const [restNote, setRestNote] = useState<string | null>(null);
-  // Сторож повторного входа в бросок Кости Хитов — ref по той же причине, что
-  // и у безумия: состояние ко второму нажатию ещё не перерисовалось бы, и
-  // одна кость ушла бы за два броска.
+  // Сторож повторного входа в короткий отдых с бросками — ref по той же
+  // причине, что и у безумия: состояние ко второму нажатию ещё не
+  // перерисовалось бы, и кости ушли бы за два броска.
   const hitDieRollingRef = useRef(false);
+  // Открытый вопрос короткого отдыха «сколько Костей Хитов потратить»: число
+  // в поле, `null` — вопрос закрыт. Живёт в листе: в сейв уходит только итог.
+  const [shortRestDice, setShortRestDice] = useState<number | null>(null);
+  // Поле «сколько монет» у каждого номинала — набранный текст до операции.
+  const [coinAmounts, setCoinAmounts] = useState<Partial<Record<keyof Coins, string>>>({});
   // Спасбросок от смерти: что выпало на последней кости и отказ движка. Оба
   // живут в листе, а не в персонаже, — как у безумия и Кости Хитов выше. В
   // листе лежит РОВНО выпавшее число, а не готовая строка про счёт: счёт
@@ -589,10 +593,32 @@ function CharacterCard({
     };
   }
 
-  function adjustCoin(key: keyof Coins, delta: number) {
-    if (delta < 0 && c.coins[key] === 0) return;
+  /**
+   * Монеты одного номинала на `delta` за одну операцию — ±1 кнопками и любое
+   * число полем суммы. Убрать больше, чем есть, нельзя: операция не
+   * выполняется целиком и звучит предел, а не обнуляет кошель молча (за столом
+   * это «не хватает денег», а не «отдал всё»). Звук монет — один на операцию.
+   */
+  function adjustCoin(key: keyof Coins, delta: number): boolean {
+    if (!Number.isFinite(delta) || delta === 0) return false;
+    if (c.coins[key] + delta < 0) {
+      playLimitSound();
+      return false;
+    }
     playCoinsSound();
     onUpdate((ch) => ({ ...ch, coins: { ...ch.coins, [key]: Math.max(0, ch.coins[key] + delta) } }));
+    return true;
+  }
+
+  /** Сумма из поля номинала: целое больше нуля, иначе 0 — операции не будет. */
+  function coinAmountOf(key: keyof Coins): number {
+    const amount = Math.floor(Number(coinAmounts[key] ?? ""));
+    return Number.isFinite(amount) && amount > 0 ? amount : 0;
+  }
+
+  function applyCoinAmount(key: keyof Coins, sign: 1 | -1) {
+    const amount = coinAmountOf(key);
+    if (amount > 0 && adjustCoin(key, sign * amount)) setCoinAmounts((prev) => ({ ...prev, [key]: "" }));
   }
 
   function adjustItemQuantity(itemId: string, delta: number) {
@@ -620,7 +646,8 @@ function CharacterCard({
         ...ch,
         inventory: [
           ...ch.inventory,
-          { id: crypto.randomUUID(), name, quantity: 1, notes: "", weightLb: catalogWeightLb(name) },
+          // «Стрелы (20)» из каталога или «Стрелы ×20» руками — 20 штук, разбор у каталога.
+          { id: crypto.randomUUID(), ...inventoryEntryFromName(name), notes: "" },
         ],
       }),
     );
@@ -931,48 +958,6 @@ function CharacterCard({
   }
 
   /**
-   * Трата одной Кости Хитов. Бросок делает движок (`roll_dice`), как и у
-   * безумия, — своего `Math.random` на листе нет; модификатор Телосложения
-   * уходит в само выражение (`1d10+2`), поэтому сумму считает тот же владелец,
-   * что и бросок, а лист только показывает выпавшее.
-   *
-   * Кнопка НЕ заперта состоянием «идёт отдых»: его в приложении нет (см.
-   * HIT_DICE_HINT). Предел остатка — за `hitDice.ts`, звук предела — здесь,
-   * тем же правилом, что у `spendResource`.
-   */
-  async function spendHitDieRoll() {
-    if (hitDieRollingRef.current) return;
-    const die = classHitDiceByTitle[c.class]?.max;
-    // Пустой запас и неизвестная кость (справочник не загрузился) — звук
-    // предела, а не молчание: кнопка помечена aria-disabled, но не disabled.
-    if (!die || hitDiceLeft(c.hitDiceSpent, c.level) === 0) {
-      playLimitSound();
-      return;
-    }
-    hitDieRollingRef.current = true;
-    setRestNote(null);
-    const conMod = abilityMod(c.abilities.constitution);
-    try {
-      const roll = await invoke<RollResult>("roll_dice", { expression: `1d${die}${fmtMod(conMod)}` });
-      // Отрицательное Телосложение хитов не отнимает: кость лечит минимум 0.
-      const healed = Math.max(0, roll.total);
-      onUpdate((ch) => ({
-        ...ch,
-        // Выше максимума и ниже нуля не уйдёт — предел уже есть у clampCurrentHp.
-        currentHp: clampCurrentHp(ch.currentHp + healed, ch.maxHp),
-        hitDiceSpent: spendHitDie(ch.hitDiceSpent, ch.level),
-      }));
-      setRestNote(
-        `Кость Хитов 1к${die}: выпало ${roll.rolls.join(", ")}, Телосложение ${fmtMod(conMod)} — хитов +${healed}.`,
-      );
-    } catch (e) {
-      setRestNote(String(e));
-    } finally {
-      hitDieRollingRef.current = false;
-    }
-  }
-
-  /**
    * Ограниченные ресурсы, которые возвращает отдых, — классовые с архетипом и
    * расовые вместе, отобранные по ПОЛЮ `recharge`, а не по списку id. Поэтому
    * расовый «Зов бездны» Эльфа бездны, помеченный `long`, на коротком отдыхе не
@@ -1013,16 +998,45 @@ function CharacterCard({
    * `slotRecharge: "short"` (Магия договора Колдуна). Проверки id класса здесь
    * нет: владелец факта — поле данных, а кнопка его читает.
    *
-   * Хиты короткий отдых не поднимает: их растит только потраченная Кость Хитов.
+   * Кости Хитов — часть короткого отдыха (решение владельца 15.10.2026):
+   * кнопка открывает вопрос «сколько костей», и `count` приходит оттуда.
+   * Бросает их движок (`roll_dice`) одним выражением `Nd<кость>` — своего
+   * `Math.random` на листе нет; модификатор Телосложения к каждой кости и
+   * минимум 0 на кость считает `hitDiceHealing`, предел остатка — `spendHitDice`,
+   * предел хитов — `clampCurrentHp`. Всё — одним `onUpdate`, чтобы отказ
+   * движка не оставил отдых наполовину применённым.
+   *
    * Числа для подписи считаются ДО `onUpdate` — читать что-либо внутри
    * отложенного updater'а нельзя.
    */
-  function takeShortRest() {
+  async function takeShortRest(count: number) {
+    if (hitDieRollingRef.current) return;
+    const die = hitDie;
+    const diceSpent = die ? hitDiceAffordable(count) : 0;
     const resources = resourcesBackAfterRest("short");
     const refilled = resources.filter((r) => resourceCurrent(r) < resourceMax(r, c.abilities));
     const slotsBack = shortRestReturnsSlots ? spentSlotsTotal() : 0;
+    const conMod = abilityMod(c.abilities.constitution);
+    let rolls: number[] = [];
+    if (diceSpent > 0) {
+      hitDieRollingRef.current = true;
+      try {
+        rolls = (await invoke<RollResult>("roll_dice", { expression: `${diceSpent}d${die}` })).rolls;
+      } catch (e) {
+        setRestNote(String(e));
+        return;
+      } finally {
+        hitDieRollingRef.current = false;
+      }
+    }
+    const healed = hitDiceHealing(rolls, conMod);
+    const hpAfter = clampCurrentHp(c.currentHp + healed, c.maxHp);
+    setShortRestDice(null);
     onUpdate((ch) => ({
       ...ch,
+      // Выше максимума и ниже нуля не уйдёт — предел уже есть у clampCurrentHp.
+      currentHp: clampCurrentHp(ch.currentHp + healed, ch.maxHp),
+      hitDiceSpent: spendHitDice(ch.hitDiceSpent, ch.level, diceSpent),
       featureUses: refilledFeatureUses(ch, resources),
       spellSlotsCurrent: shortRestReturnsSlots
         ? restoreAllSlots(ch.spellSlotsCurrent, ch.spellSlotsMax)
@@ -1030,10 +1044,32 @@ function CharacterCard({
     }));
     setRestNote(
       restSummary("Короткий отдых", [
+        ...(diceSpent > 0
+          ? [
+              `Кости Хитов ${diceSpent}к${die}: выпало ${rolls.join(", ")}, Телосложение ${fmtMod(conMod)} к каждой — хитов +${healed} (хиты ${hpAfter}/${c.maxHp})`,
+            ]
+          : []),
         ...refilled.map((r) => r.name),
         ...(slotsBack > 0 ? [`ячеек возвращено ${slotsBack}`] : []),
       ]),
     );
+  }
+
+  /**
+   * Сколько костей из просимых реально потратится — обрезает `hitDice.ts`
+   * (`spendHitDice`), своего Math.min у поля и кнопки нет.
+   */
+  function hitDiceAffordable(asked: number): number {
+    return hitDiceRemaining - hitDiceLeft(spendHitDice(c.hitDiceSpent, c.level, asked), c.level);
+  }
+
+  /**
+   * Вопрос короткого отдыха открывается с одной костью, если хиты не полны и
+   * кость есть, иначе с нулём: лечиться полному незачем, а пустой запас тратить
+   * нечем. Число игрок меняет сам, от 0 до остатка.
+   */
+  function openShortRest() {
+    setShortRestDice(hitDie && hitDiceRemaining > 0 && c.currentHp < c.maxHp ? 1 : 0);
   }
 
   /**
@@ -2001,14 +2037,10 @@ function CharacterCard({
             </span>
             <button
               type="button"
-              title={`Потратить Кость Хитов: бросок 1к${hitDie ?? "?"} + модификатор Телосложения`}
-              aria-disabled={hitDiceRemaining === 0 || !hitDie}
-              className={hitDiceRemaining === 0 || !hitDie ? "character-card__danger" : undefined}
-              onClick={spendHitDieRoll}
+              title={`Короткий отдых: потратить Кости Хитов (1к${hitDie ?? "?"} + модификатор Телосложения за каждую) и вернуть помеченное «короткий отдых»`}
+              aria-expanded={shortRestDice !== null}
+              onClick={() => (shortRestDice === null ? openShortRest() : setShortRestDice(null))}
             >
-              Потратить кость
-            </button>
-            <button type="button" onClick={takeShortRest}>
               Короткий отдых
             </button>
             <button
@@ -2021,6 +2053,27 @@ function CharacterCard({
               Длинный отдых
             </button>
           </li>
+          {shortRestDice !== null && (
+            <li className="character-card__item character-card__rest-actions character-card__short-rest dm-list-row">
+              <label>
+                Сколько Костей Хитов потратить (доступно {hitDie ? hitDiceRemaining : 0}){" "}
+                <input
+                  type="number"
+                  min={0}
+                  max={hitDie ? hitDiceRemaining : 0}
+                  step={1}
+                  value={shortRestDice}
+                  onChange={(e) => setShortRestDice(hitDie ? hitDiceAffordable(Number(e.target.value)) : 0)}
+                />
+              </label>
+              <button type="button" onClick={() => void takeShortRest(shortRestDice)}>
+                {shortRestDice > 0 ? `Отдохнуть и бросить ${shortRestDice}к${hitDie}` : "Отдохнуть без костей"}
+              </button>
+              <button type="button" onClick={() => setShortRestDice(null)}>
+                Отмена
+              </button>
+            </li>
+          )}
         </ul>
         <div className="character-card__rest-hints">
           <p className="character-card__hint">{HIT_DICE_HINT}</p>
@@ -2677,6 +2730,39 @@ function CharacterCard({
               <span className="character-card__coin-count">{c.coins[denomination.key]}</span>
               <button type="button" onClick={() => adjustCoin(denomination.key, 1)} data-own-sound>
                 +
+              </button>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                className="character-card__coin-amount"
+                placeholder="сколько"
+                aria-label={`Сколько: ${denomination.fullName}`}
+                value={coinAmounts[denomination.key] ?? ""}
+                onChange={(e) => {
+                  const typed = e.target.value;
+                  setCoinAmounts((prev) => ({ ...prev, [denomination.key]: typed }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyCoinAmount(denomination.key, 1);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => applyCoinAmount(denomination.key, 1)}
+                disabled={coinAmountOf(denomination.key) === 0}
+                data-own-sound
+              >
+                Прибавить
+              </button>
+              <button
+                type="button"
+                onClick={() => applyCoinAmount(denomination.key, -1)}
+                disabled={coinAmountOf(denomination.key) === 0}
+                data-own-sound
+              >
+                Отнять
               </button>
             </li>
           ))}

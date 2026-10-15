@@ -31,7 +31,7 @@ import {
   CLASS_SPELLCASTING_ABILITY,
   CLASS_SUBCLASSES,
   isClassSpell,
-  catalogWeightLb,
+  inventoryEntryFromName,
   computeArmorClass,
   COIN_DENOMINATIONS,
   CUSTOM_BACKGROUND_EQUIPMENT_LIMIT,
@@ -704,12 +704,12 @@ export function CharacterWizard({ onDone }: { onDone: () => void }) {
     if (spellAbility && (knownCantrips.length !== requiredCantrips || castableSpells.length !== requiredSpells)) return;
     const conMod = abilityMod(totalAbilities.constitution);
     const maxHp = Math.max(1, (hitDie ?? 8) + conMod + raceHpBonus);
+    // «Арбалетные болты ×20» ложатся 20 штуками под именем без «×20» — разбор
+    // имени у каталога (`inventoryEntryFromName`), не здесь.
     const inventory: InventoryItem[] = inventoryItems.map((itemName) => ({
       id: crypto.randomUUID(),
-      name: itemName,
-      quantity: 1,
+      ...inventoryEntryFromName(itemName),
       notes: "",
-      weightLb: catalogWeightLb(itemName),
     }));
     const character: Character = {
       id: crypto.randomUUID(),

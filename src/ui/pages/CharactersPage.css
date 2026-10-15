@@ -445,6 +445,20 @@
   color: var(--dm-accent);
 }
 
+.character-card__coin-amount {
+  width: 7ch;
+  margin-left: 0.5em;
+}
+
+.character-card__short-rest {
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.character-card__short-rest input {
+  width: 5ch;
+}
+
 .character-card__conditions {
   margin-top: 0.4em;
   font-size: 0.9em;

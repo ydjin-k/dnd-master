@@ -605,7 +605,7 @@ export const BACKGROUNDS: BackgroundData[] = [
     equipment: [
       "Священный символ",
       "Молитвенник или молитвенное колесо",
-      "5 палочек ладана",
+      "Палочки ладана ×5",
       "Облачение",
       "Набор обычной одежды",
     ],
@@ -1328,34 +1328,84 @@ export function coinsWeightLb(coins: Coins): number {
 export function parseItemWeightLb(weight: string): number {
   const fraction = weight.match(/(\d+)\s*\/\s*(\d+)/);
   if (fraction) return Number(fraction[1]) / Number(fraction[2]);
-  const whole = weight.match(/\d+(\.\d+)?/);
+  // Десятичная запятая каталога («1,5 фнт.» у болтов и снарядов пращи) — та же
+  // дробь, что и точка; без этого полтора фунта читались одним.
+  const whole = weight.replace(",", ".").match(/\d+(\.\d+)?/);
   return whole ? Number(whole[0]) : 0;
 }
 
+/** Строка инвентаря без id и заметок: имя, число штук и вес ОДНОЙ штуки. */
+export interface InventoryEntry {
+  name: string;
+  quantity: number;
+  weightLb: number;
+}
+
+/** Пачка каталога «Стрелы (20)»: имя одной штуки и число в пачке; «Рационы (1 день)» пачкой не считается. */
+const CATALOG_BUNDLE = /^(.+) \((\d+)\)$/;
+/** Пачка стартового снаряжения «Стрелы ×20». */
+const EQUIPMENT_STACK = /^(.+) ×(\d+)$/;
+
 /**
- * Вес предмета по имени из общего каталога (`ALL_ITEMS_WITH_COST`) — 0 для
- * полностью произвольного (не из каталога) названия, честное текущее
- * ограничение (не пытаемся угадать вес выдуманного предмета).
+ * Вес ОДНОЙ штуки по имени без числа: сам предмет каталога («Дротик»), иначе
+ * доля его пачки («Стрелы (20)» весит 1 фнт. — стрела 1/20). 0 — предмета в
+ * каталоге нет (честное ограничение: вес выдуманного предмета не угадываем).
+ */
+function catalogUnitWeightLb(baseName: string): number {
+  const unit = ALL_ITEMS_WITH_COST.find((item) => item.name === baseName);
+  if (unit) return parseItemWeightLb(unit.weight);
+  for (const item of ALL_ITEMS_WITH_COST) {
+    const bundle = item.name.match(CATALOG_BUNDLE);
+    if (bundle && bundle[1] === baseName) return parseItemWeightLb(item.weight) / Number(bundle[2]);
+  }
+  return 0;
+}
+
+/**
+ * Имя предмета → строка инвентаря. ЕДИНСТВЕННОЕ место, где число штук
+ * вынимается из имени, — им пользуются мастер персонажа (стартовое снаряжение),
+ * добавление предмета на листе и мягкая миграция старых сохранений.
  *
- * Стартовое снаряжение мастера персонажа даёт часть предметов пачками вида
- * «Стрелы ×20» (см. `CLASS_EQUIPMENT`) — в каталоге под таким именем записи
- * нет ни у пачки («Стрелы (20)»), ни у поштучного веса без суффикса. Ищем
- * сначала пачку целиком, иначе берём вес одной штуки × количество.
+ * Расходники приходят пачками двух видов: «Арбалетные болты ×20» в стартовом
+ * снаряжении (`CLASS_EQUIPMENT`) и «Арбалетные болты (20)» в каталоге. Оба
+ * становятся предметом «Арбалетные болты» с количеством 20 — чтобы игрок
+ * убавлял их по одной, — а вес хранится поштучно, и `inventoryWeightLb`
+ * умножает его на количество. Всё прочее — одна штука под своим именем.
+ */
+export function inventoryEntryFromName(itemName: string): InventoryEntry {
+  const stacked = itemName.match(EQUIPMENT_STACK) ?? itemName.match(CATALOG_BUNDLE);
+  const count = stacked ? Number(stacked[2]) : 0;
+  if (stacked && count > 0) {
+    const name = stacked[1];
+    return { name, quantity: count, weightLb: catalogUnitWeightLb(name) };
+  }
+  return { name: itemName, quantity: 1, weightLb: catalogUnitWeightLb(itemName) };
+}
+
+/**
+ * Строка инвентаря с пачкой в имени («Стрелы ×20» или «Стрелы (20)» количеством
+ * 1) → «Стрелы» количеством 20 × прежнее количество и весом одной штуки.
+ * Строка без пачки в имени возвращается как есть, тем же объектом.
+ *
+ * Нужна двум путям, где имя пришло не из мастера: пресетам (presets.json несёт
+ * «Арбалетные болты (20)») и мягкой миграции сохранений, записанных до
+ * поштучного количества (`unpackStackedInventory` в CampaignContext). Общий
+ * вес строки при этом не меняется: был вес пачки × 1, стал вес штуки × 20.
+ */
+export function unpackStackedItem<T extends { name: string; quantity: number; weightLb: number }>(item: T): T {
+  const entry = inventoryEntryFromName(item.name);
+  if (entry.name === item.name) return item;
+  return { ...item, name: entry.name, quantity: item.quantity * entry.quantity, weightLb: entry.weightLb };
+}
+
+/**
+ * Полный вес того, что названо именем (пачка — вся пачка), — для
+ * предупреждения о перегрузе до добавления и для пресетов. Считает через
+ * `inventoryEntryFromName`, второго разбора имени нет.
  */
 export function catalogWeightLb(itemName: string): number {
-  const exact = ALL_ITEMS_WITH_COST.find((item) => item.name === itemName);
-  if (exact) return parseItemWeightLb(exact.weight);
-
-  const stacked = itemName.match(/^(.+) ×(\d+)$/);
-  if (!stacked) return 0;
-  const [, baseName, countStr] = stacked;
-  const count = Number(countStr);
-
-  const bundle = ALL_ITEMS_WITH_COST.find((item) => item.name === `${baseName} (${count})`);
-  if (bundle) return parseItemWeightLb(bundle.weight);
-
-  const unit = ALL_ITEMS_WITH_COST.find((item) => item.name === baseName);
-  return unit ? parseItemWeightLb(unit.weight) * count : 0;
+  const entry = inventoryEntryFromName(itemName);
+  return entry.weightLb * entry.quantity;
 }
 
 /** Грузоподъёмность SRD 5.1 (rules.json → gameplay-abilities): Сила × 15 фунтов, базовое (не вариативное) правило. */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hitDiceLeft, restoreHitDice, spendHitDie } from "./hitDice";
+import { hitDiceHealing, hitDiceLeft, restoreHitDice, spendHitDice, spendHitDie } from "./hitDice";
 
 /**
  * Предел Костей Хитов живёт здесь один на все пути записи (кнопка траты,
@@ -65,5 +65,22 @@ describe("hitDice", () => {
     expect(hitDiceLeft(0, 0)).toBe(0);
     expect(hitDiceLeft(Number.NaN, 4)).toBe(4);
     expect(hitDiceLeft(0, Number.NaN)).toBe(0);
+  });
+
+  it("короткий отдых тратит несколько костей разом, но не больше остатка", () => {
+    expect(spendHitDice(0, 5, 3)).toBe(3);
+    expect(hitDiceLeft(spendHitDice(0, 5, 3), 5)).toBe(2);
+    // Просят пять, осталось две — потрачено две, а не пять.
+    expect(spendHitDice(3, 5, 5)).toBe(5);
+    expect(spendHitDice(1, 4, 0)).toBe(1);
+    expect(spendHitDice(1, 4, -2)).toBe(1);
+    expect(spendHitDice(1, 4, Number.NaN)).toBe(1);
+  });
+
+  it("лечение костями — по каждой кости с модификатором Телосложения, каждая минимум 0", () => {
+    expect(hitDiceHealing([4, 7, 2], 2)).toBe(19); // 13 + 3×2
+    // 1 и 5 при −2: 0 + 3, а не (6 − 4) = 2 одной суммой.
+    expect(hitDiceHealing([1, 5], -2)).toBe(3);
+    expect(hitDiceHealing([], 3)).toBe(0);
   });
 });

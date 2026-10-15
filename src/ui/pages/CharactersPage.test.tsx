@@ -139,6 +139,16 @@ function expectStat(label: string, value: string) {
   expect(within(tile as HTMLElement).getByText(value, { selector: "dd" })).toBeInTheDocument();
 }
 
+/**
+ * Короткий отдых целиком: открыть вопрос «сколько Костей Хитов», набрать
+ * `dice` и отдохнуть. С нулём костей отдых применяется сразу, без броска.
+ */
+function shortRest(dice = 0) {
+  fireEvent.click(screen.getByText("Короткий отдых"));
+  fireEvent.change(screen.getByLabelText(/Сколько Костей Хитов потратить/), { target: { value: String(dice) } });
+  fireEvent.click(screen.getByText(/^Отдохнуть/));
+}
+
 describe("CharactersPage", () => {
   beforeEach(() => {
     addCharacter.mockClear();
@@ -3300,68 +3310,83 @@ describe("CharactersPage", () => {
       expect(actionRow.contains(hints)).toBe(false);
       expect([...hints.children].map((child) => child.tagName)).toEqual(["P", "P", "P"]);
 
-      fireEvent.click(within(actionRow).getByText("Короткий отдых"));
+      shortRest(0);
       const note = screen.getByText("Короткий отдых: Второе дыхание, Всплеск действий.");
       expect(note).toHaveClass("character-card__rest-note");
       expect(note).not.toHaveClass("character-card__hint");
     });
 
-    it("трата кости лечит на выпавшее с модификатором Телосложения и уменьшает счётчик", async () => {
+    it("короткий отдых с тремя костями: три броска движком, к каждой мод. Телосложения, костей меньше на три", async () => {
       const hero: Character = {
         ...characterWithInventory(),
         abilities: { ...characterWithInventory().abilities, constitution: 14 }, // +2
-        level: 3,
-        maxHp: 20,
-        currentHp: 5,
+        level: 5,
+        maxHp: 40,
+        currentHp: 10,
+        hitDiceSpent: 0,
       };
-      await renderSheet(hero, { roll: { rolls: [7], modifier: 2, total: 9 } });
+      await renderSheet(hero, { roll: { rolls: [4, 7, 2], modifier: 0, total: 13 } });
 
-      fireEvent.click(screen.getByText("Потратить кость"));
+      shortRest(3);
       await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
 
-      // Бросок сделал движок, а не свой Math.random: кость классовая, модификатор в выражении.
-      expect(invoke).toHaveBeenCalledWith("roll_dice", { expression: "1d10+2" });
+      // Бросок сделал движок одним выражением на три кости — своего Math.random нет.
+      expect(invoke).toHaveBeenCalledWith("roll_dice", { expression: "3d10" });
       const after = applied(hero);
-      expect(after.currentHp).toBe(14);
-      expect(after.hitDiceSpent).toBe(1);
-      expect(screen.getByText(/Кость Хитов 1к10: выпало 7, Телосложение \+2 — хитов \+9\./)).toBeInTheDocument();
+      expect(after.currentHp).toBe(10 + 13 + 3 * 2); // 29
+      expect(after.hitDiceSpent).toBe(3);
+      expect(screen.getByText(/Кости Хитов 3к10: выпало 4, 7, 2, Телосложение \+2 к каждой — хитов \+19 \(хиты 29\/40\)/)).toBeInTheDocument();
+      // Счётчик остался на листе, отдельной кнопки траты кости больше нет.
+      expect(screen.queryByText("Потратить кость")).not.toBeInTheDocument();
     });
 
-    it("выше максимума хитов кость не поднимает, а отрицательное Телосложение их не отнимает", async () => {
-      const tough: Character = { ...characterWithInventory(), level: 2, maxHp: 16, currentHp: 12 };
-      await renderSheet(tough, { roll: { rolls: [9], modifier: 0, total: 9 } });
-      fireEvent.click(screen.getByText("Потратить кость"));
+    it("короткий отдых не поднимает хиты выше максимума", async () => {
+      const tough: Character = { ...characterWithInventory(), level: 5, maxHp: 40, currentHp: 35 };
+      await renderSheet(tough, { roll: { rolls: [9, 8, 10], modifier: 0, total: 27 } });
+      shortRest(3);
       await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
-      expect(applied(tough).currentHp).toBe(16);
+      expect(applied(tough).currentHp).toBe(40);
+      expect(applied(tough).hitDiceSpent).toBe(3);
+    });
 
-      cleanup();
-      updateCharacter.mockClear();
+    it("отрицательное Телосложение считается к каждой кости и не отнимает хиты: 1 и 5 при −2 лечат на 3, а не на 2", async () => {
       const frail: Character = {
         ...characterWithInventory(),
         abilities: { ...characterWithInventory().abilities, constitution: 6 }, // -2
         level: 2,
-        maxHp: 8,
+        maxHp: 16,
         currentHp: 3,
       };
-      await renderSheet(frail, { roll: { rolls: [1], modifier: -2, total: -1 } });
-      fireEvent.click(screen.getByText("Потратить кость"));
+      await renderSheet(frail, { roll: { rolls: [1, 5], modifier: 0, total: 6 } });
+      shortRest(2);
       await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
       const after = applied(frail);
-      // Лечение минимум 0: отрицательный модификатор хиты не отнимает, а кость всё равно потрачена.
-      expect(after.currentHp).toBe(3);
-      expect(after.hitDiceSpent).toBe(1);
+      // Кость с единицей лечит на 0, а не на −1, и не съедает выпавшее на соседней.
+      expect(after.currentHp).toBe(6);
+      expect(after.hitDiceSpent).toBe(2);
     });
 
-    it("пустой запас костей не тратится, помечен aria-disabled и звучит пределом", async () => {
+    it("больше остатка костей не потратить: при пустом запасе отдых без броска", async () => {
       const spent: Character = { ...characterWithInventory(), level: 2, hitDiceSpent: 2, maxHp: 16, currentHp: 4 };
       await renderSheet(spent);
+      vi.mocked(invoke).mockClear();
 
-      const button = screen.getByText("Потратить кость");
-      expect(button).toHaveAttribute("aria-disabled", "true");
-      expect(button).toBeEnabled(); // не `disabled`: тогда звука предела не было бы
-      fireEvent.click(button);
+      shortRest(5);
 
-      expect(sounds.playLimitSound).toHaveBeenCalled();
+      expect(invoke).not.toHaveBeenCalledWith("roll_dice", expect.anything());
+      expect(applied(spent).hitDiceSpent).toBe(2);
+      expect(applied(spent).currentHp).toBe(4);
+    });
+
+    it("отказ движка не применяет отдых наполовину", async () => {
+      const hero: Character = { ...characterWithInventory(), level: 3, maxHp: 24, currentHp: 5 };
+      await renderSheet(hero);
+      vi.mocked(invoke).mockImplementation(async (cmd: unknown) => {
+        if (cmd === "roll_dice") throw new Error("кость не бросилась");
+        return [];
+      });
+      shortRest(2);
+      expect(await screen.findByText(/кость не бросилась/)).toBeInTheDocument();
       expect(updateCharacter).not.toHaveBeenCalled();
     });
 
@@ -3392,7 +3417,7 @@ describe("CharactersPage", () => {
       };
       await renderSheet(elf);
 
-      fireEvent.click(screen.getByText("Короткий отдых"));
+      shortRest(0);
       const after = applied(elf);
 
       expect(after.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
@@ -3417,7 +3442,7 @@ describe("CharactersPage", () => {
         spellSlotsCurrent: [0, 0, 0, 0, 0, 0, 0, 0, 0],
       };
       await renderSheet(warlock, { topic: WARLOCK_TOPIC });
-      fireEvent.click(screen.getByText("Короткий отдых"));
+      shortRest(0);
       expect(applied(warlock).spellSlotsCurrent).toEqual([0, 2, 0, 0, 0, 0, 0, 0, 0]);
       expect(screen.getByText(/ячеек возвращено 2/)).toBeInTheDocument();
 
@@ -3431,7 +3456,7 @@ describe("CharactersPage", () => {
         spellSlotsCurrent: [1, 0, 0, 0, 0, 0, 0, 0, 0],
       };
       await renderSheet(wizard, { topic: WIZARD_TOPIC });
-      fireEvent.click(screen.getByText("Короткий отдых"));
+      shortRest(0);
       expect(applied(wizard).spellSlotsCurrent).toEqual([1, 0, 0, 0, 0, 0, 0, 0, 0]);
     });
 
@@ -3520,7 +3545,7 @@ describe("CharactersPage", () => {
       };
       await renderSheet(elf);
 
-      fireEvent.click(screen.getByText("Короткий отдых"));
+      shortRest(0);
       const afterShort = applied(elf);
       expect(afterShort.featureUses).toContainEqual({ featureId: "second-wind", usesCurrent: 1 });
       expect(afterShort.featureUses).toContainEqual({ featureId: "abyss-call", usesCurrent: 0 });
@@ -3741,7 +3766,7 @@ describe("CharactersPage", () => {
       it("Кость Хитов: лечение костью очищает счёт тем же путём", async () => {
         const hero = await renderSheetAtHp(0, 6, { deathSaveSuccesses: 1, deathSaveFailures: 2, level: 3, maxHp: 24 });
 
-        fireEvent.click(screen.getByTitle(/Потратить Кость Хитов/));
+        shortRest(1);
 
         await waitFor(() => expect(updateCharacter).toHaveBeenCalled());
         const after = lastUpdater()(hero);
@@ -4291,7 +4316,7 @@ describe("CharactersPage", () => {
       const { rerender } = renderAlchemist(spent);
       await screen.findByText(/Особенности класса/);
 
-      fireEvent.click(screen.getByText("Короткий отдых"));
+      shortRest(0);
       const short = (updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character)(spent);
       expect(short.featureUses).toContainEqual({ featureId: "reagent-dice", usesCurrent: 1 });
       expect(short.featureUses).toContainEqual({ featureId: "alchemist-bombs", usesCurrent: 18 });

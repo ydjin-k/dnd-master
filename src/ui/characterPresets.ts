@@ -1,4 +1,4 @@
-import { catalogWeightLb } from "./characterCreationData";
+import { inventoryEntryFromName, unpackStackedItem } from "./characterCreationData";
 import type { Character } from "../state/types";
 
 /**
@@ -20,7 +20,7 @@ export type CharacterPreset = Character;
  *
  * Вес предмета не хранится в presets.json намеренно: его единственный владелец
  * — каталог `characterCreationData.ts`, и подставляется он ровно тем же
- * вызовом `catalogWeightLb`, что и у стартового снаряжения мастера персонажа
+ * разбором `inventoryEntryFromName`, что и у стартового снаряжения мастера персонажа
  * (см. `finish()` в CharacterWizard.tsx). Иначе число в файле пресета молча
  * разошлось бы с каталогом.
  */
@@ -28,11 +28,12 @@ export function characterFromPreset(preset: CharacterPreset): Character {
   return {
     ...preset,
     id: crypto.randomUUID(),
-    inventory: preset.inventory.map((item) => ({
-      ...item,
-      id: crypto.randomUUID(),
-      weightLb: catalogWeightLb(item.name),
-    })),
+    inventory: preset.inventory.map((item) => {
+      // Пачка в имени («Арбалетные болты (20)») становится количеством — тем же
+      // разбором, что у мастера; вес одной штуки — из каталога.
+      const unpacked = unpackStackedItem({ ...item, weightLb: 0 });
+      return { ...unpacked, id: crypto.randomUUID(), weightLb: inventoryEntryFromName(unpacked.name).weightLb };
+    }),
   };
 }
 

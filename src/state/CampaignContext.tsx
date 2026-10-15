@@ -18,6 +18,7 @@ import {
 import { travelOf } from "../ui/travelPace";
 import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
 import { deathSavesAtHp, normalizeDeathSaves, type DeathSaves } from "../ui/deathSaves";
+import { unpackStackedItem } from "../ui/characterCreationData";
 
 interface CampaignContextValue {
   state: CampaignState;
@@ -50,6 +51,26 @@ interface CampaignContextValue {
 
 const CampaignContext = createContext<CampaignContextValue | null>(null);
 
+/**
+ * Мягкая миграция при загрузке: сохранения до поштучного количества несут
+ * «Стрелы ×20» количеством 1 — такая строка становится «Стрелы» количеством 20,
+ * иначе игроку нечего убавлять. Разбор имени — `unpackStackedItem` каталога,
+ * общий вес строки не меняется. На диск уйдёт со следующим сохранением;
+ * сохранение без пачек возвращается тем же объектом.
+ */
+export function unpackStackedInventory(state: CampaignState): CampaignState {
+  let changed = false;
+  const characters = state.characters.map((ch) => {
+    // Запись без инвентаря (неполные данные) мигрировать нечем — как есть.
+    if (!Array.isArray(ch.inventory)) return ch;
+    const inventory = ch.inventory.map(unpackStackedItem);
+    if (inventory.every((item, i) => item === ch.inventory[i])) return ch;
+    changed = true;
+    return { ...ch, inventory };
+  });
+  return changed ? { ...state, characters } : state;
+}
+
 export function CampaignProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CampaignState>(emptyCampaignState());
   const [loading, setLoading] = useState(true);
@@ -78,7 +99,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     invoke<CampaignState | null>("load_active_campaign")
       .then((loaded) => {
-        if (loaded) commit(loaded);
+        if (loaded) commit(unpackStackedInventory(loaded));
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
