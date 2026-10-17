@@ -222,7 +222,7 @@
 .dungeon-map__svg {
   display: block;
   width: 100%;
-  min-width: 420px;
+  min-width: 560px;
   height: auto;
 }
 
@@ -256,6 +256,14 @@
   align-items: center;
 }
 
+/* Значки легенды — на том же «пергаменте», что и схема: иначе пунктир
+   «не исследовано» теряется на тёмной панели. */
+.dungeons-page__legend-row svg {
+  flex: none;
+  border-radius: 4px;
+  background: #efe6d2;
+}
+
 .dungeons-page__rooms {
   margin: 0;
   padding-left: 1.25rem;
@@ -273,6 +281,6 @@
 
 @media (max-width: 620px) {
   .dungeons-page__head {
-    padding: 2.5rem 0 0;
+    padding: 3.4rem 0 0;
   }
 }
