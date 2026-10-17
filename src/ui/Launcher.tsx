@@ -29,10 +29,15 @@ function SoundIcon({ muted }: { muted: boolean }) {
 function TitleOrnament() {
   return (
     <svg className="launcher__title-ornament" viewBox="0 0 360 40" aria-hidden="true">
+      <defs>
+        <mask id="launcher-title-crescent">
+          <rect width="360" height="40" fill="white" />
+          <circle cx="186" cy="14" r="11" fill="black" />
+        </mask>
+      </defs>
       <path className="launcher__ornament-rule" d="M8 20h132m80 0h132" />
-      <circle className="launcher__ornament-halo" cx="180" cy="20" r="14" />
-      <path className="launcher__ornament-moon" d="M176 5a15 15 0 1 0 15 27 12.4 12.4 0 0 1-15-27Z" />
-      <path className="launcher__ornament-star" d="m150 20 4-1.4 1.4-4 1.4 4 4 1.4-4 1.4-1.4 4-1.4-4Zm49 0 4-1.4 1.4-4 1.4 4 4 1.4-4 1.4-1.4 4-1.4-4Z" />
+      <circle className="launcher__ornament-moon" cx="180" cy="20" r="12" mask="url(#launcher-title-crescent)" />
+      <path className="launcher__ornament-star" d="m150 20 4.5-1.5 1.5-4.5 1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5Zm48 0 4.5-1.5 1.5-4.5 1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5Z" />
     </svg>
   );
 }
@@ -49,6 +54,12 @@ function Astrolabe() {
   ];
   return (
     <svg className="launcher__astrolabe" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <mask id="launcher-astrolabe-details">
+          <rect width="100" height="100" fill="white" />
+          <circle cx="50" cy="50" r="24" fill="black" />
+        </mask>
+      </defs>
       <circle className="launcher__astrolabe-shadow" cx="50" cy="50" r="45.5" />
       <circle className="launcher__astrolabe-line launcher__astrolabe-line--outer" cx="50" cy="50" r="45" />
       <circle className="launcher__astrolabe-line launcher__astrolabe-line--heavy" cx="50" cy="50" r="43.8" />
@@ -59,8 +70,6 @@ function Astrolabe() {
       <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="31.8" />
       <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="27.7" />
       <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="23.5" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="18.2" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="13.8" />
       {Array.from({ length: 72 }, (_, index) => (
         <line
           key={`tick-${index}`}
@@ -79,14 +88,14 @@ function Astrolabe() {
           {index % 3 === 2 && <path d="m48.7 8.5 2.6 2.1m0-2.1-2.6 2.1" />}
         </g>
       ))}
-      <ellipse className="launcher__astrolabe-orbit launcher__astrolabe-orbit--gold" cx="50" cy="50" rx="32" ry="16" transform="rotate(-20 50 50)" />
-      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="30" ry="11" transform="rotate(31 50 50)" />
-      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="25" ry="19" transform="rotate(57 50 50)" />
-      <ellipse className="launcher__astrolabe-orbit launcher__astrolabe-orbit--gold" cx="50" cy="50" rx="21" ry="8" transform="rotate(-53 50 50)" />
-      {spokes.map((position, index) => <line key={index} className="launcher__astrolabe-spoke" x1="50" y1="50" x2={position.x} y2={position.y} />)}
-      <path className="launcher__constellation" d="M18 45l8-7 8 4 7-13m27-7 6 12 7 8-5 12m-53 18 6-4 7 8 8-3m17 9 6-12 7 7 9-8" />
-      <path className="launcher__constellation launcher__constellation--fine" d="M31 24l7-4 9-2 5 6 7-6 10 4M28 55l7 3 4 7 10 4 8-7 7-6 8 7" />
-      {starPoints.map(([cx, cy], index) => <circle key={`${cx}-${cy}`} className="launcher__star-point" cx={cx} cy={cy} r={index % 7 === 0 ? "0.62" : index % 3 === 0 ? "0.42" : "0.27"} />)}
+      <g mask="url(#launcher-astrolabe-details)">
+        <ellipse className="launcher__astrolabe-orbit launcher__astrolabe-orbit--gold" cx="50" cy="50" rx="32" ry="16" transform="rotate(-20 50 50)" />
+        <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="30" ry="11" transform="rotate(31 50 50)" />
+        <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="25" ry="19" transform="rotate(57 50 50)" />
+        {spokes.map((position, index) => <line key={index} className="launcher__astrolabe-spoke" x1="50" y1="50" x2={position.x} y2={position.y} />)}
+        <path className="launcher__constellation" d="M18 45l8-7 8 4 5-11m30-9 6 11 6 9-5 12M23 72l6-4 7 8 7-3m20 5 5-8 7 6 6-7" />
+        {starPoints.map(([cx, cy], index) => <circle key={`${cx}-${cy}`} className="launcher__star-point" cx={cx} cy={cy} r={index % 7 === 0 ? "0.62" : index % 3 === 0 ? "0.42" : "0.27"} />)}
+      </g>
       <path className="launcher__cardinal-star" d="m50 5 1.1 3.4L54.5 10l-3.4 1.1L50 14.5l-1.1-3.4L45.5 10l3.4-1.6Z" />
     </svg>
   );
