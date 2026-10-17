@@ -12,7 +12,7 @@ export function getDialPositions(count: number): DialPosition[] {
   if (count <= 0) return [];
   return Array.from({ length: count }, (_, index) => {
     const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-    return { x: 50 + Math.cos(angle) * 39, y: 50 + Math.sin(angle) * 39, ring: 0 };
+    return { x: 50 + Math.cos(angle) * 38, y: 50 + Math.sin(angle) * 38, ring: 0 };
   });
 }
 
@@ -28,33 +28,65 @@ function SoundIcon({ muted }: { muted: boolean }) {
 
 function TitleOrnament() {
   return (
-    <svg className="launcher__title-ornament" viewBox="0 0 320 28" aria-hidden="true">
-      <path d="M8 14h126m52 0h126" />
-      <path className="launcher__ornament-moon" d="M158 4a10 10 0 1 0 10 16 8.3 8.3 0 0 1-10-16Z" />
-      <path className="launcher__ornament-star" d="m139 14 3-1 1-3 1 3 3 1-3 1-1 3-1-3Zm34 0 3-1 1-3 1 3 3 1-3 1-1 3-1-3Z" />
+    <svg className="launcher__title-ornament" viewBox="0 0 360 40" aria-hidden="true">
+      <path className="launcher__ornament-rule" d="M8 20h132m80 0h132" />
+      <circle className="launcher__ornament-halo" cx="180" cy="20" r="14" />
+      <path className="launcher__ornament-moon" d="M176 5a15 15 0 1 0 15 27 12.4 12.4 0 0 1-15-27Z" />
+      <path className="launcher__ornament-star" d="m150 20 4-1.4 1.4-4 1.4 4 4 1.4-4 1.4-1.4 4-1.4-4Zm49 0 4-1.4 1.4-4 1.4 4 4 1.4-4 1.4-1.4 4-1.4-4Z" />
     </svg>
   );
 }
 
 function Astrolabe() {
   const spokes = getDialPositions(MAX_CAMPAIGNS);
+  const starPoints = [
+    [18, 45], [20, 53], [22, 62], [24, 31], [26, 38], [27, 55], [29, 68], [30, 24],
+    [31, 47], [32, 76], [34, 34], [35, 58], [37, 20], [38, 43], [39, 65], [41, 29],
+    [42, 73], [44, 37], [45, 59], [47, 18], [48, 31], [49, 69], [52, 24], [53, 42],
+    [54, 77], [56, 32], [57, 62], [59, 18], [60, 48], [61, 70], [63, 27], [64, 56],
+    [66, 38], [67, 78], [69, 22], [70, 48], [72, 63], [74, 34], [76, 54], [77, 69],
+    [79, 42], [81, 58], [28, 83], [36, 81], [47, 84], [58, 82], [69, 84], [23, 72],
+  ];
   return (
     <svg className="launcher__astrolabe" viewBox="0 0 100 100" aria-hidden="true">
       <circle className="launcher__astrolabe-shadow" cx="50" cy="50" r="45.5" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--outer" cx="50" cy="50" r="44.5" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--ticks" cx="50" cy="50" r="42" />
-      <circle className="launcher__astrolabe-line" cx="50" cy="50" r="38" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="33.5" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--faint" cx="50" cy="50" r="27" />
-      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="19" />
-      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="31" ry="15" transform="rotate(-24 50 50)" />
-      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="29" ry="11" transform="rotate(31 50 50)" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--outer" cx="50" cy="50" r="45" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--heavy" cx="50" cy="50" r="43.8" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="42.7" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--heavy" cx="50" cy="50" r="40.9" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--medallion" cx="50" cy="50" r="38" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="35.2" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="31.8" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="27.7" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="23.5" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="18.2" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--fine" cx="50" cy="50" r="13.8" />
+      {Array.from({ length: 72 }, (_, index) => (
+        <line
+          key={`tick-${index}`}
+          className={`launcher__astrolabe-tick${index % 6 === 0 ? " launcher__astrolabe-tick--major" : ""}`}
+          x1="50"
+          y1={index % 6 === 0 ? "5.1" : "5.8"}
+          x2="50"
+          y2={index % 6 === 0 ? "8.1" : "7.3"}
+          transform={`rotate(${index * 5} 50 50)`}
+        />
+      ))}
+      {Array.from({ length: 12 }, (_, index) => (
+        <g key={`sign-${index}`} className="launcher__astrolabe-sign" transform={`rotate(${index * 30 + 15} 50 50)`}>
+          {index % 3 === 0 && <path d="m48.9 9.6 1.1-1.5 1.1 1.5-1.1 1.5Z" />}
+          {index % 3 === 1 && <path d="m48.6 10.6 1.4-2.4 1.4 2.4m-2.1-.8h1.4" />}
+          {index % 3 === 2 && <path d="m48.7 8.5 2.6 2.1m0-2.1-2.6 2.1" />}
+        </g>
+      ))}
+      <ellipse className="launcher__astrolabe-orbit launcher__astrolabe-orbit--gold" cx="50" cy="50" rx="32" ry="16" transform="rotate(-20 50 50)" />
+      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="30" ry="11" transform="rotate(31 50 50)" />
+      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="25" ry="19" transform="rotate(57 50 50)" />
+      <ellipse className="launcher__astrolabe-orbit launcher__astrolabe-orbit--gold" cx="50" cy="50" rx="21" ry="8" transform="rotate(-53 50 50)" />
       {spokes.map((position, index) => <line key={index} className="launcher__astrolabe-spoke" x1="50" y1="50" x2={position.x} y2={position.y} />)}
-      <path className="launcher__constellation" d="M21 42l6-8 5 6 7-13m35 2 6 8-4 8 8 5M27 68l7 5 7-4m22 7 8-7 7 4" />
-      {["21,42", "27,34", "32,40", "39,27", "74,29", "80,37", "76,45", "84,50", "27,68", "34,73", "41,69", "63,76", "71,69", "78,73"].map((point) => {
-        const [cx, cy] = point.split(",");
-        return <circle key={point} className="launcher__star-point" cx={cx} cy={cy} r="0.72" />;
-      })}
+      <path className="launcher__constellation" d="M18 45l8-7 8 4 7-13m27-7 6 12 7 8-5 12m-53 18 6-4 7 8 8-3m17 9 6-12 7 7 9-8" />
+      <path className="launcher__constellation launcher__constellation--fine" d="M31 24l7-4 9-2 5 6 7-6 10 4M28 55l7 3 4 7 10 4 8-7 7-6 8 7" />
+      {starPoints.map(([cx, cy], index) => <circle key={`${cx}-${cy}`} className="launcher__star-point" cx={cx} cy={cy} r={index % 7 === 0 ? "0.62" : index % 3 === 0 ? "0.42" : "0.27"} />)}
       <path className="launcher__cardinal-star" d="m50 5 1.1 3.4L54.5 10l-3.4 1.1L50 14.5l-1.1-3.4L45.5 10l3.4-1.6Z" />
     </svg>
   );
@@ -199,7 +231,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
             })}
 
             <div className={`launcher__dial-center${selected ? " is-open" : ""}`} aria-live="polite">
-              <span className="launcher__moon" aria-hidden="true" />
+              <span className="launcher__moon" aria-hidden="true"><i /></span>
               <p className="launcher__selection-label">{selected ? "Выбранная кампания" : campaigns.length === 0 ? "Начните первую историю" : "Выберите кампанию"}</p>
               <span className="launcher__center-divider" aria-hidden="true"><i /></span>
               {selected && (

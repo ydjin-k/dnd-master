@@ -69,9 +69,9 @@ describe("Launcher", () => {
   it("places six equal positions around the dial with the first at the top", () => {
     const positions = getDialPositions(6);
     expect(positions).toHaveLength(6);
-    expect(positions[0]).toMatchObject({ x: 50, y: 11, ring: 0 });
+    expect(positions[0]).toMatchObject({ x: 50, y: 12, ring: 0 });
     expect(positions[3].x).toBeCloseTo(50);
-    expect(positions[3].y).toBeCloseTo(89);
+    expect(positions[3].y).toBeCloseTo(88);
   });
 
   it("renders the empty dial with six plus buttons that focus the name field", async () => {

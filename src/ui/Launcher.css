@@ -9,31 +9,40 @@
 
 .launcher__masthead { position: relative; z-index: 4; text-align: center; text-shadow: 0 2px 18px var(--dm-shadow); }
 .launcher__title { margin: 0; color: var(--dm-gold); font-size: clamp(2.8rem, 6.4vw, 5rem); font-weight: 500; letter-spacing: 0.06em; line-height: 0.95; text-shadow: 0 2px 4px var(--dm-gold-ink), 0 0 22px color-mix(in srgb, var(--dm-gold) 18%, transparent); }
-.launcher__title-ornament { display: block; width: min(20rem, 64vw); height: auto; margin: 0.3rem auto 0; overflow: visible; fill: none; stroke: var(--dm-gold-line); stroke-width: 1; }
-.launcher__ornament-moon, .launcher__ornament-star { fill: var(--dm-gold); stroke: none; }
+.launcher__title-ornament { display: block; width: min(22rem, 68vw); height: auto; margin: 0.15rem auto 0; overflow: visible; fill: none; stroke: var(--dm-gold-line); stroke-width: 1.15; }
+.launcher__ornament-rule { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--dm-gold) 36%, transparent)); }
+.launcher__ornament-halo { fill: color-mix(in srgb, var(--dm-gold) 8%, transparent); stroke: color-mix(in srgb, var(--dm-gold) 36%, transparent); }
+.launcher__ornament-moon, .launcher__ornament-star { fill: var(--dm-gold); stroke: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--dm-gold) 65%, transparent)); }
 .launcher__error, .launcher__loading { position: relative; z-index: 10; max-width: 42rem; margin: 1rem auto; text-align: center; }
 .launcher__error { color: var(--dm-danger); }
 .launcher__loading { color: var(--dm-text-muted); }
 
 .launcher__selector { margin-top: clamp(-1rem, -1.5vw, -0.25rem); }
 .launcher__dial { position: relative; display: grid; place-items: center; width: min(42rem, calc(100vw - 2rem), 64vh); aspect-ratio: 1; margin: 0 auto; }
-.launcher__astrolabe { position: absolute; inset: 1%; width: 98%; height: 98%; overflow: visible; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--dm-gold-line) 14%, transparent)); }
-.launcher__astrolabe-shadow { fill: color-mix(in srgb, var(--dm-panel) 88%, transparent); stroke: color-mix(in srgb, var(--dm-gold-line) 40%, transparent); stroke-width: 0.35; }
-.launcher__astrolabe-line, .launcher__astrolabe-orbit, .launcher__astrolabe-spoke, .launcher__constellation { fill: none; stroke: color-mix(in srgb, var(--dm-gold-line) 54%, transparent); stroke-width: 0.22; vector-effect: non-scaling-stroke; }
-.launcher__astrolabe-line--outer { stroke: var(--dm-gold-line); stroke-width: 0.42; }
-.launcher__astrolabe-line--ticks { stroke-dasharray: 0.35 1.45; stroke-width: 1.2; }
-.launcher__astrolabe-line--dashed { stroke-dasharray: 0.8 1.5; }
-.launcher__astrolabe-line--faint { stroke: color-mix(in srgb, var(--dm-periwinkle) 30%, transparent); }
-.launcher__astrolabe-orbit { stroke: color-mix(in srgb, var(--dm-periwinkle) 38%, transparent); }
-.launcher__astrolabe-spoke { stroke: color-mix(in srgb, var(--dm-gold-line) 34%, transparent); stroke-dasharray: 1 1.4; }
-.launcher__constellation { stroke: color-mix(in srgb, var(--dm-text) 50%, transparent); stroke-width: 0.3; }
-.launcher__star-point { fill: var(--dm-text); filter: drop-shadow(0 0 1px var(--dm-text)); }
+.launcher__astrolabe { position: absolute; inset: 1%; width: 98%; height: 98%; overflow: visible; filter: drop-shadow(0 0 15px color-mix(in srgb, var(--dm-gold-line) 24%, transparent)); }
+.launcher__astrolabe-shadow { fill: color-mix(in srgb, var(--dm-panel) 94%, transparent); stroke: var(--dm-gold-line); stroke-width: 0.32; }
+.launcher__astrolabe-line, .launcher__astrolabe-orbit, .launcher__astrolabe-spoke, .launcher__constellation { fill: none; stroke: color-mix(in srgb, var(--dm-gold-line) 76%, transparent); stroke-width: 0.22; }
+.launcher__astrolabe-line--outer { stroke: var(--dm-gold); stroke-width: 0.5; }
+.launcher__astrolabe-line--heavy { stroke: var(--dm-gold-line); stroke-width: 0.34; }
+.launcher__astrolabe-line--fine { stroke: color-mix(in srgb, var(--dm-gold-line) 50%, transparent); stroke-width: 0.14; }
+.launcher__astrolabe-line--medallion { stroke: color-mix(in srgb, var(--dm-gold) 84%, transparent); stroke-width: 0.48; }
+.launcher__astrolabe-line--dashed { stroke: color-mix(in srgb, var(--dm-gold-line) 62%, transparent); stroke-width: 0.18; stroke-dasharray: 0.65 1.15; }
+.launcher__astrolabe-tick { stroke: color-mix(in srgb, var(--dm-gold-line) 78%, transparent); stroke-width: 0.18; }
+.launcher__astrolabe-tick--major { stroke: var(--dm-gold); stroke-width: 0.34; }
+.launcher__astrolabe-sign { fill: none; stroke: var(--dm-gold-line); stroke-width: 0.26; stroke-linecap: round; stroke-linejoin: round; }
+.launcher__astrolabe-orbit { stroke: color-mix(in srgb, var(--dm-gold-line) 52%, transparent); stroke-width: 0.16; }
+.launcher__astrolabe-orbit--gold { stroke: color-mix(in srgb, var(--dm-gold) 72%, transparent); stroke-width: 0.23; }
+.launcher__astrolabe-spoke { stroke: color-mix(in srgb, var(--dm-gold-line) 40%, transparent); stroke-width: 0.13; stroke-dasharray: 0.7 1.2; }
+.launcher__constellation { stroke: color-mix(in srgb, var(--dm-text) 64%, transparent); stroke-width: 0.23; }
+.launcher__constellation--fine { stroke: color-mix(in srgb, var(--dm-gold) 50%, transparent); stroke-width: 0.15; }
+.launcher__star-point { fill: color-mix(in srgb, var(--dm-gold) 72%, var(--dm-text)); filter: drop-shadow(0 0 1.2px var(--dm-text)); }
 .launcher__cardinal-star { fill: var(--dm-gold); filter: drop-shadow(0 0 2px var(--dm-gold)); }
 
-.launcher__campaign-marker { --medallion-size: clamp(5.5rem, 12vw, 7.4rem); position: absolute; z-index: 4; display: grid; place-items: center; width: var(--medallion-size); min-width: 44px; height: var(--medallion-size); min-height: 44px; padding: 0.75rem; color: var(--dm-text); background: radial-gradient(circle at 45% 35%, color-mix(in srgb, var(--dm-panel-glow) 92%, transparent), var(--dm-panel) 68%), var(--dm-panel); border: 2px solid var(--dm-gold-line); border-radius: 50%; box-shadow: 0 8px 20px var(--dm-shadow), 0 0 0 3px color-mix(in srgb, var(--dm-bg) 88%, transparent), 0 0 0 4px color-mix(in srgb, var(--dm-gold-line) 62%, transparent), inset 0 0 17px color-mix(in srgb, var(--dm-periwinkle) 14%, transparent); font-family: var(--dm-font-display); font-size: clamp(0.88rem, 2vw, 1.12rem); font-weight: 500; line-height: 1.05; text-align: center; transform: translate(-50%, -50%); transition: width 150ms ease, height 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease; }
+.launcher__campaign-marker { --medallion-size: clamp(5rem, 9vw, 5.9rem); position: absolute; z-index: 4; display: grid; place-items: center; width: var(--medallion-size); min-width: 44px; height: var(--medallion-size); min-height: 44px; padding: 0.65rem; color: var(--dm-text); background: radial-gradient(circle at 45% 35%, color-mix(in srgb, var(--dm-panel-glow) 92%, transparent), var(--dm-panel) 68%), var(--dm-panel); border: 2px solid var(--dm-gold-line); border-radius: 50%; box-shadow: 0 8px 20px var(--dm-shadow), 0 0 0 2px color-mix(in srgb, var(--dm-bg) 88%, transparent), 0 0 0 3px color-mix(in srgb, var(--dm-gold-line) 68%, transparent), inset 0 0 17px color-mix(in srgb, var(--dm-periwinkle) 14%, transparent); font-family: var(--dm-font-display); font-size: clamp(0.8rem, 1.45vw, 1rem); font-weight: 500; line-height: 1.05; text-align: center; transform: translate(-50%, -50%); transition: width 150ms ease, height 150ms ease, border-color 150ms ease, box-shadow 150ms ease, color 150ms ease; }
 .launcher__campaign-marker:hover, .launcher__campaign-marker:focus-visible { z-index: 7; color: var(--dm-text); background: radial-gradient(circle at 45% 35%, var(--dm-panel-glow), var(--dm-panel) 68%); border-color: var(--dm-gold); box-shadow: 0 8px 20px var(--dm-shadow), 0 0 0 3px color-mix(in srgb, var(--dm-bg) 88%, transparent), 0 0 0 5px var(--dm-gold-line), 0 0 25px color-mix(in srgb, var(--dm-gold) 48%, transparent), inset 0 0 17px color-mix(in srgb, var(--dm-gold) 15%, transparent); transform: translate(-50%, -50%); }
-.launcher__campaign-marker:focus-visible { outline: 3px solid var(--dm-text); outline-offset: 8px; }
-.launcher__campaign-marker.is-selected { --medallion-size: clamp(6.25rem, 13.3vw, 8.35rem); z-index: 6; border-color: var(--dm-gold); box-shadow: 0 9px 24px var(--dm-shadow), 0 0 0 3px color-mix(in srgb, var(--dm-bg) 88%, transparent), 0 0 0 5px var(--dm-gold-line), 0 0 31px color-mix(in srgb, var(--dm-gold) 64%, transparent), inset 0 0 20px color-mix(in srgb, var(--dm-gold) 18%, transparent); }
+.launcher__campaign-marker:focus-visible { outline: 3px solid var(--dm-text); outline-offset: 7px; }
+.launcher__campaign-marker.is-selected { --medallion-size: clamp(5.65rem, 10.2vw, 6.65rem); z-index: 6; border-color: var(--dm-gold); box-shadow: 0 9px 24px var(--dm-shadow), 0 0 0 2px color-mix(in srgb, var(--dm-bg) 88%, transparent), 0 0 0 4px var(--dm-gold-line), 0 0 34px color-mix(in srgb, var(--dm-gold) 72%, transparent), inset 0 0 22px color-mix(in srgb, var(--dm-gold) 22%, transparent); }
+.launcher__campaign-marker.is-selected:focus-visible { outline-color: var(--dm-accent); outline-style: dashed; outline-width: 2px; }
 .launcher__campaign-marker:active { transform: translate(-50%, -50%) scale(0.98); }
 .launcher__campaign-name { display: -webkit-box; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .launcher__medallion-stars { position: absolute; inset: -11px; pointer-events: none; }
@@ -49,21 +58,26 @@
 .launcher__campaign-plus::after { transform: translate(-50%, -50%) rotate(90deg); }
 
 .launcher__dial-center { position: relative; z-index: 3; display: grid; place-items: center; align-content: center; width: clamp(12.2rem, 29vw, 16rem); min-height: clamp(12.2rem, 29vw, 16rem); padding: 1rem; text-align: center; }
-.launcher__moon { display: block; width: clamp(3.5rem, 8vw, 5.25rem); aspect-ratio: 1; margin-bottom: 0.35rem; border-radius: 50%; background: var(--dm-text); box-shadow: inset 1.2rem 0.15rem 0 -0.12rem var(--dm-panel-glow), 0 0 18px color-mix(in srgb, var(--dm-text) 72%, transparent), 0 0 34px color-mix(in srgb, var(--dm-periwinkle) 48%, transparent); transform: rotate(-12deg); }
+.launcher__moon { position: relative; display: block; width: clamp(3.75rem, 8vw, 5.4rem); aspect-ratio: 1; margin-bottom: 0.35rem; border-radius: 50%; background: color-mix(in srgb, var(--dm-panel) 88%, transparent); box-shadow: 0 0 13px color-mix(in srgb, var(--dm-text) 60%, transparent), 0 0 30px color-mix(in srgb, var(--dm-periwinkle) 52%, transparent), 0 0 52px color-mix(in srgb, var(--dm-gold) 16%, transparent); transform: rotate(-9deg); }
+.launcher__moon::before { content: ""; position: absolute; inset: 3%; border-radius: 50%; background: radial-gradient(circle at 28% 32%, color-mix(in srgb, var(--dm-periwinkle) 45%, transparent) 0 5%, transparent 6%), radial-gradient(circle at 39% 66%, color-mix(in srgb, var(--dm-gold-line) 32%, transparent) 0 7%, transparent 8%), radial-gradient(circle at 22% 76%, color-mix(in srgb, var(--dm-panel-glow) 58%, transparent) 0 4%, transparent 5%), radial-gradient(circle at 38% 43%, var(--dm-text), color-mix(in srgb, var(--dm-text) 82%, var(--dm-gold)) 62%, var(--dm-gold-line)); box-shadow: inset 0 0 9px color-mix(in srgb, var(--dm-gold) 28%, transparent); }
+.launcher__moon::after { content: ""; position: absolute; top: 0; right: -5%; width: 83%; height: 96%; border-radius: 50%; background: radial-gradient(circle at 35% 45%, var(--dm-panel-glow), var(--dm-panel) 72%); box-shadow: -5px 1px 9px color-mix(in srgb, var(--dm-periwinkle) 22%, transparent); }
+.launcher__moon i { position: absolute; z-index: 1; top: 23%; left: 14%; width: 8%; aspect-ratio: 1; border-radius: 50%; background: color-mix(in srgb, var(--dm-periwinkle) 52%, transparent); box-shadow: 0.72rem 1.3rem 0 color-mix(in srgb, var(--dm-gold-line) 28%, transparent), 0.18rem 2.25rem 0 -1px color-mix(in srgb, var(--dm-panel-glow) 46%, transparent); }
 .launcher__selection-label { margin: 0; color: var(--dm-text-muted); font-family: var(--dm-font-display); font-size: clamp(0.78rem, 1.8vw, 1rem); letter-spacing: 0.025em; }
 .launcher__center-divider { position: relative; display: block; width: min(9.5rem, 86%); height: 1px; margin: 0.8rem 0 0.72rem; background: linear-gradient(90deg, transparent, var(--dm-gold-line) 28% 72%, transparent); }
 .launcher__center-divider i { position: absolute; top: 50%; left: 50%; width: 11px; height: 11px; background: var(--dm-gold); clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); transform: translate(-50%, -50%); filter: drop-shadow(0 0 4px var(--dm-gold)); }
 .launcher__campaign-actions { display: grid; justify-items: center; gap: 0; width: min(12rem, 100%); }
 
-.launcher__continue, .launcher__create { min-height: 44px; color: var(--dm-gold-ink); background: linear-gradient(180deg, var(--dm-gold), var(--dm-gold-line)); border-color: var(--dm-gold); border-radius: 0; box-shadow: inset 0 1px color-mix(in srgb, var(--dm-text) 45%, transparent), 0 0 15px color-mix(in srgb, var(--dm-gold) 18%, transparent); font-family: var(--dm-font-display); font-size: 1.05rem; }
-.launcher__continue { width: 100%; clip-path: polygon(8% 0, 92% 0, 96% 18%, 100% 50%, 96% 82%, 92% 100%, 8% 100%, 4% 82%, 0 50%, 4% 18%); }
+.launcher__continue, .launcher__create { min-height: 44px; border-radius: 0; font-family: var(--dm-font-display); font-size: 1.05rem; }
+.launcher__continue { width: 100%; color: var(--dm-gold); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 72%, var(--dm-gold-ink)), var(--dm-panel)); border: 2px solid var(--dm-gold-line); box-shadow: inset 0 0 0 2px var(--dm-gold-ink), inset 0 0 0 3px color-mix(in srgb, var(--dm-gold-line) 62%, transparent), inset 0 0 18px color-mix(in srgb, var(--dm-gold) 12%, transparent), 0 0 14px color-mix(in srgb, var(--dm-gold) 20%, transparent); clip-path: polygon(8% 0, 92% 0, 96% 18%, 100% 50%, 96% 82%, 92% 100%, 8% 100%, 4% 82%, 0 50%, 4% 18%); }
+.launcher__create { color: var(--dm-gold-ink); background: linear-gradient(180deg, var(--dm-gold), var(--dm-gold-line)); border: 1px solid var(--dm-gold); box-shadow: inset 0 1px color-mix(in srgb, var(--dm-text) 45%, transparent), 0 0 15px color-mix(in srgb, var(--dm-gold) 18%, transparent); }
 .launcher__continue span { margin-left: 0.55rem; font-size: 1.35em; line-height: 0; }
-.launcher__continue:hover, .launcher__continue:focus-visible, .launcher__create:hover, .launcher__create:focus-visible { color: var(--dm-gold-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-text) 24%, var(--dm-gold)), var(--dm-gold)); border-color: var(--dm-text); box-shadow: 0 0 22px color-mix(in srgb, var(--dm-gold) 42%, transparent); }
+.launcher__continue:hover, .launcher__continue:focus-visible { color: var(--dm-gold); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 86%, var(--dm-gold-line)), var(--dm-panel)); border-color: var(--dm-gold); box-shadow: inset 0 0 0 2px var(--dm-gold-ink), inset 0 0 0 3px var(--dm-gold-line), 0 0 22px color-mix(in srgb, var(--dm-gold) 42%, transparent); }
+.launcher__create:hover, .launcher__create:focus-visible { color: var(--dm-gold-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-text) 24%, var(--dm-gold)), var(--dm-gold)); border-color: var(--dm-text); box-shadow: 0 0 22px color-mix(in srgb, var(--dm-gold) 42%, transparent); }
 .launcher__continue:focus-visible, .launcher__create:focus-visible, .launcher__portal-delete:focus-visible { outline: 3px solid var(--dm-text); outline-offset: 3px; }
 .launcher__portal-delete { min-width: 70px; min-height: 44px; padding: 0.25rem 0.5rem; color: color-mix(in srgb, var(--dm-text-muted) 72%, transparent); background: transparent; border-color: transparent; box-shadow: none; font-size: 0.7rem; font-weight: 500; }
 .launcher__portal-delete:hover, .launcher__portal-delete:focus-visible { color: var(--dm-danger); background: transparent; border-color: transparent; box-shadow: none; }
 
-.launcher__campaign-count { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: clamp(-1rem, -1vw, -0.35rem) 0 0.65rem; color: var(--dm-text-muted); font-family: var(--dm-font-display); font-size: 0.96rem; letter-spacing: 0.04em; }
+.launcher__campaign-count { position: relative; z-index: 6; display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: 0.65rem 0 0.75rem; color: var(--dm-text-muted); font-family: var(--dm-font-display); font-size: 0.96rem; letter-spacing: 0.04em; }
 .launcher__campaign-count > span { position: relative; width: clamp(2.8rem, 7vw, 5rem); height: 1px; background: linear-gradient(90deg, transparent, var(--dm-gold-line)); }
 .launcher__campaign-count > span:last-child { transform: scaleX(-1); }
 .launcher__campaign-count > span::after { content: ""; position: absolute; top: 50%; right: -2px; width: 6px; height: 6px; background: var(--dm-bg); border: 1px solid var(--dm-gold-line); transform: translateY(-50%) rotate(45deg); }
@@ -87,8 +101,8 @@
   .launcher__title { padding-inline: 3rem; font-size: clamp(2.25rem, 12vw, 3.2rem); }
   .launcher__selector { margin-top: -0.4rem; }
   .launcher__dial { width: min(100%, 34rem, 54vh); }
-  .launcher__campaign-marker { --medallion-size: clamp(4.45rem, 20vw, 6rem); padding: 0.55rem; font-size: clamp(0.72rem, 3.4vw, 0.94rem); }
-  .launcher__campaign-marker.is-selected { --medallion-size: clamp(4.95rem, 22vw, 6.6rem); }
+  .launcher__campaign-marker { --medallion-size: clamp(4.15rem, 16.5vw, 5rem); padding: 0.5rem; font-size: clamp(0.7rem, 3vw, 0.88rem); }
+  .launcher__campaign-marker.is-selected { --medallion-size: clamp(4.7rem, 18.5vw, 5.55rem); }
   .launcher__medallion-stars { inset: -8px; }
   .launcher__medallion-star { width: 11px; height: 11px; }
   .launcher__medallion-star--top { left: calc(50% - 5.5px); }
@@ -96,12 +110,12 @@
   .launcher__medallion-star--bottom { left: calc(50% - 5.5px); }
   .launcher__medallion-star--left { top: calc(50% - 5.5px); }
   .launcher__dial-center { width: clamp(9.4rem, 44vw, 12rem); min-height: clamp(9.4rem, 44vw, 12rem); padding: 0.35rem; }
-  .launcher__moon { width: clamp(2.7rem, 12vw, 3.7rem); box-shadow: inset 0.85rem 0.1rem 0 -0.1rem var(--dm-panel-glow), 0 0 15px color-mix(in srgb, var(--dm-text) 65%, transparent); }
+  .launcher__moon { width: clamp(2.7rem, 12vw, 3.7rem); }
   .launcher__selection-label { max-width: 8.5rem; line-height: 1.12; }
   .launcher__center-divider { margin-block: 0.45rem; }
   .launcher__continue { width: 8.4rem; padding-inline: 0.6rem; font-size: 0.92rem; }
   .launcher__portal-delete { min-height: 44px; }
-  .launcher__campaign-count { margin-top: -0.2rem; }
+  .launcher__campaign-count { margin: 0.45rem 0 0.65rem; }
   .launcher__new { grid-template-columns: 3rem minmax(0, 1fr); gap: 0.6rem; padding: 0.75rem; }
   .launcher__compass { width: 2.7rem; height: 2.7rem; }
   .launcher__new-controls { flex-direction: column; gap: 0.55rem; }
@@ -109,8 +123,8 @@
 }
 
 @media (max-width: 390px) {
-  .launcher__campaign-marker { --medallion-size: 4.15rem; font-size: 0.68rem; }
-  .launcher__campaign-marker.is-selected { --medallion-size: 4.6rem; }
+  .launcher__campaign-marker { --medallion-size: 3.85rem; font-size: 0.65rem; }
+  .launcher__campaign-marker.is-selected { --medallion-size: 4.35rem; }
   .launcher__dial-center { width: 8.8rem; min-height: 8.8rem; }
   .launcher__moon { width: 2.4rem; }
   .launcher__selection-label { font-size: 0.7rem; }
