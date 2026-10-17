@@ -1121,6 +1121,51 @@ describe("CharacterWizard", () => {
     }
   });
 
+  it("shows one non-empty portrait option for a Changeling and keeps it after gender changes", async () => {
+    addCharacter.mockClear();
+    render(<CharacterWizard onDone={() => {}} />);
+
+    fireEvent.click(await screen.findByText("Чейнджлинг"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Воин"));
+    pickRequiredClassSkills();
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fireEvent.click(await screen.findByText("Послушник"));
+    fillStandardAbilities();
+    fireEvent.click(screen.getByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+    fillStandardAbilities();
+    fireEvent.click(await screen.findByText("Далее"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Имя персонажа"), {
+      target: { value: "Один Облик" },
+    });
+    const portraitButtons = screen.getAllByRole("button", { name: /Вариант портрета/ });
+    expect(portraitButtons).toHaveLength(1);
+    expect(portraitButtons[0]).toHaveAccessibleName("Вариант портрета 1");
+    expect(portraitButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(portraitButtons[0].querySelector("img")).toHaveAttribute(
+      "src",
+      "/character-portraits/changeling-male-1.jpg",
+    );
+
+    fireEvent.change(screen.getByDisplayValue("Мужской"), { target: { value: "Женский" } });
+    expect(screen.getAllByRole("button", { name: /Вариант портрета/ })).toHaveLength(1);
+    expect(portraitButtons[0].querySelector("img")).toHaveAttribute(
+      "src",
+      "/character-portraits/changeling-female-1.jpg",
+    );
+
+    fireEvent.click(screen.getByText("Создать персонажа"));
+    await waitFor(() => expect(addCharacter).toHaveBeenCalledTimes(1));
+    const character = addCharacter.mock.calls[0][0] as Character;
+    expect(character.race).toBe("Чейнджлинг");
+    expect(character.portraitVariant).toBe(1);
+  });
+
   it("shows three portraits, resets the choice after gender changes, and saves the selected variant", async () => {
     addCharacter.mockClear();
     render(<CharacterWizard onDone={() => {}} />);

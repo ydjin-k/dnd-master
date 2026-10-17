@@ -59,7 +59,7 @@ export interface Character {
   flaws: string;
   alignment: string;
   gender: string;
-  /** Вариант портрета 1–3; старые сохранения без поля показывают вариант 1. */
+  /** Вариант портрета в диапазоне расы; старые сохранения без поля показывают вариант 1. */
   portraitVariant: number;
   age: number;
   /**

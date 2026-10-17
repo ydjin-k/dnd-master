@@ -13,15 +13,15 @@ const bundledPortraits = import.meta.glob("/public/character-portraits/*.jpg", {
 });
 
 describe("characterPortraitUrl", () => {
-  it("выдаёт 122 уникальных имени и каждый ожидаемый файл есть в библиотеке", () => {
+  it("выдаёт 118 уникальных имён и каждый ожидаемый файл есть в библиотеке", () => {
     const urls = CHARACTER_PORTRAIT_RACES.flatMap((race) =>
       CHARACTER_PORTRAIT_GENDERS.flatMap((gender) =>
         characterPortraitVariants(race).map((variant) => characterPortraitUrl(race, gender, variant)),
       ),
     );
 
-    expect(urls).toHaveLength(122);
-    expect(new Set(urls).size).toBe(122);
+    expect(urls).toHaveLength(118);
+    expect(new Set(urls).size).toBe(118);
     expect(Object.keys(bundledPortraits).sort()).toEqual(urls.map((url) => `/public${url}`).sort());
     expect(urls).toContain("/character-portraits/dragonborn-female-3.jpg");
     expect(urls).toContain("/character-portraits/half-orc-male-2.jpg");
@@ -36,6 +36,22 @@ describe("characterPortraitUrl", () => {
     );
     expect(characterPortraitUrl("Голиаф", "Женский", 4)).toBe(
       "/character-portraits/goliath-female-3.jpg",
+    );
+  });
+
+  it("оставляет Чейнджлингу один вариант и обрезает старые варианты 2–3 до первого", () => {
+    expect(characterPortraitVariants("Чейнджлинг")).toEqual([1]);
+    expect(characterPortraitUrl("Чейнджлинг", "Мужской", 2)).toBe(
+      "/character-portraits/changeling-male-1.jpg",
+    );
+    expect(characterPortraitUrl("Чейнджлинг", "Женский", 3)).toBe(
+      "/character-portraits/changeling-female-1.jpg",
+    );
+    expect(Object.keys(bundledPortraits)).not.toContain(
+      "/public/character-portraits/changeling-male-2.jpg",
+    );
+    expect(Object.keys(bundledPortraits)).not.toContain(
+      "/public/character-portraits/changeling-female-3.jpg",
     );
   });
 

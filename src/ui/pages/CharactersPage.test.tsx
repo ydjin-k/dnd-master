@@ -262,6 +262,24 @@ describe("CharactersPage", () => {
     );
   });
 
+  it("старый Чейнджлинг с удалённым вариантом показывает первый портрет", () => {
+    mockState = baseState({
+      characters: [{
+        ...characterWithInventory(),
+        name: "Старый Чейнджлинг",
+        race: "Чейнджлинг",
+        gender: "Женский",
+        portraitVariant: 3,
+      }],
+    });
+    render(<CharactersPage />);
+
+    expect(screen.getByAltText(/Портрет персонажа Старый Чейнджлинг/)).toHaveAttribute(
+      "src",
+      "/character-portraits/changeling-female-1.jpg",
+    );
+  });
+
   /**
    * Прогон левел-апа: рендерит карточку, жмёт «Повысить уровень» и применяет
    * полученный updater к персонажу, оставаясь на одном и том же состоянии —

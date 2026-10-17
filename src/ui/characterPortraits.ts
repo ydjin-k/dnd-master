@@ -17,21 +17,22 @@ const RACE_PORTRAIT_SLUGS = {
   Аасимар: { slug: "aasimar" },
   Сатир: { slug: "satyr" },
   Табакси: { slug: "tabaxi" },
-  Чейнджлинг: { slug: "changeling" },
+  Чейнджлинг: { slug: "changeling", variants: 1 },
   Фирболг: { slug: "firbolg" },
 } as const;
 
 export const CHARACTER_PORTRAIT_RACES = Object.keys(RACE_PORTRAIT_SLUGS);
 export const CHARACTER_PORTRAIT_GENDERS = ["Мужской", "Женский"] as const;
-const THREE_PORTRAIT_VARIANTS = [1, 2, 3] as const;
-const FOUR_PORTRAIT_VARIANTS = [1, 2, 3, 4] as const;
+const DEFAULT_PORTRAIT_VARIANT_COUNT = 3;
+const ALL_PORTRAIT_VARIANTS = [1, 2, 3, 4] as const;
 
-/** Варианты принадлежат расе: у Дженази четыре стихии, у остальных рас — три. */
+/** Число вариантов принадлежит конфигу расы; без явного лимита доступны три. */
 export function characterPortraitVariants(race: string): readonly number[] {
   const config = RACE_PORTRAIT_SLUGS[race as keyof typeof RACE_PORTRAIT_SLUGS];
-  return config && "variants" in config && config.variants === 4
-    ? FOUR_PORTRAIT_VARIANTS
-    : THREE_PORTRAIT_VARIANTS;
+  const variantCount = config && "variants" in config
+    ? config.variants
+    : DEFAULT_PORTRAIT_VARIANT_COUNT;
+  return ALL_PORTRAIT_VARIANTS.slice(0, variantCount);
 }
 
 /**
