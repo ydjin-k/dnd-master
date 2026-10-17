@@ -13,7 +13,7 @@ vi.mock("../state/CampaignContext", () => ({
 }));
 
 const TAB_LABELS: Record<string, string> = {
-  adventures: "Приключения",
+  adventures: "Приключения", dungeons: "Подземелья",
   combat: "Бой", dice: "Кубики", characters: "Персонажи", journal: "Дневник",
   rules: "Правила", spells: "Заклинания", bestiary: "Бестиарий", soundboard: "Саундборд",
 };
@@ -52,8 +52,8 @@ describe("AppShell", () => {
     const nav = screen.getByRole("navigation");
     expect(
       Array.from(nav.querySelectorAll("button"), (b) => b.getAttribute("data-tab")),
-    ).toEqual(["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]);
-    for (const id of ["adventures", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]) {
+    ).toEqual(["adventures", "dungeons", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]);
+    for (const id of ["adventures", "dungeons", "combat", "dice", "characters", "journal", "rules", "spells", "bestiary", "soundboard"]) {
       const tabButton = within(nav).getByText(TAB_LABELS[id]).closest("button");
       expect(tabButton).toHaveAccessibleName(TAB_LABELS[id]);
       fireEvent.click(tabButton!);

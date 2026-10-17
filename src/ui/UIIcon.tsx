@@ -4,6 +4,7 @@ type IconName = Tab | "campaign";
 
 export const TAB_ICON_PATHS = {
   adventures: "/ui-icons/adventures.png",
+  dungeons: "/ui-icons/dungeons.png",
   combat: "/ui-icons/combat.png",
   dice: "/ui-icons/dice.png",
   characters: "/ui-icons/characters.png",

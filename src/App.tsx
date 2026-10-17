@@ -5,6 +5,7 @@ import { SoundtrackProvider } from "./state/SoundtrackContext";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
 import { AdventuresPage } from "./ui/pages/AdventuresPage";
+import { DungeonsPage } from "./ui/pages/DungeonsPage";
 import { CombatPage } from "./ui/pages/CombatPage";
 import { DicePage } from "./ui/pages/DicePage";
 import { CharactersPage } from "./ui/pages/CharactersPage";
@@ -30,6 +31,8 @@ function AppContent({ onSwitchCampaign }: { onSwitchCampaign: () => void }) {
           switch (tab) {
             case "adventures":
               return <AdventuresPage />;
+            case "dungeons":
+              return <DungeonsPage />;
             case "combat":
               return <CombatPage />;
             case "dice":

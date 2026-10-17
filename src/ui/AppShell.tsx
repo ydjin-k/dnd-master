@@ -5,11 +5,12 @@ import { UIIcon } from "./UIIcon";
 import "./AppShell.css";
 
 export type Tab =
-  | "adventures" | "combat" | "dice" | "characters"
+  | "adventures" | "dungeons" | "combat" | "dice" | "characters"
   | "journal" | "rules" | "spells" | "bestiary" | "soundboard";
 
 export const TABS: { id: Tab; label: string }[] = [
   { id: "adventures", label: "Приключения" },
+  { id: "dungeons", label: "Подземелья" },
   { id: "combat", label: "Бой" },
   { id: "dice", label: "Кубики" },
   { id: "characters", label: "Персонажи" },

@@ -1,0 +1,278 @@
+.dungeons-page {
+  max-width: 900px;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.dungeons-page--wide {
+  max-width: 1280px;
+}
+
+.dungeons-page > h2,
+.dungeons-page__head h2 {
+  margin: 0 0 1rem;
+  color: var(--dm-accent);
+  font-family: var(--dm-font-display);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.dungeons-page__entries {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.dungeons-page__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.5rem;
+  border-radius: var(--dm-radius-panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dungeons-page__entry-title {
+  font-family: var(--dm-font-display);
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+.dungeons-page__entry-hint {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.dungeons-page__head {
+  position: relative;
+  padding: 0 6.5rem;
+}
+
+.dungeons-page__back {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-control);
+  background: var(--dm-panel-raised);
+  color: var(--dm-text-muted);
+  cursor: pointer;
+}
+
+.dungeons-page__back:hover {
+  color: var(--dm-text);
+  border-color: var(--dm-border-bright);
+}
+
+.dungeons-page__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-panel);
+  background: var(--dm-panel);
+  min-width: 0;
+}
+
+.dungeons-page__panel h3 {
+  margin: 0;
+}
+
+.dungeons-page__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+}
+
+.dungeons-page__level {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dungeons-page__dangers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dungeons-page__numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+  margin: 0;
+}
+
+.dungeons-page__numbers dt {
+  color: var(--dm-text-muted);
+  font-size: 0.85rem;
+}
+
+.dungeons-page__numbers dd {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dungeons-page__range {
+  color: var(--dm-text-muted);
+  font-size: 0.85rem;
+}
+
+.dungeons-page__layers {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dungeons-page__layers li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 0.75rem;
+  align-items: start;
+}
+
+.dungeons-page__layer-name {
+  grid-column: 1;
+  font-weight: 650;
+}
+
+.dungeons-page__layer-text {
+  grid-column: 1;
+}
+
+.dungeons-page__reroll {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.dungeons-page__error {
+  margin: 0;
+  color: var(--dm-danger);
+}
+
+.dungeons-page__empty {
+  color: var(--dm-text-muted);
+  text-align: center;
+}
+
+.dungeons-page__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dungeons-page__list li {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dungeons-page__list-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dungeons-page__row-actions,
+.dungeons-page__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.dungeons-page__lead {
+  margin: 0 0 1rem;
+  text-align: center;
+}
+
+.dungeons-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.dungeons-page__main {
+  min-width: 0;
+}
+
+/* Схема ужимается вместе с окном (SVG без растра) и прокручивается внутри
+   своей рамки, если клетки стали бы слишком мелкими: у страницы своей
+   горизонтальной прокрутки нет. */
+.dungeon-map {
+  margin-bottom: 1rem;
+  overflow: auto;
+  border: 1px solid #c9bb9b;
+  border-radius: var(--dm-radius-panel);
+  background: #efe6d2;
+  line-height: 0;
+}
+
+.dungeon-map__svg {
+  display: block;
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.dungeon-map__marker {
+  cursor: pointer;
+}
+
+.dungeon-map__marker:focus-visible {
+  outline: 2px solid var(--dm-accent);
+}
+
+.dungeons-page__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.dungeons-page__side h4,
+.dungeons-page__legend h4 {
+  margin: 0.9rem 0 0.4rem;
+  color: var(--dm-text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dungeons-page__legend-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.dungeons-page__rooms {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dungeons-page__rooms li {
+  margin: 0.3rem 0;
+}
+
+@media (max-width: 900px) {
+  .dungeons-page__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .dungeons-page__head {
+    padding: 2.5rem 0 0;
+  }
+}
