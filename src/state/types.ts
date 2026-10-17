@@ -1,3 +1,7 @@
+import type { DungeonPlan } from "../ui/dungeons/dungeonGenerator";
+import type { MarkerStatus } from "../ui/dungeons/markerStatus";
+import type { TrapDanger } from "../ui/dungeons/trapNumbers";
+
 export interface AbilityScores {
   strength: number;
   dexterity: number;
@@ -398,6 +402,29 @@ export interface CampaignState {
    * подставляет умолчание.
    */
   travel: TravelState | null;
+  /**
+   * Подземелья кампании (вкладка «Подземелья»). Rust отдаёт пустой список у
+   * кампаний, записанных до вкладки; необязательное здесь, чтобы снимки
+   * состояния без него оставались законными. Читать через `dungeonsOf`.
+   */
+  dungeons?: DungeonRecord[];
+}
+
+/**
+ * Подземелье кампании: схема целиком и статусы отметок отдельно — зеркало
+ * `DungeonRecord` в `src-tauri/src/model.rs`. Схема хранится, а не
+ * пересобирается по семени: правка таблиц не должна менять пройденное.
+ */
+export interface DungeonRecord {
+  id: string;
+  name: string;
+  createdAt: string;
+  seed: number;
+  partyLevel: number;
+  danger: TrapDanger;
+  plan: DungeonPlan;
+  /** `id` отметки → статус; отметки без записи — «не исследовано». */
+  statuses: Record<string, MarkerStatus>;
 }
 
 export interface CampaignSummary {
@@ -477,4 +504,5 @@ export const emptyCampaignState = (): CampaignState => ({
   journal: [],
   combat: null,
   travel: null,
+  dungeons: [],
 });

@@ -11,11 +11,13 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   type CampaignState,
   type Character,
+  type DungeonRecord,
   type JournalEntry,
   type TravelState,
   emptyCampaignState,
 } from "./types";
 import { travelOf } from "../ui/travelPace";
+import { dungeonsOf } from "../ui/dungeons/markerStatus";
 import { JOURNAL_ENTRY_MAX_LENGTH, appendedText, clampToLength } from "../ui/journalEntryText";
 import { deathSavesAtHp, normalizeDeathSaves, type DeathSaves } from "../ui/deathSaves";
 import { unpackStackedItem } from "../ui/characterCreationData";
@@ -31,6 +33,8 @@ interface CampaignContextValue {
   removeJournalEntry: (id: string) => Promise<void>;
   setCampaignName: (name: string) => Promise<void>;
   setTravel: (updater: (travel: TravelState) => TravelState) => Promise<void>;
+  /** Подземелья кампании: создать, сменить статус отметки, удалить. */
+  setDungeons: (updater: (dungeons: DungeonRecord[]) => DungeonRecord[]) => Promise<void>;
   /** Существа по id шаблона (повтор id — ещё один боец того же вида) и персонажи кампании. */
   addToCombat: (monsterIds: string[], characterIds: string[]) => Promise<void>;
   /** Модификатор Ловкости каждого бойца по его id — из `initiativeModifierOf`. */
@@ -256,6 +260,18 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
     [persistWith],
   );
 
+  /**
+   * Подземелья. Через `persistWith` по той же причине, что и путь: мастер
+   * щёлкает отметки подряд, и второй щелчок до перерисовки не должен затереть
+   * первый статус снимком рендера.
+   */
+  const setDungeons = useCallback(
+    async (updater: (dungeons: DungeonRecord[]) => DungeonRecord[]) => {
+      await persistWith((current) => ({ ...current, dungeons: updater(dungeonsOf(current)) }));
+    },
+    [persistWith],
+  );
+
   // Бой сохраняется на бэкенде внутри команды — тут только применяем
   // результат. Общий враппер вместо шести одинаковых try/catch.
   const runServerAction = useCallback(
@@ -359,6 +375,7 @@ export function CampaignProvider({ children }: { children: ReactNode }) {
         removeJournalEntry,
         setCampaignName,
         setTravel,
+        setDungeons,
         addToCombat,
         rollInitiative,
         nextTurn,

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -405,6 +405,30 @@ pub struct TravelState {
     pub lost_days: i32,
 }
 
+/// Подземелье кампании (вкладка «Подземелья»).
+///
+/// Схему строит фронт (`dungeonGenerator.ts`) и хранит её здесь ЦЕЛИКОМ, а не
+/// одним семенем: таблицы подземелья ещё будут править, и подземелье,
+/// пересобранное по семени новыми таблицами, молча поменяло бы мастеру уже
+/// пройденные комнаты. Rust схему не читает — это данные показа, поэтому
+/// `plan` лежит как есть, `serde_json::Value`.
+///
+/// Статусы отметок — отдельно от схемы: ими владеет мастер, и смена статуса
+/// не должна переписывать схему. Ключ — `id` отметки, значение — строка
+/// статуса; словарь значений живёт на стороне показа, как у темпа пути.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DungeonRecord {
+    pub id: String,
+    pub name: String,
+    pub created_at: String,
+    pub seed: u32,
+    pub party_level: u8,
+    pub danger: String,
+    pub plan: serde_json::Value,
+    pub statuses: BTreeMap<String, String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct CampaignState {
@@ -425,6 +449,9 @@ pub struct CampaignState {
     /// пропускает — сторожит это `campaign_with_the_removed_gm_engine_still_opens`
     /// в `storage.rs`.
     pub travel: Option<TravelState>,
+    /// Подземелья кампании. У кампаний, записанных до вкладки «Подземелья», —
+    /// пустой список тем же структурным `default`.
+    pub dungeons: Vec<DungeonRecord>,
 }
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::model::{CampaignState, Character, JournalEntry, TravelState};
+use crate::model::{CampaignState, Character, DungeonRecord, JournalEntry, TravelState};
 
 /// Поля документа кампании, которыми владеет ФРОНТ, — и весь список сразу.
 ///
@@ -44,6 +44,18 @@ pub struct FrontOwnedFields {
     /// — это дефект, и честнее отказать записи громко, чем принять её с `null`
     /// и молча стереть пройденный путь.
     pub travel: Option<TravelState>,
+    /// Подземелья кампании (вкладка «Подземелья»): схемы и статусы отметок.
+    /// Фронт ими ВЛАДЕЕТ — схему строит генератор показа, статус меняет щелчок
+    /// мастера, ни одна команда движка поля не касается. Приём тот же, что у
+    /// `travel`: без этой строки подземелья жили бы до перезагрузки окна.
+    ///
+    /// В отличие от `travel`, ОТСУТСТВИЕ поля в нагрузке значит «не трогать»,
+    /// а не «стереть»: это список, который мастер копит неделями, и запись,
+    /// пришедшая без него (старый снимок, проба), не вправе молча его обнулить.
+    /// Присланный список — даже пустой — пишется как есть: удаление последнего
+    /// подземелья обязано сохраниться.
+    #[serde(default)]
+    pub dungeons: Option<Vec<DungeonRecord>>,
 }
 
 /// Tauri-команды выполняются на разных потоках, и без этого две почти
@@ -331,6 +343,9 @@ fn save_front_owned_in(base: &Path, fields: FrontOwnedFields) -> Result<Campaign
         state.characters = fields.characters;
         state.journal = fields.journal;
         state.travel = fields.travel;
+        if let Some(dungeons) = fields.dungeons {
+            state.dungeons = dungeons;
+        }
         Ok(())
     })
 }
@@ -1033,6 +1048,7 @@ mod tests {
                     text: "Записал у костра".into(),
                 }],
                 travel: None,
+                dungeons: None,
             },
         )
         .unwrap();
@@ -1077,6 +1093,7 @@ mod tests {
                     half_day_marches: 1,
                     lost_days: 1,
                 }),
+                dungeons: None,
             },
         )
         .unwrap();
@@ -1105,11 +1122,97 @@ mod tests {
                 characters: vec![],
                 journal: vec![],
                 travel: None,
+                dungeons: None,
             },
         )
         .unwrap();
 
         assert!(load_active_in(&base).unwrap().unwrap().travel.is_none());
+    }
+
+    fn dungeon_with_status(status: &str) -> DungeonRecord {
+        DungeonRecord {
+            id: "d1".into(),
+            name: "Мастерская чародея".into(),
+            created_at: "2026-10-18T10:00:00Z".into(),
+            seed: 20261018,
+            party_level: 3,
+            danger: "Опасная".into(),
+            plan: serde_json::json!({ "seed": 20261018, "markers": [{ "id": "trap-1", "kind": "trap" }] }),
+            statuses: [("trap-1".to_string(), status.to_string())].into_iter().collect(),
+        }
+    }
+
+    fn front_fields(dungeons: Option<Vec<DungeonRecord>>) -> FrontOwnedFields {
+        FrontOwnedFields {
+            campaign_name: "Поход".into(),
+            characters: vec![],
+            journal: vec![],
+            travel: None,
+            dungeons,
+        }
+    }
+
+    /// engine-dungeons-and-traps-tab: подземелье и статус его отметки — поля
+    /// ФРОНТА, и запись с фронта обязана их сохранить, как `travel`. Затем смена
+    /// кампании туда и обратно: подземелье ездит с СВОЕЙ кампанией.
+    ///
+    /// Отрицательная проба: убрать `state.dungeons = dungeons` в
+    /// `save_front_owned_in` — строка «подземелье обязано уцелеть» краснеет.
+    #[test]
+    fn front_save_keeps_dungeons_and_marker_statuses_across_campaign_switch() {
+        let base = temp_dir("front-owned-dungeons");
+        let first = create_campaign_in(&base, "Поход".into()).unwrap();
+        save_front_owned_in(&base, front_fields(Some(vec![dungeon_with_status("discovered")]))).unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let dungeon = after.dungeons.first().expect("подземелье обязано уцелеть: фронт им владеет");
+        assert_eq!(dungeon.statuses.get("trap-1").map(String::as_str), Some("discovered"));
+        assert_eq!(dungeon.plan["markers"][0]["id"], "trap-1", "схема записана целиком");
+        assert_eq!((dungeon.seed, dungeon.party_level), (20261018, 3));
+
+        let other = create_campaign_in(&base, "Другая".into()).unwrap();
+        assert!(load_active_in(&base).unwrap().unwrap().dungeons.is_empty(), "чужая кампания без подземелий");
+        switch_campaign_in(&base, first.id.clone()).unwrap();
+        let back = load_active_in(&base).unwrap().unwrap();
+        assert_eq!(back.dungeons[0].statuses["trap-1"], "discovered");
+        assert_ne!(other.id, first.id);
+    }
+
+    /// Запись без поля `dungeons` не стирает накопленное, а присланный пустой
+    /// список — стирает: удаление последнего подземелья обязано сохраниться.
+    #[test]
+    fn front_save_without_dungeons_keeps_them_and_an_empty_list_clears_them() {
+        let base = temp_dir("front-owned-dungeons-absent");
+        create_campaign_in(&base, "Поход".into()).unwrap();
+        save_front_owned_in(&base, front_fields(Some(vec![dungeon_with_status("explored")]))).unwrap();
+
+        save_front_owned_in(&base, front_fields(None)).unwrap();
+        assert_eq!(load_active_in(&base).unwrap().unwrap().dungeons.len(), 1);
+
+        save_front_owned_in(&base, front_fields(Some(vec![]))).unwrap();
+        assert!(load_active_in(&base).unwrap().unwrap().dungeons.is_empty());
+    }
+
+    /// Кампания, записанная до вкладки «Подземелья», открывается с пустым
+    /// списком, а имена полей в файле — camelCase, как пишет фронт.
+    #[test]
+    fn campaign_without_dungeons_opens_and_dungeon_fields_keep_their_names() {
+        let old = r#"{"id":"c","campaignName":"Старая","characters":[],"journal":[],"combat":null}"#;
+        let state: CampaignState = serde_json::from_str(old).expect("старая кампания обязана открыться");
+        assert!(state.dungeons.is_empty());
+
+        let saved = r#"{"id":"c","campaignName":"Новая","characters":[],"journal":[],"combat":null,
+            "dungeons":[{"id":"d1","name":"Склеп","createdAt":"2026-10-18","seed":7,"partyLevel":12,
+                         "danger":"Смертоносная","plan":{"rooms":[]},"statuses":{"door-2":"explored"}}]}"#;
+        let state: CampaignState = serde_json::from_str(saved).expect("кампания с подземельем");
+        let dungeon = &state.dungeons[0];
+        assert_eq!((dungeon.seed, dungeon.party_level), (7, 12));
+        assert_eq!(dungeon.created_at, "2026-10-18");
+        assert_eq!(dungeon.statuses["door-2"], "explored");
+        let again = serde_json::to_value(&state).unwrap();
+        assert_eq!(again["dungeons"][0]["partyLevel"], 12);
+        assert_eq!(again["dungeons"][0]["statuses"]["door-2"], "explored");
     }
 
     /// Выбранный ВАРИАНТ расы переживает запись и чтение.
@@ -1141,6 +1244,7 @@ mod tests {
                 }],
                 journal: vec![],
                 travel: None,
+                dungeons: None,
             },
         )
         .unwrap();
