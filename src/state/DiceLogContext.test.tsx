@@ -139,7 +139,7 @@ describe("журнал бросков в контексте", () => {
     // Запуск ВСЕГДА начинается с приветственного окна (правка владельца
     // 07.10.2026, сторож — `src/App.test.tsx`), поэтому в кампанию входим
     // руками. Раньше App открывал её сам, и проба попадала сразу во вкладки.
-    fireEvent.click(await screen.findByRole("button", { name: "Открыть кампанию Стол" }, { timeout: 2000 }));
+    fireEvent.click(await screen.findByRole("button", { name: "Выбрать кампанию Стол" }, { timeout: 2000 }));
     fireEvent.click(screen.getByRole("button", { name: /Начать|Продолжить/ }));
     fireEvent.click(await screen.findByText("Кубики", {}, { timeout: 2000 }));
     await roll();
@@ -151,7 +151,7 @@ describe("журнал бросков в контексте", () => {
     expect(totals()).toEqual(["1"]);
 
     fireEvent.click(screen.getByRole("button", { name: /Кампании/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Открыть кампанию Стол" }, { timeout: 2000 }));
+    fireEvent.click(await screen.findByRole("button", { name: "Выбрать кампанию Стол" }, { timeout: 2000 }));
     fireEvent.click(screen.getByRole("button", { name: /Начать|Продолжить/ }));
 
     fireEvent.click(await screen.findByText("Кубики", {}, { timeout: 2000 }));

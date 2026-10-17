@@ -65,14 +65,14 @@ describe("App", () => {
     render(<App />);
 
     // Циферблат кампаний — это Launcher и только он.
-    expect(await screen.findByRole("button", { name: "Открыть кампанию Старая кампания" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Выбрать кампанию Старая кампания" })).toBeInTheDocument();
     // Оболочки кампании на экране быть не должно: её вкладки пришли бы вместе с ней.
     expect(screen.queryByRole("button", { name: "Бестиарий" })).not.toBeInTheDocument();
   });
 
   it("не спрашивает активную кампанию при запуске", async () => {
     render(<App />);
-    await screen.findByRole("button", { name: "Открыть кампанию Старая кампания" });
+    await screen.findByRole("button", { name: "Выбрать кампанию Старая кампания" });
 
     // Указатель активной кампании никуда не делся — его читает CampaignProvider
     // после входа. Но САМ ЗАПУСК о нём больше не спрашивает: ответ всё равно

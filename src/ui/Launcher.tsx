@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import type { CampaignState, CampaignSummary } from "../state/types";
 import "./Launcher.css";
 
-const CAMPAIGNS_PER_RING = 6;
 const MAX_CAMPAIGNS = 6;
 let isLauncherMusicMuted = false;
 
@@ -11,16 +10,76 @@ export type DialPosition = { x: number; y: number; ring: number };
 
 export function getDialPositions(count: number): DialPosition[] {
   if (count <= 0) return [];
-  const ringCount = Math.ceil(count / CAMPAIGNS_PER_RING);
   return Array.from({ length: count }, (_, index) => {
-    const ring = Math.floor(index / CAMPAIGNS_PER_RING);
-    const firstIndex = ring * CAMPAIGNS_PER_RING;
-    const itemsOnRing = Math.min(CAMPAIGNS_PER_RING, count - firstIndex);
-    const angle = -Math.PI / 2 + ((index - firstIndex) * Math.PI * 2) / itemsOnRing + (ring % 2) * (Math.PI / itemsOnRing);
-    const xRadius = 43 - ring * (24 / Math.max(1, ringCount - 1));
-    const yRadius = 38 - ring * (22 / Math.max(1, ringCount - 1));
-    return { x: 50 + Math.cos(angle) * xRadius, y: 50 + Math.sin(angle) * yRadius, ring };
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
+    return { x: 50 + Math.cos(angle) * 39, y: 50 + Math.sin(angle) * 39, ring: 0 };
   });
+}
+
+function SoundIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg className="launcher__sound-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9.2h3.1L11 6v12l-3.9-3.2H4z" />
+      {!muted && <><path d="M14.2 9.1a4.2 4.2 0 0 1 0 5.8" /><path d="M16.8 6.6a7.6 7.6 0 0 1 0 10.8" /></>}
+      {muted && <path d="m15 9 5 6m0-6-5 6" />}
+    </svg>
+  );
+}
+
+function TitleOrnament() {
+  return (
+    <svg className="launcher__title-ornament" viewBox="0 0 320 28" aria-hidden="true">
+      <path d="M8 14h126m52 0h126" />
+      <path className="launcher__ornament-moon" d="M158 4a10 10 0 1 0 10 16 8.3 8.3 0 0 1-10-16Z" />
+      <path className="launcher__ornament-star" d="m139 14 3-1 1-3 1 3 3 1-3 1-1 3-1-3Zm34 0 3-1 1-3 1 3 3 1-3 1-1 3-1-3Z" />
+    </svg>
+  );
+}
+
+function Astrolabe() {
+  const spokes = getDialPositions(MAX_CAMPAIGNS);
+  return (
+    <svg className="launcher__astrolabe" viewBox="0 0 100 100" aria-hidden="true">
+      <circle className="launcher__astrolabe-shadow" cx="50" cy="50" r="45.5" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--outer" cx="50" cy="50" r="44.5" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--ticks" cx="50" cy="50" r="42" />
+      <circle className="launcher__astrolabe-line" cx="50" cy="50" r="38" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="33.5" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--faint" cx="50" cy="50" r="27" />
+      <circle className="launcher__astrolabe-line launcher__astrolabe-line--dashed" cx="50" cy="50" r="19" />
+      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="31" ry="15" transform="rotate(-24 50 50)" />
+      <ellipse className="launcher__astrolabe-orbit" cx="50" cy="50" rx="29" ry="11" transform="rotate(31 50 50)" />
+      {spokes.map((position, index) => <line key={index} className="launcher__astrolabe-spoke" x1="50" y1="50" x2={position.x} y2={position.y} />)}
+      <path className="launcher__constellation" d="M21 42l6-8 5 6 7-13m35 2 6 8-4 8 8 5M27 68l7 5 7-4m22 7 8-7 7 4" />
+      {["21,42", "27,34", "32,40", "39,27", "74,29", "80,37", "76,45", "84,50", "27,68", "34,73", "41,69", "63,76", "71,69", "78,73"].map((point) => {
+        const [cx, cy] = point.split(",");
+        return <circle key={point} className="launcher__star-point" cx={cx} cy={cy} r="0.72" />;
+      })}
+      <path className="launcher__cardinal-star" d="m50 5 1.1 3.4L54.5 10l-3.4 1.1L50 14.5l-1.1-3.4L45.5 10l3.4-1.6Z" />
+    </svg>
+  );
+}
+
+function MedallionStars() {
+  return (
+    <span className="launcher__medallion-stars" aria-hidden="true">
+      <i className="launcher__medallion-star launcher__medallion-star--top" />
+      <i className="launcher__medallion-star launcher__medallion-star--right" />
+      <i className="launcher__medallion-star launcher__medallion-star--bottom" />
+      <i className="launcher__medallion-star launcher__medallion-star--left" />
+    </span>
+  );
+}
+
+function CompassRose() {
+  return (
+    <svg className="launcher__compass" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="16" />
+      <circle cx="32" cy="32" r="4" />
+      <path d="m32 3 5 24 24 5-24 5-5 24-5-24-24-5 24-5Z" />
+      <path d="m12 12 16 16m8 8 16 16m0-40L36 28m-8 8L12 52" />
+    </svg>
+  );
 }
 
 export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void }) {
@@ -31,7 +90,8 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
   const [error, setError] = useState<string | null>(null);
   const [isMusicMuted, setIsMusicMuted] = useState(isLauncherMusicMuted);
   const musicRef = useRef<HTMLAudioElement | null>(null);
-  const positions = useMemo(() => getDialPositions(campaigns.length), [campaigns.length]);
+  const newNameRef = useRef<HTMLInputElement | null>(null);
+  const positions = useMemo(() => getDialPositions(MAX_CAMPAIGNS), []);
   const selected = campaigns.find((campaign) => campaign.id === selectedId) ?? null;
   const campaignLimitReached = campaigns.length >= MAX_CAMPAIGNS;
 
@@ -95,88 +155,77 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     } catch (e) { setError(String(e)); }
   }
 
+  function focusNewCampaign() {
+    newNameRef.current?.focus();
+  }
+
   return (
     <div className="launcher">
       <video className="launcher__background" src="/video/launcher-background.mp4" autoPlay loop muted playsInline aria-hidden="true" />
-      <button
-        type="button"
-        className="launcher__music-toggle"
-        aria-label={isMusicMuted ? "Включить музыку" : "Выключить музыку"}
-        aria-pressed={isMusicMuted}
-        title={isMusicMuted ? "Включить музыку" : "Выключить музыку"}
-        onClick={toggleMusic}
-      >
-        <span aria-hidden="true">{isMusicMuted ? "🔇" : "🔊"}</span>
+      <button type="button" className="launcher__music-toggle" aria-label={isMusicMuted ? "Включить музыку" : "Выключить музыку"} aria-pressed={isMusicMuted} title={isMusicMuted ? "Включить музыку" : "Выключить музыку"} onClick={toggleMusic}>
+        <SoundIcon muted={isMusicMuted} />
       </button>
+
       <header className="launcher__masthead">
-        <span className="launcher__eyebrow">Лунный арканум</span>
         <h1 className="launcher__title">D&amp;D Master</h1>
-        <p className="launcher__tagline">Выбери знак хроники на небесном циферблате</p>
+        <TitleOrnament />
       </header>
 
       {error && <p className="launcher__error">Ошибка: {error}</p>}
       {loading && <p className="launcher__loading">Загрузка…</p>}
 
-      {!loading && campaigns.length === 0 && (
-        <section className="launcher__portal launcher__portal--empty">
-          <div className="launcher__moon" aria-hidden="true" />
-          <p className="launcher__portal-kicker">Врата ожидают</p>
-          <h2>Начни первую историю</h2>
-          <p className="launcher__empty">Дай кампании имя — её знак появится в круге.</p>
-        </section>
-      )}
+      {!loading && (
+        <main className="launcher__selector">
+          <section className="launcher__dial" aria-label="Циферблат кампаний">
+            <Astrolabe />
+            {positions.map((position, index) => {
+              const campaign = campaigns[index];
+              const positionStyle = { left: `${position.x}%`, top: `${position.y}%` };
+              if (campaign) {
+                const isSelected = selectedId === campaign.id;
+                return (
+                  <button key={campaign.id} type="button" className={`launcher__campaign-marker${isSelected ? " is-selected" : ""}`} style={positionStyle} aria-label={`Выбрать кампанию ${campaign.name || "Без названия"}`} aria-pressed={isSelected} onClick={() => setSelectedId(campaign.id)}>
+                    <MedallionStars />
+                    <span className="launcher__campaign-name">{campaign.name || "Без названия"}</span>
+                  </button>
+                );
+              }
+              return (
+                <button key={`empty-${index}`} type="button" className="launcher__campaign-marker launcher__campaign-marker--empty" style={positionStyle} aria-label={`Свободное место ${index + 1}: создать кампанию`} onClick={focusNewCampaign}>
+                  <MedallionStars />
+                  <span className="launcher__campaign-plus" aria-hidden="true" />
+                </button>
+              );
+            })}
 
-      {!loading && campaigns.length > 0 && (
-        <section className="launcher__dial" aria-label="Циферблат кампаний">
-          <div className="launcher__dial-plane" aria-hidden="true" />
-          <svg className="launcher__hands" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            {campaigns.map((campaign, index) => (
-              <g key={campaign.id} className={selectedId === campaign.id ? "is-selected" : undefined}>
-                <line x1="50" y1="50" x2={positions[index].x} y2={positions[index].y} />
-                <circle cx={positions[index].x} cy={positions[index].y} r="1.15" />
-              </g>
-            ))}
-          </svg>
-          {campaigns.map((campaign, index) => (
-            <button
-              key={campaign.id}
-              type="button"
-              className={`launcher__campaign-marker${selectedId === campaign.id ? " is-selected" : ""}`}
-              style={{ left: `${positions[index].x}%`, top: `${positions[index].y}%` }}
-              aria-label={`Открыть кампанию ${campaign.name || "Без названия"}`}
-              aria-pressed={selectedId === campaign.id}
-              onClick={() => setSelectedId(campaign.id)}
-            >
-              <span>{campaign.name || "Без названия"}</span>
-            </button>
-          ))}
-          <div className={`launcher__dial-center${selected ? " is-open" : ""}`} aria-live="polite">
-            {selected ? (
-              <>
-                <p className="launcher__portal-kicker dm-micro">Выбранная хроника</p>
-                <h2 title={selected.name}>{selected.name || "Без названия"}</h2>
-                <p className="launcher__portal-meta dm-chip">Героев: {selected.characterCount}</p>
+            <div className={`launcher__dial-center${selected ? " is-open" : ""}`} aria-live="polite">
+              <span className="launcher__moon" aria-hidden="true" />
+              <p className="launcher__selection-label">{selected ? "Выбранная кампания" : campaigns.length === 0 ? "Начните первую историю" : "Выберите кампанию"}</p>
+              <span className="launcher__center-divider" aria-hidden="true"><i /></span>
+              {selected && (
                 <div className="launcher__campaign-actions">
-                  <button className="launcher__continue dm-button--primary" onClick={() => continueCampaign(selected.id)}>
-                    {selected.characterCount === 0 ? "Начать" : "Продолжить"}
+                  <button className="launcher__continue" onClick={() => continueCampaign(selected.id)}>
+                    {selected.characterCount === 0 ? "Начать" : "Продолжить"}<span aria-hidden="true">›</span>
                   </button>
                   <button className="launcher__portal-delete" onClick={() => deleteCampaign(selected.id, selected.name)}>Удалить</button>
                 </div>
-              </>
-            ) : (
-              <><span className="launcher__center-sigil" aria-hidden="true">✦</span><p>Коснись знака<br />на циферблате</p></>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
+          <p className="launcher__campaign-count"><span aria-hidden="true" />{campaigns.length} из 6 кампаний<span aria-hidden="true" /></p>
+        </main>
       )}
 
       <form className="launcher__new" onSubmit={createCampaign}>
-        <label htmlFor="launcher-new-name">Новая история</label>
-        <div className="launcher__new-controls">
-          <input id="launcher-new-name" placeholder="Название новой кампании" value={newName} onChange={(e) => setNewName(e.currentTarget.value)} aria-describedby={campaignLimitReached ? "launcher-campaign-limit" : undefined} />
-          <button type="submit" className="dm-button--primary" disabled={!newName.trim() || campaignLimitReached}>Новая кампания</button>
+        <CompassRose />
+        <div className="launcher__new-content">
+          <label htmlFor="launcher-new-name">Новая история</label>
+          <div className="launcher__new-controls">
+            <input ref={newNameRef} id="launcher-new-name" placeholder="Название новой кампании" value={newName} onChange={(e) => setNewName(e.currentTarget.value)} aria-describedby={campaignLimitReached ? "launcher-campaign-limit" : undefined} />
+            <button type="submit" className="launcher__create" disabled={!newName.trim() || campaignLimitReached}>Создать</button>
+          </div>
+          {campaignLimitReached && <p id="launcher-campaign-limit" className="launcher__campaign-limit">Достигнут предел в 6 кампаний</p>}
         </div>
-        {campaignLimitReached && <p id="launcher-campaign-limit" className="launcher__campaign-limit">Достигнут предел в 6 кампаний</p>}
       </form>
     </div>
   );
