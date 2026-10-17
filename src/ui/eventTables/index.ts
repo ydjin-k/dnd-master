@@ -36,7 +36,7 @@ import { TABLES as wildernessGenerators } from "./wildernessGenerators";
 import type { EventTable, EventTableRow } from "./types";
 
 export type { EventTable, EventTableRow } from "./types";
-export { OWNER_AUTHORED_EIGHT_THEMES, OWNER_SUPPLIED } from "./types";
+export { OWNER_AUTHORED_EIGHT_THEMES, OWNER_SUPPLIED, STUDIO_AUTHORED_DUNGEON_TABLES } from "./types";
 
 /**
  * Порядок разделов в списке выбора. Единственный владелец порядка.
