@@ -230,8 +230,27 @@
   cursor: pointer;
 }
 
-.dungeon-map__marker:focus-visible {
+.dungeon-map__marker:focus-visible,
+.dungeon-map__cell:focus-visible {
   outline: 2px solid var(--dm-accent);
+}
+
+/* В режиме выбора клетки отметки — рисунок: нажимаются клетки, не значки. */
+.dungeon-map__marker--quiet {
+  cursor: default;
+}
+
+/* Клетка под постановку ловушки: подсвечивается только под курсором, чтобы
+   схема не рябила двумя сотнями подложек. */
+.dungeon-map__cell {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* Серый, а не красный цвет ловушки: цветом видов отметок владеет
+   MARKER_COLORS в DungeonMap.tsx, и второй его копии здесь быть не должно. */
+.dungeon-map__cell:hover {
+  fill: rgba(59, 50, 38, 0.22);
 }
 
 .dungeons-page__status {
@@ -271,6 +290,64 @@
 
 .dungeons-page__rooms li {
   margin: 0.3rem 0;
+}
+
+.dungeons-page__dwellers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+}
+
+/* Имена обитателей — кнопки: по имени открывается карточка существа. Выглядят
+   строкой текста, а не рядом кнопок, иначе список комнат превращается в пульт. */
+.dungeons-page__dweller-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+}
+
+.dungeons-page__dweller {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--dm-accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.dungeons-page__dweller:hover {
+  color: var(--dm-accent-hover);
+}
+
+/* Та же кнопка боя, что в генераторе событий. */
+.dungeons-page__fight {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--dm-border-bright);
+  border-radius: var(--dm-radius-control);
+  background: transparent;
+  color: var(--dm-gold);
+  cursor: pointer;
+}
+
+.dungeons-page__fight:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dm-gold) 14%, transparent);
+}
+
+.dungeons-page__fight:disabled {
+  color: var(--dm-text-muted);
+  cursor: default;
+}
+
+.dungeons-page__placed {
+  color: var(--dm-status-done);
+  font-size: 0.85rem;
+}
+
+.dungeons-page__creature-close {
+  align-self: flex-start;
 }
 
 @media (max-width: 900px) {

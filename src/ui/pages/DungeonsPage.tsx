@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useCampaign } from "../../state/CampaignContext";
 import type { DungeonRecord, MonsterTemplate, RollResult, RuleTopic } from "../../state/types";
 import { playDiceRollSound } from "../../audio/uiSounds";
+import { MonsterStatBlock, useMonsterDetailImage } from "../bestiary/MonsterStatBlock";
 import { DungeonMap, MarkerGlyph } from "../dungeons/DungeonMap";
 import {
   generateDungeon,
@@ -11,6 +12,7 @@ import {
   MARKER_KIND_LABELS,
   MARKER_KINDS,
   type DungeonMarker,
+  type DungeonRoom,
 } from "../dungeons/dungeonGenerator";
 import {
   dungeonsOf,
@@ -28,6 +30,12 @@ import {
   type Trap,
   type TrapLayerId,
 } from "../dungeons/trapBuilder";
+import {
+  cellPlace,
+  isMasterPlaced,
+  withMarkerRemoved,
+  withTrapPlaced,
+} from "../dungeons/trapPlacement";
 import {
   PARTY_LEVEL_MAX,
   PARTY_LEVEL_MIN,
@@ -170,17 +178,34 @@ function TrapLayers({ trap, onReroll }: { trap: Trap; onReroll?: (layer: TrapLay
 }
 
 function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel: number }) {
+  const { state, setDungeons } = useCampaign();
   const { numbers, error: loadError } = useTrapNumbers();
   const [level, setLevel] = useState(startLevel);
   const [danger, setDanger] = useState<TrapDanger>("Опасная");
   const [trap, setTrap] = useState<Trap | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Подземелье, в котором мастер сейчас выбирает клетку, или `null`. */
+  const [placingIn, setPlacingIn] = useState<string | null>(null);
+  const [placed, setPlaced] = useState<string | null>(null);
+  const dungeons = dungeonsOf(state);
+  const target = dungeons.find((d) => d.id === placingIn) ?? null;
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  // Схема для выбора клетки открывается НИЖЕ собранной ловушки, а в узком окне
+  // ловушка занимает весь экран: без прокрутки нажатие «Поставить в
+  // подземелье» выглядит как «ничего не произошло». `scrollIntoView` под `?.` —
+  // в jsdom его нет.
+  useEffect(() => {
+    if (target) pickerRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [placingIn, target]);
 
   async function assemble() {
     if (!numbers || busy) return;
     setBusy(true);
     setError(null);
+    setPlacingIn(null);
+    setPlaced(null);
     try {
       const layers = {} as Record<TrapLayerId, number>;
       for (const id of TRAP_LAYER_TABLE_IDS) layers[id] = await rollDie(`1d${trapLayerTable(id).die}`);
@@ -199,6 +224,7 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
   async function reroll(layer: TrapLayerId) {
     if (!numbers || !trap || busy) return;
     setBusy(true);
+    setPlaced(null);
     try {
       const roll = await rollDie(`1d${trapLayerTable(layer).die}`);
       setTrap(withLayerRerolled(numbers, trap, layer, roll));
@@ -207,6 +233,22 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
     } finally {
       setBusy(false);
     }
+  }
+
+  /**
+   * Ставит собранную ловушку отметкой в подземелье кампании. Отметку собирает
+   * `withTrapPlaced` — он же решает, свободна ли клетка; экран только зовёт его
+   * и подписывает место. Числа у отметки остаются те, с которыми ловушку
+   * собрали, даже если у подземелья другой уровень отряда и другая опасность:
+   * мастер поставил ИМЕННО эту ловушку.
+   */
+  async function place(dungeon: DungeonRecord, x: number, y: number) {
+    if (!trap) return;
+    await setDungeons((list) =>
+      list.map((d) => (d.id === dungeon.id ? withTrapPlaced(d, trap, x, y) ?? d : d)),
+    );
+    setPlaced(`Ловушка поставлена: «${dungeon.name}», ${cellPlace(dungeon.plan, x, y)}`);
+    setPlacingIn(null);
   }
 
   return (
@@ -229,15 +271,82 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
           </h3>
           <TrapNumbersView trap={trap} />
           <TrapLayers trap={trap} onReroll={reroll} />
+          <div className="dungeons-page__status">
+            <button
+              type="button"
+              disabled={dungeons.length === 0}
+              title={
+                dungeons.length === 0 ? "В этой кампании ещё нет ни одного подземелья" : undefined
+              }
+              onClick={() => {
+                setPlaced(null);
+                setPlacingIn(dungeons[0]?.id ?? null);
+              }}
+            >
+              Поставить в подземелье
+            </button>
+            {dungeons.length === 0 && (
+              <span className="dungeons-page__range">
+                Ставить некуда: создайте подземелье в «Подземельях кампании».
+              </span>
+            )}
+            {placed && <span className="dungeons-page__placed">{placed}</span>}
+          </div>
         </article>
+      )}
+      {target && (
+        <div className="dungeons-page__panel" aria-label="Куда поставить ловушку" ref={pickerRef}>
+          <div className="dungeons-page__controls">
+            <label className="dungeons-page__level">
+              Подземелье
+              <select
+                aria-label="Подземелье"
+                value={target.id}
+                onChange={(e) => setPlacingIn(e.currentTarget.value)}
+              >
+                {dungeons.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={() => setPlacingIn(null)}>Отмена</button>
+          </div>
+          <p className="dungeons-page__range">
+            Щёлкните свободную клетку пола — комнату или проход. Клетки под другими отметками
+            не выбираются.
+          </p>
+          <div className="dungeon-map">
+            <DungeonMap
+              dungeon={target}
+              selectedId={null}
+              onSelect={() => undefined}
+              onPlace={(x, y) => place(target, x, y)}
+            />
+          </div>
+        </div>
       )}
     </section>
   );
 }
 
-function MarkerDetail({ dungeon, marker, onAdvance }: { dungeon: DungeonRecord; marker: DungeonMarker; onAdvance: () => void }) {
+function MarkerDetail({
+  dungeon,
+  marker,
+  onAdvance,
+  onRemove,
+}: {
+  dungeon: DungeonRecord;
+  marker: DungeonMarker;
+  onAdvance: () => void;
+  onRemove: () => void;
+}) {
   const status = markerStatusOf(dungeon, marker.id);
   const number = dungeon.plan.markers.findIndex((m) => m.id === marker.id) + 1;
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  // Убрать можно только поставленное руками: что выпало по таблицам — схема, и
+  // чистить её выборочно мастеру незачем. Решает это `isMasterPlaced`, а не
+  // вид отметки: ручная ловушка и генераторная выглядят одинаково.
+  const mine = isMasterPlaced(marker);
   return (
     <article className="dungeons-page__panel dungeons-page__marker" aria-label="Описание отметки">
       <h3>
@@ -245,6 +354,7 @@ function MarkerDetail({ dungeon, marker, onAdvance }: { dungeon: DungeonRecord; 
         {marker.connects && (
           <span className="dungeons-page__range"> · комнаты {marker.connects[0]} ↔ {marker.connects[1]}</span>
         )}
+        {mine && <span className="dungeons-page__range"> · поставлена мастером</span>}
       </h3>
       {marker.line && (
         <p>
@@ -262,6 +372,24 @@ function MarkerDetail({ dungeon, marker, onAdvance }: { dungeon: DungeonRecord; 
         <button type="button" onClick={onAdvance}>
           Отметить: {MARKER_STATUS_LABELS[nextMarkerStatus(status)]}
         </button>
+        {mine &&
+          (confirmRemove ? (
+            <span className="dungeons-page__confirm">
+              Убрать отметку со схемы?
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmRemove(false);
+                  onRemove();
+                }}
+              >
+                Да, убрать
+              </button>
+              <button type="button" onClick={() => setConfirmRemove(false)}>Нет</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirmRemove(true)}>Убрать</button>
+          ))}
       </div>
     </article>
   );
@@ -292,14 +420,65 @@ function Legend() {
   );
 }
 
-function DungeonView({ dungeon, onClose }: { dungeon: DungeonRecord; onClose: () => void }) {
-  const { setDungeons } = useCampaign();
+function DungeonView({
+  dungeon,
+  bestiary,
+  onClose,
+}: {
+  dungeon: DungeonRecord;
+  bestiary: readonly MonsterTemplate[];
+  onClose: () => void;
+}) {
+  const { state, setDungeons, addToCombat } = useCampaign();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Обитатель, чья карточка открыта, или `null`. */
+  const [dwellerId, setDwellerId] = useState<string | null>(null);
+  /** Номер комнаты, из которой подняли бой, — для подписи на месте. */
+  const [raisedIn, setRaisedIn] = useState<number | null>(null);
   const { plan } = dungeon;
   const selected = plan.markers.find((m) => m.id === selectedId) ?? null;
+  const dweller = bestiary.find((m) => m.id === dwellerId) ?? null;
+  const dwellerImage = useMonsterDetailImage(dweller);
+  const creatureRef = useRef<HTMLElement | null>(null);
+  const noCharacters = state.characters.length === 0;
+  const anyDwellers = plan.rooms.some((r) => (r.dwellers?.monsters.length ?? 0) > 0);
+
+  /**
+   * Открытую карточку — к глазам. В узком окне столбцы встают друг под друга,
+   * и карточка рождается ВЫШЕ списка комнат, по которому только что щёлкнули:
+   * без этого нажатие на имя выглядит как «ничего не произошло» (видно на
+   * живом окне 620 px). `scrollIntoView` под `?.` — в jsdom его нет.
+   */
+  useEffect(() => {
+    if (dweller) creatureRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [dwellerId, dweller]);
 
   const advance = (markerId: string) =>
     setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withMarkerAdvanced(d, markerId) : d)));
+
+  const removeMarker = async (markerId: string) => {
+    setSelectedId(null);
+    await setDungeons((list) =>
+      list.map((d) => (d.id === dungeon.id ? withMarkerRemoved(d, markerId) : d)),
+    );
+  };
+
+  /**
+   * Поднимает бой с обитателями комнаты тем же путём, что генератор событий
+   * (`AdventuresPage`): противники — только те, кого назвала комната, а со
+   * стороны отряда выходят все персонажи кампании; кого оставить в стороне,
+   * решают за столом, на вкладке «Бой». Своего списка существ экран не
+   * выдумывает — `id` лежат в схеме с рождения комнаты.
+   */
+  const raiseCombat = async (room: DungeonRoom) => {
+    const monsters = room.dwellers?.monsters ?? [];
+    if (monsters.length === 0) return;
+    await addToCombat(
+      monsters.map((m) => m.id),
+      state.characters.map((c) => c.id),
+    );
+    setRaisedIn(room.number);
+  };
 
   return (
     <section className="dungeons-page dungeons-page--wide">
@@ -318,7 +497,36 @@ function DungeonView({ dungeon, onClose }: { dungeon: DungeonRecord; onClose: ()
           <div className="dungeon-map">
             <DungeonMap dungeon={dungeon} selectedId={selectedId} onSelect={setSelectedId} />
           </div>
-          {selected && <MarkerDetail dungeon={dungeon} marker={selected} onAdvance={() => advance(selected.id)} />}
+          {selected && (
+            <MarkerDetail
+              key={selected.id}
+              dungeon={dungeon}
+              marker={selected}
+              onAdvance={() => advance(selected.id)}
+              onRemove={() => removeMarker(selected.id)}
+            />
+          )}
+          {dwellerId && !dweller && (
+            <p className="dungeons-page__error">
+              Этого существа в бестиарии больше нет — карточку показать нечем.
+            </p>
+          )}
+          {dweller && (
+            <section
+              ref={creatureRef}
+              className="dungeons-page__panel"
+              aria-label={`Существо: ${dweller.name}`}
+            >
+              <button
+                type="button"
+                className="dungeons-page__creature-close"
+                onClick={() => setDwellerId(null)}
+              >
+                Закрыть карточку
+              </button>
+              <MonsterStatBlock monster={dweller} image={dwellerImage} />
+            </section>
+          )}
         </div>
         <aside className="dungeons-page__side">
           <Legend />
@@ -331,15 +539,44 @@ function DungeonView({ dungeon, onClose }: { dungeon: DungeonRecord; onClose: ()
                   <div className="dungeons-page__dwellers">
                     <span className="dungeons-page__range">Обитатели:</span> {room.dwellers.text}
                     {room.dwellers.monsters.length > 0 && (
-                      <span className="dungeons-page__range">
-                        {" "}[{room.dwellers.monsters.map((m) => m.name).join(", ")}]
-                      </span>
+                      <>
+                        <div className="dungeons-page__dweller-names">
+                          {room.dwellers.monsters.map((m, i) => (
+                            <button
+                              key={`${m.id}-${i}`}
+                              type="button"
+                              className="dungeons-page__dweller"
+                              onClick={() => setDwellerId(m.id)}
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="dungeons-page__fight"
+                          disabled={noCharacters}
+                          onClick={() => raiseCombat(room)}
+                        >
+                          Поднять бой
+                        </button>
+                        {raisedIn === room.number && (
+                          <span className="dungeons-page__placed">
+                            Бой начат — откройте вкладку «Бой»
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
               </li>
             ))}
           </ol>
+          {anyDwellers && noCharacters && (
+            <p className="dungeons-page__range">
+              Бой поднимать некем: добавьте персонажей на вкладке «Персонажи».
+            </p>
+          )}
         </aside>
       </div>
     </section>
@@ -364,7 +601,11 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
   }, []);
 
   const open = dungeons.find((d) => d.id === openId);
-  if (open) return <DungeonView dungeon={open} onClose={() => setOpenId(null)} />;
+  if (open) {
+    // Бестиарий уже загружен для генератора схемы; карточке обитателя он нужен
+    // тот же самый, второго запроса здесь не делается.
+    return <DungeonView dungeon={open} bestiary={bestiary ?? []} onClose={() => setOpenId(null)} />;
+  }
 
   async function create() {
     if (!numbers || !bestiary) return;
