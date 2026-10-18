@@ -94,7 +94,12 @@
 .character-card__summary-main {
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.45em;
+}
+
+.character-card__body {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .character-card__portrait-frame {
@@ -153,6 +158,15 @@
 .character-card__meta {
   width: fit-content;
   max-width: 100%;
+  white-space: normal;
+}
+
+.character-card__meta.dm-chip {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
   white-space: normal;
 }
 
@@ -413,6 +427,9 @@
 
 .character-card__coin-row {
   width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
   gap: 0.3em;
 }
 
@@ -647,7 +664,42 @@
   }
 
   .character-card__summary {
-    grid-template-columns: 4.75rem minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .character-card__portrait-frame {
+    width: 5.5rem;
+  }
+
+  .character-card__summary-main > *,
+  .character-card__rest-actions {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .character-card__hp {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .character-card__stat {
+    flex: 1 1 8rem;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .character-card__rest-actions:not(.character-card__short-rest) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .character-card__rest-actions:not(.character-card__short-rest) > :is(strong, .character-card__resource-count) {
+    min-width: 0;
+  }
+
+  .character-card__rest-actions:not(.character-card__short-rest) > .character-card__resource-count {
+    text-align: right;
   }
 }
 
