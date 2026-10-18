@@ -105,7 +105,8 @@
   width: 100%;
   padding: 1.25em;
   line-height: 1.6;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .bestiary-statblock::after {
@@ -130,7 +131,7 @@
 
 .bestiary-statblock__stats {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
   gap: 0.2em 0.75em;
   margin: 1em 0;
 }
