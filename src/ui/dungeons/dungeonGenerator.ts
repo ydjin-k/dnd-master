@@ -68,6 +68,13 @@ export interface DungeonMarker {
   readonly trap: Trap | null;
   /** Номера комнат, которые соединяет потайной ход. */
   readonly connects: readonly [number, number] | null;
+  /**
+   * Отметку поставил мастер руками (ловушка из генератора ловушек), а не
+   * генератор схемы. Генератор поля не пишет вовсе, поэтому «поля нет» и
+   * значит «это выпало по таблицам»; убрать со схемы можно только ручную
+   * (`trapPlacement.ts` — там же и правила постановки).
+   */
+  readonly placedByMaster?: boolean;
 }
 
 export interface DungeonPlan {

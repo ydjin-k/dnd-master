@@ -1179,6 +1179,62 @@ mod tests {
         assert_ne!(other.id, first.id);
     }
 
+    /// engine-dungeon-dwellers-combat-and-trap-placement: ловушка, которую
+    /// мастер поставил в подземелье руками, — такая же отметка в `plan`, и
+    /// пройти запись-чтение она обязана целиком, вместе со своими числами.
+    ///
+    /// Проверяется именно то, чего Rust про схему НЕ знает: пометка
+    /// `placedByMaster` (по ней экран решает, можно ли отметку убрать) и числа
+    /// ловушки, собранной на другом уровне и с другой опасностью, чем у самого
+    /// подземелья. `plan` лежит как `serde_json::Value` ровно для этого: любое
+    /// новое поле отметки едет на диск без правки модели.
+    ///
+    /// Отрицательная проба: пометить `plan` в `DungeonRecord` как
+    /// `#[serde(skip)]` — строка «пометка ручной ловушки обязана уцелеть»
+    /// краснеет.
+    #[test]
+    fn front_save_keeps_a_hand_placed_trap_marker_with_its_own_numbers() {
+        let base = temp_dir("front-owned-hand-placed-trap");
+        create_campaign_in(&base, "Поход".into()).unwrap();
+
+        let mut dungeon = dungeon_with_status("discovered");
+        dungeon.plan = serde_json::json!({
+            "seed": 20261018,
+            "partyLevel": 3,
+            "danger": "Опасная",
+            "markers": [
+                { "id": "trap-1", "kind": "trap", "x": 4, "y": 5, "trap": { "partyLevel": 3 } },
+                {
+                    "id": "trap-2",
+                    "kind": "trap",
+                    "x": 11,
+                    "y": 7,
+                    "placedByMaster": true,
+                    "trap": { "partyLevel": 17, "danger": "Смертоносная", "saveDc": 19 }
+                }
+            ]
+        });
+        save_front_owned_in(&base, front_fields(Some(vec![dungeon]))).unwrap();
+
+        let after = load_active_in(&base).unwrap().expect("кампания на месте");
+        let plan = &after.dungeons.first().expect("подземелье на месте").plan;
+        let placed = &plan["markers"][1];
+        assert_eq!(
+            placed["placedByMaster"], true,
+            "пометка ручной ловушки обязана уцелеть: по ней отметку убирают"
+        );
+        assert_eq!(placed["id"], "trap-2");
+        assert_eq!((placed["x"].as_i64(), placed["y"].as_i64()), (Some(11), Some(7)));
+        // Числа — те, с которыми ловушку собрали, а не уровень подземелья.
+        assert_eq!(placed["trap"]["partyLevel"], 17);
+        assert_eq!(placed["trap"]["danger"], "Смертоносная");
+        assert_eq!(placed["trap"]["saveDc"], 19);
+        assert_eq!(after.dungeons[0].party_level, 3);
+        // Генераторная отметка рядом не испортилась и пометки не получила.
+        assert_eq!(plan["markers"][0]["id"], "trap-1");
+        assert!(plan["markers"][0].get("placedByMaster").is_none());
+    }
+
     /// Запись без поля `dungeons` не стирает накопленное, а присланный пустой
     /// список — стирает: удаление последнего подземелья обязано сохраниться.
     #[test]

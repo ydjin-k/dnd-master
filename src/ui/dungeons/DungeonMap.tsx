@@ -1,6 +1,8 @@
+import type { KeyboardEvent } from "react";
 import type { DungeonRecord } from "../../state/types";
 import { MARKER_KIND_LABELS, type DungeonPlan, type MarkerKind } from "./dungeonGenerator";
 import { MARKER_STATUS_LABELS, markerStatusOf, type MarkerStatus } from "./markerStatus";
+import { cellPlace, freeFloorCells } from "./trapPlacement";
 
 /**
  * Схема подземелья — SVG, вид принят владельцем по образцу 18.10.2026:
@@ -105,10 +107,18 @@ export function DungeonMap({
   dungeon,
   selectedId,
   onSelect,
+  onPlace,
 }: {
   dungeon: DungeonRecord;
   selectedId: string | null;
   onSelect: (markerId: string) => void;
+  /**
+   * Режим выбора клетки: схема ждёт не отметку, а место. Пока он включён,
+   * нажимаются только свободные клетки пола, а отметки становятся просто
+   * рисунком — мастер выбирает место, а не читает описания. Какая клетка
+   * свободна, решает `trapPlacement.ts`, а не схема.
+   */
+  onPlace?: (x: number, y: number) => void;
 }) {
   const { plan } = dungeon;
   const floor = floorRects(plan);
@@ -189,24 +199,29 @@ export function DungeonMap({
         const cx = m.x * CELL + half;
         const cy = m.y * CELL + half;
         const selected = m.id === selectedId;
+        const pick = onPlace
+          ? {}
+          : {
+              role: "button",
+              tabIndex: 0,
+              "aria-pressed": selected,
+              onClick: () => onSelect(m.id),
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(m.id);
+                }
+              },
+            };
         return (
           <g
             key={m.id}
-            className="dungeon-map__marker"
+            className={"dungeon-map__marker" + (onPlace ? " dungeon-map__marker--quiet" : "")}
             data-marker={m.id}
             data-kind={m.kind}
             data-status={status}
-            role="button"
-            tabIndex={0}
-            aria-pressed={selected}
             aria-label={`${index + 1}. ${MARKER_KIND_LABELS[m.kind]}: ${MARKER_STATUS_LABELS[status]}`}
-            onClick={() => onSelect(m.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelect(m.id);
-              }
-            }}
+            {...pick}
           >
             {/* Невидимая подложка в клетку — по значку легко попасть. */}
             <rect x={cx - half} y={cy - half} width={CELL} height={CELL} fill="transparent" />
@@ -218,6 +233,28 @@ export function DungeonMap({
           </g>
         );
       })}
+      {onPlace &&
+        freeFloorCells(plan).map(([x, y]) => (
+          <rect
+            key={`cell-${x}-${y}`}
+            className="dungeon-map__cell"
+            data-cell={`${x},${y}`}
+            x={x * CELL}
+            y={y * CELL}
+            width={CELL}
+            height={CELL}
+            role="button"
+            tabIndex={0}
+            aria-label={`Поставить сюда: ${cellPlace(plan, x, y)}, клетка ${x}, ${y}`}
+            onClick={() => onPlace(x, y)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onPlace(x, y);
+              }
+            }}
+          />
+        ))}
     </svg>
   );
 }
