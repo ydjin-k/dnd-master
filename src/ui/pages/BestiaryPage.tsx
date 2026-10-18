@@ -1,106 +1,21 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AbilityScores, MonsterOrigin, MonsterTemplate } from "../../state/types";
-import { ABILITY_LABELS, abilityMod, fmtMod } from "../characterCreationData";
-import { EmphasizedText } from "../EmphasizedText";
+import type { MonsterTemplate } from "../../state/types";
+import {
+  LIST_THUMB_SIZE,
+  MonsterStatBlock,
+  MonsterThumb,
+  useMonsterDetailImage,
+} from "../bestiary/MonsterStatBlock";
 import "./BestiaryPage.css";
 
-// Русские подписи характеристик и счёт модификатора берутся у листа персонажа
-// (characterCreationData), а не пишутся здесь заново: подпись «Ловкость» и
-// формула (score - 10) / 2 — один факт на всё приложение.
-const ABILITY_LABEL: Record<keyof AbilityScores, string> = Object.fromEntries(
-  ABILITY_LABELS,
-) as Record<keyof AbilityScores, string>;
-
 /**
- * Подпись об источнике — ОДНА НА ПОКАЗАННОЕ СУЩЕСТВО, а не одна на вкладку.
+ * Вкладка «Бестиарий»: список тварей с поиском и карточка выбранной.
  *
- * Раньше подвал стоял под списком и подписывал переводом SRD 5.1 всё, что во
- * вкладке видно. Пока в бестиарии лежал только SRD, это было правдой; с
- * появлением наших собственных существ (`bestiary/own-creatures.json`) тот же
- * подвал стал бы врать об источнике — ровно та ошибка, ради которой «Эльф
- * бездны» не лежит в `rules.json` (см. `abyssElfRace.ts`).
- *
- * Разведено по показанному существу, а не по двум спискам, потому что искать
- * существо игрок хочет по одному списку: наши твари стоят в бестиарии вперемешку
- * с SRD, находятся тем же поиском и уходят в тот же бой. Единственное, что
- * обязано различаться, — чей это контент; поэтому различается ровно подпись.
- *
- * Происхождение берётся у записи, а запись получает его от загрузчика по
- * файлу-источнику (`combat.rs`, `MonsterOrigin`) — показ его не выводит и не
- * угадывает. Текст подписи живёт здесь и только здесь.
+ * Сам стат-блок вкладке не принадлежит — он живёт в `MonsterStatBlock.tsx` и
+ * тем же компонентом показан во вкладке «Подземелья». Здесь остались список,
+ * поиск и ленивая загрузка мелких превью.
  */
-const ATTRIBUTION: Record<MonsterOrigin, string | null> = {
-  srd:
-    "Стат-блок — перевод официального System Reference Document 5.1 от Wizards of the Coast, " +
-    "распространяется по лицензии CC BY 4.0.",
-  // До 15.10.2026 здесь стояло «Существо не входит в System Reference Document
-  // 5.1: имя, описание, особые свойства и действия написаны для D&D Master,
-  // лицензия CC BY 4.0 на него не распространяется». Владелец назвал метку
-  // «не SRD» служебной: под своим существом подписи нет вовсе, а SRD-подпись
-  // по-прежнему стоит только под SRD (`content-strip-provenance-notes`).
-  own: null,
-};
-
-/**
- * Строки шапки стат-блока, которых у существа может не быть.
- *
- * Собираются списком, а не десятком условий прямо в разметке, ради одного
- * правила на все: поле, которого у существа нет, не даёт СТРОКИ вовсе. Пустая
- * клетка на месте иммунитетов волка читалась бы как потерянные данные —
- * карточка `bestiary-record-full-stat-block` требует ровно обратного.
- */
-/**
- * Кости хитов хранятся латиницей, одной записью с `damageDice` («9d8+18»), —
- * так их отдаёт разборщик SRD и так их читает Rust. На экран они идут
- * кириллицей и с пробелами вокруг знака, как напечатано в книге: «9к8 + 18».
- * Запись без модификатора («3d8») остаётся без пробелов — их там неоткуда взять.
- */
-export function formatHitDice(hitDice: string): string {
-  return hitDice.replace("d", "к").replace(/([+-])/, " $1 ");
-}
-
-function optionalStatRows(m: MonsterTemplate): [string, string][] {
-  const rows: [string, string][] = [];
-  const add = (label: string, value: string | null) => {
-    if (value) rows.push([label, value]);
-  };
-  const list = (items: string[] | undefined) => (items?.length ? items.join(", ") : null);
-
-  add(
-    "Спасброски",
-    list(m.savingThrows?.map((s) => `${ABILITY_LABEL[s.ability]} ${fmtMod(s.bonus)}`)),
-  );
-  add("Навыки", list(m.skills?.map((s) => `${s.skill} ${fmtMod(s.bonus)}`)));
-  add("Уязвимость к урону", list(m.damageVulnerabilities));
-  add("Сопротивление урону", list(m.damageResistances));
-  add("Иммунитет к урону", list(m.damageImmunities));
-  add("Иммунитет к состояниям", list(m.conditionImmunities));
-  add("Чувства", list(m.senses?.map((s) => `${s.name} ${s.rangeFeet} футов`)));
-  add("Языки", list(m.languages));
-  return rows;
-}
-
-function MonsterThumb({
-  monster,
-  className,
-  src,
-}: {
-  monster: MonsterTemplate;
-  className: string;
-  src: string | null;
-}) {
-  if (!src) {
-    return <div className={`${className} bestiary-thumb--empty`} aria-hidden="true" />;
-  }
-  return <img className={className} src={src} alt={monster.name} />;
-}
-
-// Длинная сторона превью в пикселях, отдаваемых Rust-стороной (`get_bestiary_image`,
-// см. combat::load_bestiary_image) — сильно меньше оригиналов (~1122×1402px),
-// байты по IPC вместо ~183 МБ на все 50 тварей одновременно.
-const LIST_THUMB_SIZE = 160;
-const DETAIL_THUMB_SIZE = 480;
 
 // Отступ вокруг видимой области списка, на который IntersectionObserver
 // считает строку «достаточно близкой» и начинает грузить превью заранее —
@@ -114,7 +29,6 @@ export function BestiaryPage() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listImages, setListImages] = useState<Record<string, string>>({});
-  const [detailImages, setDetailImages] = useState<Record<string, string>>({});
 
   const listRef = useRef<HTMLUListElement | null>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
@@ -184,35 +98,13 @@ export function BestiaryPage() {
     return () => observer.disconnect();
   }, [visible]);
 
-  // Крупная картинка — только для выбранной твари, по требованию, не для
-  // всех тварей сразу.
-  useEffect(() => {
-    let cancelled = false;
-    const monster = monsters.find((m) => m.id === selectedId);
-    if (!monster?.imageAsset || detailImages[monster.imageAsset]) return;
-
-    invoke<string>("get_bestiary_image", {
-      imageAsset: monster.imageAsset,
-      maxSize: DETAIL_THUMB_SIZE,
-    })
-      .then((data) => {
-        if (!cancelled) {
-          setDetailImages((current) => ({ ...current, [monster.imageAsset!]: data }));
-        }
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, monsters]);
-
   const listImageFor = (monster: MonsterTemplate) =>
     monster.imageAsset ? listImages[monster.imageAsset] ?? null : null;
-  const detailImageFor = (monster: MonsterTemplate) =>
-    monster.imageAsset ? detailImages[monster.imageAsset] ?? null : null;
 
   const selected = monsters.find((m) => m.id === selectedId);
+  // Крупная картинка — только для выбранной твари, по требованию; правило
+  // живёт в карточке существа.
+  const detailImage = useMonsterDetailImage(selected);
 
   return (
     <div className="bestiary-page">
@@ -260,95 +152,7 @@ export function BestiaryPage() {
       </nav>
 
       <div className="bestiary-page__content">
-        {selected && (
-          <article className="bestiary-statblock">
-            <MonsterThumb
-              monster={selected}
-              className="bestiary-thumb bestiary-thumb--detail"
-              src={detailImageFor(selected)}
-            />
-            <h2 className="bestiary-statblock__name">{selected.name}</h2>
-            <p className="bestiary-statblock__subtitle">
-              {selected.size} {selected.creatureType}
-            </p>
-            {selected.description && <p className="bestiary-statblock__description">{selected.description}</p>}
-
-            <dl className="bestiary-statblock__stats">
-              <dt>Класс доспеха</dt>
-              <dd>{selected.armorClass}</dd>
-              <dt>Хиты</dt>
-              <dd>
-                {selected.maxHp} ({formatHitDice(selected.hitDice)})
-              </dd>
-              <dt>Скорость</dt>
-              <dd>{selected.speedFeet} футов</dd>
-            </dl>
-
-            <dl className="bestiary-statblock__abilities">
-              {ABILITY_LABELS.map(([key, label]) => (
-                <div key={key} className="bestiary-statblock__ability">
-                  <dt>{label}</dt>
-                  <dd>
-                    {selected.abilities[key]} ({fmtMod(abilityMod(selected.abilities[key]))})
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            <dl className="bestiary-statblock__stats">
-              {optionalStatRows(selected).map(([label, value]) => (
-                <Fragment key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </Fragment>
-              ))}
-              <dt>Пассивная внимательность</dt>
-              <dd>{selected.passivePerception}</dd>
-              <dt>Опасность</dt>
-              <dd>{selected.challengeRating}</dd>
-            </dl>
-
-            {selected.traits.length > 0 && (
-              <section>
-                <h3>Особые свойства</h3>
-                {selected.traits.map((t, i) => (
-                  <p key={i}><EmphasizedText>{t}</EmphasizedText></p>
-                ))}
-              </section>
-            )}
-
-            {selected.actions.length > 0 && (
-              <section>
-                <h3>Действия</h3>
-                {selected.actions.map((a, i) => (
-                  <p key={i}><EmphasizedText>{a}</EmphasizedText></p>
-                ))}
-              </section>
-            )}
-
-            {selected.reactions && selected.reactions.length > 0 && (
-              <section>
-                <h3>Реакции</h3>
-                {selected.reactions.map((r, i) => (
-                  <p key={i}><EmphasizedText>{r}</EmphasizedText></p>
-                ))}
-              </section>
-            )}
-
-            {selected.legendaryActions && selected.legendaryActions.length > 0 && (
-              <section>
-                <h3>Легендарные действия</h3>
-                {selected.legendaryActions.map((a, i) => (
-                  <p key={i}><EmphasizedText>{a}</EmphasizedText></p>
-                ))}
-              </section>
-            )}
-          </article>
-        )}
-
-        {selected && ATTRIBUTION[selected.origin] && (
-          <footer className="bestiary-page__attribution">{ATTRIBUTION[selected.origin]}</footer>
-        )}
+        {selected && <MonsterStatBlock monster={selected} image={detailImage} />}
       </div>
     </div>
   );

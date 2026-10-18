@@ -1,0 +1,116 @@
+/* Карточка существа (`MonsterStatBlock.tsx`). Правила переехали сюда из
+   BestiaryPage.css без изменений, когда карточку стала показывать и вкладка
+   «Подземелья»: вид стат-блока принадлежит карточке, а не одной из вкладок. */
+
+.bestiary-thumb {
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--dm-panel-raised);
+  border: 1px solid var(--dm-border);
+}
+
+.bestiary-thumb--list {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.bestiary-thumb--detail {
+  box-sizing: border-box;
+  width: auto;
+  max-width: 320px;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+  float: right;
+  margin: 0 0 1em 1.5em;
+}
+
+.bestiary-thumb--empty {
+  opacity: 0.4;
+}
+
+.bestiary-statblock {
+  box-sizing: border-box;
+  display: flow-root;
+  width: 100%;
+  padding: 1.25em;
+  line-height: 1.6;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.bestiary-statblock::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.bestiary-statblock__name {
+  margin-bottom: 0.1em;
+}
+
+.bestiary-statblock__subtitle {
+  color: var(--dm-text-muted);
+  font-style: italic;
+  margin-top: 0;
+}
+
+.bestiary-statblock__description {
+  color: var(--dm-text-muted);
+}
+
+.bestiary-statblock__stats {
+  display: grid;
+  grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
+  gap: 0.2em 0.75em;
+  margin: 1em 0;
+}
+
+.bestiary-statblock__stats dt {
+  color: var(--dm-text-muted);
+}
+
+.bestiary-statblock__stats dd {
+  margin: 0;
+}
+
+/* Шесть характеристик строкой, как в самом стат-блоке. auto-fit, а не жёсткие
+   шесть колонок: в узком окне карточка съезжает в две-три, а не выдавливает
+   содержимое за край. */
+.bestiary-statblock__abilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.4em 0.75em;
+  margin: 1em 0;
+  padding: 0.6em 0;
+  border-top: 1px solid var(--dm-border);
+  border-bottom: 1px solid var(--dm-border);
+  text-align: center;
+}
+
+.bestiary-statblock__ability dt {
+  color: var(--dm-text-muted);
+  font-size: 0.85em;
+}
+
+.bestiary-statblock__ability dd {
+  margin: 0;
+}
+
+.bestiary-statblock__attribution {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--dm-border);
+  font-size: 0.8em;
+  color: var(--dm-text-muted);
+}
+
+@container (max-width: 46rem) {
+  .bestiary-thumb--detail {
+    float: none;
+    display: block;
+    max-width: 100%;
+    margin: 0 0 1em;
+  }
+}
