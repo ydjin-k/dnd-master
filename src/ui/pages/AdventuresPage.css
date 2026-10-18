@@ -87,11 +87,15 @@
 .adventures-page__picker select {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  overflow: hidden;
   padding: 0.5rem;
   border: 1px solid var(--dm-border);
   border-radius: var(--dm-radius-control);
   background: var(--dm-panel-raised);
   color: var(--dm-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .adventures-page__die {
@@ -218,4 +222,21 @@
   font-size: 0.8rem;
   line-height: 1.45;
   text-align: center;
+}
+
+@container (max-width: 42rem) {
+  .adventures-page__head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .adventures-page__back {
+    position: static;
+  }
+
+  .adventures-page__head h2 {
+    width: 100%;
+  }
 }

@@ -108,6 +108,14 @@ describe("AdventuresPage", () => {
     expect(invokeMock.mock.calls[0][1]).toEqual({ expression: "1d150" });
   });
 
+  it("полное имя выбранной таблицы остаётся в подсказке закрытого поля", async () => {
+    const select = await openGenerator();
+    fireEvent.change(select, { target: { value: "underdark-encounter-check" } });
+
+    const table = findTable("underdark-encounter-check")!;
+    expect(select).toHaveAttribute("title", `${table.name} (d${table.die})`);
+  });
+
   // Ради этой пробы выпавшее и держится на экране до нажатия: неудачный бросок
   // игрок перебрасывает, не засоряя историю кампании.
   it("бросок без нажатия «В дневник» дневник не меняет", async () => {

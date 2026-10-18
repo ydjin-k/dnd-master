@@ -225,6 +225,7 @@ function EventGenerator({ onBack }: { onBack: () => void }) {
           Таблица
           <select
             aria-label="Таблица событий"
+            title={`${table.name} (d${table.die})`}
             value={tableId}
             onChange={(e) => {
               setTableId(e.currentTarget.value);
