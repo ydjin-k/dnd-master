@@ -139,7 +139,7 @@
   padding: 0.45em 0.6em;
   border: 1px solid rgba(114, 214, 208, 0.14);
   border-radius: 6px;
-  background: rgba(7, 15, 33, 0.2);
+  background: var(--dm-panel-raised);
 }
 
 .character-card__body > details > summary {
@@ -185,7 +185,7 @@
   padding: 0.35em 0.65em 0.4em;
   border: 1px solid rgba(114, 214, 208, 0.3);
   border-radius: 8px;
-  background: linear-gradient(145deg, rgba(33, 52, 91, 0.78), rgba(7, 15, 33, 0.72));
+  background: var(--dm-panel-raised);
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
   text-align: center;
   white-space: nowrap;
@@ -274,7 +274,7 @@
   padding: 0.55em 0.65em;
   border-left: 2px solid rgba(114, 214, 208, 0.32);
   border-radius: 0 4px 4px 0;
-  background: rgba(7, 15, 33, 0.24);
+  background: var(--dm-panel-raised);
 }
 
 .character-card__rest-hints .character-card__hint {

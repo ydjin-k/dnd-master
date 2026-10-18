@@ -1,5 +1,5 @@
 .dice-page > h2 { font-size: 2.75rem; }
-.dice-page__roller { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 1em; padding: 1em; margin-bottom: 1em; border: 1px solid var(--dm-border); border-radius: 14px; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); }
+.dice-page__roller { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 1em; padding: 1em; margin-bottom: 1em; border: 1px solid var(--dm-border); border-radius: 14px; background: var(--dm-panel-raised); box-shadow: 0 8px 20px var(--dm-shadow); }
 .dice-page__dice-picker { display: flex; flex-wrap: wrap; gap: .5em; margin: 0; padding: 0; border: 0; }
 .dice-page__dice-picker legend { width: 100%; margin-bottom: .35em; color: var(--dm-text-muted); font-size: 1.75rem; line-height: 1.2; }
 .dice-page__dice-picker button, .dice-page__roll { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: .35em; font-family: var(--dm-font-display); }
@@ -37,7 +37,7 @@
 .dice-page__log-actions { display: flex; justify-content: flex-end; margin-bottom: .5em; }
 .dice-page__log-actions button { min-height: 44px; font-size: 1.75rem; line-height: 1.2; }
 .dice-page__log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35em; }
-.dice-log-entry { display: flex; flex-wrap: wrap; align-items: center; gap: .75em; border: 1px solid var(--dm-border); border-radius: 14px; padding: .65em .85em; background: linear-gradient(135deg, rgba(23, 40, 74, .96), rgba(13, 25, 49, .96)); box-shadow: 0 8px 20px var(--dm-shadow); font-size: 1.75rem; line-height: 1.2; overflow-wrap: anywhere; }
+.dice-log-entry { display: flex; flex-wrap: wrap; align-items: center; gap: .75em; border: 1px solid var(--dm-border); border-radius: 14px; padding: .65em .85em; background: var(--dm-panel-raised); box-shadow: 0 8px 20px var(--dm-shadow); font-size: 1.75rem; line-height: 1.2; overflow-wrap: anywhere; }
 .dice-log-entry__icons { display: flex; max-width: 100%; flex-wrap: wrap; gap: .3em; }
 .dice-log-entry__expr { color: var(--dm-text-muted); min-width: 5em; }
 .dice-log-entry__total { font-family: var(--dm-font-display); color: var(--dm-accent); font-size: 1.2em; }

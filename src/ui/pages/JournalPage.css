@@ -194,13 +194,13 @@
   width: min(100%, 31rem);
   margin: 1.35rem 0 0;
   padding: 1em;
-  background: color-mix(in srgb, var(--dm-panel) 82%, transparent);
+  background: var(--dm-panel);
   border: 1px solid var(--dm-border);
   border-radius: 5px;
   box-shadow: inset 0 0 20px rgba(1, 6, 18, 0.35);
 }
 
-.journal-page__form textarea { min-height: 4.4rem; max-height: 18rem; resize: vertical; color: var(--dm-text); background: color-mix(in srgb, var(--dm-bg) 88%, transparent); border-color: var(--dm-border); field-sizing: content; }
+.journal-page__form textarea { min-height: 4.4rem; max-height: 18rem; resize: vertical; color: var(--dm-text); background: var(--dm-panel-raised); border-color: var(--dm-border); field-sizing: content; }
 .journal-page__form textarea::placeholder { color: var(--dm-text-muted); }
 .journal-page__form-hint { color: var(--journal-muted); font-size: 0.9rem; }
 .journal-page__form button { align-self: flex-end; }
