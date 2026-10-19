@@ -1144,6 +1144,9 @@ mod tests {
             // касаются — пустые, как у подземелья, созданного до их появления.
             size: String::new(),
             purpose_roll: None,
+            // journal-dungeon-room-status-and-notes: заметок эта проба не
+            // касается — пустые, как у подземелья без заметок мастера.
+            notes: Default::default(),
         }
     }
 
