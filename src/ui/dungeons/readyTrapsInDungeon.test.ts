@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import bundledBestiary from "../../../src-tauri/bestiary/bestiary.json";
 import bundledRules from "../../../src-tauri/rules/rules.json";
-import type { RuleTopic } from "../../state/types";
+import type { DungeonRecord, RuleTopic } from "../../state/types";
 import type { DwellerSource } from "./dungeonDwellers";
+import { rebuildLosses } from "./dungeonEdit";
 import { generateDungeon, READY_TRAP_SHARE } from "./dungeonGenerator";
-import { builtTrap, isReadyTrap, type PlacedTrap } from "./readyTraps";
+import { builtTrap, isReadyTrap, readyTrapPick, type PlacedTrap } from "./readyTraps";
+import { freeFloorCells, withTrapPlaced } from "./trapPlacement";
 import { readTrapNumbers, type TrapNumbers } from "./trapNumbers";
 import oldMarkers from "./__fixtures__/oldMarkers.20261018.json";
 
@@ -108,5 +110,33 @@ describe("готовые ловушки в схеме подземелья", () 
     expect(built.saveDc).toBeGreaterThan(0);
     // У двери ловушки нет вовсе — и `builtTrap` этого не выдумывает.
     expect(builtTrap(door.trap)).toBeNull();
+  });
+  it("готовая ловушка, поставленная руками, считается при пересборке", () => {
+    const plan = generateDungeon({
+      seed: 4242,
+      partyLevel: 12,
+      danger: "Опасная",
+      numbers,
+      bestiary,
+      size: "Среднее",
+    });
+    const dungeon: DungeonRecord = {
+      id: "d-ready",
+      name: "Проба потерь",
+      createdAt: "2026-10-19T10:00:00Z",
+      seed: 4242,
+      partyLevel: 12,
+      danger: "Опасная",
+      size: "Среднее",
+      plan,
+      statuses: {},
+    };
+    // Ловушки самой схемы потерей не считаются — их пересборка бросает заново.
+    expect(rebuildLosses(dungeon)).toEqual([]);
+
+    const [x, y] = freeFloorCells(plan)[0];
+    const placed = withTrapPlaced(dungeon, readyTrapPick("Отравленная игла"), x, y)!;
+    // Ручную считает `isMasterPlaced`, а не вид ловушки: готовая — тоже потеря.
+    expect(rebuildLosses(placed)).toEqual(["ловушек, поставленных руками: 1"]);
   });
 });
