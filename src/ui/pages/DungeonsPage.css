@@ -270,6 +270,20 @@
   cursor: pointer;
 }
 
+/* Комната нажимается так же, как значок: щелчок выделяет её в списке. */
+.dungeon-map__room {
+  cursor: pointer;
+}
+
+.dungeon-map__room:focus-visible {
+  outline: 2px solid var(--dm-accent);
+}
+
+/* В режиме выбора клетки комнаты — рисунок, как и значки. */
+.dungeon-map__room--quiet {
+  cursor: default;
+}
+
 .dungeon-map__marker:focus-visible,
 .dungeon-map__cell:focus-visible {
   outline: 2px solid var(--dm-accent);
@@ -330,6 +344,60 @@
 
 .dungeons-page__rooms li {
   margin: 0.3rem 0;
+}
+
+/* Строка комнаты: статус — тоном пола на схеме, а здесь чипом, поэтому
+   подложка строки остаётся нейтральной и статус с выделением не сливается. */
+.dungeons-page__room {
+  padding: 0.3rem 0 0.3rem 0.5rem;
+  border-left: 3px solid transparent;
+}
+
+/* Выбранная комната — полоса и подложка, но НЕ тон пола: тоном владеет статус
+   (ROOM_STATUS_FILL в DungeonMap.tsx), и второго его смысла здесь быть не
+   должно. На схеме та же комната обведена пунктиром. */
+.dungeons-page__room--selected {
+  border-left-color: var(--dm-gold);
+  background: var(--dm-panel-raised);
+}
+
+/* Имя комнаты — кнопка, выглядящая строкой текста: щелчок выделяет комнату на
+   схеме. Рядом с именами обитателей она не должна читаться второй ссылкой,
+   поэтому без подчёркивания и своим цветом текста. */
+.dungeons-page__room-name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dungeons-page__room-name:hover {
+  color: var(--dm-gold);
+}
+
+.dungeons-page__room--selected .dungeons-page__room-name {
+  color: var(--dm-gold);
+}
+
+.dungeons-page__room-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0;
+}
+
+/* Заметка мастера: во всю ширину своего места и растяжимая вниз — мастер
+   дописывает её за столом, а узкая колонка списка и так тесная. */
+.dungeons-page__note {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.25rem 0;
+  resize: vertical;
 }
 
 .dungeons-page__dwellers {

@@ -5,6 +5,9 @@ import type { DungeonRecord, MonsterTemplate, RollResult, RuleTopic } from "../.
 import { playDiceRollSound } from "../../audio/uiSounds";
 import { MonsterStatBlock, useMonsterDetailImage } from "../bestiary/MonsterStatBlock";
 import { DungeonMap, MarkerGlyph } from "../dungeons/DungeonMap";
+import { noteOf, withNote } from "../dungeons/dungeonNotes";
+import { DungeonRooms, RoomLegend } from "../dungeons/DungeonRooms";
+import { NoteField } from "../dungeons/NoteField";
 import { findDungeonTable } from "../eventTables/dungeonTables";
 import {
   DUNGEON_SIZES,
@@ -32,6 +35,7 @@ import {
   markerStatusOf,
   nextMarkerStatus,
   withMarkerAdvanced,
+  withRoomAdvanced,
 } from "../dungeons/markerStatus";
 import {
   buildTrap,
@@ -447,11 +451,13 @@ function MarkerDetail({
   dungeon,
   marker,
   onAdvance,
+  onNote,
   onRemove,
 }: {
   dungeon: DungeonRecord;
   marker: DungeonMarker;
   onAdvance: () => void;
+  onNote: (text: string) => void;
   onRemove: () => void;
 }) {
   const status = markerStatusOf(dungeon, marker.id);
@@ -481,6 +487,11 @@ function MarkerDetail({
           <TrapLayers trap={marker.trap} />
         </>
       )}
+      <NoteField
+        label={`Заметка к отметке ${number}`}
+        value={noteOf(dungeon, marker.id)}
+        onChange={onNote}
+      />
       <div className="dungeons-page__status">
         <span className="dm-chip" data-status={status}>{MARKER_STATUS_LABELS[status]}</span>
         <button type="button" onClick={onAdvance}>
@@ -530,6 +541,7 @@ function Legend() {
         Пунктир — ещё не исследовано; заливка — обнаружено; бледная с галочкой — исследовано.
         Щелчок по отметке открывает описание и смену статуса.
       </p>
+      <RoomLegend />
     </div>
   );
 }
@@ -548,6 +560,8 @@ function DungeonView({
 }) {
   const { state, setDungeons, addToCombat } = useCampaign();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Комната, выбранная на схеме или в списке: они выделяют одну и ту же. */
+  const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   /** Обитатель, чья карточка открыта, или `null`. */
@@ -578,6 +592,13 @@ function DungeonView({
   const advance = (markerId: string) =>
     setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withMarkerAdvanced(d, markerId) : d)));
 
+  const advanceRoom = (roomNumber: number) =>
+    setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withRoomAdvanced(d, roomNumber) : d)));
+
+  /** Заметка к отметке или комнате; ключ даёт тот, кто её показывает. */
+  const note = (id: string, text: string) =>
+    setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withNote(d, id, text) : d)));
+
   const rename = async (name: string) => {
     setRenaming(false);
     await setDungeons((list) =>
@@ -594,6 +615,7 @@ function DungeonView({
     if (!numbers) return;
     setConfirmRebuild(false);
     setSelectedId(null);
+    setSelectedRoom(null);
     setDwellerId(null);
     setRaisedIn(null);
     // Семя берётся ДО обновления: внутри него `randomSeed()` могло бы
@@ -667,7 +689,13 @@ function DungeonView({
       <div className="dungeons-page__layout">
         <div className="dungeons-page__main">
           <div className="dungeon-map">
-            <DungeonMap dungeon={dungeon} selectedId={selectedId} onSelect={setSelectedId} />
+            <DungeonMap
+              dungeon={dungeon}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              selectedRoom={selectedRoom}
+              onSelectRoom={setSelectedRoom}
+            />
           </div>
           {selected && (
             <MarkerDetail
@@ -675,6 +703,7 @@ function DungeonView({
               dungeon={dungeon}
               marker={selected}
               onAdvance={() => advance(selected.id)}
+              onNote={(text) => note(selected.id, text)}
               onRemove={() => removeMarker(selected.id)}
             />
           )}
@@ -702,48 +731,17 @@ function DungeonView({
         </div>
         <aside className="dungeons-page__side">
           <Legend />
-          <h4>Комнаты</h4>
-          <ol className="dungeons-page__rooms">
-            {plan.rooms.map((room) => (
-              <li key={room.number}>
-                {room.kind.text}
-                {room.dwellers && (
-                  <div className="dungeons-page__dwellers">
-                    <span className="dungeons-page__range">Обитатели:</span> {room.dwellers.text}
-                    {room.dwellers.monsters.length > 0 && (
-                      <>
-                        <div className="dungeons-page__dweller-names">
-                          {room.dwellers.monsters.map((m, i) => (
-                            <button
-                              key={`${m.id}-${i}`}
-                              type="button"
-                              className="dungeons-page__dweller"
-                              onClick={() => setDwellerId(m.id)}
-                            >
-                              {m.name}
-                            </button>
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          className="dungeons-page__fight"
-                          disabled={noCharacters}
-                          onClick={() => raiseCombat(room)}
-                        >
-                          Поднять бой
-                        </button>
-                        {raisedIn === room.number && (
-                          <span className="dungeons-page__placed">
-                            Бой начат — откройте вкладку «Бой»
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
+          <DungeonRooms
+            dungeon={dungeon}
+            selectedRoom={selectedRoom}
+            onSelectRoom={setSelectedRoom}
+            onAdvanceRoom={advanceRoom}
+            onNote={note}
+            onDweller={setDwellerId}
+            onRaiseCombat={raiseCombat}
+            raisedIn={raisedIn}
+            noCharacters={noCharacters}
+          />
           {anyDwellers && noCharacters && (
             <p className="dungeons-page__range">
               Бой поднимать некем: добавьте персонажей на вкладке «Персонажи».
