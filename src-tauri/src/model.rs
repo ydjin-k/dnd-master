@@ -427,6 +427,22 @@ pub struct DungeonRecord {
     pub danger: String,
     pub plan: serde_json::Value,
     pub statuses: BTreeMap<String, String>,
+    /// Размер («Малое»/«Среднее»/«Большое») и выбранное мастером назначение —
+    /// номер броска строки таблицы `dungeon-purpose`, `None` — «Случайно».
+    /// Нужны «Пересобрать»: оно берёт новое семя теми же параметрами.
+    ///
+    /// Rust их не толкует, как и `plan`: словарь размеров живёт на стороне
+    /// показа (`dungeonSizeOf` в `dungeonGenerator.ts`), и второй его копии
+    /// здесь быть не должно. Подземелья, записанные до выбора размера,
+    /// читаются структурным `#[serde(default)]` самой записи (он объявлен на
+    /// структуре выше и покрывает ВСЕ её поля): пустая строка размера и `None`
+    /// назначения, а показ подставляет «Среднее / Случайно». Второго
+    /// `#[serde(default)]` на самих полях здесь нет нарочно — он был бы вторым
+    /// владельцем того же умолчания; что сторожит именно структурный,
+    /// показывает `dungeon_without_size_and_purpose_reads_as_defaults_…`:
+    /// снимешь его — проба падает на «missing field `size`».
+    pub size: String,
+    pub purpose_roll: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -808,5 +824,43 @@ mod tests {
         let round_trip: Character = serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
             .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.half_days_without_food, 5);
+    }
+
+    /// engine-dungeon-create-options: подземелья, записанные ДО выбора размера
+    /// и назначения, обязаны открываться, а не падать на отсутствующем поле.
+    /// Пустой размер и `None` назначения показ читает как «Среднее /
+    /// Случайно» (`dungeonSizeOf`), миграции файла здесь нет.
+    ///
+    /// Проба сторожит и ИМЕНА полей в файле (`size`, `purposeRoll`,
+    /// camelCase): разъехавшееся имя молча прочиталось бы умолчанием, то есть
+    /// «Пересобрать» у большого подземелья выдавало бы среднее при каждой
+    /// загрузке — ровно та же ошибка, что уже ловили на `hitDiceSpent`.
+    #[test]
+    fn dungeon_without_size_and_purpose_reads_as_defaults_and_keeps_written_values() {
+        let old_json = r#"{
+            "id": "d-1", "name": "Старая шахта", "createdAt": "2026-10-18T10:00:00Z",
+            "seed": 20261018, "partyLevel": 3, "danger": "Опасная",
+            "plan": { "rooms": [] }, "statuses": { "trap-1": "discovered" }
+        }"#;
+        let old: DungeonRecord =
+            serde_json::from_str(old_json).expect("подземелье без размера должно читаться");
+        assert_eq!(old.size, "", "нет поля — умолчание подставляет показ, а не файл");
+        assert!(old.purpose_roll.is_none(), "нет поля — значит назначение бросалось");
+        assert_eq!(old.seed, 20261018, "остальная запись должна дочитаться");
+        assert_eq!(old.statuses.get("trap-1").map(String::as_str), Some("discovered"));
+
+        let saved: DungeonRecord = serde_json::from_str(&old_json.replace(
+            r#""plan":"#,
+            r#""size": "Большое", "purposeRoll": 7, "plan":"#,
+        ))
+        .expect("запись с размером должна читаться");
+        assert_eq!(saved.size, "Большое");
+        assert_eq!(saved.purpose_roll, Some(7));
+
+        let round_trip: DungeonRecord =
+            serde_json::from_str(&serde_json::to_string(&saved).expect("запись"))
+                .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.size, "Большое", "размер должен пережить перезапуск");
+        assert_eq!(round_trip.purpose_roll, Some(7));
     }
 }

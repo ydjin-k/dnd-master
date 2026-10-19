@@ -1,4 +1,4 @@
-import type { DungeonPlan } from "../ui/dungeons/dungeonGenerator";
+import type { DungeonPlan, DungeonSize } from "../ui/dungeons/dungeonGenerator";
 import type { MarkerStatus } from "../ui/dungeons/markerStatus";
 import type { TrapDanger } from "../ui/dungeons/trapNumbers";
 
@@ -425,6 +425,13 @@ export interface DungeonRecord {
   plan: DungeonPlan;
   /** `id` отметки → статус; отметки без записи — «не исследовано». */
   statuses: Record<string, MarkerStatus>;
+  /**
+   * Размер и выбранное назначение хранятся, чтобы «Пересобрать» повторило их
+   * при новом семени. У записей, созданных до выбора, полей нет: размер читает
+   * `dungeonSizeOf` («Среднее»), назначение пустое — значит «Случайно».
+   */
+  size?: DungeonSize;
+  purposeRoll?: number | null;
 }
 
 export interface CampaignSummary {

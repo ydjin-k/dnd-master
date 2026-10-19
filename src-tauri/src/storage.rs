@@ -1140,6 +1140,10 @@ mod tests {
             danger: "Опасная".into(),
             plan: serde_json::json!({ "seed": 20261018, "markers": [{ "id": "trap-1", "kind": "trap" }] }),
             statuses: [("trap-1".to_string(), status.to_string())].into_iter().collect(),
+            // engine-dungeon-create-options: размер и назначение этой пробы не
+            // касаются — пустые, как у подземелья, созданного до их появления.
+            size: String::new(),
+            purpose_roll: None,
         }
     }
 
