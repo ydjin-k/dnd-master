@@ -1,0 +1,79 @@
+{
+ "trap": {
+  "id": "trap-1",
+  "kind": "trap",
+  "x": 11,
+  "y": 7,
+  "line": null,
+  "trap": {
+   "partyLevel": 3,
+   "danger": "Опасная",
+   "layers": [
+    {
+     "tableId": "trap-obstacle",
+     "tableName": "Препятствие",
+     "die": 8,
+     "roll": 6,
+     "text": "Ненадёжная лестница — Первые ступени устойчивы, верхние держатся на клиньях."
+    },
+    {
+     "tableId": "trap-trigger",
+     "tableName": "Спусковой механизм",
+     "die": 8,
+     "roll": 8,
+     "text": "Противовес — Цепь движется при изменении веса на платформе."
+    },
+    {
+     "tableId": "trap-clue",
+     "tableName": "Заметная подсказка",
+     "die": 8,
+     "roll": 3,
+     "text": "Неуместная чистота — В одном месте нет пыли, хотя вокруг её много."
+    },
+    {
+     "tableId": "trap-effect",
+     "tableName": "Эффект ловушки",
+     "die": 8,
+     "roll": 2,
+     "text": "Сигнал — Громкий звук предупреждает обитателей следующего помещения."
+    },
+    {
+     "tableId": "trap-disarm",
+     "tableName": "Способ обезвредить",
+     "die": 6,
+     "roll": 3,
+     "text": "Перехватить тягу — Нить или цепь можно удержать с другой стороны."
+    }
+   ],
+   "saveDc": 13,
+   "saveDcRange": "12–15",
+   "attackBonus": null,
+   "attackRange": null,
+   "damage": null,
+   "rolls": {
+    "layers": {
+     "trap-obstacle": 6,
+     "trap-trigger": 8,
+     "trap-clue": 3,
+     "trap-effect": 2,
+     "trap-disarm": 3
+    },
+    "saveDcRoll": 2,
+    "attackRoll": 1
+   }
+  },
+  "connects": null
+ },
+ "door": {
+  "id": "door-1",
+  "kind": "door",
+  "x": 9,
+  "y": 7,
+  "line": {
+   "roll": 11,
+   "text": "Люк в потолке — Откидывается вверх, и сверху на него поставили груз."
+  },
+  "trap": null,
+  "connects": null
+ }
+}

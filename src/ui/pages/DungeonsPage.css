@@ -156,6 +156,22 @@
   align-self: center;
 }
 
+.dungeons-page__ready h4 {
+  margin: 0 0 0.35rem;
+}
+
+.dungeons-page__ready p {
+  margin: 0 0 0.5rem;
+}
+
+.dungeons-page__ready p:last-child {
+  margin-bottom: 0;
+}
+
+.dungeons-page__door {
+  margin: 0;
+}
+
 .dungeons-page__error {
   margin: 0;
   color: var(--dm-danger);

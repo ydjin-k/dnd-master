@@ -13,6 +13,8 @@ import {
 import { findTable, rowForRoll } from "../eventTables";
 import { generateDungeon, MARKER_KINDS } from "../dungeons/dungeonGenerator";
 import { markerStatusOf } from "../dungeons/markerStatus";
+import { doorToughness, readObjectToughness } from "../dungeons/doorToughness";
+import { builtTrap, isReadyTrap } from "../dungeons/readyTraps";
 import { readTrapNumbers } from "../dungeons/trapNumbers";
 import { floorCells, freeFloorCells } from "../dungeons/trapPlacement";
 import { DungeonsPage } from "./DungeonsPage";
@@ -129,7 +131,7 @@ async function mount() {
 }
 
 describe("вкладка «Подземелья»: ловушка", () => {
-  it("собирает пять слоёв с числами SRD и перебрасывает один слой", async () => {
+  it("собирает пять слоёв с числами справочника и перебрасывает один слой", async () => {
     await mount();
     fireEvent.click(screen.getByText("Собрать ловушку"));
     fireEvent.click(await screen.findByRole("button", { name: "Смертоносная" }));
@@ -141,9 +143,9 @@ describe("вкладка «Подземелья»: ловушка", () => {
 
     const trap = await screen.findByRole("article", { name: "Собранная ловушка" });
     expect(within(trap).getByText("17")).toBeInTheDocument();
-    expect(within(trap).getByText("SRD 16–20")).toBeInTheDocument();
+    expect(within(trap).getByText("из 16–20")).toBeInTheDocument();
     expect(within(trap).getByText("+10")).toBeInTheDocument();
-    expect(within(trap).getByText("SRD +9 до +12")).toBeInTheDocument();
+    expect(within(trap).getByText("из +9 до +12")).toBeInTheDocument();
     expect(within(trap).getByText("4к10")).toBeInTheDocument();
     const clue = trap.querySelector('[data-layer="trap-clue"]')!;
     expect(clue).toHaveTextContent(rowForRoll(findTable("trap-clue")!, 5)!.text);
@@ -367,7 +369,10 @@ describe("вкладка «Подземелья»: ловушка в подзе�
     expect(markerStatusOf(saved, placed.id)).toBe("unexplored");
     // Числа — те, с которыми собрали: уровень 7 и «Смертоносная» при схеме 3 и
     // «Опасной».
-    expect([placed.trap!.partyLevel, placed.trap!.danger]).toEqual([7, "Смертоносная"]);
+    expect([builtTrap(placed.trap)!.partyLevel, builtTrap(placed.trap)!.danger]).toEqual([
+      7,
+      "Смертоносная",
+    ]);
     expect([saved.partyLevel, saved.danger]).toEqual([3, "Опасная"]);
 
     // Перезагрузка окна: отметка на схеме, с теми же числами.
@@ -382,7 +387,7 @@ describe("вкладка «Подземелья»: ловушка в подзе�
     const detail = screen.getByRole("article", { name: "Описание отметки" });
     expect(detail).toHaveTextContent("поставлена мастером");
     expect(within(detail).getByText("УС спасброска")).toBeInTheDocument();
-    expect(detail).toHaveTextContent(String(placed.trap!.saveDc));
+    expect(detail).toHaveTextContent(String(builtTrap(placed.trap)!.saveDc));
   });
 
   it("без подземелий ставить некуда, и об этом сказано", async () => {
@@ -430,5 +435,214 @@ describe("вкладка «Подземелья»: ловушка в подзе�
     ).toBeNull();
     // Схема в остальном цела: генераторные отметки на месте.
     expect(disk.dungeons![0].plan.markers).toHaveLength(fixture.plan.markers.length);
+  });
+});
+describe("вкладка «Подземелья»: готовая ловушка", () => {
+  /** Готовые ловушки справочника — те же, что видит экран. */
+  const ready = readTrapNumbers(bundledRules as RuleTopic[])!.ready;
+
+  /** Открывает генератор ловушки и переключает его на готовые. */
+  async function openReady() {
+    await mount();
+    fireEvent.click(screen.getByText("Собрать ловушку"));
+    const tab = await screen.findByRole("button", { name: "Готовая ловушка" });
+    await waitFor(() => expect(tab).toBeEnabled());
+    fireEvent.click(tab);
+    return tab;
+  }
+
+  it("уровень и опасность неактивны: числа готовой ловушки свои", async () => {
+    await openReady();
+    expect(screen.getByRole("combobox", { name: "Уровень отряда" })).toBeDisabled();
+    for (const danger of ["Неудобство", "Опасная", "Смертоносная"]) {
+      expect(screen.getByRole("button", { name: danger }), danger).toBeDisabled();
+    }
+    expect(screen.getByText(/числа свои, из справочника/)).toBeInTheDocument();
+
+    // Обратно к слоям — ручки снова живые.
+    fireEvent.click(screen.getByRole("button", { name: "Собрать из слоёв" }));
+    expect(screen.getByRole("combobox", { name: "Уровень отряда" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Опасная" })).toBeEnabled();
+  });
+
+  it("случайная выпадает костью, выбранная берётся из списка — текст целиком", async () => {
+    await openReady();
+    // Список несёт все одиннадцать имён справочника и «Случайную».
+    const picker = screen.getByRole("combobox", { name: "Готовая ловушка" });
+    const options = Array.from(picker.querySelectorAll("option"), (o) => o.textContent);
+    expect(options).toEqual(["Случайная", ...ready.map((t) => t.name)]);
+
+    // «Случайная»: выпало 3 — третья ловушка справочника.
+    rolls = [3];
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Взять готовую" })));
+    const shown = await screen.findByRole("article", { name: "Готовая ловушка" });
+    expect(shown).toHaveTextContent(ready[2].name);
+    for (const paragraph of ready[2].paragraphs) {
+      expect(within(shown).getByText(paragraph)).toBeInTheDocument();
+    }
+
+    // Выбранная из списка: яма — у неё есть и заголовок-раздел, и вступление.
+    const pit = ready.find((t) => t.section !== null)!;
+    fireEvent.change(picker, { target: { value: pit.name } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Взять готовую" })));
+    const again = await screen.findByRole("article", { name: "Готовая ловушка" });
+    expect(again).toHaveTextContent(pit.name);
+    expect(again).toHaveTextContent(pit.section!);
+    for (const paragraph of [...pit.sectionIntro, ...pit.paragraphs]) {
+      expect(within(again).getByText(paragraph)).toBeInTheDocument();
+    }
+  });
+
+  it("ставится в подземелье и после перезагрузки открывается со своим текстом", async () => {
+    const fixture = dungeonWithDwellers();
+    disk = { ...disk, dungeons: [fixture] };
+    const view = await mount();
+    fireEvent.click(screen.getByText("Собрать ловушку"));
+    const tab = await screen.findByRole("button", { name: "Готовая ловушка" });
+    await waitFor(() => expect(tab).toBeEnabled());
+    fireEvent.click(tab);
+    const picked = ready.find((t) => t.name === "Огнедышащая статуя")!;
+    fireEvent.change(screen.getByRole("combobox", { name: "Готовая ловушка" }), {
+      target: { value: picked.name },
+    });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Взять готовую" })));
+
+    const shown = await screen.findByRole("article", { name: "Готовая ловушка" });
+    fireEvent.click(within(shown).getByRole("button", { name: "Поставить в подземелье" }));
+    const picker = await screen.findByLabelText("Куда поставить ловушку");
+    const [x, y] = freeFloorCells(fixture.plan)[0];
+    await act(async () => fireEvent.click(picker.querySelector(`[data-cell="${x},${y}"]`)!));
+    expect(await screen.findByText(/Ловушка поставлена/)).toBeInTheDocument();
+
+    // В записи лежит только имя: текст у справочника, и второй копии нет.
+    const saved = disk.dungeons![0].plan.markers.slice(-1)[0];
+    expect(saved.trap).toEqual({ ready: true, name: picked.name });
+    expect(saved.placedByMaster).toBe(true);
+
+    // Перезагрузка окна: отметка на схеме, в описании — текст справочника.
+    view.unmount();
+    await mount();
+    fireEvent.click(screen.getByText("Подземелья кампании"));
+    fireEvent.click(await screen.findByRole("button", { name: "Открыть" }));
+    const map = await screen.findByRole("img", { name: /^Схема:/ });
+    fireEvent.click(map.querySelector(`[data-marker="${saved.id}"]`)!);
+    const detail = screen.getByRole("article", { name: "Описание отметки" });
+    expect(detail).toHaveTextContent(picked.name);
+    for (const paragraph of picked.paragraphs) {
+      expect(within(detail).getByText(paragraph)).toBeInTheDocument();
+    }
+    // Слоёв и УС спасброска у готовой нет вовсе — её числа стоят в тексте.
+    expect(within(detail).queryByText("УС спасброска")).toBeNull();
+  });
+
+  it("готовая отметка схемы показывает текст справочника, собранная — слои", async () => {
+    // Схема уровня 12: на ней выпадают оба вида ловушки.
+    const numbers = readTrapNumbers(bundledRules as RuleTopic[])!;
+    const plan = generateDungeon({
+      seed: 20261019,
+      partyLevel: 12,
+      danger: "Опасная",
+      numbers,
+      bestiary: bundledBestiary,
+      size: "Большое",
+    });
+    const traps = plan.markers.filter((m) => m.trap);
+    const readyMarker = traps.find((m) => isReadyTrap(m.trap!))!;
+    const builtMarker = traps.find((m) => !isReadyTrap(m.trap!))!;
+    expect([readyMarker, builtMarker].every(Boolean)).toBe(true);
+
+    await openFixture({
+      id: "d-mixed",
+      name: "Смешанные ловушки",
+      createdAt: "2026-10-19T10:00:00Z",
+      seed: 20261019,
+      partyLevel: 12,
+      danger: "Опасная",
+      size: "Большое",
+      plan,
+      statuses: {},
+    });
+    const map = screen.getByRole("img", { name: /^Схема:/ });
+
+    fireEvent.click(map.querySelector(`[data-marker="${readyMarker.id}"]`)!);
+    const readyDetail = screen.getByRole("article", { name: "Описание отметки" });
+    const name = (readyMarker.trap as { name: string }).name;
+    const source = ready.find((t) => t.name === name)!;
+    expect(readyDetail).toHaveTextContent(name);
+    expect(within(readyDetail).getByText(source.paragraphs[0])).toBeInTheDocument();
+    expect(within(readyDetail).queryByText("Перебросить")).toBeNull();
+
+    fireEvent.click(map.querySelector(`[data-marker="${builtMarker.id}"]`)!);
+    const builtDetail = screen.getByRole("article", { name: "Описание отметки" });
+    expect(within(builtDetail).getByText("УС спасброска")).toBeInTheDocument();
+  });
+});
+
+describe("вкладка «Подземелья»: дверь и слово SRD", () => {
+  it("в описании двери стоит «Выбить» с КД и хитами из справочника", async () => {
+    const fixture = dungeonWithDwellers();
+    await openFixture(fixture);
+    const map = screen.getByRole("img", { name: /^Схема:/ });
+    const doors = fixture.plan.markers.filter((m) => m.kind === "door");
+    expect(doors.length).toBeGreaterThan(1);
+
+    const toughness = readObjectToughness(bundledRules as RuleTopic[])!;
+    const materials = new Set<string>();
+    for (const door of doors) {
+      fireEvent.click(map.querySelector(`[data-marker="${door.id}"]`)!);
+      const detail = screen.getByRole("article", { name: "Описание отметки" });
+      // Эталон считается отдельно от экрана — по строке двери и семени схемы.
+      const expected = doorToughness(toughness, door.line!.text, fixture.plan.seed, door.id);
+      expect(detail, door.id).toHaveTextContent(
+        `Выбить: КД ${expected.armor}, хиты ${expected.hitPoints}`,
+      );
+      expect(detail, door.id).toHaveTextContent(expected.material.toLowerCase());
+      materials.add(expected.material);
+    }
+    // Вещество у дверей одной схемы не одно на всех.
+    expect(materials.size).toBeGreaterThan(1);
+
+    // У ловушки строки «Выбить» нет: выбивают дверь, а не ловушку.
+    const trap = fixture.plan.markers.find((m) => m.kind === "trap")!;
+    fireEvent.click(map.querySelector(`[data-marker="${trap.id}"]`)!);
+    expect(screen.getByRole("article", { name: "Описание отметки" })).not.toHaveTextContent(
+      "Выбить:",
+    );
+  });
+
+  it("слова «SRD» на вкладке нет ни в одном её виде", async () => {
+    const noSrd = (where: string) => expect(document.body.textContent, where).not.toContain("SRD");
+
+    const fixture = dungeonWithDwellers();
+    const view = await mount();
+    noSrd("меню вкладки");
+
+    // Собранная ловушка: промежутки подписаны «из …», а не «SRD …».
+    fireEvent.click(screen.getByText("Собрать ловушку"));
+    rolls = [3, 2, 5, 6, 4, 2, 2];
+    const assemble = await screen.findByRole("button", { name: "Собрать ловушку" });
+    await waitFor(() => expect(assemble).toBeEnabled());
+    await act(async () => fireEvent.click(assemble));
+    const built = await screen.findByRole("article", { name: "Собранная ловушка" });
+    expect(within(built).getAllByText(/^из /).length).toBeGreaterThan(0);
+    noSrd("собранная ловушка");
+
+    // Готовая ловушка целиком.
+    fireEvent.click(screen.getByRole("button", { name: "Готовая ловушка" }));
+    rolls = [1];
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Взять готовую" })));
+    await screen.findByRole("article", { name: "Готовая ловушка" });
+    noSrd("готовая ловушка");
+
+    view.unmount();
+    await openFixture(fixture);
+    noSrd("схема подземелья");
+    const map = screen.getByRole("img", { name: /^Схема:/ });
+    for (const kind of MARKER_KINDS) {
+      const marker = fixture.plan.markers.find((m) => m.kind === kind);
+      if (!marker) continue;
+      fireEvent.click(map.querySelector(`[data-marker="${marker.id}"]`)!);
+      noSrd(`описание отметки «${kind}»`);
+    }
   });
 });

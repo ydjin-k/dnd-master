@@ -5,6 +5,17 @@ import type { DungeonRecord, MonsterTemplate, RollResult, RuleTopic } from "../.
 import { playDiceRollSound } from "../../audio/uiSounds";
 import { MonsterStatBlock, useMonsterDetailImage } from "../bestiary/MonsterStatBlock";
 import { DungeonMap, MarkerGlyph } from "../dungeons/DungeonMap";
+import { DoorBreakLine } from "../dungeons/DoorBreakLine";
+import { ReadyTrapPicker, ReadyTrapView } from "../dungeons/ReadyTrapView";
+import { readObjectToughness, type ObjectToughness } from "../dungeons/doorToughness";
+import {
+  builtTrap,
+  findReadyTrap,
+  isReadyTrap,
+  readyTrapPick,
+  type PlacedTrap,
+  type ReadyTrap,
+} from "../dungeons/readyTraps";
 import { findDungeonTable } from "../eventTables/dungeonTables";
 import {
   DUNGEON_SIZES,
@@ -79,37 +90,60 @@ function defaultPartyLevel(levels: number[]): number {
   return Math.min(PARTY_LEVEL_MAX, Math.max(PARTY_LEVEL_MIN, mean));
 }
 
-function useTrapNumbers(): { numbers: TrapNumbers | null; error: string | null } {
+/**
+ * Справочник вкладки одним чтением: числа ловушек вместе с готовыми
+ * (`trapNumbers.ts`) и крепость предметов для дверей (`doorToughness.ts`).
+ * Запрос к движку один — разделы `rules.json` приходят вместе, и второго
+ * похода за ними нет.
+ */
+function useDungeonRules(): {
+  numbers: TrapNumbers | null;
+  doors: ObjectToughness | null;
+  error: string | null;
+} {
   const [numbers, setNumbers] = useState<TrapNumbers | null>(null);
+  const [doors, setDoors] = useState<ObjectToughness | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     invoke<RuleTopic[] | null>("get_rules")
       .then((topics) => {
         const read = readTrapNumbers(topics ?? []);
         setNumbers(read);
-        if (!read) setError("В справочнике нет таблиц ловушек SRD");
+        setDoors(readObjectToughness(topics ?? []));
+        if (!read) setError("В справочнике нет таблиц ловушек");
       })
       .catch((e) => setError(String(e)));
   }, []);
-  return { numbers, error };
+  return { numbers, doors, error };
 }
 
+/**
+ * Уровень отряда и опасность. `disabled` гасит оба: числа готовой ловушки свои,
+ * из справочника, и этими двумя ручками их не сдвинуть — пусть это будет видно
+ * на экране, а не только в тексте.
+ */
 function PartyControls({
   level,
   danger,
   onLevel,
   onDanger,
+  disabled = false,
 }: {
   level: number;
   danger: TrapDanger;
   onLevel: (level: number) => void;
   onDanger: (danger: TrapDanger) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="dungeons-page__controls">
       <label className="dungeons-page__level">
         Уровень отряда
-        <select value={level} onChange={(e) => onLevel(Number(e.currentTarget.value))}>
+        <select
+          value={level}
+          disabled={disabled}
+          onChange={(e) => onLevel(Number(e.currentTarget.value))}
+        >
           {Array.from({ length: PARTY_LEVEL_MAX }, (_, i) => i + 1).map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
@@ -122,6 +156,7 @@ function PartyControls({
             type="button"
             className={"dm-tab" + (d === danger ? " is-selected" : "")}
             aria-pressed={d === danger}
+            disabled={disabled}
             onClick={() => onDanger(d)}
           >
             {d}
@@ -235,21 +270,26 @@ function RenameForm({
   );
 }
 
-/** Числа ловушки: выпавшее значение и рядом промежуток SRD. */
+/**
+ * Числа собранной ловушки: выпавшее значение и рядом промежуток справочника.
+ * Откуда промежуток — сказано в подвале приложения одной строкой, и здесь это
+ * не повторяется.
+ */
 function TrapNumbersView({ trap }: { trap: Trap }) {
   return (
     <dl className="dungeons-page__numbers">
       <div>
         <dt>УС спасброска</dt>
         <dd>
-          <b>{trap.saveDc}</b> <span className="dungeons-page__range">SRD {trap.saveDcRange}</span>
+          <b>{trap.saveDc}</b> <span className="dungeons-page__range">из {trap.saveDcRange}</span>
         </dd>
       </div>
       {trap.attackBonus !== null && (
         <div>
           <dt>Бонус атаки</dt>
           <dd>
-            <b>+{trap.attackBonus}</b> <span className="dungeons-page__range">SRD {trap.attackRange}</span>
+            <b>+{trap.attackBonus}</b>{" "}
+            <span className="dungeons-page__range">из {trap.attackRange}</span>
           </dd>
         </div>
       )}
@@ -291,12 +331,18 @@ function TrapLayers({ trap, onReroll }: { trap: Trap; onReroll?: (layer: TrapLay
   );
 }
 
+/** Что делает кнопка: собирает ловушку из слоёв или берёт готовую. */
+type TrapMode = "built" | "ready";
+
 function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel: number }) {
   const { state, setDungeons } = useCampaign();
-  const { numbers, error: loadError } = useTrapNumbers();
+  const { numbers, error: loadError } = useDungeonRules();
   const [level, setLevel] = useState(startLevel);
   const [danger, setDanger] = useState<TrapDanger>("Опасная");
-  const [trap, setTrap] = useState<Trap | null>(null);
+  const [mode, setMode] = useState<TrapMode>("built");
+  /** Выбранная готовая ловушка или `null` — «Случайная», её бросает кость. */
+  const [readyName, setReadyName] = useState<string | null>(null);
+  const [trap, setTrap] = useState<PlacedTrap | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Подземелье, в котором мастер сейчас выбирает клетку, или `null`. */
@@ -305,6 +351,8 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
   const dungeons = dungeonsOf(state);
   const target = dungeons.find((d) => d.id === placingIn) ?? null;
   const pickerRef = useRef<HTMLDivElement | null>(null);
+  const readyTraps = numbers?.ready ?? [];
+  const built = builtTrap(trap);
 
   // Схема для выбора клетки открывается НИЖЕ собранной ловушки, а в узком окне
   // ловушка занимает весь экран: без прокрутки нажатие «Поставить в
@@ -314,6 +362,11 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
     if (target) pickerRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [placingIn, target]);
 
+  /**
+   * Собирает ловушку из слоёв или берёт готовую — одной кнопкой, по
+   * переключателю. Готовая «Случайная» выпадает костью движка по длине списка
+   * справочника: своего числа одиннадцать здесь нет.
+   */
   async function assemble() {
     if (!numbers || busy) return;
     setBusy(true);
@@ -321,6 +374,17 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
     setPlacingIn(null);
     setPlaced(null);
     try {
+      if (mode === "ready") {
+        if (readyTraps.length === 0) {
+          setError("В справочнике нет готовых ловушек");
+          return;
+        }
+        const roll = readyName === null ? await rollDie(`1d${readyTraps.length}`) : 1;
+        const inRange = Math.min(Math.max(roll, 1), readyTraps.length);
+        setTrap(readyTrapPick(readyName ?? readyTraps[inRange - 1].name));
+        playDiceRollSound();
+        return;
+      }
       const layers = {} as Record<TrapLayerId, number>;
       for (const id of TRAP_LAYER_TABLE_IDS) layers[id] = await rollDie(`1d${trapLayerTable(id).die}`);
       const { saveDc, attackBonus } = numbers.severity[danger];
@@ -336,12 +400,12 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
   }
 
   async function reroll(layer: TrapLayerId) {
-    if (!numbers || !trap || busy) return;
+    if (!numbers || !built || busy) return;
     setBusy(true);
     setPlaced(null);
     try {
       const roll = await rollDie(`1d${trapLayerTable(layer).die}`);
-      setTrap(withLayerRerolled(numbers, trap, layer, roll));
+      setTrap(withLayerRerolled(numbers, built, layer, roll));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -372,19 +436,67 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
         <h2>Ловушка</h2>
       </div>
       <div className="dungeons-page__panel">
-        <PartyControls level={level} danger={danger} onLevel={setLevel} onDanger={setDanger} />
+        <div className="dungeons-page__dangers" role="group" aria-label="Вид ловушки">
+          {(
+            [
+              ["built", "Собрать из слоёв"],
+              ["ready", "Готовая ловушка"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={"dm-tab" + (value === mode ? " is-selected" : "")}
+              aria-pressed={value === mode}
+              disabled={value === "ready" && readyTraps.length === 0}
+              onClick={() => setMode(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <PartyControls
+          level={level}
+          danger={danger}
+          onLevel={setLevel}
+          onDanger={setDanger}
+          disabled={mode === "ready"}
+        />
+        {mode === "ready" && (
+          <>
+            <ReadyTrapPicker traps={readyTraps} name={readyName} onPick={setReadyName} />
+            <p className="dungeons-page__range">
+              У готовой ловушки числа свои, из справочника: уровень отряда и опасность их не
+              меняют.
+            </p>
+          </>
+        )}
         <button type="button" className="dm-button--primary" onClick={assemble} disabled={!numbers || busy}>
-          Собрать ловушку
+          {mode === "ready" ? "Взять готовую" : "Собрать ловушку"}
         </button>
         {(loadError || error) && <p className="dungeons-page__error">{loadError ?? error}</p>}
       </div>
       {trap && (
-        <article className="dungeons-page__panel dungeons-page__trap" aria-label="Собранная ловушка">
-          <h3>
-            Ловушка · {trap.danger}, отряд {trap.partyLevel} ур.
-          </h3>
-          <TrapNumbersView trap={trap} />
-          <TrapLayers trap={trap} onReroll={reroll} />
+        <article
+          className="dungeons-page__panel dungeons-page__trap"
+          aria-label={built ? "Собранная ловушка" : "Готовая ловушка"}
+        >
+          {built ? (
+            <>
+              <h3>
+                Ловушка · {built.danger}, отряд {built.partyLevel} ур.
+              </h3>
+              <TrapNumbersView trap={built} />
+              <TrapLayers trap={built} onReroll={reroll} />
+            </>
+          ) : (
+            isReadyTrap(trap) && (
+              <>
+                <h3>Готовая ловушка</h3>
+                <ReadyTrapView name={trap.name} trap={findReadyTrap(readyTraps, trap.name)} />
+              </>
+            )
+          )}
           <div className="dungeons-page__status">
             <button
               type="button"
@@ -446,11 +558,17 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
 function MarkerDetail({
   dungeon,
   marker,
+  readyTraps,
+  doors,
   onAdvance,
   onRemove,
 }: {
   dungeon: DungeonRecord;
   marker: DungeonMarker;
+  /** Готовые ловушки справочника — по имени из записи берётся текст. */
+  readyTraps: readonly ReadyTrap[];
+  /** Крепость предметов; `null` — справочник ещё не прочитан. */
+  doors: ObjectToughness | null;
   onAdvance: () => void;
   onRemove: () => void;
 }) {
@@ -475,12 +593,28 @@ function MarkerDetail({
           <b>{lineTitle(marker.line.text)}</b> — {lineDetail(marker.line.text)}
         </p>
       )}
-      {marker.trap && (
-        <>
-          <TrapNumbersView trap={marker.trap} />
-          <TrapLayers trap={marker.trap} />
-        </>
+      {marker.kind === "door" && (
+        <DoorBreakLine
+          toughness={doors}
+          line={marker.line?.text ?? null}
+          seed={dungeon.plan.seed}
+          markerId={marker.id}
+        />
       )}
+      {marker.trap &&
+        (isReadyTrap(marker.trap) ? (
+          // Готовая отметка выглядит так же, как собранная: вид различает не
+          // глиф, а описание — у готовой в нём текст справочника целиком.
+          <ReadyTrapView
+            name={marker.trap.name}
+            trap={findReadyTrap(readyTraps, marker.trap.name)}
+          />
+        ) : (
+          <>
+            <TrapNumbersView trap={marker.trap} />
+            <TrapLayers trap={marker.trap} />
+          </>
+        ))}
       <div className="dungeons-page__status">
         <span className="dm-chip" data-status={status}>{MARKER_STATUS_LABELS[status]}</span>
         <button type="button" onClick={onAdvance}>
@@ -538,12 +672,15 @@ function DungeonView({
   dungeon,
   bestiary,
   numbers,
+  doors,
   onClose,
 }: {
   dungeon: DungeonRecord;
   bestiary: readonly MonsterTemplate[];
   /** Числа ловушек нужны «Пересобрать»; `null` — справочник ещё не прочитан. */
   numbers: TrapNumbers | null;
+  /** Крепость предметов — для строки «Выбить» у дверей. */
+  doors: ObjectToughness | null;
   onClose: () => void;
 }) {
   const { state, setDungeons, addToCombat } = useCampaign();
@@ -674,6 +811,8 @@ function DungeonView({
               key={selected.id}
               dungeon={dungeon}
               marker={selected}
+              readyTraps={numbers?.ready ?? []}
+              doors={doors}
               onAdvance={() => advance(selected.id)}
               onRemove={() => removeMarker(selected.id)}
             />
@@ -757,7 +896,7 @@ function DungeonView({
 
 function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: number }) {
   const { state, setDungeons } = useCampaign();
-  const { numbers, error: loadError } = useTrapNumbers();
+  const { numbers, doors, error: loadError } = useDungeonRules();
   const [bestiary, setBestiary] = useState<MonsterTemplate[] | null>(null);
   const [level, setLevel] = useState(startLevel);
   const [danger, setDanger] = useState<TrapDanger>("Опасная");
@@ -786,6 +925,7 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
         dungeon={open}
         bestiary={bestiary ?? []}
         numbers={numbers}
+        doors={doors}
         onClose={() => setOpenId(null)}
       />
     );
@@ -930,7 +1070,8 @@ export function DungeonsPage() {
         <button type="button" className="dungeons-page__entry dm-button--primary" onClick={() => setView("trap")}>
           <span className="dungeons-page__entry-title">Собрать ловушку</span>
           <span className="dungeons-page__entry-hint">
-            Пять слоёв из таблиц ловушек и числа SRD под уровень отряда и опасность
+            Пять слоёв из таблиц ловушек под уровень отряда и опасность — или готовая
+            ловушка из справочника целиком
           </span>
         </button>
         <button type="button" className="dungeons-page__entry dm-button--primary" onClick={() => setView("dungeons")}>

@@ -4,6 +4,7 @@ import bundledRules from "../../../src-tauri/rules/rules.json";
 import type { DungeonRecord, RuleTopic } from "../../state/types";
 import { generateDungeon, type DungeonPlan } from "./dungeonGenerator";
 import { markerStatusOf } from "./markerStatus";
+import { builtTrap } from "./readyTraps";
 import { readTrapNumbers } from "./trapNumbers";
 import {
   cellPlace,
@@ -44,10 +45,24 @@ function dungeon(seed: number, partyLevel = 3): DungeonRecord {
   };
 }
 
-/** Ловушка со своими числами: собрана на 17 уровне, а не на уровне схемы. */
-const ownTrap = () =>
-  generateDungeon({ seed: 777, partyLevel: 17, danger: "Смертоносная", numbers, bestiary: bundledBestiary })
-    .markers.find((m) => m.trap)!.trap!;
+/**
+ * Ловушка со своими числами: собрана из слоёв на 17 уровне, а не на уровне
+ * схемы. Готовая здесь не годится — у неё ни уровня, ни опасности нет.
+ */
+const ownTrap = () => {
+  const plan = generateDungeon({
+    seed: 777,
+    partyLevel: 17,
+    danger: "Смертоносная",
+    numbers,
+    bestiary: bundledBestiary,
+  });
+  for (const marker of plan.markers) {
+    const built = builtTrap(marker.trap);
+    if (built) return built;
+  }
+  throw new Error("в схеме семени 777 нет ни одной собранной из слоёв ловушки");
+};
 
 const stone = (plan: DungeonPlan): [number, number] => {
   const floor = new Set(floorCells(plan).map(([x, y]) => `${x},${y}`));
@@ -98,7 +113,10 @@ describe("постановка ловушки в подземелье", () => {
     // Числа — те, с которыми ловушку собрали, а не уровень и опасность схемы.
     expect(placed.trap).toBe(trap);
     expect([after.partyLevel, after.danger]).toEqual([3, "Опасная"]);
-    expect([placed.trap!.partyLevel, placed.trap!.danger]).toEqual([17, "Смертоносная"]);
+    expect([builtTrap(placed.trap)!.partyLevel, builtTrap(placed.trap)!.danger]).toEqual([
+      17,
+      "Смертоносная",
+    ]);
     // Новый id не совпал ни с одним прежним, и статус у отметки — начальный.
     expect(d.plan.markers.map((m) => m.id)).not.toContain(placed.id);
     expect(placed.id).toMatch(/^trap-\d+$/);

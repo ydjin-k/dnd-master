@@ -5,6 +5,7 @@ import type { RuleTopic } from "../../state/types";
 import type { DwellerSource } from "./dungeonDwellers";
 import { tierForLevel } from "./dungeonDwellers";
 import { generateDungeon, MARKER_KINDS, type DungeonPlan } from "./dungeonGenerator";
+import { builtTrap } from "./readyTraps";
 import { readTrapNumbers, trapDamage, type TrapDanger, type TrapNumbers } from "./trapNumbers";
 
 const numbers = readTrapNumbers(bundledRules as RuleTopic[]) as TrapNumbers;
@@ -59,8 +60,13 @@ describe("генератор подземелья", () => {
 
   it("ловушки собраны с уровнем и опасностью этого подземелья", () => {
     for (const [level, danger] of [[2, "Неудобство"], [12, "Смертоносная"]] as const) {
+      // Готовые сюда не идут: их числа свои, из справочника, и уровнем отряда
+      // с опасностью они не масштабируются (`readyTraps.test.ts`).
       const traps = SEEDS.slice(0, 30).flatMap((seed) =>
-        make(seed, level, danger).markers.flatMap((m) => (m.trap ? [m.trap] : [])),
+        make(seed, level, danger).markers.flatMap((m) => {
+          const built = builtTrap(m.trap);
+          return built ? [built] : [];
+        }),
       );
       expect(traps.length).toBeGreaterThan(0);
       for (const trap of traps) {

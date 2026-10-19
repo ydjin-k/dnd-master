@@ -6,6 +6,11 @@ import {
   tierForLevel,
   type DwellerSource,
 } from "./dungeonDwellers";
+import {
+  readyTrapPick,
+  readyTrapsForLevel,
+  type PlacedTrap,
+} from "./readyTraps";
 import { seededDice, type SeededDice } from "./seededRandom";
 import {
   buildTrap,
@@ -65,7 +70,12 @@ export interface DungeonMarker {
   readonly y: number;
   /** Строка таблицы — у всех, кроме ловушки. */
   readonly line: RolledLine | null;
-  readonly trap: Trap | null;
+  /**
+   * Ловушка отметки: собранная из пяти слоёв или готовая из справочника
+   * (`readyTraps.ts` — там же и признак, которым они различаются). У отметок
+   * других видов — `null`.
+   */
+  readonly trap: PlacedTrap | null;
   /** Номера комнат, которые соединяет потайной ход. */
   readonly connects: readonly [number, number] | null;
   /**
@@ -273,6 +283,22 @@ function secretLink(rooms: Rect[], edges: [number, number][]) {
   return { gap: 0, from: centre(rooms[i]), to: centre(rooms[j]), i, j, linked: true };
 }
 
+/**
+ * Доля готовых ловушек на схеме: одна из трёх. Остальные собираются из пяти
+ * слоёв, как и раньше, — готовые разбавляют схему, а не вытесняют сборку.
+ */
+export const READY_TRAP_SHARE = 1 / 3;
+
+/**
+ * Готовая ловушка, годная отряду этого уровня, или `null` — тогда ловушка
+ * собирается из слоёв. Уровень решает не схема, а сама ловушка
+ * (`ReadyTrap.minPartyLevel`), и порог здесь не повторяется.
+ */
+function rollReadyTrap(dice: SeededDice, params: DungeonParams): PlacedTrap | null {
+  const fit = readyTrapsForLevel(params.numbers.ready, params.partyLevel);
+  return fit.length === 0 ? null : readyTrapPick(dice.pick(fit).name);
+}
+
 function rollTrap(dice: SeededDice, params: DungeonParams): Trap {
   const layers = {} as Record<TrapLayerId, number>;
   for (const id of TRAP_LAYER_TABLE_IDS) layers[id] = dice.die(trapLayerTable(id).die);
@@ -380,7 +406,11 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
   for (let k = 0; k < trapCount; k += 1) {
     const inCorridor = k === 0 && corridorCells.length > 0;
     const cell = freeCell(() => (inCorridor ? dice.pick(corridorCells) : roomCell(dice.pick(inner))));
-    if (cell) add("trap", cell, { trap: rollTrap(dice, params) });
+    if (!cell) continue;
+    // Вид ловушки бросается ПОСЛЕ клетки: не нашлось клетки — не тронут и
+    // броски ловушки, и схема того же семени остаётся той же.
+    const ready = dice.chance(READY_TRAP_SHARE) ? rollReadyTrap(dice, params) : null;
+    add("trap", cell, { trap: ready ?? rollTrap(dice, params) });
   }
   for (const [kind, tableId] of [["loot", "dungeon-loot"], ["feature", "dungeon-feature"]] as const) {
     const count = dice.int(findMin, findMax);

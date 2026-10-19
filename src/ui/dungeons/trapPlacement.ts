@@ -1,6 +1,6 @@
 import type { DungeonRecord } from "../../state/types";
 import type { DungeonMarker, DungeonPlan } from "./dungeonGenerator";
-import type { Trap } from "./trapBuilder";
+import type { PlacedTrap } from "./readyTraps";
 
 /**
  * Ловушка из генератора, поставленная мастером в подземелье.
@@ -84,13 +84,14 @@ export function isMasterPlaced(marker: DungeonMarker): boolean {
  * не годится, но и поставить ловушку в стену не вправе.
  *
  * Числа ловушки — те, с которыми её собрали: уровень отряда и опасность едут
- * внутри самой `Trap`, и уровень подземелья их не перебивает. Статус новой
+ * внутри самой `Trap`, и уровень подземелья их не перебивает. У готовой числа
+ * свои, из справочника, и перебивать их нечем вовсе. Статус новой
  * отметки отдельной записью не ставится — отметка без записи и значит «не
  * исследовано» (`markerStatusOf`), а второй владелец этого умолчания не нужен.
  */
 export function withTrapPlaced(
   dungeon: DungeonRecord,
-  trap: Trap,
+  trap: PlacedTrap,
   x: number,
   y: number,
 ): DungeonRecord | null {
