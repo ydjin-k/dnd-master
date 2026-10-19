@@ -1,11 +1,13 @@
 import type { DungeonRecord } from "../../state/types";
 import type { DwellerSource } from "./dungeonDwellers";
+import { noteCount } from "./dungeonNotes";
 import {
   dungeonSizeOf,
   generateDungeon,
   lineTitle,
   type DungeonSize,
 } from "./dungeonGenerator";
+import { isRoomKey } from "./markerStatus";
 import type { TrapDanger, TrapNumbers } from "./trapNumbers";
 import { isMasterPlaced } from "./trapPlacement";
 
@@ -90,13 +92,20 @@ export function withDungeonRenamed(dungeon: DungeonRecord, name: string): Dungeo
  * Что пропадёт при пересборке — перечнем для подтверждения. Пустой список
  * значит, что спрашивать не о чем: схема ещё не тронута мастером.
  *
- * Заметок у подземелья пока нет вовсе (их заводит другая карточка); когда
- * появятся, строка про них добавляется ЗДЕСЬ, а не в экране.
+ * Статусы комнат считаются ОТДЕЛЬНО от статусов отметок, хотя лежат в той же
+ * карте: ключи комнат отличает `isRoomKey`. Одной строкой «отметок со
+ * статусом» перечень врал бы вдвое — у подземелья из восьми комнат, которые
+ * мастер прошёл, он обещал бы потерю восьми отметок, которых мастер не касался.
  */
 export function rebuildLosses(dungeon: DungeonRecord): string[] {
   const losses: string[] = [];
-  const statuses = Object.keys(dungeon.statuses).length;
-  if (statuses > 0) losses.push(`отметок со статусом: ${statuses}`);
+  const keys = Object.keys(dungeon.statuses);
+  const markers = keys.filter((key) => !isRoomKey(key)).length;
+  if (markers > 0) losses.push(`отметок со статусом: ${markers}`);
+  const rooms = keys.length - markers;
+  if (rooms > 0) losses.push(`комнат со статусом: ${rooms}`);
+  const notes = noteCount(dungeon);
+  if (notes > 0) losses.push(`заметок мастера: ${notes}`);
   const byMaster = dungeon.plan.markers.filter(isMasterPlaced).length;
   if (byMaster > 0) losses.push(`ловушек, поставленных руками: ${byMaster}`);
   return losses;
@@ -107,6 +116,11 @@ export function rebuildLosses(dungeon: DungeonRecord): string[] {
  * опасность, размер и выбранное назначение — те же. Статусы отметок и ручные
  * ловушки уходят вместе со старой схемой: отметок с теми же `id` в новой нет,
  * и «исследовано» от снесённой отметки не должно достаться случайной соседке.
+ *
+ * Заметки мастера и статусы комнат уходят ровно так же и по той же причине:
+ * комната №3 новой схемы — другая комната, и «Рычаг за гобеленом» в ней
+ * указывал бы на гобелен, которого там нет. О пропаже предупреждает
+ * `rebuildLosses`, и переспрашивать здесь уже нечего.
  *
  * Имя: своё, если мастер его менял, и новое название назначения, если имя так и
  * осталось генераторным. Проверяется это сравнением с названием СТАРОГО
@@ -131,5 +145,6 @@ export function withDungeonRebuilt(
     purposeRoll: recipe.purposeRoll,
     plan,
     statuses: {},
+    notes: {},
   };
 }

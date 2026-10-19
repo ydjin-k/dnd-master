@@ -11,7 +11,9 @@ import {
   withDungeonRebuilt,
   withDungeonRenamed,
 } from "./dungeonEdit";
+import { withNote } from "./dungeonNotes";
 import { generateDungeon, lineTitle } from "./dungeonGenerator";
+import { roomKey } from "./markerStatus";
 import { readTrapNumbers, type TrapNumbers } from "./trapNumbers";
 
 const numbers = readTrapNumbers(bundledRules as RuleTopic[]) as TrapNumbers;
@@ -131,6 +133,32 @@ describe("пересборка", () => {
     ]);
   });
 
+  it("комнаты со статусом считаются отдельно от отметок, хотя карта одна", () => {
+    // journal-dungeon-room-status-and-notes: одной строкой перечень врал бы —
+    // у пройденного подземелья он обещал бы потерю отметок, которых мастер не
+    // касался.
+    const plain = record();
+    const mixed = {
+      ...plain,
+      statuses: { "trap-1": "explored", "room-1": "explored", "room-2": "discovered" },
+    } as DungeonRecord;
+    expect(rebuildLosses(mixed)).toEqual([
+      "отметок со статусом: 1",
+      "комнат со статусом: 2",
+    ]);
+    expect(rebuildLosses({ ...plain, statuses: { "room-3": "discovered" } } as DungeonRecord)).toEqual([
+      "комнат со статусом: 1",
+    ]);
+  });
+
+  it("перечень называет заметки мастера", () => {
+    const plain = record();
+    const noted = withNote(withNote(plain, roomKey(2), "Рычаг"), "door-1", "скрипит");
+    expect(rebuildLosses(noted)).toEqual(["заметок мастера: 2"]);
+    // Стёртая заметка в записи не лежит и в перечень не попадает.
+    expect(rebuildLosses(withNote(noted, "door-1", ""))).toEqual(["заметок мастера: 1"]);
+  });
+
   it("новое семя, те же уровень, опасность, размер и назначение", () => {
     const before = record({ size: "Большое", purposeRoll: 7, statuses: { "trap-1": "explored" } });
     const after = withDungeonRebuilt(before, 777, numbers, bestiary);
@@ -142,6 +170,19 @@ describe("пересборка", () => {
     expect(after.plan.rooms).not.toEqual(before.plan.rooms);
     expect(after.statuses).toEqual({});
     expect(after.id).toBe(before.id);
+  });
+
+  it("заметки и статусы комнат уходят вместе со старой схемой", () => {
+    const before = withNote(
+      withNote(record({ statuses: { "room-2": "explored", "trap-1": "discovered" } }), roomKey(2), "Рычаг"),
+      "trap-1",
+      "сработала",
+    );
+    const after = withDungeonRebuilt(before, 4242 + 1, numbers, bestiary);
+    expect(after.notes).toEqual({});
+    expect(after.statuses).toEqual({});
+    // Старая запись не тронута: пересборка возвращает новую.
+    expect(before.notes).toEqual({ "room-2": "Рычаг", "trap-1": "сработала" });
   });
 
   it("схема пересобранного равна схеме, созданной тем же семенем и рецептом", () => {
