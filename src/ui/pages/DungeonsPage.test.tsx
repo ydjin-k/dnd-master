@@ -15,6 +15,7 @@ import { generateDungeon, MARKER_KINDS } from "../dungeons/dungeonGenerator";
 import { markerStatusOf } from "../dungeons/markerStatus";
 import { doorToughness, readObjectToughness } from "../dungeons/doorToughness";
 import { builtTrap, isReadyTrap } from "../dungeons/readyTraps";
+import { readyTrapOptionLabel } from "../dungeons/ReadyTrapView";
 import { readTrapNumbers } from "../dungeons/trapNumbers";
 import { floorCells, freeFloorCells } from "../dungeons/trapPlacement";
 import { DungeonsPage } from "./DungeonsPage";
@@ -190,7 +191,17 @@ describe("вкладка «Подземелья»: схема", () => {
     expect(trap).toHaveAttribute("data-status", "unexplored");
     fireEvent.click(trap);
     const detail = screen.getByRole("article", { name: "Описание отметки" });
-    expect(within(detail).getByText("УС спасброска")).toBeInTheDocument();
+    // Семя у «Создать подземелье» случайное, и `trap-1` выходит то собранной,
+    // то готовой. Проба здесь про отметку, её описание и статус, а не про вид
+    // ловушки: вид проверяют `readyTrapsInDungeon.test.ts` и соседние пробы,
+    // где схема задана семенем. Спрашивать «УС спасброска» у любой ловушки —
+    // значит падать раз в три прогона на ровном месте.
+    const made = disk.dungeons![0].plan.markers.find((m) => m.id === "trap-1")!;
+    if (builtTrap(made.trap)) {
+      expect(within(detail).getByText("УС спасброска")).toBeInTheDocument();
+    } else {
+      expect(detail).toHaveTextContent((made.trap as { name: string }).name);
+    }
 
     for (const expected of ["discovered", "explored", "unexplored", "discovered"]) {
       await act(async () => fireEvent.click(within(detail).getByText(/^Отметить:/)));
@@ -467,10 +478,19 @@ describe("вкладка «Подземелья»: готовая ловушка
 
   it("случайная выпадает костью, выбранная берётся из списка — текст целиком", async () => {
     await openReady();
-    // Список несёт все одиннадцать имён справочника и «Случайную».
+    // Список несёт все одиннадцать имён справочника и «Случайную», а у тех,
+    // кого генератор схемы отдаёт не всякому отряду, подписан порог.
     const picker = screen.getByRole("combobox", { name: "Готовая ловушка" });
     const options = Array.from(picker.querySelectorAll("option"), (o) => o.textContent);
-    expect(options).toEqual(["Случайная", ...ready.map((t) => t.name)]);
+    expect(options).toEqual(["Случайная", ...ready.map(readyTrapOptionLabel)]);
+    expect(options).toContain("Сфера аннигиляции · от 11 ур.");
+    expect(options).toContain("Катящаяся Сфера · от 5 ур.");
+    // Остальным девяти приписывать нечего: они годятся отряду любого уровня.
+    expect(options.filter((text) => text?.includes(" · от "))).toHaveLength(2);
+    // Подпись ничего не запрещает: выбрать можно и ту, что от 11 уровня.
+    fireEvent.change(picker, { target: { value: "Сфера аннигиляции" } });
+    expect((picker as HTMLSelectElement).value).toBe("Сфера аннигиляции");
+    fireEvent.change(picker, { target: { value: "" } });
 
     // «Случайная»: выпало 3 — третья ловушка справочника.
     rolls = [3];

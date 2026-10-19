@@ -43,8 +43,21 @@ export function ReadyTrapView({ name, trap }: { name: string; trap: ReadyTrap | 
 }
 
 /**
+ * Подпись ловушки в списке: имя и порог уровня, если он у неё есть, — «Сфера
+ * аннигиляции · от 11 ур.». Порог здесь не считается, а берётся у самой
+ * ловушки: его владелец — `readyTraps.ts`.
+ */
+export function readyTrapOptionLabel(trap: ReadyTrap): string {
+  return trap.minPartyLevel > 1 ? `${trap.name} · от ${trap.minPartyLevel} ур.` : trap.name;
+}
+
+/**
  * Выбор готовой ловушки: любая из справочника или «Случайная» — тогда её
  * бросает кость. Своего списка имён здесь нет, он приходит из справочника.
+ *
+ * Порог уровня подписан, но ничего не запрещает: мастер вправе поставить
+ * руками любую из одиннадцати, а отсекает порог только генератор схемы, где
+ * уровень отряда есть. Выбирается ловушка по имени — подпись на это не влияет.
  */
 export function ReadyTrapPicker({
   traps,
@@ -67,7 +80,7 @@ export function ReadyTrapPicker({
         <option value="">Случайная</option>
         {traps.map((trap) => (
           <option key={trap.name} value={trap.name}>
-            {trap.name}
+            {readyTrapOptionLabel(trap)}
           </option>
         ))}
       </select>
