@@ -5,7 +5,10 @@ import type { DungeonRecord, MonsterTemplate, RollResult, RuleTopic } from "../.
 import { playDiceRollSound } from "../../audio/uiSounds";
 import { MonsterStatBlock, useMonsterDetailImage } from "../bestiary/MonsterStatBlock";
 import { DungeonMap, MarkerGlyph } from "../dungeons/DungeonMap";
+import { findDungeonTable } from "../eventTables/dungeonTables";
 import {
+  DUNGEON_SIZES,
+  dungeonSizeOf,
   generateDungeon,
   lineDetail,
   lineTitle,
@@ -13,7 +16,15 @@ import {
   MARKER_KINDS,
   type DungeonMarker,
   type DungeonRoom,
+  type DungeonSize,
 } from "../dungeons/dungeonGenerator";
+import {
+  randomSeed,
+  readSeedInput,
+  rebuildLosses,
+  withDungeonRebuilt,
+  withDungeonRenamed,
+} from "../dungeons/dungeonEdit";
 import {
   dungeonsOf,
   MARKER_STATUS_LABELS,
@@ -118,6 +129,109 @@ function PartyControls({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Размер, назначение и семя на форме создания.
+ *
+ * Названия размеров берутся из `DUNGEON_SIZES`, строки назначения — из таблицы
+ * `dungeon-purpose`; своих списков экран не держит. «Случайно» — пустое
+ * значение списка: бросить назначение решает генератор, когда `purposeRoll`
+ * пуст, и второго владельца этого правила здесь нет.
+ */
+function CreateOptions({
+  size,
+  purposeRoll,
+  seedText,
+  onSize,
+  onPurpose,
+  onSeed,
+}: {
+  size: DungeonSize;
+  purposeRoll: number | null;
+  seedText: string;
+  onSize: (size: DungeonSize) => void;
+  onPurpose: (roll: number | null) => void;
+  onSeed: (text: string) => void;
+}) {
+  const purposes = findDungeonTable("dungeon-purpose")?.rows ?? [];
+  return (
+    <div className="dungeons-page__controls">
+      <div className="dungeons-page__dangers" role="group" aria-label="Размер">
+        {DUNGEON_SIZES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={"dm-tab" + (s === size ? " is-selected" : "")}
+            aria-pressed={s === size}
+            onClick={() => onSize(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <label className="dungeons-page__level">
+        Назначение
+        <select
+          value={purposeRoll ?? ""}
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            onPurpose(value === "" ? null : Number(value));
+          }}
+        >
+          <option value="">Случайно</option>
+          {purposes.map((row) => (
+            <option key={row.from} value={row.from}>{lineTitle(row.text)}</option>
+          ))}
+        </select>
+      </label>
+      <label className="dungeons-page__level">
+        Семя
+        <input
+          className="dungeons-page__seed-input"
+          type="text"
+          inputMode="numeric"
+          placeholder="случайное"
+          value={seedText}
+          onChange={(e) => onSeed(e.currentTarget.value)}
+        />
+      </label>
+    </div>
+  );
+}
+
+/**
+ * Поле названия подземелья. Пустое имя не отправляется, но отказ принадлежит
+ * не этой форме, а `withDungeonRenamed`: кнопка здесь только погашена, чтобы
+ * мастер не тыкал в заведомо отказанное.
+ */
+function RenameForm({
+  name,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(name);
+  const empty = draft.trim().length === 0;
+  return (
+    <span className="dungeons-page__rename">
+      <input
+        aria-label="Название подземелья"
+        value={draft}
+        autoFocus
+        onChange={(e) => setDraft(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !empty) onSave(draft);
+          if (e.key === "Escape") onCancel();
+        }}
+      />
+      <button type="button" disabled={empty} onClick={() => onSave(draft)}>Сохранить</button>
+      <button type="button" onClick={onCancel}>Отмена</button>
+    </span>
   );
 }
 
@@ -423,14 +537,19 @@ function Legend() {
 function DungeonView({
   dungeon,
   bestiary,
+  numbers,
   onClose,
 }: {
   dungeon: DungeonRecord;
   bestiary: readonly MonsterTemplate[];
+  /** Числа ловушек нужны «Пересобрать»; `null` — справочник ещё не прочитан. */
+  numbers: TrapNumbers | null;
   onClose: () => void;
 }) {
   const { state, setDungeons, addToCombat } = useCampaign();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
   /** Обитатель, чья карточка открыта, или `null`. */
   const [dwellerId, setDwellerId] = useState<string | null>(null);
   /** Номер комнаты, из которой подняли бой, — для подписи на месте. */
@@ -453,8 +572,37 @@ function DungeonView({
     if (dweller) creatureRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [dwellerId, dweller]);
 
+  /** Что пропадёт при пересборке; пустой перечень — спрашивать не о чем. */
+  const losses = rebuildLosses(dungeon);
+
   const advance = (markerId: string) =>
     setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withMarkerAdvanced(d, markerId) : d)));
+
+  const rename = async (name: string) => {
+    setRenaming(false);
+    await setDungeons((list) =>
+      list.map((d) => (d.id === dungeon.id ? withDungeonRenamed(d, name) ?? d : d)),
+    );
+  };
+
+  /**
+   * Пересобирает схему новым семенем по тому же рецепту. Открытые описания
+   * закрываются до записи: отметки новой схемы носят те же `id`, и оставленная
+   * открытой карточка показывала бы описание от снесённой отметки.
+   */
+  const rebuild = async () => {
+    if (!numbers) return;
+    setConfirmRebuild(false);
+    setSelectedId(null);
+    setDwellerId(null);
+    setRaisedIn(null);
+    // Семя берётся ДО обновления: внутри него `randomSeed()` могло бы
+    // выполниться дважды и записать не ту схему, которую мастер увидел.
+    const seed = randomSeed();
+    await setDungeons((list) =>
+      list.map((d) => (d.id === dungeon.id ? withDungeonRebuilt(d, seed, numbers, bestiary) : d)),
+    );
+  };
 
   const removeMarker = async (markerId: string) => {
     setSelectedId(null);
@@ -489,9 +637,33 @@ function DungeonView({
       <p className="dungeons-page__lead">
         {lineDetail(plan.purpose.text)} <b>Вход:</b> {plan.entrance.text}{" "}
         <span className="dungeons-page__range">
-          Отряд {dungeon.partyLevel} ур. · ловушки «{dungeon.danger}»
+          Отряд {dungeon.partyLevel} ур. · ловушки «{dungeon.danger}» ·{" "}
+          {dungeonSizeOf(dungeon.size).toLowerCase()} · семя {dungeon.seed}
         </span>
       </p>
+      <div className="dungeons-page__actions">
+        {renaming ? (
+          <RenameForm name={dungeon.name} onSave={rename} onCancel={() => setRenaming(false)} />
+        ) : confirmRebuild ? (
+          <span className="dungeons-page__confirm">
+            Пересобрать схему заново? Пропадёт: {losses.join("; ")}.
+            <button type="button" onClick={rebuild}>Да, пересобрать</button>
+            <button type="button" onClick={() => setConfirmRebuild(false)}>Нет</button>
+          </span>
+        ) : (
+          <>
+            <button type="button" onClick={() => setRenaming(true)}>Переименовать</button>
+            <button
+              type="button"
+              disabled={!numbers}
+              title={numbers ? undefined : "Справочник ловушек ещё не прочитан"}
+              onClick={() => (losses.length > 0 ? setConfirmRebuild(true) : rebuild())}
+            >
+              Пересобрать
+            </button>
+          </>
+        )}
+      </div>
       <div className="dungeons-page__layout">
         <div className="dungeons-page__main">
           <div className="dungeon-map">
@@ -589,8 +761,13 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
   const [bestiary, setBestiary] = useState<MonsterTemplate[] | null>(null);
   const [level, setLevel] = useState(startLevel);
   const [danger, setDanger] = useState<TrapDanger>("Опасная");
+  const [size, setSize] = useState<DungeonSize>("Среднее");
+  const [purposeRoll, setPurposeRoll] = useState<number | null>(null);
+  const [seedText, setSeedText] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  /** Подземелье, которое сейчас переименовывают в списке, или `null`. */
+  const [renameId, setRenameId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dungeons = dungeonsOf(state);
 
@@ -604,15 +781,37 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
   if (open) {
     // Бестиарий уже загружен для генератора схемы; карточке обитателя он нужен
     // тот же самый, второго запроса здесь не делается.
-    return <DungeonView dungeon={open} bestiary={bestiary ?? []} onClose={() => setOpenId(null)} />;
+    return (
+      <DungeonView
+        dungeon={open}
+        bestiary={bestiary ?? []}
+        numbers={numbers}
+        onClose={() => setOpenId(null)}
+      />
+    );
   }
 
   async function create() {
     if (!numbers || !bestiary) return;
     setError(null);
+    // Семя с формы читает `readSeedInput`: мусор — это отказ, а не молча
+    // случайная схема вместо той, которую мастер хотел повторить.
+    const asked = readSeedInput(seedText);
+    if (asked.kind === "error") {
+      setError(asked.message);
+      return;
+    }
     try {
-      const seed = crypto.getRandomValues(new Uint32Array(1))[0];
-      const plan = generateDungeon({ seed, partyLevel: level, danger, numbers, bestiary });
+      const seed = asked.kind === "seed" ? asked.seed : randomSeed();
+      const plan = generateDungeon({
+        seed,
+        partyLevel: level,
+        danger,
+        numbers,
+        bestiary,
+        size,
+        purposeRoll,
+      });
       const record: DungeonRecord = {
         id: crypto.randomUUID(),
         name: lineTitle(plan.purpose.text),
@@ -620,6 +819,8 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
         seed,
         partyLevel: level,
         danger,
+        size,
+        purposeRoll,
         plan,
         statuses: {},
       };
@@ -628,6 +829,13 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
     } catch (e) {
       setError(String(e));
     }
+  }
+
+  async function rename(id: string, name: string) {
+    setRenameId(null);
+    await setDungeons((list) =>
+      list.map((d) => (d.id === id ? withDungeonRenamed(d, name) ?? d : d)),
+    );
   }
 
   async function remove(id: string) {
@@ -643,6 +851,14 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
       </div>
       <div className="dungeons-page__panel">
         <PartyControls level={level} danger={danger} onLevel={setLevel} onDanger={setDanger} />
+        <CreateOptions
+          size={size}
+          purposeRoll={purposeRoll}
+          seedText={seedText}
+          onSize={setSize}
+          onPurpose={setPurposeRoll}
+          onSeed={setSeedText}
+        />
         <button type="button" className="dm-button--primary" onClick={create} disabled={!numbers || !bestiary}>
           Создать подземелье
         </button>
@@ -657,10 +873,17 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
               <span className="dungeons-page__list-name">
                 <b>{d.name}</b>{" "}
                 <span className="dungeons-page__range">
-                  отряд {d.partyLevel} ур. · {d.danger} · {new Date(d.createdAt).toLocaleDateString("ru-RU")}
+                  отряд {d.partyLevel} ур. · {d.danger} · {dungeonSizeOf(d.size).toLowerCase()} ·{" "}
+                  {new Date(d.createdAt).toLocaleDateString("ru-RU")}
                 </span>
               </span>
-              {confirmId === d.id ? (
+              {renameId === d.id ? (
+                <RenameForm
+                  name={d.name}
+                  onSave={(name) => rename(d.id, name)}
+                  onCancel={() => setRenameId(null)}
+                />
+              ) : confirmId === d.id ? (
                 <span className="dungeons-page__confirm">
                   Удалить «{d.name}»?
                   <button type="button" onClick={() => remove(d.id)}>Да, удалить</button>
@@ -669,6 +892,15 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
               ) : (
                 <span className="dungeons-page__row-actions">
                   <button type="button" onClick={() => setOpenId(d.id)}>Открыть</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setRenameId(d.id);
+                    }}
+                  >
+                    Переименовать
+                  </button>
                   <button type="button" onClick={() => setConfirmId(d.id)}>Удалить</button>
                 </span>
               )}

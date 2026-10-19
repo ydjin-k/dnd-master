@@ -196,6 +196,46 @@
   text-align: center;
 }
 
+/* Действия над открытой схемой: переименовать и пересобрать. Переносятся по
+   строкам — в узком окне подтверждение пересборки длиннее кнопок. */
+.dungeons-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+/* Поле названия: в строке списка оно стоит на месте кнопок, поэтому ужимается
+   вместе с ней, а не распирает строку. */
+.dungeons-page__rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.dungeons-page__rename input {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* В шапке открытой схемы строка действий отцентрована — прижимать поле
+   названия вправо там незачем. */
+.dungeons-page__actions .dungeons-page__rename,
+.dungeons-page__actions .dungeons-page__confirm {
+  margin-left: 0;
+  justify-content: center;
+}
+
+/* Семя — число до десяти знаков: поле под него, а не во всю строку. */
+.dungeons-page__seed-input {
+  width: 7.5rem;
+}
+
 .dungeons-page__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
