@@ -100,17 +100,71 @@ export interface DungeonParams {
   readonly danger: TrapDanger;
   readonly numbers: TrapNumbers;
   readonly bestiary: readonly DwellerSource[];
+  /** Размер; поля нет — «Среднее», то есть ровно прежнее поведение. */
+  readonly size?: DungeonSize;
+  /**
+   * Назначение, выбранное мастером: номер броска строки `dungeon-purpose`.
+   * `null` или поля нет — назначение бросается, как и раньше.
+   */
+  readonly purposeRoll?: number | null;
 }
 
-export const GRID_WIDTH = 34;
-export const GRID_HEIGHT = 22;
-const ROOM_TARGET = 8;
-const DOOR_LIMIT = 8;
+export const DUNGEON_SIZES = ["Малое", "Среднее", "Большое"] as const;
+export type DungeonSize = (typeof DUNGEON_SIZES)[number];
+
+/** Размер подземелья — одним набором чисел, чтобы вторых копий не было. */
+export interface DungeonShape {
+  /** Сколько комнат ставить, пока хватает попыток. */
+  readonly rooms: number;
+  /** Попыток постановки: на большое поле их нужно больше, чем на малое. */
+  readonly tries: number;
+  readonly width: number;
+  readonly height: number;
+  /** Сколько дверей подписывать, остальные проходы остаются без отметки. */
+  readonly doors: number;
+  /** Ловушек, лута и точек интереса — от и до, КАЖДОГО вида по отдельности. */
+  readonly findings: readonly [number, number];
+}
+
+/**
+ * «Среднее» — ровно прежние числа генератора (8 комнат, 34 × 22, восемь
+ * дверей, по 2–3 находки каждого вида). Трогать их нельзя: подземелья,
+ * созданные до размеров, пересобираются по семени и обязаны выйти теми же —
+ * это держит эталон в `dungeonSize.test.ts`.
+ *
+ * У малого сетка тоже меньше: пять комнат на поле 34 × 22 стояли бы врозь, и
+ * схема вышла бы не малым подземельем, а средним с длинными проходами.
+ */
+export const DUNGEON_SHAPES: Record<DungeonSize, DungeonShape> = {
+  Малое: { rooms: 5, tries: 600, width: 26, height: 18, doors: 5, findings: [1, 2] },
+  Среднее: { rooms: 8, tries: 600, width: 34, height: 22, doors: 8, findings: [2, 3] },
+  Большое: { rooms: 13, tries: 1400, width: 48, height: 30, doors: 14, findings: [4, 5] },
+};
+
+/** Размер подземелий, созданных до появления выбора. */
+export const DEFAULT_DUNGEON_SIZE: DungeonSize = "Среднее";
+
+/** Размер из записи кампании; отсутствующий и незнакомый — «Среднее». */
+export function dungeonSizeOf(size: string | null | undefined): DungeonSize {
+  return DUNGEON_SIZES.find((known) => known === size) ?? DEFAULT_DUNGEON_SIZE;
+}
 
 function table(id: string): EventTable {
   const found = findDungeonTable(id);
   if (!found) throw new Error(`Нет таблицы подземелья «${id}»`);
   return found;
+}
+
+/**
+ * Строка таблицы по номеру броска — БЕЗ кости: её выбрал мастер, а не кубик.
+ * Остальные броски от этого не сдвигаются по-другому, чем на один пропущенный:
+ * семя одно и то же, просто первого броска назначения в нём больше нет.
+ */
+function chosenLine(id: string, roll: number): RolledLine {
+  const t = table(id);
+  const row = rowForRoll(t, roll);
+  if (!row) throw new Error(`В таблице «${id}» нет строки ${roll}`);
+  return { roll, text: row.text };
 }
 
 function rollLine(dice: SeededDice, id: string, accept?: (row: EventTableRow, n: number) => boolean): RolledLine & { row: EventTableRow } {
@@ -126,13 +180,13 @@ function rollLine(dice: SeededDice, id: string, accept?: (row: EventTableRow, n:
 
 interface Rect { x: number; y: number; w: number; h: number }
 
-function placeRooms(dice: SeededDice): Rect[] {
+function placeRooms(dice: SeededDice, shape: DungeonShape): Rect[] {
   const rooms: Rect[] = [];
-  for (let tries = 0; rooms.length < ROOM_TARGET && tries < 600; tries += 1) {
+  for (let tries = 0; rooms.length < shape.rooms && tries < shape.tries; tries += 1) {
     const w = dice.int(4, 8);
     const h = dice.int(3, 6);
-    const x = dice.int(1, GRID_WIDTH - w - 1);
-    const y = dice.int(1, GRID_HEIGHT - h - 1);
+    const x = dice.int(1, shape.width - w - 1);
+    const y = dice.int(1, shape.height - h - 1);
     // Между комнатами не меньше двух клеток: в зазоре помещаются стены и проход.
     const clash = rooms.some(
       (r) => x < r.x + r.w + 2 && x + w + 2 > r.x && y < r.y + r.h + 2 && y + h + 2 > r.y,
@@ -234,11 +288,15 @@ function rollTrap(dice: SeededDice, params: DungeonParams): Trap {
 export function generateDungeon(params: DungeonParams): DungeonPlan {
   const dice = seededDice(params.seed);
   const tier = tierForLevel(params.partyLevel);
+  const shape = DUNGEON_SHAPES[params.size ?? DEFAULT_DUNGEON_SIZE];
 
-  const purpose = rollLine(dice, "dungeon-purpose");
+  const purpose =
+    params.purposeRoll == null
+      ? rollLine(dice, "dungeon-purpose")
+      : chosenLine("dungeon-purpose", params.purposeRoll);
   const entrance = rollLine(dice, "dungeon-entrance");
 
-  const rects = placeRooms(dice);
+  const rects = placeRooms(dice, shape);
   const usedKinds = new Set<number>();
   const rooms: DungeonRoom[] = rects.map((r, index) => {
     const kind = rollLine(dice, "dungeon-room", (_, n) => !usedKinds.has(n));
@@ -289,7 +347,7 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
   };
 
   for (const cell of doorCells) {
-    if (markers.length >= DOOR_LIMIT) break;
+    if (markers.length >= shape.doors) break;
     const crowded = markers.some((m) => Math.abs(m.x - cell[0]) + Math.abs(m.y - cell[1]) <= 2);
     if (crowded) continue;
     const { roll, text } = rollLine(dice, "dungeon-door");
@@ -317,14 +375,15 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
     add("secret", secretCell, { line: { roll, text }, connects: [secret.i + 1, secret.j + 1] });
   }
 
-  const trapCount = dice.int(2, 3);
+  const [findMin, findMax] = shape.findings;
+  const trapCount = dice.int(findMin, findMax);
   for (let k = 0; k < trapCount; k += 1) {
     const inCorridor = k === 0 && corridorCells.length > 0;
     const cell = freeCell(() => (inCorridor ? dice.pick(corridorCells) : roomCell(dice.pick(inner))));
     if (cell) add("trap", cell, { trap: rollTrap(dice, params) });
   }
   for (const [kind, tableId] of [["loot", "dungeon-loot"], ["feature", "dungeon-feature"]] as const) {
-    const count = dice.int(2, 3);
+    const count = dice.int(findMin, findMax);
     for (let k = 0; k < count; k += 1) {
       const cell = freeCell(() => roomCell(dice.pick(inner)));
       if (!cell) continue;
@@ -337,8 +396,8 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
     seed: params.seed,
     partyLevel: params.partyLevel,
     danger: params.danger,
-    width: GRID_WIDTH,
-    height: GRID_HEIGHT,
+    width: shape.width,
+    height: shape.height,
     purpose: { roll: purpose.roll, text: purpose.text },
     entrance: { roll: entrance.roll, text: entrance.text },
     rooms,
