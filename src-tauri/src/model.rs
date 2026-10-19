@@ -414,8 +414,10 @@ pub struct TravelState {
 /// `plan` лежит как есть, `serde_json::Value`.
 ///
 /// Статусы отметок — отдельно от схемы: ими владеет мастер, и смена статуса
-/// не должна переписывать схему. Ключ — `id` отметки, значение — строка
-/// статуса; словарь значений живёт на стороне показа, как у темпа пути.
+/// не должна переписывать схему. Ключ — `id` отметки или комнаты
+/// (`room-<номер>`), значение — строка статуса; словарь значений живёт на
+/// стороне показа, как у темпа пути. Заметки мастера лежат той же парой
+/// «ключ → текст» рядом, а не внутри схемы, и по той же причине.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DungeonRecord {
@@ -427,6 +429,12 @@ pub struct DungeonRecord {
     pub danger: String,
     pub plan: serde_json::Value,
     pub statuses: BTreeMap<String, String>,
+    /// Заметки мастера к комнатам и отметкам: тот же ключ, что у статуса, —
+    /// текст. Rust их не толкует и не чистит: пустую заметку удаляет из записи
+    /// показ (`withNote` в `dungeonNotes.ts`), и второго владельца этого
+    /// правила здесь быть не должно. Подземелья, записанные до заметок,
+    /// читаются пустым словарём тем же структурным `#[serde(default)]`.
+    pub notes: BTreeMap<String, String>,
     /// Размер («Малое»/«Среднее»/«Большое») и выбранное мастером назначение —
     /// номер броска строки таблицы `dungeon-purpose`, `None` — «Случайно».
     /// Нужны «Пересобрать»: оно берёт новое семя теми же параметрами.
@@ -862,5 +870,44 @@ mod tests {
                 .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.size, "Большое", "размер должен пережить перезапуск");
         assert_eq!(round_trip.purpose_roll, Some(7));
+    }
+
+    /// journal-dungeon-room-status-and-notes: подземелья, записанные ДО
+    /// заметок мастера, обязаны открываться пустым словарём заметок, а не
+    /// падать на отсутствующем поле; а записанная заметка — доживать до
+    /// следующего запуска.
+    ///
+    /// Проба сторожит ИМЯ поля в файле (`notes`) и ключи внутри него: заметки
+    /// комнаты (`room-3`) и отметки (`trap-1`) лежат в одном словаре, и
+    /// разъехавшееся имя поля молча прочиталось бы умолчанием — то есть все
+    /// заметки мастера пропадали бы при каждой загрузке кампании, ровно так же
+    /// тихо, как уже ловили на `hitDiceSpent` и на `size`.
+    #[test]
+    fn dungeon_without_notes_reads_as_empty_and_keeps_written_notes() {
+        let old_json = r#"{
+            "id": "d-1", "name": "Старая шахта", "createdAt": "2026-10-18T10:00:00Z",
+            "seed": 20261018, "partyLevel": 3, "danger": "Опасная",
+            "plan": { "rooms": [] }, "statuses": { "trap-1": "discovered" }
+        }"#;
+        let old: DungeonRecord =
+            serde_json::from_str(old_json).expect("подземелье без заметок должно читаться");
+        assert!(old.notes.is_empty(), "нет поля — значит заметок мастер не писал");
+        assert_eq!(old.statuses.get("trap-1").map(String::as_str), Some("discovered"));
+
+        let written: DungeonRecord = serde_json::from_str(&old_json.replace(
+            r#""statuses": { "trap-1": "discovered" }"#,
+            r#""statuses": { "trap-1": "discovered", "room-3": "explored" },
+               "notes": { "room-3": "Рычаг за гобеленом", "trap-1": "уже сработала" }"#,
+        ))
+        .expect("запись с заметками должна читаться");
+        assert_eq!(written.notes.len(), 2, "заметки комнаты и отметки лежат в одном словаре");
+        assert_eq!(written.notes.get("room-3").map(String::as_str), Some("Рычаг за гобеленом"));
+        assert_eq!(written.statuses.get("room-3").map(String::as_str), Some("explored"));
+
+        let round_trip: DungeonRecord =
+            serde_json::from_str(&serde_json::to_string(&written).expect("запись"))
+                .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.notes, written.notes, "заметки должны пережить перезапуск");
+        assert_eq!(round_trip.statuses, written.statuses);
     }
 }

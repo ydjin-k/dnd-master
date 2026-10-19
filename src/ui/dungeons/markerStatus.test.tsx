@@ -6,10 +6,14 @@ import { CampaignProvider, useCampaign } from "../../state/CampaignContext";
 import { emptyCampaignState, type CampaignState, type DungeonRecord } from "../../state/types";
 import type { DungeonPlan } from "./dungeonGenerator";
 import {
+  isRoomKey,
   markerStatusOf,
   MARKER_STATUSES,
   nextMarkerStatus,
+  roomKey,
+  roomStatusOf,
   withMarkerAdvanced,
+  withRoomAdvanced,
 } from "./markerStatus";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -42,6 +46,42 @@ describe("статус отметки", () => {
   it("сдвиг одной отметки не трогает другие", () => {
     const moved = withMarkerAdvanced({ ...dungeon, statuses: { "door-1": "explored" } }, "trap-1");
     expect(moved.statuses).toEqual({ "door-1": "explored", "trap-1": "discovered" });
+  });
+});
+
+describe("статус комнаты", () => {
+  it("тот же круг и те же подписи, своего набора нет", () => {
+    // Отдельного набора статусов у комнат нет: карточка требует именно этого.
+    expect(roomStatusOf(dungeon, 3)).toBe("unexplored");
+    const once = withRoomAdvanced(dungeon, 3);
+    expect(roomStatusOf(once, 3)).toBe("discovered");
+    const twice = withRoomAdvanced(once, 3);
+    expect(roomStatusOf(twice, 3)).toBe("explored");
+    expect(roomStatusOf(withRoomAdvanced(twice, 3), 3)).toBe("unexplored");
+  });
+
+  it("лежит в той же карте под ключом room-<номер>", () => {
+    expect(roomKey(7)).toBe("room-7");
+    expect(withRoomAdvanced(dungeon, 7).statuses).toEqual({ "room-7": "discovered" });
+  });
+
+  it("не пересекается с ключами отметок", () => {
+    const both = withMarkerAdvanced(withRoomAdvanced(dungeon, 1), "trap-1");
+    expect(both.statuses).toEqual({ "room-1": "discovered", "trap-1": "discovered" });
+    expect(markerStatusOf(both, "trap-1")).toBe("discovered");
+    expect(roomStatusOf(both, 1)).toBe("discovered");
+    // Сдвиг комнаты не трогает отметку, и наоборот.
+    expect(withRoomAdvanced(both, 1).statuses["trap-1"]).toBe("discovered");
+    expect(withMarkerAdvanced(both, "trap-1").statuses["room-1"]).toBe("discovered");
+  });
+
+  it("ключ комнаты отличается от ключа отметки", () => {
+    expect(isRoomKey("room-12")).toBe(true);
+    expect(isRoomKey("trap-1")).toBe(false);
+    expect(isRoomKey("door-3")).toBe(false);
+    // Не «любой, начинающийся на room»: номер обязателен.
+    expect(isRoomKey("roomy-1")).toBe(false);
+    expect(isRoomKey("room-")).toBe(false);
   });
 });
 

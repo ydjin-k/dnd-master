@@ -1,7 +1,14 @@
 import type { KeyboardEvent } from "react";
 import type { DungeonRecord } from "../../state/types";
 import { MARKER_KIND_LABELS, type DungeonPlan, type MarkerKind } from "./dungeonGenerator";
-import { MARKER_STATUS_LABELS, markerStatusOf, type MarkerStatus } from "./markerStatus";
+import { hasNote } from "./dungeonNotes";
+import {
+  MARKER_STATUS_LABELS,
+  markerStatusOf,
+  roomKey,
+  roomStatusOf,
+  type MarkerStatus,
+} from "./markerStatus";
 import { cellPlace, freeFloorCells } from "./trapPlacement";
 
 /**
@@ -10,7 +17,8 @@ import { cellPlace, freeFloorCells } from "./trapPlacement";
  *
  * Статус виден прямо на значке: «не исследовано» — серый пунктирный контур,
  * «обнаружено» — заливка цветом вида, «исследовано» — бледная заливка с
- * зелёной галочкой. Схема только для мастера: тумана и фишек здесь нет.
+ * зелёной галочкой. У комнаты тот же статус читается тоном пола, а заметка
+ * мастера — точкой в углу. Схема только для мастера: тумана и фишек здесь нет.
  */
 export const CELL = 26;
 
@@ -24,6 +32,44 @@ export const MARKER_COLORS: Record<MarkerKind, string> = {
 
 const MUTED = "#8c8577";
 const PAPER = "#fffdf6";
+const INK = "#3b3226";
+
+/**
+ * Тон пола по статусу комнаты: «не исследовано» — чистый пергамент, как было
+ * у всех комнат, «обнаружено» — тёплая подложка, «исследовано» — бледно-зелёная,
+ * в ту же сторону, что зелёная галочка у исследованной отметки.
+ *
+ * Статус комнаты — ЗАЛИВКА, а выбранная комната — пунктирная рамка поверх:
+ * спутать их нельзя, они разной природы и живут в разных местах рисунка.
+ */
+export const ROOM_STATUS_FILL: Record<MarkerStatus, string> = {
+  unexplored: PAPER,
+  discovered: "#fdf0cf",
+  explored: "#e3eddc",
+};
+
+/**
+ * Признак заметки мастера — точка в кольце «пергамента». Одна и та же у
+ * комнаты и у отметки: мастер ищет её глазами, а не разбирает, чья она.
+ */
+export function NoteMark({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <g className="dungeon-map__note">
+      <circle cx={cx} cy={cy} r={4.2} fill={PAPER} stroke={INK} strokeWidth={1} />
+      <circle cx={cx} cy={cy} r={1.8} fill={INK} />
+    </g>
+  );
+}
+
+/** Клочок пола со статусом — для легенды; тон тот же, что на схеме. */
+export function RoomFloorSwatch({ status }: { status: MarkerStatus }) {
+  return (
+    <>
+      <rect x={1} y={3} width={24} height={18} fill={INK} />
+      <rect x={3} y={5} width={20} height={14} fill={ROOM_STATUS_FILL[status]} />
+    </>
+  );
+}
 
 /** Значок отметки с центром в (cx, cy). Общий для схемы и легенды. */
 export function MarkerGlyph({
@@ -107,11 +153,20 @@ export function DungeonMap({
   dungeon,
   selectedId,
   onSelect,
+  selectedRoom = null,
+  onSelectRoom,
   onPlace,
 }: {
   dungeon: DungeonRecord;
   selectedId: string | null;
   onSelect: (markerId: string) => void;
+  /** Номер комнаты, выбранной в списке, или `null`. */
+  selectedRoom?: number | null;
+  /**
+   * Щелчок по комнате. Без него комнаты не нажимаются вовсе — так схема
+   * выходит у постановки ловушки, где выбирают клетку, а не комнату.
+   */
+  onSelectRoom?: (roomNumber: number) => void;
   /**
    * Режим выбора клетки: схема ждёт не отметку, а место. Пока он включён,
    * нажимаются только свободные клетки пола, а отметки становятся просто
@@ -154,9 +209,21 @@ export function DungeonMap({
           <rect key={i} x={x * CELL - 3} y={y * CELL - 3} width={w * CELL + 6} height={h * CELL + 6} />
         ))}
       </g>
-      <g fill={PAPER}>
-        {floor.map(([x, y, w, h], i) => (
-          <rect key={i} x={x * CELL} y={y * CELL} width={w * CELL} height={h * CELL} />
+      {/* Пол комнаты — тоном статуса, пол проходов — всегда пергамент: статус
+          у подземелья есть у комнаты и у отметки, а у прохода его нет. */}
+      <g>
+        {plan.rooms.map((r) => (
+          <rect
+            key={`floor-${r.number}`}
+            x={r.x * CELL}
+            y={r.y * CELL}
+            width={r.w * CELL}
+            height={r.h * CELL}
+            fill={ROOM_STATUS_FILL[roomStatusOf(dungeon, r.number)]}
+          />
+        ))}
+        {plan.corridors.map(([x, y]) => (
+          <rect key={`corridor-${x}-${y}`} x={x * CELL} y={y * CELL} width={CELL} height={CELL} fill={PAPER} />
         ))}
       </g>
       <g stroke="#ece4d2" strokeWidth={1}>
@@ -194,6 +261,57 @@ export function DungeonMap({
           ▼ вход
         </text>
       )}
+      {/* Комнаты — слой НИЖЕ отметок: щелчок по значку достаётся отметке, а по
+          остальному полу комнаты — комнате. Подложки у них не пересекаются,
+          потому что отметка рисуется позже. */}
+      {plan.rooms.map((r) => {
+        const status = roomStatusOf(dungeon, r.number);
+        const selected = r.number === selectedRoom;
+        const pickable = !onPlace && !!onSelectRoom;
+        const pick = pickable
+          ? {
+              role: "button",
+              tabIndex: 0,
+              "aria-pressed": selected,
+              onClick: () => onSelectRoom?.(r.number),
+              onKeyDown: (e: KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectRoom?.(r.number);
+                }
+              },
+            }
+          : {};
+        return (
+          <g
+            key={`room-${r.number}`}
+            className={"dungeon-map__room" + (pickable ? "" : " dungeon-map__room--quiet")}
+            data-room={r.number}
+            data-status={status}
+            data-note={hasNote(dungeon, roomKey(r.number)) ? "yes" : undefined}
+            aria-label={`Комната ${r.number}: ${r.kind.text} — ${MARKER_STATUS_LABELS[status]}`}
+            {...pick}
+          >
+            <rect x={r.x * CELL} y={r.y * CELL} width={r.w * CELL} height={r.h * CELL} fill="transparent" />
+            {selected && (
+              <rect
+                className="dungeon-map__room-ring"
+                x={r.x * CELL + 2}
+                y={r.y * CELL + 2}
+                width={r.w * CELL - 4}
+                height={r.h * CELL - 4}
+                fill="none"
+                stroke="#2c261e"
+                strokeWidth={2.5}
+                strokeDasharray="7 4"
+              />
+            )}
+            {hasNote(dungeon, roomKey(r.number)) && (
+              <NoteMark cx={(r.x + r.w) * CELL - 8} cy={r.y * CELL + 8} />
+            )}
+          </g>
+        );
+      })}
       {plan.markers.map((m, index) => {
         const status = markerStatusOf(dungeon, m.id);
         const cx = m.x * CELL + half;
@@ -220,6 +338,7 @@ export function DungeonMap({
             data-marker={m.id}
             data-kind={m.kind}
             data-status={status}
+            data-note={hasNote(dungeon, m.id) ? "yes" : undefined}
             aria-label={`${index + 1}. ${MARKER_KIND_LABELS[m.kind]}: ${MARKER_STATUS_LABELS[status]}`}
             {...pick}
           >
@@ -227,9 +346,10 @@ export function DungeonMap({
             <rect x={cx - half} y={cy - half} width={CELL} height={CELL} fill="transparent" />
             {selected && <circle cx={cx} cy={cy} r={14} fill="none" stroke="#2c261e" strokeWidth={1.5} />}
             <MarkerGlyph kind={m.kind} status={status} cx={cx} cy={cy} />
-            <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill="#3b3226">
+            <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill={INK}>
               {index + 1}
             </text>
+            {hasNote(dungeon, m.id) && <NoteMark cx={cx - 10} cy={cy - 9} />}
           </g>
         );
       })}

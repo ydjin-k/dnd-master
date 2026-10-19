@@ -32,6 +32,37 @@ export function withMarkerAdvanced(dungeon: DungeonRecord, markerId: string): Du
   };
 }
 
+/**
+ * Ключ комнаты в карте `statuses` и в карте `notes`: `room-<номер>`.
+ *
+ * Своего набора статусов у комнат нет — тот же круг, те же подписи и та же
+ * карта (решение карточки `journal-dungeon-room-status-and-notes`). С ключами
+ * отметок (`trap-1`, `door-3`) `room-` не пересекается: `id` отметке даёт
+ * генератор схемы по её виду, и вида «room» у отметок нет.
+ *
+ * Ключ родится ЗДЕСЬ, у владельца карты статусов, а не в экране и не в
+ * заметках: иначе список комнат и схема писали бы каждый свою строку, и
+ * опечатка в одной из них читалась бы как «не исследовано» молча.
+ */
+export function roomKey(roomNumber: number): string {
+  return `room-${roomNumber}`;
+}
+
+/** Ключ принадлежит комнате, а не отметке. */
+export function isRoomKey(key: string): boolean {
+  return /^room-\d+$/.test(key);
+}
+
+/** Статус комнаты — тот же круг, что у отметки. */
+export function roomStatusOf(dungeon: DungeonRecord, roomNumber: number): MarkerStatus {
+  return markerStatusOf(dungeon, roomKey(roomNumber));
+}
+
+/** Подземелье с комнатой, сдвинутой на следующий статус. */
+export function withRoomAdvanced(dungeon: DungeonRecord, roomNumber: number): DungeonRecord {
+  return withMarkerAdvanced(dungeon, roomKey(roomNumber));
+}
+
 /** Подземелья кампании; у снимка без поля — пустой список. */
 export function dungeonsOf(state: CampaignState): DungeonRecord[] {
   return state.dungeons ?? [];
