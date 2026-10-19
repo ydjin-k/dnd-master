@@ -1,4 +1,5 @@
 import type { RuleTopic } from "../../state/types";
+import { readReadyTraps, type ReadyTrap } from "./readyTraps";
 
 /**
  * Числа ловушек SRD 5.1 — раздел `additional-rules-traps` в `rules.json`.
@@ -8,12 +9,19 @@ import type { RuleTopic } from "../../state/types";
  * уровню персонажа и опасности» (`blocks[22]`). Таблица ищется по шапке, а не по
  * номеру блока, — так сдвиг блоков в справочнике не подменит её соседней.
  * Сторож — `trapNumbers.test.ts`: он сверяет выданное с самим `rules.json`.
+ *
+ * Готовые ловушки того же раздела разбирает `readyTraps.ts`; здесь они только
+ * едут рядом с числами, чтобы раздел `rules.json` читался один раз и его `id`
+ * знало одно место.
  */
 export const TRAPS_TOPIC_ID = "additional-rules-traps";
 
 /** Три степени опасности SRD — подписи как в шапке таблицы урона. */
 export const TRAP_DANGERS = ["Неудобство", "Опасная", "Смертоносная"] as const;
 export type TrapDanger = (typeof TRAP_DANGERS)[number];
+
+/** Самая тяжёлая степень — последняя в шапке таблицы урона. */
+export const DEADLIEST_DANGER: TrapDanger = TRAP_DANGERS[TRAP_DANGERS.length - 1];
 
 export const PARTY_LEVEL_MIN = 1;
 export const PARTY_LEVEL_MAX = 20;
@@ -38,6 +46,8 @@ export interface TrapNumbers {
     readonly toLevel: number;
     readonly dice: Readonly<Record<TrapDanger, string>>;
   }[];
+  /** Готовые ловушки раздела; пустой список — примеров в справочнике нет. */
+  readonly ready: readonly ReadyTrap[];
 }
 
 /** «10–11», «+3 до +5», «1-4» → два числа; иначе `null`. */
@@ -90,7 +100,11 @@ export function readTrapNumbers(topics: readonly RuleTopic[]): TrapNumbers | nul
     TRAP_DANGERS.forEach((danger, i) => (dice[danger] = (row[columns[i]] ?? "").trim()));
     damage.push({ fromLevel: levels.min, toLevel: levels.max, dice });
   }
-  return { severity, damage };
+  const bands = damage.map((row) => ({
+    fromLevel: row.fromLevel,
+    deadly: row.dice[DEADLIEST_DANGER],
+  }));
+  return { severity, damage, ready: readReadyTraps(topic, bands) };
 }
 
 /** Урон ловушки для уровня отряда — `null`, если уровень вне таблицы. */
