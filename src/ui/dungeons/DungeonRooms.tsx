@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { DungeonRecord } from "../../state/types";
 import type { DungeonRoom } from "./dungeonGenerator";
-import { noteOf } from "./dungeonNotes";
+import { hasNote, noteOf } from "./dungeonNotes";
 import { RoomFloorSwatch } from "./DungeonMap";
 import {
   MARKER_STATUS_LABELS,
@@ -18,6 +18,10 @@ import { NoteField } from "./NoteField";
  * Статус комнаты и её заметка здесь только показываются: круг статусов живёт в
  * `markerStatus.ts`, правила заметки — в `dungeonNotes.ts`, а запись в
  * кампанию делает экран. Своего понятия «следующий статус» список не имеет.
+ *
+ * Заметку можно ПРАВИТЬ только у выбранной комнаты; у остальных она читается
+ * строкой, а комната без заметки места под неё не занимает. Поэтому выбор
+ * комнаты — не только подсветка: им же открывается её заметка.
  */
 export function DungeonRooms({
   dungeon,
@@ -122,11 +126,21 @@ export function DungeonRooms({
                   )}
                 </div>
               )}
-              <NoteField
-                label={`Заметка к комнате ${room.number}`}
-                value={noteOf(dungeon, key)}
-                onChange={(text) => onNote(key, text)}
-              />
+              {/* Поле заметки — только у выбранной комнаты (решение владельца
+                  19.10.2026). У остальных заметка стоит строкой, а комната без
+                  заметки не занимает места вовсе: иначе список комнат
+                  превращается в стену пустых полей. */}
+              {selected ? (
+                <NoteField
+                  label={`Заметка к комнате ${room.number}`}
+                  value={noteOf(dungeon, key)}
+                  onChange={(text) => onNote(key, text)}
+                />
+              ) : (
+                hasNote(dungeon, key) && (
+                  <p className="dungeons-page__room-note">{noteOf(dungeon, key)}</p>
+                )
+              )}
             </li>
           );
         })}
