@@ -428,6 +428,22 @@ pub struct DungeonRecord {
     pub party_level: u8,
     pub danger: String,
     pub plan: serde_json::Value,
+    /// Схемы НИЖНИХ этажей, сверху вниз (`engine-dungeon-floors`): у
+    /// подземелья их от нуля до двух, и `plan` выше — всегда первый этаж.
+    ///
+    /// Форма выбрана так, а не миграцией при чтении, по одной причине:
+    /// подземелье, записанное до этажей, И ЕСТЬ одноэтажное — `plan` у него на
+    /// месте, этого списка нет, и читается оно пустым списком тем же
+    /// структурным `#[serde(default)]`, что и размер с заметками. Миграция
+    /// обязана была бы переписать чужой файл, чтобы показать его без
+    /// изменений.
+    ///
+    /// Rust схемы этажей не толкует, как и `plan`: это данные показа. Имя поля
+    /// (`lowerFloors`, camelCase) сторожит проба — разъехавшись, оно молча
+    /// прочиталось бы пустым списком, то есть трёхэтажное подземелье при каждой
+    /// загрузке открывалось бы одноэтажным, а статусы нижних этажей остались бы
+    /// в записи ключами, которым нечего показывать.
+    pub lower_floors: Vec<serde_json::Value>,
     pub statuses: BTreeMap<String, String>,
     /// Заметки мастера к комнатам и отметкам: тот же ключ, что у статуса, —
     /// текст. Rust их не толкует и не чистит: пустую заметку удаляет из записи
@@ -909,5 +925,67 @@ mod tests {
                 .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.notes, written.notes, "заметки должны пережить перезапуск");
         assert_eq!(round_trip.statuses, written.statuses);
+    }
+
+    /// engine-dungeon-floors: подземелье, записанное ДО этажей, обязано
+    /// открыться одноэтажным и БЕЗ ПОТЕРЬ — со статусами, заметками и ручными
+    /// ловушками в `plan`; а подземелье с нижними этажами — доживать до
+    /// следующего запуска целиком, вместе с ключами нижних этажей.
+    ///
+    /// Проба сторожит ИМЯ поля в файле (`lowerFloors`, camelCase) и ПРИСТАВКУ
+    /// ключей (`f2-`). Ошибка здесь тихая в обе стороны: разъехавшееся имя
+    /// прочиталось бы пустым списком, и трёхэтажное подземелье при каждой
+    /// загрузке открывалось бы одноэтажным — ровно так же молча, как уже
+    /// ловили на `hitDiceSpent`, `size` и `notes`. А ключи с приставкой лежат в
+    /// том же словаре, что ключи первого этажа, и обязаны ехать вместе с ним.
+    #[test]
+    fn dungeon_without_lower_floors_reads_as_single_and_keeps_written_floors() {
+        let old_json = r#"{
+            "id": "d-1", "name": "Старая шахта", "createdAt": "2026-10-18T10:00:00Z",
+            "seed": 20261018, "partyLevel": 3, "danger": "Опасная",
+            "plan": { "markers": [{ "id": "trap-7", "placedByMaster": true }] },
+            "statuses": { "trap-1": "discovered", "room-3": "explored" },
+            "notes": { "room-3": "Рычаг за гобеленом" }
+        }"#;
+        let old: DungeonRecord =
+            serde_json::from_str(old_json).expect("подземелье без этажей должно читаться");
+        assert!(old.lower_floors.is_empty(), "нет поля — значит этаж один");
+        assert_eq!(old.statuses.get("trap-1").map(String::as_str), Some("discovered"));
+        assert_eq!(old.statuses.get("room-3").map(String::as_str), Some("explored"));
+        assert_eq!(old.notes.get("room-3").map(String::as_str), Some("Рычаг за гобеленом"));
+        assert_eq!(
+            old.plan["markers"][0]["id"], "trap-7",
+            "ручная ловушка первого этажа остаётся в plan"
+        );
+
+        let written: DungeonRecord = serde_json::from_str(&old_json.replace(
+            r#""statuses":"#,
+            r#""lowerFloors": [{ "floor": 2, "markers": [{ "id": "f2-stairs-1" }] },
+                               { "floor": 3, "markers": [] }],
+               "statuses":"#,
+        ))
+        .expect("подземелье с нижними этажами должно читаться");
+        assert_eq!(written.lower_floors.len(), 2, "первый этаж лежит в plan, ниже — два");
+        assert_eq!(written.lower_floors[0]["floor"], 2);
+        assert_eq!(written.lower_floors[0]["markers"][0]["id"], "f2-stairs-1");
+
+        let with_keys: DungeonRecord = serde_json::from_str(&serde_json::to_string(&written).unwrap())
+            .expect("свежая запись должна читаться обратно");
+        assert_eq!(with_keys.lower_floors, written.lower_floors, "этажи переживают перезапуск");
+
+        // Ключи нижнего этажа лежат в тех же словарях, что ключи первого.
+        let mut both = written;
+        both.statuses.insert("f2-trap-1".into(), "explored".into());
+        both.notes.insert("f2-room-3".into(), "Завал".into());
+        let round_trip: DungeonRecord =
+            serde_json::from_str(&serde_json::to_string(&both).expect("запись"))
+                .expect("запись с ключами нижнего этажа должна читаться обратно");
+        assert_eq!(round_trip.statuses.get("f2-trap-1").map(String::as_str), Some("explored"));
+        assert_eq!(round_trip.notes.get("f2-room-3").map(String::as_str), Some("Завал"));
+        assert_eq!(
+            round_trip.statuses.get("trap-1").map(String::as_str),
+            Some("discovered"),
+            "ключи первого этажа приставки не получают"
+        );
     }
 }

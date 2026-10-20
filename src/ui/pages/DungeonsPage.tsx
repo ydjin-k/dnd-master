@@ -17,6 +17,17 @@ import {
   type PlacedTrap,
   type ReadyTrap,
 } from "../dungeons/readyTraps";
+import {
+  DEFAULT_FLOOR_COUNT,
+  FLOOR_COUNTS,
+  floorCount,
+  floorFields,
+  floorLabel,
+  floorPlan,
+  planFloor,
+  stairsTarget,
+  type FloorCount,
+} from "../dungeons/dungeonFloors";
 import { noteOf, withNote } from "../dungeons/dungeonNotes";
 import { dungeonMapPngBase64, pngFileName } from "../dungeons/DungeonMapImage";
 import { MAP_AUDIENCES, MAP_AUDIENCE_LABELS, type MapAudience } from "../dungeons/mapAudience";
@@ -26,12 +37,14 @@ import { findDungeonTable } from "../eventTables/dungeonTables";
 import {
   DUNGEON_SIZES,
   dungeonSizeOf,
-  generateDungeon,
+  generateFloorPlans,
   lineDetail,
   lineTitle,
+  markerLabel,
   MARKER_KIND_LABELS,
   MARKER_KINDS,
   type DungeonMarker,
+  type DungeonPlan,
   type DungeonRoom,
   type DungeonSize,
 } from "../dungeons/dungeonGenerator";
@@ -185,16 +198,20 @@ function PartyControls({
  */
 function CreateOptions({
   size,
+  floors,
   purposeRoll,
   seedText,
   onSize,
+  onFloors,
   onPurpose,
   onSeed,
 }: {
   size: DungeonSize;
+  floors: FloorCount;
   purposeRoll: number | null;
   seedText: string;
   onSize: (size: DungeonSize) => void;
+  onFloors: (floors: FloorCount) => void;
   onPurpose: (roll: number | null) => void;
   onSeed: (text: string) => void;
 }) {
@@ -214,6 +231,17 @@ function CreateOptions({
           </button>
         ))}
       </div>
+      <label className="dungeons-page__level">
+        Этажей
+        <select
+          value={floors}
+          onChange={(e) => onFloors(Number(e.currentTarget.value) as FloorCount)}
+        >
+          {FLOOR_COUNTS.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
+      </label>
       <label className="dungeons-page__level">
         Назначение
         <select
@@ -240,6 +268,42 @@ function CreateOptions({
           onChange={(e) => onSeed(e.currentTarget.value)}
         />
       </label>
+    </div>
+  );
+}
+
+/**
+ * Переключатель этажей над схемой. У одноэтажного подземелья его нет вовсе:
+ * одна вкладка «Этаж 1» ничего не переключает и только занимает строку в окне
+ * 620 px.
+ *
+ * Сколько этажей — спрашивается у записи (`floorCount`), а не передаётся
+ * числом: иначе вкладок могло бы оказаться больше, чем схем.
+ */
+function FloorTabs({
+  dungeon,
+  floor,
+  onFloor,
+}: {
+  dungeon: DungeonRecord;
+  floor: number;
+  onFloor: (floor: number) => void;
+}) {
+  const count = floorCount(dungeon);
+  if (count < 2) return null;
+  return (
+    <div className="dungeons-page__floors" role="group" aria-label="Этаж">
+      {Array.from({ length: count }, (_, i) => i + 1).map((n) => (
+        <button
+          key={n}
+          type="button"
+          className={"dm-tab" + (n === floor ? " is-selected" : "")}
+          aria-pressed={n === floor}
+          onClick={() => onFloor(n)}
+        >
+          {floorLabel(n)}
+        </button>
+      ))}
     </div>
   );
 }
@@ -355,6 +419,12 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
   const [error, setError] = useState<string | null>(null);
   /** Подземелье, в котором мастер сейчас выбирает клетку, или `null`. */
   const [placingIn, setPlacingIn] = useState<string | null>(null);
+  /**
+   * Этаж, на который мастер ставит ловушку. Здесь, в отличие от «Подземелий»,
+   * открытого этажа нет вовсе: ловушку ставят из генератора ловушки, и этаж
+   * приходится выбирать тут же, рядом с подземельем.
+   */
+  const [placingFloor, setPlacingFloor] = useState(1);
   const [placed, setPlaced] = useState<string | null>(null);
   const dungeons = dungeonsOf(state);
   const target = dungeons.find((d) => d.id === placingIn) ?? null;
@@ -430,10 +500,16 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
    */
   async function place(dungeon: DungeonRecord, x: number, y: number) {
     if (!trap) return;
+    const onFloor = planFloor(floorPlan(dungeon, placingFloor));
     await setDungeons((list) =>
-      list.map((d) => (d.id === dungeon.id ? withTrapPlaced(d, trap, x, y) ?? d : d)),
+      list.map((d) => (d.id === dungeon.id ? withTrapPlaced(d, trap, x, y, onFloor) ?? d : d)),
     );
-    setPlaced(`Ловушка поставлена: «${dungeon.name}», ${cellPlace(dungeon.plan, x, y)}`);
+    const where = cellPlace(floorPlan(dungeon, onFloor), x, y);
+    setPlaced(
+      floorCount(dungeon) > 1
+        ? `Ловушка поставлена: «${dungeon.name}», ${floorLabel(onFloor).toLowerCase()}, ${where}`
+        : `Ловушка поставлена: «${dungeon.name}», ${where}`,
+    );
     setPlacingIn(null);
   }
 
@@ -536,13 +612,19 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
               <select
                 aria-label="Подземелье"
                 value={target.id}
-                onChange={(e) => setPlacingIn(e.currentTarget.value)}
+                onChange={(e) => {
+                  setPlacingIn(e.currentTarget.value);
+                  // У другого подземелья этажей может быть меньше — выбор
+                  // этажа начинается заново, а не остаётся висеть на третьем.
+                  setPlacingFloor(1);
+                }}
               >
                 {dungeons.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </label>
+            <FloorTabs dungeon={target} floor={placingFloor} onFloor={setPlacingFloor} />
             <button type="button" onClick={() => setPlacingIn(null)}>Отмена</button>
           </div>
           <p className="dungeons-page__range">
@@ -552,6 +634,7 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
           <div className="dungeon-map">
             <DungeonMap
               dungeon={target}
+              floor={placingFloor}
               selectedId={null}
               onSelect={() => undefined}
               onPlace={(x, y) => place(target, x, y)}
@@ -565,14 +648,18 @@ function TrapGenerator({ onBack, startLevel }: { onBack: () => void; startLevel:
 
 function MarkerDetail({
   dungeon,
+  plan,
   marker,
   readyTraps,
   doors,
   onAdvance,
   onNote,
   onRemove,
+  onFloor,
 }: {
   dungeon: DungeonRecord;
+  /** Схема ОТКРЫТОГО этажа: в ней ищется номер отметки и семя двери. */
+  plan: DungeonPlan;
   marker: DungeonMarker;
   /** Готовые ловушки справочника — по имени из записи берётся текст. */
   readyTraps: readonly ReadyTrap[];
@@ -581,10 +668,16 @@ function MarkerDetail({
   onAdvance: () => void;
   onNote: (text: string) => void;
   onRemove: () => void;
+  /** Переход по лестнице: экран открывает названный этаж. */
+  onFloor: (floor: number) => void;
 }) {
   const status = markerStatusOf(dungeon, marker.id);
-  const number = dungeon.plan.markers.findIndex((m) => m.id === marker.id) + 1;
+  const number = plan.markers.findIndex((m) => m.id === marker.id) + 1;
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Куда ведёт лестница, считает `dungeonFloors.ts` по этажу схемы и
+  // направлению отметки; этаж за подземельем экран не домысливает.
+  const target = stairsTarget(plan, marker);
+  const goes = target !== null && target >= 1 && target <= floorCount(dungeon);
   // Убрать можно только поставленное руками: что выпало по таблицам — схема, и
   // чистить её выборочно мастеру незачем. Решает это `isMasterPlaced`, а не
   // вид отметки: ручная ловушка и генераторная выглядят одинаково.
@@ -592,7 +685,7 @@ function MarkerDetail({
   return (
     <article className="dungeons-page__panel dungeons-page__marker" aria-label="Описание отметки">
       <h3>
-        {number}. {MARKER_KIND_LABELS[marker.kind]}
+        {number}. {markerLabel(marker)}
         {marker.connects && (
           <span className="dungeons-page__range"> · комнаты {marker.connects[0]} ↔ {marker.connects[1]}</span>
         )}
@@ -615,9 +708,14 @@ function MarkerDetail({
         <DoorBreakLine
           toughness={doors}
           line={marker.line?.text ?? null}
-          seed={dungeon.plan.seed}
+          seed={plan.seed}
           markerId={marker.id}
         />
+      )}
+      {/* Лестница: своей короткой строкой — таблиц подземелья эта карточка не
+          трогает, и бросков у лестницы нет вовсе. */}
+      {marker.kind === "stairs" && goes && (
+        <p>Ведёт на {floorLabel(target).toLowerCase()} этого же подземелья.</p>
       )}
       {marker.trap &&
         (isReadyTrap(marker.trap) ? (
@@ -645,6 +743,11 @@ function MarkerDetail({
         <button type="button" onClick={onAdvance}>
           Отметить: {MARKER_STATUS_LABELS[nextMarkerStatus(status)]}
         </button>
+        {goes && (
+          <button type="button" onClick={() => onFloor(target)}>
+            Перейти на {floorLabel(target).toLowerCase()}
+          </button>
+        )}
         {mine &&
           (confirmRemove ? (
             <span className="dungeons-page__confirm">
@@ -713,6 +816,8 @@ function DungeonView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Комната, выбранная на схеме или в списке: они выделяют одну и ту же. */
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
+  /** Открытый этаж (считая с единицы) — им же выбирается схема. */
+  const [floor, setFloor] = useState(1);
   const [renaming, setRenaming] = useState(false);
   const [confirmRebuild, setConfirmRebuild] = useState(false);
   /** Открыт выбор варианта картинки: лист мастера или лист игроков. */
@@ -723,7 +828,14 @@ function DungeonView({
   const [dwellerId, setDwellerId] = useState<string | null>(null);
   /** Номер комнаты, из которой подняли бой, — для подписи на месте. */
   const [raisedIn, setRaisedIn] = useState<number | null>(null);
-  const { plan } = dungeon;
+  const plan = floorPlan(dungeon, floor);
+  /**
+   * Номер ОТКРЫТОЙ схемы, а не то, что лежит в состоянии: номер этажа и схему
+   * этажа нельзя брать из двух разных мест. Если этажей у записи стало меньше,
+   * `floorPlan` отдаёт первый, и ключи его комнат должны быть ключами первого
+   * этажа, а не того, который экран помнил.
+   */
+  const atFloor = planFloor(plan);
   const selected = plan.markers.find((m) => m.id === selectedId) ?? null;
   const dweller = bestiary.find((m) => m.id === dwellerId) ?? null;
   const dwellerImage = useMonsterDetailImage(dweller);
@@ -744,11 +856,26 @@ function DungeonView({
   /** Что пропадёт при пересборке; пустой перечень — спрашивать не о чем. */
   const losses = rebuildLosses(dungeon);
 
+  /**
+   * Открывает другой этаж. Выбранные отметка и комната сбрасываются: `id`
+   * отметки уникален по всему подземелью, и карточка от отметки чужого этажа
+   * просто исчезла бы, а вот номер комнаты у этажей общий — не сбросив его,
+   * мы подсветили бы на новом этаже комнату с тем же номером, которую мастер
+   * не выбирал.
+   */
+  const goToFloor = (next: number) => {
+    setFloor(next);
+    setSelectedId(null);
+    setSelectedRoom(null);
+  };
+
   const advance = (markerId: string) =>
     setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withMarkerAdvanced(d, markerId) : d)));
 
   const advanceRoom = (roomNumber: number) =>
-    setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withRoomAdvanced(d, roomNumber) : d)));
+    setDungeons((list) =>
+      list.map((d) => (d.id === dungeon.id ? withRoomAdvanced(d, roomNumber, atFloor) : d)),
+    );
 
   /** Заметка к отметке или комнате; ключ даёт тот, кто её показывает. */
   const note = (id: string, text: string) =>
@@ -773,6 +900,10 @@ function DungeonView({
     setSelectedRoom(null);
     setDwellerId(null);
     setRaisedIn(null);
+    // Пересобираются ВСЕ этажи, и открытый возвращается на первый: схема
+    // второго этажа теперь другая, и оставить мастера на ней значило бы
+    // показать ему чужое подземелье под прежней вкладкой.
+    setFloor(1);
     // Семя берётся ДО обновления: внутри него `randomSeed()` могло бы
     // выполниться дважды и записать не ту схему, которую мастер увидел.
     const seed = randomSeed();
@@ -807,7 +938,9 @@ function DungeonView({
       });
       // Мастер закрыл диалог — это не отказ, и говорить о нём нечего.
       if (!path) return;
-      const bytesBase64 = await dungeonMapPngBase64(dungeon, audience);
+      // Этаж — ОТКРЫТЫЙ: лист сохраняет то, что мастер видит, а номер этажа
+      // уходит в заголовок листа (`sheetTitle`), если этажей больше одного.
+      const bytesBase64 = await dungeonMapPngBase64(dungeon, audience, atFloor);
       await invoke("save_png_file", { path, bytesBase64 });
       setSaved({ ok: true, text: `Схема сохранена: ${path}` });
     } catch (error) {
@@ -838,11 +971,17 @@ function DungeonView({
         <button type="button" className="dungeons-page__back" onClick={onClose}>← К списку</button>
         <h2>{dungeon.name}</h2>
       </div>
+      {/* Назначение — у подземелья, а не у этажа, и берётся с первого этажа
+          при любом открытом. Вход у нижних этажей свой: лестница сверху. */}
       <p className="dungeons-page__lead">
-        {lineDetail(plan.purpose.text)} <b>Вход:</b> {plan.entrance.text}{" "}
+        {lineDetail(dungeon.plan.purpose?.text ?? "")} <b>Вход:</b>{" "}
+        {atFloor === 1
+          ? (dungeon.plan.entrance?.text ?? "")
+          : `лестница с ${floorLabel(atFloor - 1).toLowerCase()}`}{" "}
         <span className="dungeons-page__range">
           Отряд {dungeon.partyLevel} ур. · ловушки «{dungeon.danger}» ·{" "}
-          {dungeonSizeOf(dungeon.size).toLowerCase()} · семя {dungeon.seed}
+          {dungeonSizeOf(dungeon.size).toLowerCase()} ·{" "}
+          {floorCount(dungeon) > 1 ? `этажей ${floorCount(dungeon)} · ` : ""}семя {dungeon.seed}
         </span>
       </p>
       <div className="dungeons-page__actions">
@@ -892,9 +1031,11 @@ function DungeonView({
       )}
       <div className="dungeons-page__layout">
         <div className="dungeons-page__main">
+          <FloorTabs dungeon={dungeon} floor={atFloor} onFloor={goToFloor} />
           <div className="dungeon-map">
             <DungeonMap
               dungeon={dungeon}
+              floor={atFloor}
               selectedId={selectedId}
               onSelect={setSelectedId}
               selectedRoom={selectedRoom}
@@ -905,12 +1046,14 @@ function DungeonView({
             <MarkerDetail
               key={selected.id}
               dungeon={dungeon}
+              plan={plan}
               marker={selected}
               readyTraps={numbers?.ready ?? []}
               doors={doors}
               onAdvance={() => advance(selected.id)}
               onNote={(text) => note(selected.id, text)}
               onRemove={() => removeMarker(selected.id)}
+              onFloor={goToFloor}
             />
           )}
           {dwellerId && !dweller && (
@@ -939,6 +1082,7 @@ function DungeonView({
           <Legend />
           <DungeonRooms
             dungeon={dungeon}
+            floor={atFloor}
             selectedRoom={selectedRoom}
             onSelectRoom={setSelectedRoom}
             onAdvanceRoom={advanceRoom}
@@ -966,6 +1110,7 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
   const [level, setLevel] = useState(startLevel);
   const [danger, setDanger] = useState<TrapDanger>("Опасная");
   const [size, setSize] = useState<DungeonSize>("Среднее");
+  const [floors, setFloors] = useState<FloorCount>(DEFAULT_FLOOR_COUNT);
   const [purposeRoll, setPurposeRoll] = useState<number | null>(null);
   const [seedText, setSeedText] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1008,25 +1153,23 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
     }
     try {
       const seed = asked.kind === "seed" ? asked.seed : randomSeed();
-      const plan = generateDungeon({
-        seed,
-        partyLevel: level,
-        danger,
-        numbers,
-        bestiary,
-        size,
-        purposeRoll,
-      });
+      // Все этажи строит `generateFloorPlans`: семя каждого выводится из
+      // общего, и лестницы расставляются по числу этажей. Семя записи — ОБЩЕЕ,
+      // то, что мастер вписал в поле.
+      const plans = generateFloorPlans(
+        { seed, partyLevel: level, danger, numbers, bestiary, size, purposeRoll },
+        floors,
+      );
       const record: DungeonRecord = {
         id: crypto.randomUUID(),
-        name: lineTitle(plan.purpose.text),
+        name: lineTitle(plans[0].purpose?.text ?? ""),
         createdAt: new Date().toISOString(),
         seed,
         partyLevel: level,
         danger,
         size,
         purposeRoll,
-        plan,
+        ...floorFields(plans),
         statuses: {},
       };
       await setDungeons((list) => [...list, record]);
@@ -1058,9 +1201,11 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
         <PartyControls level={level} danger={danger} onLevel={setLevel} onDanger={setDanger} />
         <CreateOptions
           size={size}
+          floors={floors}
           purposeRoll={purposeRoll}
           seedText={seedText}
           onSize={setSize}
+          onFloors={setFloors}
           onPurpose={setPurposeRoll}
           onSeed={setSeedText}
         />
@@ -1079,6 +1224,7 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
                 <b>{d.name}</b>{" "}
                 <span className="dungeons-page__range">
                   отряд {d.partyLevel} ур. · {d.danger} · {dungeonSizeOf(d.size).toLowerCase()} ·{" "}
+                  {floorCount(d) > 1 ? `этажей ${floorCount(d)} · ` : ""}
                   {new Date(d.createdAt).toLocaleDateString("ru-RU")}
                 </span>
               </span>

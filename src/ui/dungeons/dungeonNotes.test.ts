@@ -23,35 +23,35 @@ describe("заметка мастера", () => {
   });
 
   it("заметка к комнате и к отметке лежат в одной карте, под ключом статуса", () => {
-    const written = withNote(withNote(dungeon, roomKey(3), "Рычаг за гобеленом"), "trap-1", "сработала");
+    const written = withNote(withNote(dungeon, roomKey(3, 1), "Рычаг за гобеленом"), "trap-1", "сработала");
     expect(written.notes).toEqual({ "room-3": "Рычаг за гобеленом", "trap-1": "сработала" });
-    expect(noteOf(written, roomKey(3))).toBe("Рычаг за гобеленом");
+    expect(noteOf(written, roomKey(3, 1))).toBe("Рычаг за гобеленом");
     expect(noteCount(written)).toBe(2);
     expect(hasNote(written, "trap-1")).toBe(true);
     expect(hasNote(written, "door-2")).toBe(false);
   });
 
   it("пустая заметка и заметка из одних пробелов удаляются из записи", () => {
-    const written = withNote(dungeon, roomKey(3), "Рычаг за гобеленом");
-    expect(withNote(written, roomKey(3), "").notes).toEqual({});
-    expect(withNote(written, roomKey(3), "   \n\t").notes).toEqual({});
-    expect(noteCount(withNote(written, roomKey(3), ""))).toBe(0);
+    const written = withNote(dungeon, roomKey(3, 1), "Рычаг за гобеленом");
+    expect(withNote(written, roomKey(3, 1), "").notes).toEqual({});
+    expect(withNote(written, roomKey(3, 1), "   \n\t").notes).toEqual({});
+    expect(noteCount(withNote(written, roomKey(3, 1), ""))).toBe(0);
   });
 
   it("стирание одной заметки не трогает соседние", () => {
-    const written = withNote(withNote(dungeon, roomKey(3), "Рычаг"), roomKey(4), "Колодец");
-    expect(withNote(written, roomKey(3), "").notes).toEqual({ "room-4": "Колодец" });
+    const written = withNote(withNote(dungeon, roomKey(3, 1), "Рычаг"), roomKey(4, 1), "Колодец");
+    expect(withNote(written, roomKey(3, 1), "").notes).toEqual({ "room-4": "Колодец" });
   });
 
   it("пробелы внутри и по краям текста сохраняются как набраны", () => {
     // Подрезка на каждом нажатии не дала бы поставить пробел между словами.
-    const written = withNote(dungeon, roomKey(1), "Два слова ");
-    expect(noteOf(written, roomKey(1))).toBe("Два слова ");
+    const written = withNote(dungeon, roomKey(1, 1), "Два слова ");
+    expect(noteOf(written, roomKey(1, 1))).toBe("Два слова ");
   });
 
   it("запись не правится на месте", () => {
-    const before = withNote(dungeon, roomKey(1), "Было");
-    withNote(before, roomKey(1), "Стало");
-    expect(noteOf(before, roomKey(1))).toBe("Было");
+    const before = withNote(dungeon, roomKey(1, 1), "Было");
+    withNote(before, roomKey(1, 1), "Стало");
+    expect(noteOf(before, roomKey(1, 1))).toBe("Было");
   });
 });

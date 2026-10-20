@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DungeonRecord } from "../../state/types";
+import { floorCount, floorLabel, floorPlan } from "./dungeonFloors";
 import { dungeonSizeOf, MARKER_KIND_LABELS, type MarkerKind } from "./dungeonGenerator";
 import { DungeonMap, MARKER_COLORS, MarkerGlyph, mapViewBox, RoomFloorSwatch } from "./DungeonMap";
 import {
@@ -155,12 +156,22 @@ function sheetFooter(dungeon: DungeonRecord, audience: MapAudience): string | nu
   ).toLowerCase()} · семя ${dungeon.seed}`;
 }
 
+/**
+ * Заголовок листа: имя подземелья, а у многоэтажного — и номер этажа. У
+ * одноэтажного номера нет вовсе: «Этаж 1» на единственном листе — шум, и
+ * карточка просит номер именно когда этажей больше одного.
+ */
+export function sheetTitle(dungeon: DungeonRecord, floor: number): string {
+  return floorCount(dungeon) > 1 ? `${dungeon.name} · ${floorLabel(floor)}` : dungeon.name;
+}
+
 /** Размер листа в единицах SVG: заголовок, схема со столбцом легенды, подпись. */
 export function sheetSize(
   dungeon: DungeonRecord,
   audience: MapAudience,
+  floor = 1,
 ): { width: number; height: number } {
-  const [, , vw, vh] = mapViewBox(dungeon.plan);
+  const [, , vw, vh] = mapViewBox(floorPlan(dungeon, floor));
   const body = Math.max(vh, legendHeight(legendRows(audience)));
   const footer = sheetFooter(dungeon, audience) ? 22 : 0;
   return {
@@ -176,17 +187,25 @@ export function sheetSize(
 export function pngSize(
   dungeon: DungeonRecord,
   audience: MapAudience,
+  floor = 1,
 ): { width: number; height: number } {
-  const { width, height } = sheetSize(dungeon, audience);
+  const { width, height } = sheetSize(dungeon, audience, floor);
   const scale = PNG_LONG_SIDE / Math.max(width, height);
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-/** Лист со схемой как разметка SVG — из неё и получается PNG. */
-export function dungeonMapSvg(dungeon: DungeonRecord, audience: MapAudience): string {
-  const [, , vw, vh] = mapViewBox(dungeon.plan);
-  const sheet = sheetSize(dungeon, audience);
-  const px = pngSize(dungeon, audience);
+/**
+ * Лист со схемой как разметка SVG — из неё и получается PNG. Этаж тот, что
+ * открыт у мастера: лист сохраняет ВИДИМЫЙ этаж, а не всегда первый.
+ */
+export function dungeonMapSvg(
+  dungeon: DungeonRecord,
+  audience: MapAudience,
+  floor = 1,
+): string {
+  const [, , vw, vh] = mapViewBox(floorPlan(dungeon, floor));
+  const sheet = sheetSize(dungeon, audience, floor);
+  const px = pngSize(dungeon, audience, floor);
   const footer = sheetFooter(dungeon, audience);
   return renderToStaticMarkup(
     <svg
@@ -198,7 +217,7 @@ export function dungeonMapSvg(dungeon: DungeonRecord, audience: MapAudience): st
     >
       <rect x={0} y={0} width={sheet.width} height={sheet.height} fill={SHEET_BG} />
       <text x={PAD} y={PAD + 23} fontSize={22} fontWeight={700} fill={INK}>
-        {dungeon.name}
+        {sheetTitle(dungeon, floor)}
       </text>
       <text
         x={sheet.width - PAD}
@@ -222,6 +241,7 @@ export function dungeonMapSvg(dungeon: DungeonRecord, audience: MapAudience): st
         dungeon={dungeon}
         selectedId={null}
         audience={audience}
+        floor={floor}
         place={{ x: PAD, y: PAD + TITLE_H, width: vw, height: vh }}
       />
       <MapLegend audience={audience} x={PAD + vw + GAP} y={PAD + TITLE_H} />
@@ -278,9 +298,10 @@ function svgImage(svg: string, width: number, height: number): Promise<HTMLImage
 export async function dungeonMapPngBase64(
   dungeon: DungeonRecord,
   audience: MapAudience,
+  floor = 1,
 ): Promise<string> {
-  const { width, height } = pngSize(dungeon, audience);
-  const image = await svgImage(dungeonMapSvg(dungeon, audience), width, height);
+  const { width, height } = pngSize(dungeon, audience, floor);
+  const image = await svgImage(dungeonMapSvg(dungeon, audience, floor), width, height);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

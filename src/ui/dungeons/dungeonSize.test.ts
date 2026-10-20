@@ -79,11 +79,13 @@ describe("размер подземелья", () => {
     }
   });
 
-  it("на схеме любого размера есть отметки всех пяти видов", () => {
+  // Лестница — кроме: её ставит не размер, а число этажей (`dungeonFloors.ts`).
+  it("на схеме любого размера есть отметки всех видов, кроме лестницы", () => {
+    const wanted = MARKER_KINDS.filter((k) => k !== "stairs");
     for (const size of ["Малое", "Среднее", "Большое"] as const) {
       for (const seed of SEEDS) {
         const kinds = new Set(make(seed, { size }).markers.map((m) => m.kind));
-        expect([...MARKER_KINDS].filter((k) => !kinds.has(k)), `${size}, семя ${seed}`).toEqual([]);
+        expect(wanted.filter((k) => !kinds.has(k)), `${size}, семя ${seed}`).toEqual([]);
       }
     }
   });
@@ -117,21 +119,21 @@ describe("назначение подземелья", () => {
     // Все строки таблицы, а не одна: назначение выбирают из списка целиком.
     for (const row of table.rows) {
       const plan = make(777, { purposeRoll: row.from });
-      expect(plan.purpose.roll).toBe(row.from);
-      expect(plan.purpose.text).toBe(row.text);
+      expect(plan.purpose!.roll).toBe(row.from);
+      expect(plan.purpose!.text).toBe(row.text);
     }
   });
 
   it("выбранное назначение не зависит от семени, а остальная схема — зависит", () => {
     const first = make(101, { purposeRoll: 7 });
     const second = make(202, { purposeRoll: 7 });
-    expect([first.purpose.roll, second.purpose.roll]).toEqual([7, 7]);
-    expect(lineTitle(first.purpose.text)).toBe("Мастерская чародея");
+    expect([first.purpose!.roll, second.purpose!.roll]).toEqual([7, 7]);
+    expect(lineTitle(first.purpose!.text)).toBe("Мастерская чародея");
     expect(second.rooms).not.toEqual(first.rooms);
   });
 
   it("со «Случайно» назначение выпадает разным на разных семенах", () => {
-    const rolls = new Set(SEEDS.map((seed) => make(seed).purpose.roll));
+    const rolls = new Set(SEEDS.map((seed) => make(seed).purpose!.roll));
     expect(rolls.size).toBeGreaterThan(1);
   });
 });
@@ -142,7 +144,7 @@ describe("семя подземелья", () => {
     expect(make(4242, params)).toEqual(make(4242, params));
     // «Пересобрать» берёт новое семя теми же параметрами — схема другая.
     const again = make(4243, params);
-    expect(again.purpose.roll).toBe(3);
+    expect(again.purpose!.roll).toBe(3);
     expect(again.rooms).not.toEqual(make(4242, params).rooms);
   });
 

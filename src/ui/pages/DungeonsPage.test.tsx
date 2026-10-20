@@ -185,7 +185,11 @@ describe("вкладка «Подземелья»: схема", () => {
     const map = await screen.findByRole("img", { name: /^Схема:/ });
     expect(map.tagName.toLowerCase()).toBe("svg");
     const kinds = new Set(Array.from(map.querySelectorAll("[data-kind]"), (m) => m.getAttribute("data-kind")));
-    expect([...kinds].sort()).toEqual([...MARKER_KINDS].sort());
+    // Лестницы у одноэтажного подземелья нет: «Этажей» на форме по
+    // умолчанию один, и проверять её тут нечему.
+    expect([...kinds].sort()).toEqual(
+      MARKER_KINDS.filter((k) => k !== "stairs").sort(),
+    );
 
     const trap = map.querySelector('[data-marker="trap-1"]')!;
     expect(trap).toHaveAttribute("data-status", "unexplored");

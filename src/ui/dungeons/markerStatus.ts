@@ -1,4 +1,5 @@
 import type { CampaignState, DungeonRecord } from "../../state/types";
+import { floorPrefix } from "./dungeonFloors";
 
 /**
  * Статус отметки на схеме — ровно три, по кругу (решение владельца
@@ -33,7 +34,8 @@ export function withMarkerAdvanced(dungeon: DungeonRecord, markerId: string): Du
 }
 
 /**
- * Ключ комнаты в карте `statuses` и в карте `notes`: `room-<номер>`.
+ * Ключ комнаты в карте `statuses` и в карте `notes`: `room-<номер>` на первом
+ * этаже и `f2-room-<номер>` на нижних.
  *
  * Своего набора статусов у комнат нет — тот же круг, те же подписи и та же
  * карта (решение карточки `journal-dungeon-room-status-and-notes`). С ключами
@@ -43,24 +45,42 @@ export function withMarkerAdvanced(dungeon: DungeonRecord, markerId: string): Du
  * Ключ родится ЗДЕСЬ, у владельца карты статусов, а не в экране и не в
  * заметках: иначе список комнат и схема писали бы каждый свою строку, и
  * опечатка в одной из них читалась бы как «не исследовано» молча.
+ *
+ * Этаж передаётся ВСЕГДА, без умолчания: забытый номер этажа молча дал бы
+ * ключи первого этажа, и статус комнаты 3 второго этажа сел бы на комнату 3
+ * первого. Приставку по номеру даёт `floorPrefix` — она одна на весь проект, и
+ * второй её копии здесь нет. Номер этажа у схемы спрашивают через `planFloor`.
  */
-export function roomKey(roomNumber: number): string {
-  return `room-${roomNumber}`;
+export function roomKey(roomNumber: number, floor: number): string {
+  return `${floorPrefix(floor)}room-${roomNumber}`;
 }
 
-/** Ключ принадлежит комнате, а не отметке. */
+/**
+ * Ключ принадлежит комнате, а не отметке — на любом этаже: `room-3` и
+ * `f2-room-3` оба комнатные. Приставку этажа здесь приходится узнавать
+ * выражением, а не `floorPrefix`: ключ приходит готовой строкой, и этажа,
+ * которым её собрали, у перечня статусов уже нет.
+ */
 export function isRoomKey(key: string): boolean {
-  return /^room-\d+$/.test(key);
+  return /^(?:f\d+-)?room-\d+$/.test(key);
 }
 
-/** Статус комнаты — тот же круг, что у отметки. */
-export function roomStatusOf(dungeon: DungeonRecord, roomNumber: number): MarkerStatus {
-  return markerStatusOf(dungeon, roomKey(roomNumber));
+/** Статус комнаты на этом этаже — тот же круг, что у отметки. */
+export function roomStatusOf(
+  dungeon: DungeonRecord,
+  roomNumber: number,
+  floor: number,
+): MarkerStatus {
+  return markerStatusOf(dungeon, roomKey(roomNumber, floor));
 }
 
-/** Подземелье с комнатой, сдвинутой на следующий статус. */
-export function withRoomAdvanced(dungeon: DungeonRecord, roomNumber: number): DungeonRecord {
-  return withMarkerAdvanced(dungeon, roomKey(roomNumber));
+/** Подземелье с комнатой этого этажа, сдвинутой на следующий статус. */
+export function withRoomAdvanced(
+  dungeon: DungeonRecord,
+  roomNumber: number,
+  floor: number,
+): DungeonRecord {
+  return withMarkerAdvanced(dungeon, roomKey(roomNumber, floor));
 }
 
 /** Подземелья кампании; у снимка без поля — пустой список. */

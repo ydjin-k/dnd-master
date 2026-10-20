@@ -52,26 +52,26 @@ describe("статус отметки", () => {
 describe("статус комнаты", () => {
   it("тот же круг и те же подписи, своего набора нет", () => {
     // Отдельного набора статусов у комнат нет: карточка требует именно этого.
-    expect(roomStatusOf(dungeon, 3)).toBe("unexplored");
-    const once = withRoomAdvanced(dungeon, 3);
-    expect(roomStatusOf(once, 3)).toBe("discovered");
-    const twice = withRoomAdvanced(once, 3);
-    expect(roomStatusOf(twice, 3)).toBe("explored");
-    expect(roomStatusOf(withRoomAdvanced(twice, 3), 3)).toBe("unexplored");
+    expect(roomStatusOf(dungeon, 3, 1)).toBe("unexplored");
+    const once = withRoomAdvanced(dungeon, 3, 1);
+    expect(roomStatusOf(once, 3, 1)).toBe("discovered");
+    const twice = withRoomAdvanced(once, 3, 1);
+    expect(roomStatusOf(twice, 3, 1)).toBe("explored");
+    expect(roomStatusOf(withRoomAdvanced(twice, 3, 1), 3, 1)).toBe("unexplored");
   });
 
   it("лежит в той же карте под ключом room-<номер>", () => {
-    expect(roomKey(7)).toBe("room-7");
-    expect(withRoomAdvanced(dungeon, 7).statuses).toEqual({ "room-7": "discovered" });
+    expect(roomKey(7, 1)).toBe("room-7");
+    expect(withRoomAdvanced(dungeon, 7, 1).statuses).toEqual({ "room-7": "discovered" });
   });
 
   it("не пересекается с ключами отметок", () => {
-    const both = withMarkerAdvanced(withRoomAdvanced(dungeon, 1), "trap-1");
+    const both = withMarkerAdvanced(withRoomAdvanced(dungeon, 1, 1), "trap-1");
     expect(both.statuses).toEqual({ "room-1": "discovered", "trap-1": "discovered" });
     expect(markerStatusOf(both, "trap-1")).toBe("discovered");
-    expect(roomStatusOf(both, 1)).toBe("discovered");
+    expect(roomStatusOf(both, 1, 1)).toBe("discovered");
     // Сдвиг комнаты не трогает отметку, и наоборот.
-    expect(withRoomAdvanced(both, 1).statuses["trap-1"]).toBe("discovered");
+    expect(withRoomAdvanced(both, 1, 1).statuses["trap-1"]).toBe("discovered");
     expect(withMarkerAdvanced(both, "trap-1").statuses["room-1"]).toBe("discovered");
   });
 

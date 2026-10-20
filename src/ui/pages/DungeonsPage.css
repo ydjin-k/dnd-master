@@ -500,3 +500,13 @@
 .dungeons-page__side {
   background: var(--dm-panel);
 }
+
+/* Вкладки этажей — над схемой, той же полосой, что размер и опасность.
+   `flex-wrap` нужен не для красоты: в окне 620 px схема уже узкая, и три
+   вкладки обязаны переноситься, а не растягивать страницу вбок. */
+.dungeons-page__floors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}

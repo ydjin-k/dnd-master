@@ -119,7 +119,7 @@ describe("создание подземелья: размер, назначен�
         purposeRoll: row.from,
       }),
     );
-    expect(record.plan.purpose.text).toBe(row.text);
+    expect(record.plan.purpose!.text).toBe(row.text);
     expect(record.name).toBe(lineTitle(row.text));
     expect(record.plan.rooms.length).toBeLessThanOrEqual(5);
   });
@@ -147,14 +147,14 @@ describe("создание подземелья: размер, назначен�
     const saved = await createWith({ seed: "4242" });
     const record = saved();
     expect(record.purposeRoll ?? null).toBeNull();
-    expect(record.plan.purpose.roll).toBe(
+    expect(record.plan.purpose!.roll).toBe(
       generateDungeon({
         seed: 4242,
         partyLevel: record.partyLevel,
         danger: record.danger,
         numbers,
         bestiary: bundledBestiary,
-      }).purpose.roll,
+      }).purpose!.roll,
     );
   });
 
@@ -227,7 +227,7 @@ describe("пересборка подземелья", () => {
     expect(after.seed).not.toBe(before.seed);
     expect([after.size, after.purposeRoll]).toEqual(["Большое", row.from]);
     expect([after.partyLevel, after.danger]).toEqual([before.partyLevel, before.danger]);
-    expect(after.plan.purpose.roll).toBe(row.from);
+    expect(after.plan.purpose!.roll).toBe(row.from);
     expect(after.plan.rooms).not.toEqual(before.plan.rooms);
     expect(after.id).toBe(before.id);
   });
@@ -279,7 +279,7 @@ describe("подземелье, созданное до выбора разме�
     });
     return {
       id: "d-old",
-      name: lineTitle(plan.purpose.text),
+      name: lineTitle(plan.purpose!.text),
       createdAt: "2026-10-18T10:00:00Z",
       seed: 20261018,
       partyLevel: 3,

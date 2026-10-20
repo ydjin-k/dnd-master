@@ -33,10 +33,15 @@ describe("генератор подземелья", () => {
     expect(shapes.size).toBe(20);
   });
 
-  it("на каждой схеме отметки всех пяти видов", () => {
+  // Лестницы здесь нет нарочно: она бывает только у многоэтажного
+  // подземелья, и требовать её от одноэтажного значило бы требовать выхода
+  // туда, где этажа нет. Парные лестницы проверяет `dungeonFloors.test.ts`.
+  it("на каждой схеме отметки всех видов, кроме лестницы", () => {
     for (const seed of SEEDS) {
       const kinds = new Set(make(seed).markers.map((m) => m.kind));
-      expect([...MARKER_KINDS].filter((k) => !kinds.has(k)), `семя ${seed}`).toEqual([]);
+      const wanted = MARKER_KINDS.filter((k) => k !== "stairs");
+      expect(wanted.filter((k) => !kinds.has(k)), `семя ${seed}`).toEqual([]);
+      expect(kinds.has("stairs"), `семя ${seed}: этаж один`).toBe(false);
     }
   });
 

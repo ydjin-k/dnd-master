@@ -1139,6 +1139,9 @@ mod tests {
             party_level: 3,
             danger: "Опасная".into(),
             plan: serde_json::json!({ "seed": 20261018, "markers": [{ "id": "trap-1", "kind": "trap" }] }),
+            // engine-dungeon-floors: подземелье этой пробы одноэтажное —
+            // нижних этажей нет, как у записанного до этажей.
+            lower_floors: Vec::new(),
             statuses: [("trap-1".to_string(), status.to_string())].into_iter().collect(),
             // engine-dungeon-create-options: размер и назначение этой пробы не
             // касаются — пустые, как у подземелья, созданного до их появления.

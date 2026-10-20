@@ -1,9 +1,10 @@
 import type { DungeonRecord } from "../../state/types";
 import type { DwellerSource } from "./dungeonDwellers";
+import { floorCount, floorFields, floorsOf } from "./dungeonFloors";
 import { noteCount } from "./dungeonNotes";
 import {
   dungeonSizeOf,
-  generateDungeon,
+  generateFloorPlans,
   lineTitle,
   type DungeonSize,
 } from "./dungeonGenerator";
@@ -28,6 +29,12 @@ export interface DungeonRecipe {
   readonly size: DungeonSize;
   /** Выбранное назначение или `null` — «Случайно», бросать заново. */
   readonly purposeRoll: number | null;
+  /**
+   * Сколько этажей. Своего поля в записи у этого числа нет: этажи и ЕСТЬ
+   * число этажей (`floorCount` считает их по записи), и второй его копии,
+   * способной разойтись со списком схем, быть не должно.
+   */
+  readonly floors: number;
 }
 
 /**
@@ -41,6 +48,7 @@ export function recipeOf(dungeon: DungeonRecord): DungeonRecipe {
     danger: dungeon.danger,
     size: dungeonSizeOf(dungeon.size),
     purposeRoll: dungeon.purposeRoll ?? null,
+    floors: floorCount(dungeon),
   };
 }
 
@@ -106,7 +114,14 @@ export function rebuildLosses(dungeon: DungeonRecord): string[] {
   if (rooms > 0) losses.push(`комнат со статусом: ${rooms}`);
   const notes = noteCount(dungeon);
   if (notes > 0) losses.push(`заметок мастера: ${notes}`);
-  const byMaster = dungeon.plan.markers.filter(isMasterPlaced).length;
+  // Ручные ловушки считаются по ВСЕМ этажам: перечень обещает потери всего
+  // подземелья, а не открытого этажа, — пересобираются тоже все этажи.
+  // Статусы и заметки считать по этажам не нужно: они лежат одной картой на
+  // всё подземелье, и ключи нижних этажей уже внутри неё.
+  const byMaster = floorsOf(dungeon).reduce(
+    (sum, plan) => sum + plan.markers.filter(isMasterPlaced).length,
+    0,
+  );
   if (byMaster > 0) losses.push(`ловушек, поставленных руками: ${byMaster}`);
   return losses;
 }
@@ -135,15 +150,18 @@ export function withDungeonRebuilt(
   bestiary: readonly DwellerSource[],
 ): DungeonRecord {
   const recipe = recipeOf(dungeon);
-  const plan = generateDungeon({ seed, numbers, bestiary, ...recipe });
-  const wasGeneratorName = dungeon.name === lineTitle(dungeon.plan.purpose.text);
+  // Этажей столько же, сколько было: число этажей — часть рецепта, и
+  // «Пересобрать» не превращает трёхэтажное подземелье в одноэтажное.
+  const plans = generateFloorPlans({ seed, numbers, bestiary, ...recipe }, recipe.floors);
+  const wasGeneratorName = dungeon.name === lineTitle(dungeon.plan.purpose?.text ?? "");
+  const purpose = plans[0].purpose;
   return {
     ...dungeon,
-    name: wasGeneratorName ? lineTitle(plan.purpose.text) : dungeon.name,
+    name: wasGeneratorName && purpose ? lineTitle(purpose.text) : dungeon.name,
     seed,
     size: recipe.size,
     purposeRoll: recipe.purposeRoll,
-    plan,
+    ...floorFields(plans),
     statuses: {},
     notes: {},
   };

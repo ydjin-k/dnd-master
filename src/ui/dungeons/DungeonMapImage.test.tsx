@@ -36,6 +36,10 @@ function markerOfEveryKind(): { plan: DungeonPlan; statuses: Record<string, stri
     line: { roll: 1, text: `Проба: ${kind}` },
     trap: null,
     connects: null,
+    // У лестницы направление есть всегда: оно решает и фигуру значка, и
+    // подпись. Строки таблицы у неё при этом не бывает — здесь она стоит
+    // только потому, что отметки собираются одним выражением.
+    ...(kind === "stairs" ? { stairs: "down" as const } : {}),
   }));
   return {
     plan: { ...plan, markers } as unknown as DungeonPlan,
@@ -47,6 +51,10 @@ function markerOfEveryKind(): { plan: DungeonPlan; statuses: Record<string, stri
       "door-9": "unexplored",
       "loot-9": "discovered",
       "feature-9": "explored",
+      // Лестница прячется ПО СТАТУСУ, как дверь, а не по виду, как ловушка:
+      // обнаруженная лестница на листе игроков остаётся — спуск на нижний
+      // этаж они уже нашли, и скрывать его от них нечего.
+      "stairs-9": "discovered",
       "room-1": "discovered",
       "room-2": "explored",
     },
@@ -85,10 +93,10 @@ function markerLabels(svg: string): string[] {
 describe("лист со схемой", () => {
   const dungeon = dungeonWithEveryKind();
 
-  it("мастеру отдаёт все пять видов отметок и все статусы", () => {
+  it("мастеру отдаёт все виды отметок и все статусы", () => {
     const svg = dungeonMapSvg(dungeon, "master");
     expect(drawnMarkers(svg).sort()).toEqual(
-      ["door-9", "feature-9", "loot-9", "secret-9", "trap-9"].sort(),
+      ["door-9", "feature-9", "loot-9", "secret-9", "stairs-9", "trap-9"].sort(),
     );
     expect(new Set(drawnKinds(svg))).toEqual(new Set(MARKER_KINDS));
     expect(svg).toContain('data-status="unexplored"');
@@ -98,7 +106,8 @@ describe("лист со схемой", () => {
     const svg = dungeonMapSvg(dungeon, "players");
     // `door-9` — «не исследовано», `trap-9` и `secret-9` — исследованные
     // ловушка и потайной ход: уходят все три, каждая по своей причине.
-    expect(drawnMarkers(svg)).toEqual(["loot-9", "feature-9"]);
+    // `stairs-9` остаётся: лестница — обычная отметка, видна по статусу.
+    expect(drawnMarkers(svg)).toEqual(["loot-9", "feature-9", "stairs-9"]);
     expect(drawnKinds(svg)).not.toContain("trap");
     expect(drawnKinds(svg)).not.toContain("secret");
     // «не исследовано» не осталось ни у одной ОТМЕТКИ. У комнат статус
@@ -123,10 +132,12 @@ describe("лист со схемой", () => {
       "3. Дверь: не исследовано",
       "4. Лут: обнаружено",
       "5. Точка интереса: исследовано",
+      "6. Лестница вниз: обнаружено",
     ]);
     expect(markerLabels(dungeonMapSvg(dungeon, "players"))).toEqual([
       "4. Лут: обнаружено",
       "5. Точка интереса: исследовано",
+      "6. Лестница вниз: обнаружено",
     ]);
   });
 

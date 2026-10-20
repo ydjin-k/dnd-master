@@ -1,6 +1,12 @@
 import type { KeyboardEvent } from "react";
 import type { DungeonRecord } from "../../state/types";
-import { MARKER_KIND_LABELS, type DungeonPlan, type MarkerKind } from "./dungeonGenerator";
+import { floorPlan, planFloor } from "./dungeonFloors";
+import {
+  markerLabel,
+  type DungeonPlan,
+  type MarkerKind,
+  type StairsDirection,
+} from "./dungeonGenerator";
 import { hasNote } from "./dungeonNotes";
 import {
   markerShown,
@@ -38,6 +44,7 @@ export const MARKER_COLORS: Record<MarkerKind, string> = {
   door: "#7a4a1d",
   loot: "#b88600",
   feature: "#1d5fa8",
+  stairs: "#116b63",
 };
 
 const MUTED = "#8c8577";
@@ -88,12 +95,19 @@ export function MarkerGlyph({
   cx,
   cy,
   size = 9,
+  stairs = "down",
 }: {
   kind: MarkerKind;
   status: MarkerStatus;
   cx: number;
   cy: number;
   size?: number;
+  /**
+   * Куда ведёт лестница — её ступени идут в эту сторону. У остальных видов
+   * не значит ничего; у легенды направления нет вовсе, и она берёт «вниз»:
+   * строка легенды называет ВИД («Лестница»), а не направление.
+   */
+  stairs?: StairsDirection;
 }) {
   const s = size;
   const color = MARKER_COLORS[kind];
@@ -120,6 +134,24 @@ export function MarkerGlyph({
     );
   } else if (kind === "door") {
     shape = <rect x={cx - s * 0.75} y={cy - s * 0.75} width={s * 1.5} height={s * 1.5} {...paint} />;
+  } else if (kind === "stairs") {
+    // Три ступени: у лестницы вниз они спускаются слева направо, у лестницы
+    // вверх поднимаются. Направление видно самой фигурой, а не подписью:
+    // мастер читает схему глазами, а описание отметки называет его словами.
+    const dir = stairs === "up" ? -1 : 1;
+    const step = (s * 2) / 3;
+    shape = (
+      <path
+        d={
+          `M${cx - s * dir},${cy - s}` +
+          ` h${step * dir} v${step}` +
+          ` h${step * dir} v${step}` +
+          ` h${step * dir} v${step}` +
+          ` h${-s * 2 * dir} Z`
+        }
+        {...paint}
+      />
+    );
   } else if (kind === "loot") {
     shape = (
       <>
@@ -186,6 +218,7 @@ export function DungeonMap({
   onPlace,
   audience = "master",
   place,
+  floor = 1,
 }: {
   dungeon: DungeonRecord;
   selectedId: string | null;
@@ -218,16 +251,26 @@ export function DungeonMap({
    * экране его нет: размер даёт CSS.
    */
   place?: { x: number; y: number; width: number; height: number };
+  /**
+   * Какой этаж рисовать (считая с единицы). Схему этажа даёт `floorPlan`, а
+   * приставку его ключей — сама схема (`planFloor`): номер этажа рядом со
+   * схемой не передаётся никуда дальше, чтобы отрисованный этаж и ключи, под
+   * которыми читаются его статусы, не могли разойтись.
+   */
+  floor?: number;
 }) {
-  const { plan } = dungeon;
-  const floor = floorRects(plan);
+  const plan = floorPlan(dungeon, floor);
+  const atFloor = planFloor(plan);
+  const rects = floorRects(plan);
   const [vx, vy, vw, vh] = mapViewBox(plan);
   const half = CELL / 2;
   const x0 = vx / CELL;
   const y0 = vy / CELL;
   const x1 = (vx + vw) / CELL;
   const y1 = (vy + vh) / CELL;
-  const entrance = plan.rooms[0];
+  // «▼ вход» — только на первом этаже: вход на нижний этаж это лестница
+  // сверху, и она стоит на схеме обычной отметкой (`stairs`), а не подписью.
+  const entrance = atFloor === 1 ? plan.rooms[0] : null;
   const [from, to] = plan.secretPath;
 
   return (
@@ -249,7 +292,7 @@ export function DungeonMap({
         ))}
       </g>
       <g fill="#3b3226">
-        {floor.map(([x, y, w, h], i) => (
+        {rects.map(([x, y, w, h], i) => (
           <rect key={i} x={x * CELL - 3} y={y * CELL - 3} width={w * CELL + 6} height={h * CELL + 6} />
         ))}
       </g>
@@ -263,7 +306,7 @@ export function DungeonMap({
             y={r.y * CELL}
             width={r.w * CELL}
             height={r.h * CELL}
-            fill={ROOM_STATUS_FILL[roomStatusOf(dungeon, r.number)]}
+            fill={ROOM_STATUS_FILL[roomStatusOf(dungeon, r.number, atFloor)]}
           />
         ))}
         {plan.corridors.map(([x, y]) => (
@@ -312,7 +355,7 @@ export function DungeonMap({
           остальному полу комнаты — комнате. Подложки у них не пересекаются,
           потому что отметка рисуется позже. */}
       {plan.rooms.map((r) => {
-        const status = roomStatusOf(dungeon, r.number);
+        const status = roomStatusOf(dungeon, r.number, atFloor);
         const selected = r.number === selectedRoom;
         const pickable = !onPlace && !!onSelectRoom;
         const pick = pickable
@@ -336,7 +379,7 @@ export function DungeonMap({
             data-room={r.number}
             data-status={status}
             data-note={
-              notesShown(audience) && hasNote(dungeon, roomKey(r.number)) ? "yes" : undefined
+              notesShown(audience) && hasNote(dungeon, roomKey(r.number, atFloor)) ? "yes" : undefined
             }
             aria-label={`Комната ${r.number}: ${r.kind.text} — ${MARKER_STATUS_LABELS[status]}`}
             {...pick}
@@ -355,7 +398,7 @@ export function DungeonMap({
                 strokeDasharray="7 4"
               />
             )}
-            {notesShown(audience) && hasNote(dungeon, roomKey(r.number)) && (
+            {notesShown(audience) && hasNote(dungeon, roomKey(r.number, atFloor)) && (
               <NoteMark cx={(r.x + r.w) * CELL - 8} cy={r.y * CELL + 8} />
             )}
           </g>
@@ -393,13 +436,13 @@ export function DungeonMap({
             data-kind={m.kind}
             data-status={status}
             data-note={notesShown(audience) && hasNote(dungeon, m.id) ? "yes" : undefined}
-            aria-label={`${index + 1}. ${MARKER_KIND_LABELS[m.kind]}: ${MARKER_STATUS_LABELS[status]}`}
+            aria-label={`${index + 1}. ${markerLabel(m)}: ${MARKER_STATUS_LABELS[status]}`}
             {...pick}
           >
             {/* Невидимая подложка в клетку — по значку легко попасть. */}
             <rect x={cx - half} y={cy - half} width={CELL} height={CELL} fill="transparent" />
             {selected && <circle cx={cx} cy={cy} r={14} fill="none" stroke="#2c261e" strokeWidth={1.5} />}
-            <MarkerGlyph kind={m.kind} status={status} cx={cx} cy={cy} />
+            <MarkerGlyph kind={m.kind} status={status} cx={cx} cy={cy} stairs={m.stairs} />
             <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill={INK}>
               {index + 1}
             </text>

@@ -1,4 +1,11 @@
 import type { DungeonRecord } from "../../state/types";
+import {
+  floorOfMarker,
+  floorPlan,
+  floorPrefix,
+  planFloor,
+  withFloorPlan,
+} from "./dungeonFloors";
 import type { DungeonMarker, DungeonPlan } from "./dungeonGenerator";
 import type { PlacedTrap } from "./readyTraps";
 
@@ -67,8 +74,9 @@ export function cellPlace(plan: DungeonPlan, x: number, y: number): string {
  */
 export function nextTrapMarkerId(plan: DungeonPlan): string {
   const used = new Set(plan.markers.map((m) => m.id));
+  const prefix = floorPrefix(planFloor(plan));
   for (let n = plan.markers.filter((m) => m.kind === "trap").length + 1; ; n += 1) {
-    const id = `trap-${n}`;
+    const id = `${prefix}trap-${n}`;
     if (!used.has(id)) return id;
   }
 }
@@ -94,10 +102,12 @@ export function withTrapPlaced(
   trap: PlacedTrap,
   x: number,
   y: number,
+  floor: number,
 ): DungeonRecord | null {
-  if (!isFreeFloorCell(dungeon.plan, x, y)) return null;
+  const plan = floorPlan(dungeon, floor);
+  if (!isFreeFloorCell(plan, x, y)) return null;
   const marker: DungeonMarker = {
-    id: nextTrapMarkerId(dungeon.plan),
+    id: nextTrapMarkerId(plan),
     kind: "trap",
     x,
     y,
@@ -106,7 +116,8 @@ export function withTrapPlaced(
     connects: null,
     placedByMaster: true,
   };
-  return { ...dungeon, plan: { ...dungeon.plan, markers: [...dungeon.plan.markers, marker] } };
+  const changed: DungeonPlan = { ...plan, markers: [...plan.markers, marker] };
+  return withFloorPlan(dungeon, floor, changed);
 }
 
 /**
@@ -118,13 +129,19 @@ export function withTrapPlaced(
  * достаётся.
  */
 export function withMarkerRemoved(dungeon: DungeonRecord, markerId: string): DungeonRecord {
-  const marker = dungeon.plan.markers.find((m) => m.id === markerId);
+  // Этаж отметки ищется по `id` (`floorOfMarker`), а не передаётся снаружи:
+  // `id` уникален по всему подземелью, и спрашивать этаж у экрана значило бы
+  // дать ему возможность снести отметку не с того этажа.
+  const floor = floorOfMarker(dungeon, markerId);
+  if (floor === null) return dungeon;
+  const plan = floorPlan(dungeon, floor);
+  const marker = plan.markers.find((m) => m.id === markerId);
   if (!marker || !isMasterPlaced(marker)) return dungeon;
   const statuses = { ...dungeon.statuses };
   delete statuses[markerId];
-  return {
-    ...dungeon,
-    plan: { ...dungeon.plan, markers: dungeon.plan.markers.filter((m) => m.id !== markerId) },
-    statuses,
+  const changed: DungeonPlan = {
+    ...plan,
+    markers: plan.markers.filter((m) => m.id !== markerId),
   };
+  return { ...withFloorPlan(dungeon, floor, changed), statuses };
 }

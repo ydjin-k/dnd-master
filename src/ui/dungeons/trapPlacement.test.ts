@@ -82,13 +82,13 @@ describe("постановка ловушки в подземелье", () => {
     // Камень не пол.
     const [sx, sy] = stone(d.plan);
     expect(isFreeFloorCell(d.plan, sx, sy)).toBe(false);
-    expect(withTrapPlaced(d, ownTrap(), sx, sy)).toBeNull();
+    expect(withTrapPlaced(d, ownTrap(), sx, sy, 1)).toBeNull();
 
     // Клетка под чужой отметкой — пол, но занята.
     const taken = d.plan.markers[0];
     expect(cells.some(([x, y]) => x === taken.x && y === taken.y)).toBe(true);
     expect(isFreeFloorCell(d.plan, taken.x, taken.y)).toBe(false);
-    expect(withTrapPlaced(d, ownTrap(), taken.x, taken.y)).toBeNull();
+    expect(withTrapPlaced(d, ownTrap(), taken.x, taken.y, 1)).toBeNull();
 
     // Свободных клеток ровно столько, сколько пола без отметок. Вычитаются
     // только отметки, стоящие НА полу: потайной ход генератор ставит в камень
@@ -106,7 +106,7 @@ describe("постановка ловушки в подземелье", () => {
     expect(trap.partyLevel).toBe(17);
     const [x, y] = freeFloorCells(d.plan)[0];
 
-    const after = withTrapPlaced(d, trap, x, y)!;
+    const after = withTrapPlaced(d, trap, x, y, 1)!;
     const placed = after.plan.markers[after.plan.markers.length - 1];
     expect(placed.kind).toBe("trap");
     expect([placed.x, placed.y]).toEqual([x, y]);
@@ -131,7 +131,7 @@ describe("постановка ловушки в подземелье", () => {
     const d = dungeon(77);
     const trap = ownTrap();
     const [x1, y1] = freeFloorCells(d.plan)[0];
-    const first = withTrapPlaced(d, trap, x1, y1)!;
+    const first = withTrapPlaced(d, trap, x1, y1, 1)!;
     const mine = first.plan.markers[first.plan.markers.length - 1];
     const marked = { ...first, statuses: { ...first.statuses, [mine.id]: "explored" as const } };
 
@@ -141,14 +141,14 @@ describe("постановка ловушки в подземелье", () => {
     // родилась бы «исследованной».
     expect(removed.statuses[mine.id]).toBeUndefined();
 
-    const again = withTrapPlaced(removed, trap, x1, y1)!;
+    const again = withTrapPlaced(removed, trap, x1, y1, 1)!;
     const second = again.plan.markers[again.plan.markers.length - 1];
     expect(markerStatusOf(again, second.id)).toBe("unexplored");
 
     // Номер считается по всем отметкам схемы, а не по числу ловушек: две
     // ручные подряд не получают один id.
     const [x2, y2] = freeFloorCells(again.plan)[0];
-    const third = withTrapPlaced(again, trap, x2, y2)!;
+    const third = withTrapPlaced(again, trap, x2, y2, 1)!;
     const ids = third.plan.markers.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).not.toContain(nextTrapMarkerId(third.plan));

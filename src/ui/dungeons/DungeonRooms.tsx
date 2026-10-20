@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { DungeonRecord } from "../../state/types";
+import { floorPlan, planFloor } from "./dungeonFloors";
 import type { DungeonRoom } from "./dungeonGenerator";
 import { hasNote, noteOf } from "./dungeonNotes";
 import { RoomFloorSwatch } from "./DungeonMap";
@@ -25,6 +26,7 @@ import { NoteField } from "./NoteField";
  */
 export function DungeonRooms({
   dungeon,
+  floor = 1,
   selectedRoom,
   onSelectRoom,
   onAdvanceRoom,
@@ -35,6 +37,8 @@ export function DungeonRooms({
   noCharacters,
 }: {
   dungeon: DungeonRecord;
+  /** Какой этаж перечислять; ключи комнат спрашиваются у его схемы. */
+  floor?: number;
   /** Комната, выбранная на схеме или здесь, — к ней же список и прокручивается. */
   selectedRoom: number | null;
   onSelectRoom: (roomNumber: number) => void;
@@ -48,6 +52,8 @@ export function DungeonRooms({
   noCharacters: boolean;
 }) {
   const listRef = useRef<HTMLOListElement | null>(null);
+  const plan = floorPlan(dungeon, floor);
+  const atFloor = planFloor(plan);
 
   /**
    * Выбранную комнату — к глазам: щелчок по комнате на схеме ведёт к строке
@@ -66,9 +72,9 @@ export function DungeonRooms({
     <>
       <h4>Комнаты</h4>
       <ol className="dungeons-page__rooms" ref={listRef}>
-        {dungeon.plan.rooms.map((room) => {
-          const status = roomStatusOf(dungeon, room.number);
-          const key = roomKey(room.number);
+        {plan.rooms.map((room) => {
+          const status = roomStatusOf(dungeon, room.number, atFloor);
+          const key = roomKey(room.number, atFloor);
           const selected = room.number === selectedRoom;
           return (
             <li

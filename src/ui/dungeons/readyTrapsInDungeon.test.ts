@@ -135,7 +135,7 @@ describe("готовые ловушки в схеме подземелья", () 
     expect(rebuildLosses(dungeon)).toEqual([]);
 
     const [x, y] = freeFloorCells(plan)[0];
-    const placed = withTrapPlaced(dungeon, readyTrapPick("Отравленная игла"), x, y)!;
+    const placed = withTrapPlaced(dungeon, readyTrapPick("Отравленная игла"), x, y, 1)!;
     // Ручную считает `isMasterPlaced`, а не вид ловушки: готовая — тоже потеря.
     expect(rebuildLosses(placed)).toEqual(["ловушек, поставленных руками: 1"]);
   });

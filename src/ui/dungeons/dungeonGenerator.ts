@@ -6,6 +6,7 @@ import {
   tierForLevel,
   type DwellerSource,
 } from "./dungeonDwellers";
+import { floorPrefix, floorSeed } from "./dungeonFloors";
 import { rollLootContents, type LootContents } from "./dungeonLoot";
 import {
   readyTrapPick,
@@ -32,7 +33,12 @@ import { rangeRollExpression, type TrapDanger, type TrapNumbers } from "./trapNu
  * мастер, они живут в записи кампании рядом со схемой.
  */
 
-export const MARKER_KINDS = ["trap", "secret", "door", "loot", "feature"] as const;
+/**
+ * Виды отметок. «Лестница» стоит ПОСЛЕДНЕЙ нарочно: первым видом перечня
+ * легенда листа объясняет статус (`legendRows`), и лестница, встав первой,
+ * объясняла бы его значком, которого у одноэтажного подземелья нет вовсе.
+ */
+export const MARKER_KINDS = ["trap", "secret", "door", "loot", "feature", "stairs"] as const;
 export type MarkerKind = (typeof MARKER_KINDS)[number];
 
 export const MARKER_KIND_LABELS: Record<MarkerKind, string> = {
@@ -41,7 +47,32 @@ export const MARKER_KIND_LABELS: Record<MarkerKind, string> = {
   door: "Дверь",
   loot: "Лут",
   feature: "Точка интереса",
+  stairs: "Лестница",
 };
+
+/** Куда ведёт лестница: вниз, на этаж под ней, или вверх, на этаж над ней. */
+export const STAIRS_DIRECTIONS = ["down", "up"] as const;
+export type StairsDirection = (typeof STAIRS_DIRECTIONS)[number];
+
+/**
+ * Подписи лестницы — своей короткой строкой в коде, а не строкой таблицы:
+ * таблицы подземелья эта карточка не трогает (решение владельца), и лестница
+ * ничего не бросает.
+ */
+export const STAIRS_LABELS: Record<StairsDirection, string> = {
+  down: "Лестница вниз",
+  up: "Лестница вверх",
+};
+
+/**
+ * Подпись отметки: у лестницы со направлением, у остальных — вид. Нужна и
+ * схеме (`aria-label` значка), и описанию отметки, поэтому живёт здесь, у
+ * видов отметок, а не в каждом из них по копии.
+ */
+export function markerLabel(marker: DungeonMarker): string {
+  if (marker.kind === "stairs" && marker.stairs) return STAIRS_LABELS[marker.stairs];
+  return MARKER_KIND_LABELS[marker.kind];
+}
 
 /** Выпавшая строка таблицы: число и текст. */
 export interface RolledLine {
@@ -80,6 +111,13 @@ export interface DungeonMarker {
   /** Номера комнат, которые соединяет потайной ход. */
   readonly connects: readonly [number, number] | null;
   /**
+   * Куда ведёт лестница. Есть только у отметок вида `stairs`; на какой этаж
+   * она выходит, считает `stairsTarget` из `dungeonFloors.ts` по номеру этажа
+   * схемы — второго, записанного, номера у лестницы нет нарочно, иначе он
+   * расходился бы с этажом, на котором лестница стоит.
+   */
+  readonly stairs?: StairsDirection;
+  /**
    * Содержимое находки: монеты с драгоценностями или магический предмет одной
    * редкости (`dungeonLoot.ts` — там же вилки сумм и доли по ступеням).
    * Строка таблицы (`line`) остаётся описанием того, где находка лежит.
@@ -103,8 +141,21 @@ export interface DungeonPlan {
   readonly danger: TrapDanger;
   readonly width: number;
   readonly height: number;
-  readonly purpose: RolledLine;
-  readonly entrance: RolledLine;
+  /**
+   * Номер этажа этой схемы. Поля нет вовсе у первого этажа — и у всех схем,
+   * записанных до этажей: читать его надо через `planFloor` из
+   * `dungeonFloors.ts`, он и подставляет единицу. Приставка ключей отметок и
+   * комнат выводится отсюда же, поэтому схема всегда знает, под какими ключами
+   * лежат её статусы, и передавать номер этажа рядом с ней не нужно.
+   */
+  readonly floor?: number;
+  /**
+   * Назначение и вход — только у ПЕРВОГО этажа: назначение одно на всё
+   * подземелье, а вход у нижних этажей — лестница сверху (решение карточки).
+   * У нижних этажей полей нет вовсе, и бросков на них не делается.
+   */
+  readonly purpose?: RolledLine;
+  readonly entrance?: RolledLine;
   /** Первая комната — та, куда ведёт вход. */
   readonly rooms: readonly DungeonRoom[];
   /** Клетки проходов вне комнат. */
@@ -127,6 +178,16 @@ export interface DungeonParams {
    * `null` или поля нет — назначение бросается, как и раньше.
    */
   readonly purposeRoll?: number | null;
+  /**
+   * Какой этаж строится (считая с единицы) и сколько этажей у подземелья
+   * всего. Поля нет — этаж один, то есть ровно прежнее поведение: ни
+   * лестницы, ни приставки у ключей, ни поля `floor` в схеме.
+   *
+   * Семя здесь — семя ЭТОГО этажа, а не общее: выводит его `floorSeed`, и
+   * второго места, где общее семя превращается в этажное, быть не должно.
+   */
+  readonly floor?: number;
+  readonly floorCount?: number;
 }
 
 export const DUNGEON_SIZES = ["Малое", "Среднее", "Большое"] as const;
@@ -325,12 +386,20 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
   const dice = seededDice(params.seed);
   const tier = tierForLevel(params.partyLevel);
   const shape = DUNGEON_SHAPES[params.size ?? DEFAULT_DUNGEON_SIZE];
+  const floor = params.floor ?? 1;
+  const floorCount = params.floorCount ?? 1;
+  const prefix = floorPrefix(floor);
 
+  // Назначение и вход бросаются только у первого этажа: у нижних вход —
+  // лестница сверху, а назначение одно на всё подземелье. Пропущенные броски
+  // нижним этажам не вредят — у них своё семя.
   const purpose =
-    params.purposeRoll == null
-      ? rollLine(dice, "dungeon-purpose")
-      : chosenLine("dungeon-purpose", params.purposeRoll);
-  const entrance = rollLine(dice, "dungeon-entrance");
+    floor > 1
+      ? null
+      : params.purposeRoll == null
+        ? rollLine(dice, "dungeon-purpose")
+        : chosenLine("dungeon-purpose", params.purposeRoll);
+  const entrance = floor > 1 ? null : rollLine(dice, "dungeon-entrance");
 
   const rects = placeRooms(dice, shape);
   const usedKinds = new Set<number>();
@@ -379,7 +448,19 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
   const add = (kind: MarkerKind, [x, y]: readonly [number, number], extra: Partial<DungeonMarker>) => {
     taken.add(`${x},${y}`);
     const index = markers.filter((m) => m.kind === kind).length + 1;
-    markers.push({ id: `${kind}-${index}`, kind, x, y, line: null, trap: null, connects: null, ...extra });
+    // Приставку этажа даёт `floorPrefix`, и она же стоит у ключей статусов и
+    // заметок: `id` отметки и есть этот ключ. У первого этажа приставка пустая,
+    // поэтому его отметки носят ровно те `id`, что носили до этажей.
+    markers.push({
+      id: `${prefix}${kind}-${index}`,
+      kind,
+      x,
+      y,
+      line: null,
+      trap: null,
+      connects: null,
+      ...extra,
+    });
   };
 
   for (const cell of doorCells) {
@@ -441,19 +522,83 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
     markers[index] = { ...marker, contents: rollLootContents(dice, params.partyLevel) };
   });
 
+  /**
+   * Клетка под лестницу в одной из этих комнат: сперва случайными попытками,
+   * как у находок, а если все они пришлись на занятые клетки — обходом клеток
+   * по порядку. Обход нужен не для красоты: этаж без лестницы разорвал бы
+   * подземелье, перейти на него было бы нечем, и «парные лестницы» стали бы
+   * обещанием, которое схема иногда не держит.
+   */
+  const stairsCell = (rooms: readonly Rect[]): [number, number] | null => {
+    if (rooms.length === 0) return null;
+    const picked = freeCell(() => roomCell(dice.pick(rooms)));
+    if (picked) return picked;
+    for (const r of rooms) {
+      for (let y = r.y; y < r.y + r.h; y += 1) {
+        for (let x = r.x; x < r.x + r.w; x += 1) {
+          if (!taken.has(`${x},${y}`)) return [x, y];
+        }
+      }
+    }
+    return null;
+  };
+
+  // Лестница ставится ПОСЛЕ всех отметок и после содержимого находок — по той
+  // же причине, по которой там же бросается содержимое: схема одноэтажного
+  // подземелья от появления этажей не сдвинулась ни на один бросок, а у этажа
+  // многоэтажного лестница добавилась в конец перечня.
+  //
+  // Вверх — в ПЕРВОЙ комнате: на нижнем этаже она и есть вход, и мастер ищет
+  // её там, где у первого этажа стоит «▼ вход». Вниз — в любой другой,
+  // тем же `inner`, которым расставлены находки.
+  if (floor > 1) {
+    const cell = stairsCell(rects.slice(0, 1));
+    if (cell) add("stairs", cell, { stairs: "up" });
+  }
+  if (floor < floorCount) {
+    const cell = stairsCell(inner);
+    if (cell) add("stairs", cell, { stairs: "down" });
+  }
+
   return {
     seed: params.seed,
     partyLevel: params.partyLevel,
     danger: params.danger,
     width: shape.width,
     height: shape.height,
-    purpose: { roll: purpose.roll, text: purpose.text },
-    entrance: { roll: entrance.roll, text: entrance.text },
+    // Поля нет вовсе у первого этажа: его схема обязана остаться той же, какой
+    // была до этажей, — её сторожит эталон `mediumPlan.20261018.json`.
+    ...(floor > 1 ? { floor } : {}),
+    ...(purpose ? { purpose: { roll: purpose.roll, text: purpose.text } } : {}),
+    ...(entrance ? { entrance: { roll: entrance.roll, text: entrance.text } } : {}),
     rooms,
     corridors: corridorCells,
     secretPath: [secret.from, secret.to],
     markers,
   };
+}
+
+/**
+ * Все этажи одного подземелья, сверху вниз. Семя каждого выводит `floorSeed`
+ * из общего, а число этажей едет в сам генератор: от него зависит, где стоят
+ * лестницы, и считать их расстановку снаружи значило бы завести второго
+ * владельца схемы.
+ *
+ * Один этаж — список из одной схемы, и она в точности равна схеме, которую
+ * `generateDungeon` отдавал до появления этажей.
+ */
+export function generateFloorPlans(
+  params: DungeonParams,
+  floorCount: number,
+): DungeonPlan[] {
+  return Array.from({ length: Math.max(1, floorCount) }, (_, i) =>
+    generateDungeon({
+      ...params,
+      seed: floorSeed(params.seed, i + 1),
+      floor: i + 1,
+      floorCount: Math.max(1, floorCount),
+    }),
+  );
 }
 
 /** «Мастерская чародея — Двери подписаны…» → «Мастерская чародея». */

@@ -32,7 +32,7 @@ function record(over: Partial<DungeonRecord> = {}): DungeonRecord {
   });
   return {
     id: "d1",
-    name: lineTitle(plan.purpose.text),
+    name: lineTitle(plan.purpose!.text),
     createdAt: "2026-10-19T10:00:00Z",
     seed,
     partyLevel: 3,
@@ -53,6 +53,9 @@ describe("рецепт подземелья", () => {
       danger: "Опасная",
       size: "Среднее",
       purposeRoll: null,
+      // engine-dungeon-floors: этажи считаются по записи, и у записи без
+      // `lowerFloors` их один — как у созданной до этажей.
+      floors: 1,
     });
   });
 
@@ -62,6 +65,7 @@ describe("рецепт подземелья", () => {
       danger: "Опасная",
       size: "Большое",
       purposeRoll: 7,
+      floors: 1,
     });
   });
 });
@@ -153,7 +157,7 @@ describe("пересборка", () => {
 
   it("перечень называет заметки мастера", () => {
     const plain = record();
-    const noted = withNote(withNote(plain, roomKey(2), "Рычаг"), "door-1", "скрипит");
+    const noted = withNote(withNote(plain, roomKey(2, 1), "Рычаг"), "door-1", "скрипит");
     expect(rebuildLosses(noted)).toEqual(["заметок мастера: 2"]);
     // Стёртая заметка в записи не лежит и в перечень не попадает.
     expect(rebuildLosses(withNote(noted, "door-1", ""))).toEqual(["заметок мастера: 1"]);
@@ -165,7 +169,7 @@ describe("пересборка", () => {
     expect(after.seed).toBe(777);
     expect([after.size, after.purposeRoll]).toEqual(["Большое", 7]);
     expect([after.partyLevel, after.danger]).toEqual([3, "Опасная"]);
-    expect(after.plan.purpose.roll).toBe(7);
+    expect(after.plan.purpose!.roll).toBe(7);
     expect(after.plan.rooms.length).toBe(before.plan.rooms.length);
     expect(after.plan.rooms).not.toEqual(before.plan.rooms);
     expect(after.statuses).toEqual({});
@@ -174,7 +178,7 @@ describe("пересборка", () => {
 
   it("заметки и статусы комнат уходят вместе со старой схемой", () => {
     const before = withNote(
-      withNote(record({ statuses: { "room-2": "explored", "trap-1": "discovered" } }), roomKey(2), "Рычаг"),
+      withNote(record({ statuses: { "room-2": "explored", "trap-1": "discovered" } }), roomKey(2, 1), "Рычаг"),
       "trap-1",
       "сработала",
     );
@@ -216,7 +220,7 @@ describe("пересборка", () => {
   it("имя мастера остаётся, генераторное едет за новым назначением", () => {
     const generated = record();
     const rebuilt = withDungeonRebuilt(generated, 909090, numbers, bestiary);
-    expect(rebuilt.name).toBe(lineTitle(rebuilt.plan.purpose.text));
+    expect(rebuilt.name).toBe(lineTitle(rebuilt.plan.purpose!.text));
 
     const renamed = withDungeonRenamed(generated, "Логово у реки")!;
     expect(withDungeonRebuilt(renamed, 909090, numbers, bestiary).name).toBe("Логово у реки");
