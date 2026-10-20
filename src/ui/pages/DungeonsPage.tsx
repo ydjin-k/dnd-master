@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useCampaign } from "../../state/CampaignContext";
 import type { DungeonRecord, MonsterTemplate, RollResult, RuleTopic } from "../../state/types";
 import { playDiceRollSound } from "../../audio/uiSounds";
@@ -17,6 +18,8 @@ import {
   type ReadyTrap,
 } from "../dungeons/readyTraps";
 import { noteOf, withNote } from "../dungeons/dungeonNotes";
+import { dungeonMapPngBase64, pngFileName } from "../dungeons/DungeonMapImage";
+import { MAP_AUDIENCES, MAP_AUDIENCE_LABELS, type MapAudience } from "../dungeons/mapAudience";
 import { DungeonRooms, RoomLegend } from "../dungeons/DungeonRooms";
 import { NoteField } from "../dungeons/NoteField";
 import { findDungeonTable } from "../eventTables/dungeonTables";
@@ -703,6 +706,10 @@ function DungeonView({
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [confirmRebuild, setConfirmRebuild] = useState(false);
+  /** Открыт выбор варианта картинки: лист мастера или лист игроков. */
+  const [pickingSheet, setPickingSheet] = useState(false);
+  /** Чем кончилось сохранение картинки — путь файла или причина отказа. */
+  const [saved, setSaved] = useState<{ ok: boolean; text: string } | null>(null);
   /** Обитатель, чья карточка открыта, или `null`. */
   const [dwellerId, setDwellerId] = useState<string | null>(null);
   /** Номер комнаты, из которой подняли бой, — для подписи на месте. */
@@ -773,6 +780,33 @@ function DungeonView({
   };
 
   /**
+   * Сохраняет схему картинкой PNG. Диалог «Сохранить как» — нативный, путь из
+   * него уходит в команду записи `save_png_file`; что именно попадёт на лист,
+   * решает `mapAudience.ts`, а рисует `DungeonMapImage.tsx`.
+   *
+   * Имя по умолчанию — `<имя подземелья>.png` и у обоих вариантов одно (так в
+   * карточке). Второй вариант, сохранённый не переименовав, ляжет поверх
+   * первого — диалог об этом спросит сам.
+   */
+  const saveImage = async (audience: MapAudience) => {
+    setPickingSheet(false);
+    setSaved(null);
+    try {
+      const path = await save({
+        defaultPath: pngFileName(dungeon.name),
+        filters: [{ name: "Картинка PNG", extensions: ["png"] }],
+      });
+      // Мастер закрыл диалог — это не отказ, и говорить о нём нечего.
+      if (!path) return;
+      const bytesBase64 = await dungeonMapPngBase64(dungeon, audience);
+      await invoke("save_png_file", { path, bytesBase64 });
+      setSaved({ ok: true, text: `Схема сохранена: ${path}` });
+    } catch (error) {
+      setSaved({ ok: false, text: `Картинку сохранить не удалось: ${String(error)}` });
+    }
+  };
+
+  /**
    * Поднимает бой с обитателями комнаты тем же путём, что генератор событий
    * (`AdventuresPage`): противники — только те, кого назвала комната, а со
    * стороны отряда выходят все персонажи кампании; кого оставить в стороне,
@@ -811,6 +845,20 @@ function DungeonView({
             <button type="button" onClick={rebuild}>Да, пересобрать</button>
             <button type="button" onClick={() => setConfirmRebuild(false)}>Нет</button>
           </span>
+        ) : pickingSheet ? (
+          <span className="dungeons-page__confirm">
+            Какую картинку сохранить?
+            {MAP_AUDIENCES.map((audience) => (
+              <button key={audience} type="button" onClick={() => saveImage(audience)}>
+                {MAP_AUDIENCE_LABELS[audience]}
+              </button>
+            ))}
+            <button type="button" onClick={() => setPickingSheet(false)}>Отмена</button>
+            <span className="dungeons-page__range">
+              На листе игроков нет ловушек, потайных ходов, заметок мастера и ещё не
+              исследованных отметок.
+            </span>
+          </span>
         ) : (
           <>
             <button type="button" onClick={() => setRenaming(true)}>Переименовать</button>
@@ -822,9 +870,17 @@ function DungeonView({
             >
               Пересобрать
             </button>
+            <button type="button" onClick={() => { setSaved(null); setPickingSheet(true); }}>
+              Сохранить картинкой
+            </button>
           </>
         )}
       </div>
+      {saved && (
+        <p className={saved.ok ? "dungeons-page__range" : "dungeons-page__error"} role="status">
+          {saved.text}
+        </p>
+      )}
       <div className="dungeons-page__layout">
         <div className="dungeons-page__main">
           <div className="dungeon-map">

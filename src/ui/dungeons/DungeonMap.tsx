@@ -3,6 +3,12 @@ import type { DungeonRecord } from "../../state/types";
 import { MARKER_KIND_LABELS, type DungeonPlan, type MarkerKind } from "./dungeonGenerator";
 import { hasNote } from "./dungeonNotes";
 import {
+  markerShown,
+  notesShown,
+  secretPathShown,
+  type MapAudience,
+} from "./mapAudience";
+import {
   MARKER_STATUS_LABELS,
   markerStatusOf,
   roomKey,
@@ -18,7 +24,11 @@ import { cellPlace, freeFloorCells } from "./trapPlacement";
  * Статус виден прямо на значке: «не исследовано» — серый пунктирный контур,
  * «обнаружено» — заливка цветом вида, «исследовано» — бледная заливка с
  * зелёной галочкой. У комнаты тот же статус читается тоном пола, а заметка
- * мастера — точкой в углу. Схема только для мастера: тумана и фишек здесь нет.
+ * мастера — точкой в углу. Тумана и фишек здесь нет.
+ *
+ * На экране схема всегда мастерская, но та же схема уходит в картинку PNG, и
+ * там бывает лист для игроков. Что на нём видно, решает НЕ схема, а
+ * `mapAudience.ts`: схема только спрашивает.
  */
 export const CELL = 26;
 
@@ -149,6 +159,24 @@ function floorRects(plan: DungeonPlan): [number, number, number, number][] {
   ];
 }
 
+/**
+ * Рамка схемы в единицах SVG: `[x, y, ширина, высота]`. Рамка по полу с полем
+ * в клетку — пустые края сетки схеме не нужны.
+ *
+ * Живёт здесь, у схемы, и ею же считается собственный `viewBox`. Картинке PNG
+ * рамка нужна, чтобы разложить схему и легенду на листе и выбрать разрешение;
+ * второй, своей, у неё быть не должно — разъехавшись на клетку, они обрезали
+ * бы край схемы на печати.
+ */
+export function mapViewBox(plan: DungeonPlan): [number, number, number, number] {
+  const floor = floorRects(plan);
+  const x0 = Math.min(...floor.map((f) => f[0])) - 1;
+  const y0 = Math.min(...floor.map((f) => f[1])) - 1;
+  const x1 = Math.max(...floor.map((f) => f[0] + f[2])) + 1;
+  const y1 = Math.max(...floor.map((f) => f[1] + f[3])) + 1;
+  return [x0 * CELL, y0 * CELL, (x1 - x0) * CELL, (y1 - y0) * CELL];
+}
+
 export function DungeonMap({
   dungeon,
   selectedId,
@@ -156,10 +184,16 @@ export function DungeonMap({
   selectedRoom = null,
   onSelectRoom,
   onPlace,
+  audience = "master",
+  place,
 }: {
   dungeon: DungeonRecord;
   selectedId: string | null;
-  onSelect: (markerId: string) => void;
+  /**
+   * Щелчок по отметке. Без него отметки не нажимаются вовсе — так схема
+   * выходит в картинку PNG, где она рисунок, а не управление.
+   */
+  onSelect?: (markerId: string) => void;
   /** Номер комнаты, выбранной в списке, или `null`. */
   selectedRoom?: number | null;
   /**
@@ -174,16 +208,25 @@ export function DungeonMap({
    * свободна, решает `trapPlacement.ts`, а не схема.
    */
   onPlace?: (x: number, y: number) => void;
+  /**
+   * Для кого схема. На экране — всегда `"master"`; `"players"` бывает только у
+   * картинки PNG. Что при этом прячется, знает `mapAudience.ts`.
+   */
+  audience?: MapAudience;
+  /**
+   * Место схемы внутри чужого SVG — для картинки, где рядом стоит легенда. На
+   * экране его нет: размер даёт CSS.
+   */
+  place?: { x: number; y: number; width: number; height: number };
 }) {
   const { plan } = dungeon;
   const floor = floorRects(plan);
-  // Рамка по полу с полем в клетку: пустые края сетки схеме не нужны.
-  const x0 = Math.min(...floor.map((f) => f[0])) - 1;
-  const y0 = Math.min(...floor.map((f) => f[1])) - 1;
-  const x1 = Math.max(...floor.map((f) => f[0] + f[2])) + 1;
-  const y1 = Math.max(...floor.map((f) => f[1] + f[3])) + 1;
-  const [vx, vy, vw, vh] = [x0 * CELL, y0 * CELL, (x1 - x0) * CELL, (y1 - y0) * CELL];
+  const [vx, vy, vw, vh] = mapViewBox(plan);
   const half = CELL / 2;
+  const x0 = vx / CELL;
+  const y0 = vy / CELL;
+  const x1 = (vx + vw) / CELL;
+  const y1 = (vy + vh) / CELL;
   const entrance = plan.rooms[0];
   const [from, to] = plan.secretPath;
 
@@ -191,6 +234,7 @@ export function DungeonMap({
     <svg
       className="dungeon-map__svg"
       viewBox={`${vx} ${vy} ${vw} ${vh}`}
+      {...(place ?? {})}
       role="img"
       aria-label={`Схема: ${dungeon.name}`}
       fontFamily="Segoe UI, sans-serif"
@@ -236,14 +280,17 @@ export function DungeonMap({
           )),
         ])}
       </g>
-      <path
-        d={`M${from[0] * CELL + half},${from[1] * CELL + half} L${to[0] * CELL + half},${to[1] * CELL + half}`}
-        fill="none"
-        stroke={MARKER_COLORS.secret}
-        strokeWidth={2.5}
-        strokeDasharray="6 5"
-        opacity={0.7}
-      />
+      {secretPathShown(audience) && (
+        <path
+          className="dungeon-map__secret-path"
+          d={`M${from[0] * CELL + half},${from[1] * CELL + half} L${to[0] * CELL + half},${to[1] * CELL + half}`}
+          fill="none"
+          stroke={MARKER_COLORS.secret}
+          strokeWidth={2.5}
+          strokeDasharray="6 5"
+          opacity={0.7}
+        />
+      )}
       {plan.rooms.map((r) => (
         <text key={r.number} x={r.x * CELL + 6} y={r.y * CELL + 15} fontSize={13} fontWeight={700} fill="#6d6352">
           {r.number}
@@ -288,7 +335,9 @@ export function DungeonMap({
             className={"dungeon-map__room" + (pickable ? "" : " dungeon-map__room--quiet")}
             data-room={r.number}
             data-status={status}
-            data-note={hasNote(dungeon, roomKey(r.number)) ? "yes" : undefined}
+            data-note={
+              notesShown(audience) && hasNote(dungeon, roomKey(r.number)) ? "yes" : undefined
+            }
             aria-label={`Комната ${r.number}: ${r.kind.text} — ${MARKER_STATUS_LABELS[status]}`}
             {...pick}
           >
@@ -306,39 +355,44 @@ export function DungeonMap({
                 strokeDasharray="7 4"
               />
             )}
-            {hasNote(dungeon, roomKey(r.number)) && (
+            {notesShown(audience) && hasNote(dungeon, roomKey(r.number)) && (
               <NoteMark cx={(r.x + r.w) * CELL - 8} cy={r.y * CELL + 8} />
             )}
           </g>
         );
       })}
       {plan.markers.map((m, index) => {
+        // Номер отметки — её место в схеме, а не в том, что видно: иначе на
+        // листе игроков «3» стояла бы у другой отметки, чем у мастера, и два
+        // листа одного подземелья нельзя было бы положить рядом.
+        if (!markerShown(dungeon, m, audience)) return null;
         const status = markerStatusOf(dungeon, m.id);
         const cx = m.x * CELL + half;
         const cy = m.y * CELL + half;
         const selected = m.id === selectedId;
-        const pick = onPlace
-          ? {}
-          : {
+        const pickable = !onPlace && !!onSelect;
+        const pick = pickable
+          ? {
               role: "button",
               tabIndex: 0,
               "aria-pressed": selected,
-              onClick: () => onSelect(m.id),
+              onClick: () => onSelect?.(m.id),
               onKeyDown: (e: KeyboardEvent) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onSelect(m.id);
+                  onSelect?.(m.id);
                 }
               },
-            };
+            }
+          : {};
         return (
           <g
             key={m.id}
-            className={"dungeon-map__marker" + (onPlace ? " dungeon-map__marker--quiet" : "")}
+            className={"dungeon-map__marker" + (pickable ? "" : " dungeon-map__marker--quiet")}
             data-marker={m.id}
             data-kind={m.kind}
             data-status={status}
-            data-note={hasNote(dungeon, m.id) ? "yes" : undefined}
+            data-note={notesShown(audience) && hasNote(dungeon, m.id) ? "yes" : undefined}
             aria-label={`${index + 1}. ${MARKER_KIND_LABELS[m.kind]}: ${MARKER_STATUS_LABELS[status]}`}
             {...pick}
           >
@@ -349,7 +403,9 @@ export function DungeonMap({
             <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill={INK}>
               {index + 1}
             </text>
-            {hasNote(dungeon, m.id) && <NoteMark cx={cx - 10} cy={cy - 9} />}
+            {notesShown(audience) && hasNote(dungeon, m.id) && (
+              <NoteMark cx={cx - 10} cy={cy - 9} />
+            )}
           </g>
         );
       })}
