@@ -32,6 +32,7 @@ import {
   type DungeonRoom,
   type DungeonSize,
 } from "../dungeons/dungeonGenerator";
+import { lootContentsLine } from "../dungeons/dungeonLoot";
 import {
   randomSeed,
   readSeedInput,
@@ -597,6 +598,14 @@ function MarkerDetail({
       {marker.line && (
         <p>
           <b>{lineTitle(marker.line.text)}</b> — {lineDetail(marker.line.text)}
+        </p>
+      )}
+      {/* Содержимое находки — отдельной строкой под ней: строка таблицы
+          говорит, где находка лежит, а эта — что внутри. Подземелья,
+          записанные до содержимого, поля не несут, и строки тут нет. */}
+      {marker.contents && (
+        <p>
+          <b>Внутри:</b> {lootContentsLine(marker.contents)}
         </p>
       )}
       {marker.kind === "door" && (
