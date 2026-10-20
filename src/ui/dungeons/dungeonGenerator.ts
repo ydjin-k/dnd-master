@@ -6,6 +6,7 @@ import {
   tierForLevel,
   type DwellerSource,
 } from "./dungeonDwellers";
+import { rollLootContents, type LootContents } from "./dungeonLoot";
 import {
   readyTrapPick,
   readyTrapsForLevel,
@@ -78,6 +79,15 @@ export interface DungeonMarker {
   readonly trap: PlacedTrap | null;
   /** Номера комнат, которые соединяет потайной ход. */
   readonly connects: readonly [number, number] | null;
+  /**
+   * Содержимое находки: монеты с драгоценностями или магический предмет одной
+   * редкости (`dungeonLoot.ts` — там же вилки сумм и доли по ступеням).
+   * Строка таблицы (`line`) остаётся описанием того, где находка лежит.
+   *
+   * Поля нет вовсе у отметок других видов и у подземелий, записанных до
+   * содержимого: такая находка показывается строкой таблицы, как раньше.
+   */
+  readonly contents?: LootContents;
   /**
    * Отметку поставил мастер руками (ловушка из генератора ловушек), а не
    * генератор схемы. Генератор поля не пишет вовсе, поэтому «поля нет» и
@@ -421,6 +431,15 @@ export function generateDungeon(params: DungeonParams): DungeonPlan {
       add(kind, cell, { line: { roll, text } });
     }
   }
+
+  // Содержимое находок бросается ПОСЛЕ всех отметок, а не внутри их цикла:
+  // так схема того же семени осталась ровно той же, какой была до
+  // содержимого, — у находок добавилось поле, а не сдвинулись броски дверей,
+  // ловушек и точек интереса.
+  markers.forEach((marker, index) => {
+    if (marker.kind !== "loot") return;
+    markers[index] = { ...marker, contents: rollLootContents(dice, params.partyLevel) };
+  });
 
   return {
     seed: params.seed,
