@@ -214,7 +214,11 @@ describe("вкладка «Подземелья»: этажи", () => {
     expect(drawnMarkers()).toEqual(second.markers.map((m) => m.id));
     // Подпись «▼ вход» — только у первого этажа: вниз входят по лестнице.
     expect(map().textContent).not.toContain("▼ вход");
-    expect(screen.getByText(/лестница с этаж 1|лестница с этажа 1/i)).toBeInTheDocument();
+    // Падеж проверяется дословно: `floorLabel(n).toLowerCase()` даёт «этаж 1»,
+    // и в живом окне подпись читалась «лестница с этаж 1».
+    const lead = () => document.querySelector(".dungeons-page__lead")!;
+    expect(lead()).toHaveTextContent("Вход: лестница с этажа 1");
+    expect(lead().textContent).not.toContain("с этаж 1");
 
     fireEvent.click(within(tabs()).getByRole("button", { name: "Этаж 1" }));
     expect(map().textContent).toContain("▼ вход");

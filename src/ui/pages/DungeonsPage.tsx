@@ -23,6 +23,7 @@ import {
   floorCount,
   floorFields,
   floorLabel,
+  floorLabelFrom,
   floorPlan,
   planFloor,
   stairsTarget,
@@ -977,7 +978,7 @@ function DungeonView({
         {lineDetail(dungeon.plan.purpose?.text ?? "")} <b>Вход:</b>{" "}
         {atFloor === 1
           ? (dungeon.plan.entrance?.text ?? "")
-          : `лестница с ${floorLabel(atFloor - 1).toLowerCase()}`}{" "}
+          : `лестница с ${floorLabelFrom(atFloor - 1)}`}{" "}
         <span className="dungeons-page__range">
           Отряд {dungeon.partyLevel} ур. · ловушки «{dungeon.danger}» ·{" "}
           {dungeonSizeOf(dungeon.size).toLowerCase()} ·{" "}
