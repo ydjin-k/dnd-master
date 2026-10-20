@@ -3,6 +3,7 @@ mod characters;
 mod combat;
 mod dice;
 mod model;
+mod pngfile;
 mod rules;
 mod spells;
 mod storage;
@@ -273,6 +274,14 @@ fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, end_combat_action)
 }
 
+/// Положить картинку схемы подземелья в файл, выбранный в диалоге «Сохранить
+/// как». Правила записи и причина, по которой это своя команда, а не плагин
+/// `fs`, — в `pngfile::write_png`.
+#[tauri::command]
+fn save_png_file(path: String, bytes_base64: String) -> Result<(), String> {
+    pngfile::write_png(&path, &bytes_base64)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -301,7 +310,8 @@ pub fn run() {
             apply_damage,
             combat_remove,
             combat_transfer_hp_to_sheets,
-            end_combat
+            end_combat,
+            save_png_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
