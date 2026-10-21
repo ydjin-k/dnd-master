@@ -184,7 +184,7 @@ describe("лист со схемой", () => {
   });
 
   it("семя и настройки подземелья — только на листе мастера", () => {
-    expect(dungeonMapSvg(dungeon, "master")).toContain("семя 20261018");
+    expect(dungeonMapSvg(dungeon, "master")).toContain("номер схемы 20261018");
     expect(dungeonMapSvg(dungeon, "players")).not.toContain("20261018");
   });
 

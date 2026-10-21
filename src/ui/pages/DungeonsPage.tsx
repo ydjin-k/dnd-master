@@ -264,12 +264,12 @@ function CreateOptions({
         </select>
       </label>
       <label className="dungeons-page__level">
-        Семя
+        Номер схемы
         <input
           className="dungeons-page__seed-input"
           type="text"
           inputMode="numeric"
-          placeholder="случайное"
+          placeholder="случайный"
           value={seedText}
           onChange={(e) => onSeed(e.currentTarget.value)}
         />
@@ -1024,7 +1024,7 @@ function DungeonView({
         <span className="dungeons-page__range">
           Отряд {dungeon.partyLevel} ур. · ловушки «{dungeon.danger}» ·{" "}
           {dungeonSizeOf(dungeon.size).toLowerCase()} ·{" "}
-          {floorCount(dungeon) > 1 ? `этажей ${floorCount(dungeon)} · ` : ""}семя {dungeon.seed}
+          {floorCount(dungeon) > 1 ? `этажей ${floorCount(dungeon)} · ` : ""}номер схемы {dungeon.seed}
         </span>
       </p>
       <div className="dungeons-page__actions">

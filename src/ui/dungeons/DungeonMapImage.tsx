@@ -156,7 +156,7 @@ function sheetFooter(dungeon: DungeonRecord, audience: MapAudience): string | nu
   if (audience !== "master") return null;
   return `Отряд ${dungeon.partyLevel} ур. · ловушки «${dungeon.danger}» · ${dungeonSizeOf(
     dungeon.size,
-  ).toLowerCase()} · семя ${dungeon.seed}`;
+  ).toLowerCase()} · номер схемы ${dungeon.seed}`;
 }
 
 /**

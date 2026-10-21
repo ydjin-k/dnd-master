@@ -91,7 +91,7 @@ async function createWith({
   const create = await openList();
   if (size) fireEvent.click(within(screen.getByLabelText("Размер")).getByRole("button", { name: size }));
   if (purpose) fireEvent.change(screen.getByLabelText("Назначение"), { target: { value: purpose } });
-  if (seed !== undefined) fireEvent.change(screen.getByLabelText("Семя"), { target: { value: seed } });
+  if (seed !== undefined) fireEvent.change(screen.getByLabelText("Номер схемы"), { target: { value: seed } });
   await act(async () => fireEvent.click(create));
   return () => disk.dungeons![disk.dungeons!.length - 1];
 }
@@ -136,9 +136,9 @@ describe("создание подземелья: размер, назначен�
   it("мусор в поле семени — отказ с объяснением, подземелье не создаётся", async () => {
     await mount();
     const create = await openList();
-    fireEvent.change(screen.getByLabelText("Семя"), { target: { value: "не число" } });
+    fireEvent.change(screen.getByLabelText("Номер схемы"), { target: { value: "не число" } });
     await act(async () => fireEvent.click(create));
-    expect(screen.getByText(/Семя — целое число/)).toBeInTheDocument();
+    expect(screen.getByText(/Номер схемы — целое число/)).toBeInTheDocument();
     expect(disk.dungeons).toHaveLength(0);
   });
 
@@ -162,7 +162,7 @@ describe("создание подземелья: размер, назначен�
     await mount();
     await createWith({ size: "Большое", seed: "777" });
     const lead = document.querySelector(".dungeons-page__lead")!;
-    expect(lead).toHaveTextContent("семя 777");
+    expect(lead).toHaveTextContent("номер схемы 777");
     expect(lead).toHaveTextContent("большое");
   });
 });
@@ -297,7 +297,7 @@ describe("подземелье, созданное до выбора разме�
 
     fireEvent.click(await screen.findByRole("button", { name: "Открыть" }));
     await screen.findByRole("img", { name: /^Схема:/ });
-    expect(document.querySelector(".dungeons-page__lead")).toHaveTextContent("семя 20261018");
+    expect(document.querySelector(".dungeons-page__lead")).toHaveTextContent("номер схемы 20261018");
 
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Пересобрать" })));
     const after = disk.dungeons![0];

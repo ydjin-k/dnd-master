@@ -75,11 +75,11 @@ export function readSeedInput(text: string): SeedInput {
   const trimmed = text.trim();
   if (trimmed.length === 0) return { kind: "random" };
   if (!/^\d+$/.test(trimmed)) {
-    return { kind: "error", message: `Семя — целое число от 0 до ${SEED_MAX}` };
+    return { kind: "error", message: `Номер схемы — целое число от 0 до ${SEED_MAX}` };
   }
   const seed = Number(trimmed);
   if (seed > SEED_MAX) {
-    return { kind: "error", message: `Семя не больше ${SEED_MAX}` };
+    return { kind: "error", message: `Номер схемы не больше ${SEED_MAX}` };
   }
   return { kind: "seed", seed };
 }

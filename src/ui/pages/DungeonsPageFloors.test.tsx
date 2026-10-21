@@ -171,7 +171,7 @@ describe("вкладка «Подземелья»: этажи", () => {
     const create = await screen.findByRole("button", { name: "Создать подземелье" });
     await waitFor(() => expect(create).toBeEnabled());
     fireEvent.change(screen.getByLabelText("Этажей"), { target: { value: "3" } });
-    fireEvent.change(screen.getByLabelText("Семя"), { target: { value: "20261018" } });
+    fireEvent.change(screen.getByLabelText("Номер схемы"), { target: { value: "20261018" } });
     await act(async () => fireEvent.click(create));
 
     const saved = disk.dungeons![0];
