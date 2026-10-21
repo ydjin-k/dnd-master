@@ -16,42 +16,158 @@
 .app-shell[data-active-tab="bestiary"] { --section-accent: #78c79a; --section-accent-rgb: 120, 199, 154; }
 .app-shell[data-active-tab="soundboard"] { --section-accent: #ef8ac4; --section-accent-rgb: 239, 138, 196; }
 
+/* Шапка «тёмная книга» — референс владельца 21.10
+   (`docs/art/inbox/app-header-dark-book-reference.png`): золотой медальон, название,
+   ромб-разделитель, поле кампании в тонкой рамке с уголками, золотая кнопка «Кампании»
+   и золотая черта по низу с ромбами по краям и в середине. */
 .app-shell__header {
   grid-column: 1 / -1;
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75em;
-  padding: 0.75em 1.25em;
+  gap: 0.75em 1.1em;
+  padding: 0.7em 1.5em 0.95em;
   background: var(--dm-panel);
-  backdrop-filter: blur(1px);
-  border-bottom: 1px solid var(--dm-border);
   box-shadow: 0 10px 28px rgba(1, 6, 18, 0.36);
 }
 
+.app-shell__header-rule {
+  position: absolute;
+  left: 0.35em;
+  right: 0.35em;
+  bottom: 0;
+  height: 1px;
+  background: var(--dm-gold-line);
+  pointer-events: none;
+}
+
+.app-shell__header-rule i {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--dm-gold-line);
+  background: var(--dm-panel);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.app-shell__header-rule i:nth-child(1) { left: 0; }
+.app-shell__header-rule i:nth-child(2) { left: 50%; width: 9px; height: 9px; border: 0; background: var(--dm-gold); }
+.app-shell__header-rule i:nth-child(3) { left: 100%; }
+
 .app-shell__title {
   font-family: var(--dm-font-display);
-  color: var(--dm-accent);
-  font-size: 1.1em;
-  letter-spacing: 0.04em;
+  color: var(--dm-gold);
+  font-size: 1.55em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   display: inline-flex;
   align-items: center;
-  gap: 0.55em;
+  gap: 0.6em;
   flex: 0 0 auto;
 }
 
-.app-shell__campaign-name {
-  flex: 1 1 12em;
-  min-width: 0;
-  max-width: 320px;
+.app-shell__emblem { width: 2.6em; height: 2.6em; flex: 0 0 auto; overflow: visible; }
+.app-shell__emblem-ticks { stroke: var(--dm-gold-line); stroke-width: 1.4; stroke-linecap: round; fill: none; }
+.app-shell__emblem-disc { fill: url(#app-shell-emblem-gold); stroke: #5b4019; stroke-width: 1.2; }
+.app-shell__emblem-ring { fill: #2a1d0b; stroke: var(--dm-gold); stroke-width: 1; }
+.app-shell__emblem-star { fill: url(#app-shell-emblem-gold); stroke: #3d2a0f; stroke-width: 0.7; stroke-linejoin: round; }
+.app-shell__emblem-star--minor { opacity: 0.85; }
+.app-shell__emblem-hub { fill: #2a1d0b; stroke: var(--dm-gold); stroke-width: 0.8; }
+
+/* Тонкая вертикальная черта с ромбом между названием и полем кампании. */
+.app-shell__title-divider {
+  position: relative;
+  align-self: stretch;
+  width: 1px;
+  margin-block: 0.35em;
+  background: linear-gradient(transparent, var(--dm-gold-line) 25%, var(--dm-gold-line) 75%, transparent);
+  flex: 0 0 auto;
 }
 
+.app-shell__title-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--dm-gold);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Рамка поля: тонкая золотая линия и уголки внутри неё — восемь отрезков фоном обёртки. */
+.app-shell__campaign-frame {
+  --corner: 9px;
+  --corner-line: 1px;
+  --corner-inset: 4px;
+  position: relative;
+  flex: 1 1 14em;
+  min-width: 0;
+  max-width: 34rem;
+  display: flex;
+}
+
+.app-shell__campaign-frame::after {
+  content: "";
+  position: absolute;
+  inset: var(--corner-inset);
+  pointer-events: none;
+  --c: var(--dm-gold-line);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--corner) var(--corner-line),
+    linear-gradient(var(--c), var(--c)) top left / var(--corner-line) var(--corner),
+    linear-gradient(var(--c), var(--c)) top right / var(--corner) var(--corner-line),
+    linear-gradient(var(--c), var(--c)) top right / var(--corner-line) var(--corner),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--corner) var(--corner-line),
+    linear-gradient(var(--c), var(--c)) bottom left / var(--corner-line) var(--corner),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--corner) var(--corner-line),
+    linear-gradient(var(--c), var(--c)) bottom right / var(--corner-line) var(--corner);
+  background-repeat: no-repeat;
+}
+
+.app-shell__campaign-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding-inline: 1.1em;
+  font-family: var(--dm-font-display);
+  font-size: 1.2em;
+  color: var(--dm-text);
+  background: var(--dm-bg);
+  border: 1px solid var(--dm-gold-line);
+  border-radius: 6px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.app-shell__campaign-name:focus-visible { outline: 2px solid var(--dm-gold); outline-offset: 2px; }
+
+/* Золотая плашка с тёмной надписью и внутренней тонкой рамкой. */
 .app-shell__switch-campaign {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 0.45em;
+  gap: 0.55em;
   flex: 0 0 auto;
+  min-height: 48px;
+  padding-inline: 1.4em;
+  color: var(--dm-gold-ink);
+  font-weight: 700;
+  background: linear-gradient(180deg, #e2bd78, #b88a45);
+  border: 1px solid var(--dm-gold);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 3px #b88a45, inset 0 0 0 4px rgba(26, 18, 4, 0.45), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.app-shell__switch-campaign .ui-icon { color: var(--dm-gold-ink); filter: none; }
+
+.app-shell__switch-campaign:hover,
+.app-shell__switch-campaign:focus-visible {
+  color: var(--dm-gold-ink);
+  border-color: var(--dm-text);
+  background: linear-gradient(180deg, #edcd8c, #c4964f);
+  box-shadow: inset 0 0 0 3px #c4964f, inset 0 0 0 4px rgba(26, 18, 4, 0.45), 0 0 18px rgba(247, 211, 144, 0.35);
 }
 
 .now-playing {
@@ -216,6 +332,9 @@
   .app-shell__header {
     padding-inline: 1em;
   }
+
+  .app-shell__title { font-size: 1.25em; }
+  .app-shell__title-divider { display: none; }
 }
 
 .app-shell[data-active-tab="combat"] .app-shell__content { background-image: repeating-linear-gradient(135deg, rgba(239, 111, 104, 0.035) 0 1px, transparent 1px 32px); }
