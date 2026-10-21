@@ -3,6 +3,7 @@ mod characters;
 mod combat;
 mod dice;
 mod model;
+mod players;
 mod pngfile;
 mod rules;
 mod spells;
@@ -274,6 +275,41 @@ fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
     storage::with_active_locked(&app, end_combat_action)
 }
 
+// ── окно «для игроков» ───────────────────────────────────────────────────────
+//
+// Три команды и ни одной лишней: открыть окно, отдать ему схему, спросить
+// текущую. Правило «что видно игрокам» живёт на фронте
+// (`src/ui/dungeons/mapAudience.ts`), и схема приходит сюда уже
+// отредактированной — Rust её не читает и не правит. Почему схема идёт через
+// Rust, а не из окна в окно, — в `players.rs`.
+
+/// `async` — не украшение: окно создаётся не на главном потоке.
+///
+/// Обычная (не-`async`) команда Tauri выполняется НА ГЛАВНОМ потоке, а
+/// `WebviewWindowBuilder::build()` оттуда ждёт шаг цикла событий, который
+/// крутится на том же потоке, — и приложение встаёт насмерть. Это проверено
+/// руками: окно появлялось пустым (`about:blank`), а главное окно перестало
+/// отвечать на вызовы вовсе. С `async` команда уходит в асинхронный
+/// исполнитель, создание окна отдаётся циклу событий, и тот его выполняет.
+#[tauri::command]
+async fn players_window_open(app: AppHandle) -> Result<(), String> {
+    players::open(&app)
+}
+
+#[tauri::command]
+fn players_map_set(
+    app: AppHandle,
+    state: tauri::State<players::PlayersMap>,
+    view: Option<serde_json::Value>,
+) -> Result<(), String> {
+    players::publish(&app, &state, view)
+}
+
+#[tauri::command]
+fn players_map_get(state: tauri::State<players::PlayersMap>) -> Result<Option<serde_json::Value>, String> {
+    players::get(&state)
+}
+
 /// Положить картинку схемы подземелья в файл, выбранный в диалоге «Сохранить
 /// как». Правила записи и причина, по которой это своя команда, а не плагин
 /// `fs`, — в `pngfile::write_png`.
@@ -288,6 +324,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(bestiary::ResizeSemaphore::new(bestiary::default_resize_concurrency()))
+        .manage(players::PlayersMap::new())
         .invoke_handler(tauri::generate_handler![
             load_active_campaign,
             list_campaigns,
@@ -311,7 +348,10 @@ pub fn run() {
             combat_remove,
             combat_transfer_hp_to_sheets,
             end_combat,
-            save_png_file
+            save_png_file,
+            players_window_open,
+            players_map_set,
+            players_map_get
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

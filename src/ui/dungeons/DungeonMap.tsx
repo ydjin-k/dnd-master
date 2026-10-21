@@ -4,6 +4,7 @@ import { floorPlan, planFloor } from "./dungeonFloors";
 import {
   markerLabel,
   type DungeonPlan,
+  type DungeonRoom,
   type MarkerKind,
   type StairsDirection,
 } from "./dungeonGenerator";
@@ -11,7 +12,9 @@ import { hasNote } from "./dungeonNotes";
 import {
   markerShown,
   notesShown,
+  roomShown,
   secretPathShown,
+  shownCorridors,
   type MapAudience,
 } from "./mapAudience";
 import {
@@ -30,11 +33,13 @@ import { cellPlace, freeFloorCells } from "./trapPlacement";
  * Статус виден прямо на значке: «не исследовано» — серый пунктирный контур,
  * «обнаружено» — заливка цветом вида, «исследовано» — бледная заливка с
  * зелёной галочкой. У комнаты тот же статус читается тоном пола, а заметка
- * мастера — точкой в углу. Тумана и фишек здесь нет.
+ * мастера — точкой в углу. Фишек здесь нет.
  *
- * На экране схема всегда мастерская, но та же схема уходит в картинку PNG, и
- * там бывает лист для игроков. Что на нём видно, решает НЕ схема, а
- * `mapAudience.ts`: схема только спрашивает.
+ * Одна и та же схема идёт в три места: экран мастера, картинку PNG и окно
+ * «для игроков» на втором мониторе. Что в каждом из них видно, решает НЕ схема,
+ * а `mapAudience.ts`: схема только спрашивает. Закрытого в разметке нет вовсе —
+ * ни комнаты, ни прохода, ни стены вокруг них, — поэтому «туман» на листе
+ * игроков это пустое поле, а в окне у стола — его тёмный фон.
  */
 export const CELL = 26;
 
@@ -184,10 +189,18 @@ export function MarkerGlyph({
   );
 }
 
-function floorRects(plan: DungeonPlan): [number, number, number, number][] {
+/**
+ * Клетки пола под стены — комнаты и проходы одним перечнем. Берёт готовые
+ * комнаты и проходы, а не схему: у листа игроков их меньше, чем в схеме, и
+ * стена не должна обводить комнату, которой на листе нет.
+ */
+function wallRects(
+  rooms: readonly DungeonRoom[],
+  corridors: readonly (readonly [number, number])[],
+): [number, number, number, number][] {
   return [
-    ...plan.rooms.map((r): [number, number, number, number] => [r.x, r.y, r.w, r.h]),
-    ...plan.corridors.map(([x, y]): [number, number, number, number] => [x, y, 1, 1]),
+    ...rooms.map((r): [number, number, number, number] => [r.x, r.y, r.w, r.h]),
+    ...corridors.map(([x, y]): [number, number, number, number] => [x, y, 1, 1]),
   ];
 }
 
@@ -199,9 +212,14 @@ function floorRects(plan: DungeonPlan): [number, number, number, number][] {
  * рамка нужна, чтобы разложить схему и легенду на листе и выбрать разрешение;
  * второй, своей, у неё быть не должно — разъехавшись на клетку, они обрезали
  * бы край схемы на печати.
+ *
+ * Рамка считается по ВСЕЙ схеме и у листа игроков тоже: обрежь её по открытым
+ * комнатам, и лист игроков перестал бы ложиться рядом с листом мастера, а в
+ * окне у стола схема прыгала бы и меняла масштаб на каждом новом статусе.
+ * Закрытая часть при этом остаётся пустым полем — туманом, а не комнатами.
  */
 export function mapViewBox(plan: DungeonPlan): [number, number, number, number] {
-  const floor = floorRects(plan);
+  const floor = wallRects(plan.rooms, plan.corridors);
   const x0 = Math.min(...floor.map((f) => f[0])) - 1;
   const y0 = Math.min(...floor.map((f) => f[1])) - 1;
   const x1 = Math.max(...floor.map((f) => f[0] + f[2])) + 1;
@@ -219,6 +237,8 @@ export function DungeonMap({
   audience = "master",
   place,
   floor = 1,
+  paper = true,
+  captions = true,
 }: {
   dungeon: DungeonRecord;
   selectedId: string | null;
@@ -258,10 +278,33 @@ export function DungeonMap({
    * которыми читаются его статусы, не могли разойтись.
    */
   floor?: number;
+  /**
+   * Рисовать ли пергамент под схемой и сетку клеток по всему полю.
+   *
+   * Отдельно от `audience`, а не вместе с ним: на листе PNG пергамент и сетка
+   * есть у ОБЕИХ публик — лист идёт на печать, и поле у него бумажное. Нет их
+   * только в окне у стола, где за фон отвечает само окно и закрытая часть
+   * схемы — его тёмный фон, то есть туман.
+   */
+  paper?: boolean;
+  /**
+   * Подписи отметок: номер рядом со значком и описание в `aria-label`.
+   *
+   * Тоже отдельно от `audience`: на листе игроков номер отметки остаётся
+   * нарочно (решение 20.10.2026 — два листа одного подземелья кладут рядом), а
+   * в окне у стола карточка требует «значком вида, без текста». Номера комнат
+   * подписями не считаются: их карточка просит показывать игрокам.
+   */
+  captions?: boolean;
 }) {
   const plan = floorPlan(dungeon, floor);
   const atFloor = planFloor(plan);
-  const rects = floorRects(plan);
+  // Что рисуется — решает `mapAudience.ts`, и закрытого в разметке нет вовсе:
+  // спрятанное стилем игрок нашёл бы в разметке окна, а на листе PNG оно
+  // осталось бы в файле SVG, из которого рисуется картинка.
+  const rooms = plan.rooms.filter((r) => roomShown(dungeon, r.number, atFloor, audience));
+  const corridors = shownCorridors(dungeon, plan, audience);
+  const rects = wallRects(rooms, corridors);
   const [vx, vy, vw, vh] = mapViewBox(plan);
   const half = CELL / 2;
   const x0 = vx / CELL;
@@ -270,7 +313,9 @@ export function DungeonMap({
   const y1 = (vy + vh) / CELL;
   // «▼ вход» — только на первом этаже: вход на нижний этаж это лестница
   // сверху, и она стоит на схеме обычной отметкой (`stairs`), а не подписью.
-  const entrance = atFloor === 1 ? plan.rooms[0] : null;
+  // Комната входа берётся из ОТКРЫТЫХ: подпись у неоткрытой первой комнаты
+  // показала бы игрокам, где вход, одним словом в пустом поле.
+  const entrance = atFloor === 1 ? rooms.find((r) => r.number === plan.rooms[0]?.number) : null;
   const [from, to] = plan.secretPath;
 
   return (
@@ -282,15 +327,19 @@ export function DungeonMap({
       aria-label={`Схема: ${dungeon.name}`}
       fontFamily="Segoe UI, sans-serif"
     >
-      <rect x={vx} y={vy} width={vw} height={vh} fill="#efe6d2" />
-      <g stroke="#e2d6bc" strokeWidth={1}>
-        {Array.from({ length: x1 - x0 + 1 }, (_, i) => (
-          <line key={`v${i}`} x1={(x0 + i) * CELL} y1={vy} x2={(x0 + i) * CELL} y2={vy + vh} />
-        ))}
-        {Array.from({ length: y1 - y0 + 1 }, (_, i) => (
-          <line key={`h${i}`} x1={vx} y1={(y0 + i) * CELL} x2={vx + vw} y2={(y0 + i) * CELL} />
-        ))}
-      </g>
+      {paper && (
+        <>
+          <rect x={vx} y={vy} width={vw} height={vh} fill="#efe6d2" />
+          <g stroke="#e2d6bc" strokeWidth={1}>
+            {Array.from({ length: x1 - x0 + 1 }, (_, i) => (
+              <line key={`v${i}`} x1={(x0 + i) * CELL} y1={vy} x2={(x0 + i) * CELL} y2={vy + vh} />
+            ))}
+            {Array.from({ length: y1 - y0 + 1 }, (_, i) => (
+              <line key={`h${i}`} x1={vx} y1={(y0 + i) * CELL} x2={vx + vw} y2={(y0 + i) * CELL} />
+            ))}
+          </g>
+        </>
+      )}
       <g fill="#3b3226">
         {rects.map(([x, y, w, h], i) => (
           <rect key={i} x={x * CELL - 3} y={y * CELL - 3} width={w * CELL + 6} height={h * CELL + 6} />
@@ -299,7 +348,7 @@ export function DungeonMap({
       {/* Пол комнаты — тоном статуса, пол проходов — всегда пергамент: статус
           у подземелья есть у комнаты и у отметки, а у прохода его нет. */}
       <g>
-        {plan.rooms.map((r) => (
+        {rooms.map((r) => (
           <rect
             key={`floor-${r.number}`}
             x={r.x * CELL}
@@ -309,12 +358,23 @@ export function DungeonMap({
             fill={ROOM_STATUS_FILL[roomStatusOf(dungeon, r.number, atFloor)]}
           />
         ))}
-        {plan.corridors.map(([x, y]) => (
-          <rect key={`corridor-${x}-${y}`} x={x * CELL} y={y * CELL} width={CELL} height={CELL} fill={PAPER} />
+        {corridors.map(([x, y]) => (
+          // `data-corridor` — та же служба, что `data-room` у комнаты: по нему
+          // видно, какие клетки прохода на схеме нарисованы, а какие в неё не
+          // попали вовсе.
+          <rect
+            key={`corridor-${x}-${y}`}
+            data-corridor={`${x},${y}`}
+            x={x * CELL}
+            y={y * CELL}
+            width={CELL}
+            height={CELL}
+            fill={PAPER}
+          />
         ))}
       </g>
       <g stroke="#ece4d2" strokeWidth={1}>
-        {plan.rooms.flatMap((r) => [
+        {rooms.flatMap((r) => [
           ...Array.from({ length: r.w - 1 }, (_, i) => (
             <line key={`r${r.number}v${i}`} x1={(r.x + i + 1) * CELL} y1={r.y * CELL} x2={(r.x + i + 1) * CELL} y2={(r.y + r.h) * CELL} />
           )),
@@ -334,7 +394,7 @@ export function DungeonMap({
           opacity={0.7}
         />
       )}
-      {plan.rooms.map((r) => (
+      {rooms.map((r) => (
         <text key={r.number} x={r.x * CELL + 6} y={r.y * CELL + 15} fontSize={13} fontWeight={700} fill="#6d6352">
           {r.number}
         </text>
@@ -354,7 +414,7 @@ export function DungeonMap({
       {/* Комнаты — слой НИЖЕ отметок: щелчок по значку достаётся отметке, а по
           остальному полу комнаты — комнате. Подложки у них не пересекаются,
           потому что отметка рисуется позже. */}
-      {plan.rooms.map((r) => {
+      {rooms.map((r) => {
         const status = roomStatusOf(dungeon, r.number, atFloor);
         const selected = r.number === selectedRoom;
         const pickable = !onPlace && !!onSelectRoom;
@@ -381,7 +441,11 @@ export function DungeonMap({
             data-note={
               notesShown(audience) && hasNote(dungeon, roomKey(r.number, atFloor)) ? "yes" : undefined
             }
-            aria-label={`Комната ${r.number}: ${r.kind.text} — ${MARKER_STATUS_LABELS[status]}`}
+            aria-label={
+              captions
+                ? `Комната ${r.number}: ${r.kind.text} — ${MARKER_STATUS_LABELS[status]}`
+                : undefined
+            }
             {...pick}
           >
             <rect x={r.x * CELL} y={r.y * CELL} width={r.w * CELL} height={r.h * CELL} fill="transparent" />
@@ -436,16 +500,20 @@ export function DungeonMap({
             data-kind={m.kind}
             data-status={status}
             data-note={notesShown(audience) && hasNote(dungeon, m.id) ? "yes" : undefined}
-            aria-label={`${index + 1}. ${markerLabel(m)}: ${MARKER_STATUS_LABELS[status]}`}
+            aria-label={
+              captions ? `${index + 1}. ${markerLabel(m)}: ${MARKER_STATUS_LABELS[status]}` : undefined
+            }
             {...pick}
           >
             {/* Невидимая подложка в клетку — по значку легко попасть. */}
             <rect x={cx - half} y={cy - half} width={CELL} height={CELL} fill="transparent" />
             {selected && <circle cx={cx} cy={cy} r={14} fill="none" stroke="#2c261e" strokeWidth={1.5} />}
             <MarkerGlyph kind={m.kind} status={status} cx={cx} cy={cy} stairs={m.stairs} />
-            <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill={INK}>
-              {index + 1}
-            </text>
+            {captions && (
+              <text x={cx + 11} y={cy - 8} fontSize={10} fontWeight={600} fill={INK}>
+                {index + 1}
+              </text>
+            )}
             {notesShown(audience) && hasNote(dungeon, m.id) && (
               <NoteMark cx={cx - 10} cy={cy - 9} />
             )}

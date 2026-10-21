@@ -83,7 +83,10 @@ export function legendRows(audience: MapAudience): LegendRow[] {
     rows.push({ row: "marker", kind: sample, status, text: MARKER_STATUS_LABELS[status] });
   }
   rows.push({ row: "head", text: "Статус комнаты" });
-  for (const status of ["unexplored", "discovered", "explored"] as const) {
+  // Те же статусы, что у отметки, и по той же причине: с 21.10.2026 комната
+  // прячется от игроков по статусу, и «не исследовано» на их листе объясняло
+  // бы тон пола, которого на листе нет ни у одной комнаты.
+  for (const status of statuses) {
     rows.push({ row: "floor", status, text: MARKER_STATUS_LABELS[status] });
   }
   const extras: LegendRow[] = [];

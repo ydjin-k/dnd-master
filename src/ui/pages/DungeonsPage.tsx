@@ -30,7 +30,12 @@ import {
   type FloorCount,
 } from "../dungeons/dungeonFloors";
 import { noteOf, withNote } from "../dungeons/dungeonNotes";
-import { dungeonMapPngBase64, pngFileName } from "../dungeons/DungeonMapImage";
+import { dungeonMapPngBase64, pngFileName, sheetTitle } from "../dungeons/DungeonMapImage";
+import {
+  openPlayersWindow,
+  playersMapView,
+  publishPlayersMap,
+} from "../dungeons/playersMap";
 import { MAP_AUDIENCES, MAP_AUDIENCE_LABELS, type MapAudience } from "../dungeons/mapAudience";
 import { DungeonRooms, RoomLegend } from "../dungeons/DungeonRooms";
 import { NoteField } from "../dungeons/NoteField";
@@ -858,6 +863,26 @@ function DungeonView({
   const losses = rebuildLosses(dungeon);
 
   /**
+   * Схема закрыта — окно игроков показывает заставку. Отдельной отпиской, а не
+   * вместе с отправкой схемы ниже: иначе каждая смена статуса сперва гасила бы
+   * окно до заставки и только потом показывала новую схему.
+   */
+  useEffect(() => () => void publishPlayersMap(null), []);
+
+  /**
+   * Открытая схема уезжает в окно игроков при каждой правке записи и при смене
+   * этажа: сменил мастер статус, переключил этаж или открыл другое подземелье —
+   * у стола это видно сразу, без перезагрузки окна. Что именно уезжает, решает
+   * `playersMapView` (и `mapAudience.ts` за ним), а не экран.
+   *
+   * Зовётся и когда окно ещё не открыто: схема ложится в ящик и дождётся
+   * открытия — поэтому мастеру не нужно помнить, в каком порядке он нажимал.
+   */
+  useEffect(() => {
+    void publishPlayersMap(playersMapView(dungeon, atFloor, sheetTitle(dungeon, atFloor)));
+  }, [dungeon, atFloor]);
+
+  /**
    * Открывает другой этаж. Выбранные отметка и комната сбрасываются: `id`
    * отметки уникален по всему подземелью, и карточка от отметки чужого этажа
    * просто исчезла бы, а вот номер комнаты у этажей общий — не сбросив его,
@@ -950,6 +975,23 @@ function DungeonView({
   };
 
   /**
+   * Выводит окно игроков на экран. Уже открытое — поднимает поверх остальных:
+   * второго такого окна не бывает (`players.rs`).
+   *
+   * Отказ попадает в ту же строку состояния, что отказ сохранения картинки:
+   * строка одна на весь экран схемы, и мастеру незачем знать, какая из кнопок
+   * заводит свою.
+   */
+  const showToPlayers = async () => {
+    setSaved(null);
+    try {
+      await openPlayersWindow();
+    } catch (error) {
+      setSaved({ ok: false, text: `Окно для игроков не открылось: ${String(error)}` });
+    }
+  };
+
+  /**
    * Поднимает бой с обитателями комнаты тем же путём, что генератор событий
    * (`AdventuresPage`): противники — только те, кого назвала комната, а со
    * стороны отряда выходят все персонажи кампании; кого оставить в стороне,
@@ -1005,7 +1047,7 @@ function DungeonView({
             <button type="button" onClick={() => setPickingSheet(false)}>Отмена</button>
             <span className="dungeons-page__range">
               На листе игроков нет ловушек, потайных ходов, заметок мастера и ещё не
-              исследованных отметок.
+              исследованных комнат и отметок.
             </span>
           </span>
         ) : (
@@ -1021,6 +1063,12 @@ function DungeonView({
             </button>
             <button type="button" onClick={() => { setSaved(null); setPickingSheet(true); }}>
               Сохранить картинкой
+            </button>
+            {/* Схема в окне игроков уже лежит (отправляется при каждой правке),
+                кнопка только выводит окно на экран — поэтому нажать её можно и
+                до, и после смены статусов, порядок ничего не меняет. */}
+            <button type="button" onClick={showToPlayers}>
+              Показать игрокам
             </button>
           </>
         )}
