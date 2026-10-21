@@ -50,14 +50,19 @@ describe("JournalPage", () => {
     fireEvent.change(textarea, { target: { value: "Новая запись" } });
     fireEvent.click(screen.getByText("Записать"));
 
-    await waitFor(() => expect(addJournalEntry).toHaveBeenCalledTimes(1));
+    // Ждём ОЧИЩЕННОЕ поле, а не сам вызов `addJournalEntry`. Вызов — первое,
+    // что делает `handleSubmit`, а звук и `setText("")` стоят ПОСЛЕ `await`
+    // этого вызова: настоящий `addJournalEntry` пишет кампанию на диск и
+    // разрешается позже. Барьер по вызову пускал пробу читать состояние до
+    // продолжения обработчика.
+    await waitFor(() => expect((textarea as HTMLTextAreaElement).value).toBe(""));
+    expect(addJournalEntry).toHaveBeenCalledTimes(1);
     expect(addJournalEntry.mock.calls[0][0].text).toBe("Новая запись");
     expect(audioPlayMock).toHaveBeenCalledTimes(1);
     expect(audioInstances[0]).toMatchObject({
       src: "/audio/quill-scratch.mp3",
       currentTime: 0,
     });
-    expect((textarea as HTMLTextAreaElement).value).toBe("");
   });
 
   it("removes the selected journal entry", () => {

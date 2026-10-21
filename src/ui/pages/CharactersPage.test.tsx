@@ -4023,8 +4023,13 @@ describe("CharactersPage", () => {
       });
       render(<CharactersPage />);
 
-      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
-      expect(within(block).getByText("Проклятая кровь")).toBeInTheDocument();
+      // Ждём саму особенность, а не заголовок блока. Заголовок есть уже на
+      // первом рендере — блок держит открытым боевой стиль, который не зависит
+      // от загрузки, — и счёт в нём «(0)»: `classId` берётся из
+      // `classHitDiceByTitle`, а тот наполняется только когда разрешится мок
+      // `get_rules`. Барьер по заголовку под нагрузкой читал пустой список.
+      const block = (await screen.findByText("Проклятая кровь")).closest("details") as HTMLElement;
+      expect(within(block).getByText(/Особенности класса/)).toBeInTheDocument();
       expect(within(block).getByText(/2\/2 использование/)).toBeInTheDocument();
       // «Клеймо наказания» на листе названо дважды и это верно: строка счётчика
       // и текст особенности 6 уровня — разные вещи с одним именем.
@@ -4045,9 +4050,9 @@ describe("CharactersPage", () => {
       const start = bloodHunter(6, [{ featureId: "blood-curse", usesCurrent: 2 }, { featureId: "brand-of-castigation", usesCurrent: 1 }]);
       mockState = baseState({ characters: [start] });
       const { rerender } = render(<CharactersPage />);
-      await screen.findByText(/Особенности класса/);
-
-      fireEvent.click(screen.getByTitle("Потратить: Проклятая кровь"));
+      // Барьер — на самой кнопке счётчика, а не на заголовке блока: заголовок
+      // приезжает раньше особенностей (см. пробу выше).
+      fireEvent.click(await screen.findByTitle("Потратить: Проклятая кровь"));
       let updater = updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character;
       const spent = updater(start);
       expect(spent.featureUses).toContainEqual({ featureId: "blood-curse", usesCurrent: 1 });
@@ -4169,8 +4174,9 @@ describe("CharactersPage", () => {
       );
       render(<CharactersPage />);
 
-      await screen.findByText(/Особенности класса/);
-      expect(screen.getByText("Проклятье метки")).toBeInTheDocument();
+      // Первое проклятье — через `findByText`: заголовок блока приезжает
+      // раньше самих проклятий (см. пробу выше).
+      expect(await screen.findByText("Проклятье метки")).toBeInTheDocument();
       expect(screen.getByText("Проклятье слепоты")).toBeInTheDocument();
       expect(screen.getByText("Проклятье привязки")).toBeInTheDocument();
       expect(screen.getByText("Известные проклятья крови: 3")).toBeInTheDocument();
@@ -4247,8 +4253,9 @@ describe("CharactersPage", () => {
       });
       render(<CharactersPage />);
 
-      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
-      expect(within(block).getByText(/Заговоры сверх нормы класса: 2/)).toBeInTheDocument();
+      // Барьер — на строке нормы, а не на заголовке блока (см. пробу выше).
+      const block = (await screen.findByText(/Заговоры сверх нормы класса: 2/)).closest("details") as HTMLElement;
+      expect(within(block).getByText(/Особенности класса/)).toBeInTheDocument();
       // Ячеек «Магии договора» на листе нет: у класса ячеек не бывает, а запаса
       // ячеек у архетипа в приложении нет вовсе.
       expect(within(block).queryByText(/Ячейки заклинаний/)).not.toBeInTheDocument();
@@ -4352,8 +4359,11 @@ describe("CharactersPage", () => {
 
     it("4 уровень: кости реагентов 4, бомбы 18, СЛ бомб 13 числом и Кости Хитов 1к6", async () => {
       renderAlchemist(alchemist(4));
-      const block = (await screen.findByText(/Особенности класса/)).closest("details") as HTMLElement;
-      expect(within(block).getByText(/4\/4 кость/)).toBeInTheDocument();
+      // Барьер — на счётчике, а не на заголовке блока: у Алхимика заголовок
+      // сегодня приезжает вместе с данными только потому, что боевого стиля у
+      // него нет, — и держится это на чужом поле, а не на этой пробе.
+      const block = (await screen.findByText(/4\/4 кость/)).closest("details") as HTMLElement;
+      expect(within(block).getByText(/Особенности класса/)).toBeInTheDocument();
       expect(within(block).getByText(/18\/18 бомба/)).toBeInTheDocument();
       // 8 + 2 (мастерство) + 3 (Интеллект 16) — формула с. 3 PDF.
       expect(within(block).getByText("СЛ спасброска от бомб: 13")).toBeInTheDocument();
@@ -4375,7 +4385,9 @@ describe("CharactersPage", () => {
         ],
       });
       const { rerender } = renderAlchemist(spent);
-      await screen.findByText(/Особенности класса/);
+      // Барьер — на счётчике костей реагентов: отдых пересчитывает ресурсы
+      // класса, а они приезжают с `get_rules`, не с заголовком блока.
+      await screen.findByText(/\/4 кость/);
 
       shortRest(0);
       const short = (updateCharacter.mock.calls[updateCharacter.mock.calls.length - 1][1] as (c: Character) => Character)(spent);
