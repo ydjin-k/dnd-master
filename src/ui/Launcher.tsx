@@ -32,11 +32,11 @@ function TitleOrnament() {
       <defs>
         <mask id="launcher-title-crescent">
           <rect width="360" height="40" fill="white" />
-          <circle cx="186" cy="14" r="11" fill="black" />
+          <circle cx="184.5" cy="15.5" r="8.3" fill="black" />
         </mask>
       </defs>
       <path className="launcher__ornament-rule" d="M8 20h132m80 0h132" />
-      <circle className="launcher__ornament-moon" cx="180" cy="20" r="12" mask="url(#launcher-title-crescent)" />
+      <circle className="launcher__ornament-moon" cx="180" cy="20" r="9" mask="url(#launcher-title-crescent)" />
       <path className="launcher__ornament-star" d="m150 20 4.5-1.5 1.5-4.5 1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5Zm48 0 4.5-1.5 1.5-4.5 1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5Z" />
     </svg>
   );
