@@ -950,16 +950,18 @@ function DungeonView({
    * него уходит в команду записи `save_png_file`; что именно попадёт на лист,
    * решает `mapAudience.ts`, а рисует `DungeonMapImage.tsx`.
    *
-   * Имя по умолчанию — `<имя подземелья>.png` и у обоих вариантов одно (так в
-   * карточке). Второй вариант, сохранённый не переименовав, ляжет поверх
-   * первого — диалог об этом спросит сам.
+   * Имя по умолчанию у двух листов РАЗНОЕ и считается в `pngFileName`: лист
+   * игроков несёт свою подпись, а у многоэтажного подземелья в имя идёт
+   * открытый этаж. Экран своего имени не складывает — иначе файл и заголовок
+   * листа расходились бы в номере этажа.
    */
   const saveImage = async (audience: MapAudience) => {
     setPickingSheet(false);
     setSaved(null);
     try {
       const path = await save({
-        defaultPath: pngFileName(dungeon.name),
+        // Этаж — тот же открытый, что уходит в картинку ниже.
+        defaultPath: pngFileName(dungeon, audience, atFloor),
         filters: [{ name: "Картинка PNG", extensions: ["png"] }],
       });
       // Мастер закрыл диалог — это не отказ, и говорить о нём нечего.

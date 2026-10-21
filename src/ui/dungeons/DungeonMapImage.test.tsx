@@ -12,8 +12,10 @@ import {
   pngSize,
   SHEET_BG,
   sheetSize,
+  sheetTitle,
 } from "./DungeonMapImage";
-import { shownKinds, shownStatuses } from "./mapAudience";
+import { floorLabel } from "./dungeonFloors";
+import { MAP_AUDIENCE_LABELS, shownKinds, shownStatuses } from "./mapAudience";
 
 /**
  * Лист PNG проверяется по разметке SVG, из которой он рисуется: растр делает
@@ -285,18 +287,69 @@ describe("легенда листа", () => {
 });
 
 describe("имя файла по умолчанию", () => {
-  it("имя подземелья плюс .png", () => {
-    expect(pngFileName("Склеп старого рода")).toBe("Склеп старого рода.png");
+  /** Одноэтажное подземелье с этим именем — `lowerFloors` нет вовсе. */
+  const named = (name: string): DungeonRecord => ({ ...dungeonWithEveryKind(), name });
+
+  /** То же подземелье, но в два этажа: второй — та же схема с номером этажа. */
+  const twoFloors = (name: string): DungeonRecord => ({
+    ...named(name),
+    lowerFloors: [{ ...plan, floor: 2 } as unknown as DungeonPlan],
+  });
+
+  it("лист мастера — имя подземелья плюс .png", () => {
+    expect(pngFileName(named("Склеп старого рода"), "master")).toBe("Склеп старого рода.png");
+  });
+
+  it("лист игроков просится в ДРУГОЙ файл, а не поверх мастерского", () => {
+    const dungeon = named("Склеп старого рода");
+    expect(pngFileName(dungeon, "players")).toBe("Склеп старого рода — для игроков.png");
+    expect(pngFileName(dungeon, "players")).not.toBe(pngFileName(dungeon, "master"));
+  });
+
+  it("подпись листа игроков — та же, что у кнопки выбора листа", () => {
+    // Подпись не переписана в пробу: разойдись имя файла с кнопкой — мастер
+    // нажал бы «для игроков», а получил файл с другим словом.
+    expect(pngFileName(named("Склеп"), "players")).toBe(
+      `Склеп — ${MAP_AUDIENCE_LABELS.players}.png`,
+    );
+  });
+
+  it("у многоэтажного в имени стоит ОТКРЫТЫЙ этаж, у одноэтажного этажа нет", () => {
+    expect(pngFileName(twoFloors("Склеп"), "master", 2)).toBe("Склеп — этаж 2.png");
+    expect(pngFileName(twoFloors("Склеп"), "players", 2)).toBe(
+      "Склеп — этаж 2 — для игроков.png",
+    );
+    expect(pngFileName(twoFloors("Склеп"), "master", 1)).toBe("Склеп — этаж 1.png");
+    // Одноэтажное: номер не появляется ни у одного листа, даже если открытым
+    // объявлен первый этаж — других у него и нет.
+    expect(pngFileName(named("Склеп"), "master", 1)).toBe("Склеп.png");
+    expect(pngFileName(named("Склеп"), "players", 1)).toBe("Склеп — для игроков.png");
+  });
+
+  it("номер этажа в имени файла — тот же, что в заголовке листа", () => {
+    // Числа из одной руки: заголовок печатает `floorLabel`, и имя файла обязано
+    // называть тот же этаж — иначе файл «этаж 2» нёс бы лист третьего.
+    const dungeon = twoFloors("Склеп");
+    const title = sheetTitle(dungeon, 2);
+    expect(title).toContain(floorLabel(2));
+    expect(pngFileName(dungeon, "master", 2)).toContain(floorLabel(2).toLowerCase());
   });
 
   it("запрещённые в имени файла знаки заменяются, а не роняют диалог", () => {
-    expect(pngFileName("Склеп: нижний/ярус?")).toBe("Склеп_ нижний_ярус_.png");
-    expect(pngFileName("Логово  ")).toBe("Логово.png");
+    expect(pngFileName(named("Склеп: нижний/ярус?"), "master")).toBe("Склеп_ нижний_ярус_.png");
+    expect(pngFileName(named("Логово  "), "master")).toBe("Логово.png");
     // Точка в конце имени файла на Windows отваливается молча — срезаем сами.
-    expect(pngFileName("Логово...")).toBe("Логово.png");
-    expect(pngFileName("///")).toBe("___.png");
+    expect(pngFileName(named("Логово..."), "master")).toBe("Логово.png");
+    expect(pngFileName(named("///"), "master")).toBe("___.png");
     // Пустым имя файла не бывает: от имени из одних точек не остаётся ничего.
-    expect(pngFileName("...")).toBe("подземелье.png");
-    expect(pngFileName("   ")).toBe("подземелье.png");
+    expect(pngFileName(named("..."), "master")).toBe("подземелье.png");
+    expect(pngFileName(named("   "), "master")).toBe("подземелье.png");
+    // Замена и запасное имя достаются обоим листам, а не одному мастерскому.
+    expect(pngFileName(named("Склеп: нижний/ярус?"), "players")).toBe(
+      "Склеп_ нижний_ярус_ — для игроков.png",
+    );
+    expect(pngFileName(twoFloors("   "), "players", 2)).toBe(
+      "подземелье — этаж 2 — для игроков.png",
+    );
   });
 });
