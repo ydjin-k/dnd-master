@@ -11,7 +11,7 @@
 .launcher__title { margin: 0; color: var(--dm-gold); font-size: clamp(2.8rem, 6.4vw, 5rem); font-weight: 500; letter-spacing: 0.06em; line-height: 0.95; text-shadow: 0 2px 4px var(--dm-gold-ink), 0 0 22px color-mix(in srgb, var(--dm-gold) 18%, transparent); }
 .launcher__title-ornament { display: block; width: min(22rem, 68vw); height: auto; margin: 0.15rem auto 0; overflow: visible; fill: none; stroke: var(--dm-gold-line); stroke-width: 1.15; }
 .launcher__ornament-rule { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--dm-gold) 36%, transparent)); }
-.launcher__ornament-moon { fill: color-mix(in srgb, var(--dm-gold) 88%, white); stroke: none; filter: drop-shadow(0 0 3px var(--dm-gold)) drop-shadow(0 0 7px color-mix(in srgb, var(--dm-gold) 78%, transparent)); }
+.launcher__ornament-moon { fill: var(--dm-gold); stroke: none; }
 .launcher__ornament-star { fill: var(--dm-gold); stroke: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--dm-gold) 74%, transparent)); }
 .launcher__error, .launcher__loading { position: relative; z-index: 10; max-width: 42rem; margin: 1rem auto; text-align: center; }
 .launcher__error { color: var(--dm-danger); }
@@ -67,10 +67,16 @@
 .launcher__campaign-actions { display: grid; justify-items: center; gap: 0; width: min(12rem, 100%); }
 
 .launcher__continue, .launcher__create { min-height: 44px; border-radius: 0; font-family: var(--dm-font-display); font-size: 1.05rem; }
-.launcher__continue { width: 100%; color: var(--dm-gold); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 72%, var(--dm-gold-ink)), var(--dm-panel)); border: 2px solid var(--dm-gold-line); box-shadow: inset 0 0 0 2px var(--dm-gold-ink), inset 0 0 0 3px color-mix(in srgb, var(--dm-gold-line) 62%, transparent), inset 0 0 18px color-mix(in srgb, var(--dm-gold) 12%, transparent), 0 0 14px color-mix(in srgb, var(--dm-gold) 20%, transparent); clip-path: polygon(8% 0, 92% 0, 96% 18%, 100% 50%, 96% 82%, 92% 100%, 8% 100%, 4% 82%, 0 50%, 4% 18%); }
+/* Табличка: рамка — не border, а слои одной фигуры. clip-path срезал бы border на скошенных
+   концах, и по бокам золотой линии не было. Фигура в пикселях, чтобы у слоёв скосы шли параллельно. */
+.launcher__continue { --plaque: polygon(14px 0, calc(100% - 14px) 0, calc(100% - 7px) 8px, 100% 50%, calc(100% - 7px) calc(100% - 8px), calc(100% - 14px) 100%, 14px 100%, 7px calc(100% - 8px), 0 50%, 7px 8px); position: relative; isolation: isolate; width: 100%; color: var(--dm-gold); background: var(--dm-gold-line); border: 0; box-shadow: none; clip-path: var(--plaque); }
+.launcher__continue::before, .launcher__continue::after { content: ""; position: absolute; z-index: -1; clip-path: var(--plaque); pointer-events: none; }
+.launcher__continue::before { inset: 2px; background: var(--dm-gold-ink); }
+.launcher__continue::after { inset: 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 72%, var(--dm-gold-ink)), var(--dm-panel)); box-shadow: inset 0 0 18px color-mix(in srgb, var(--dm-gold) 12%, transparent); }
 .launcher__create { color: var(--dm-gold-ink); background: linear-gradient(180deg, var(--dm-gold), var(--dm-gold-line)); border: 1px solid var(--dm-gold); box-shadow: inset 0 1px color-mix(in srgb, var(--dm-text) 45%, transparent), 0 0 15px color-mix(in srgb, var(--dm-gold) 18%, transparent); }
 .launcher__continue span { margin-left: 0.55rem; font-size: 1.35em; line-height: 0; }
-.launcher__continue:hover, .launcher__continue:focus-visible { color: var(--dm-gold); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 86%, var(--dm-gold-line)), var(--dm-panel)); border-color: var(--dm-gold); box-shadow: inset 0 0 0 2px var(--dm-gold-ink), inset 0 0 0 3px var(--dm-gold-line), 0 0 22px color-mix(in srgb, var(--dm-gold) 42%, transparent); }
+.launcher__continue:hover, .launcher__continue:focus-visible { color: var(--dm-gold); background: var(--dm-gold); box-shadow: none; }
+.launcher__continue:hover::after, .launcher__continue:focus-visible::after { background: linear-gradient(180deg, color-mix(in srgb, var(--dm-panel-glow) 86%, var(--dm-gold-line)), var(--dm-panel)); }
 .launcher__create:hover, .launcher__create:focus-visible { color: var(--dm-gold-ink); background: linear-gradient(180deg, color-mix(in srgb, var(--dm-text) 24%, var(--dm-gold)), var(--dm-gold)); border-color: var(--dm-text); box-shadow: 0 0 22px color-mix(in srgb, var(--dm-gold) 42%, transparent); }
 .launcher__continue:focus-visible, .launcher__create:focus-visible, .launcher__portal-delete:focus-visible { outline: 3px solid var(--dm-text); outline-offset: 3px; }
 .launcher__portal-delete { min-width: 70px; min-height: 44px; padding: 0.25rem 0.5rem; color: color-mix(in srgb, var(--dm-text-muted) 88%, transparent); background: transparent; border-color: transparent; box-shadow: none; font-size: 0.74rem; font-weight: 500; }
