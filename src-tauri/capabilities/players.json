@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "players-window",
-  "description": "Окно «для игроков» на втором мониторе: слушает схему и уходит на весь экран. Ни диалогов, ни записи файлов, ни открытия ссылок — показывать и только.",
+  "description": "Окно «для игроков» на втором мониторе: слушает схему и уходит на весь экран. Ни диалогов, ни записи файлов, ни открытия ссылок — показывать и только. Своя команда у него РОВНО одна — `players_map_get`, которой открывшееся окно спрашивает, что показывать; схему ему отдаёт окно мастера (`players_map_set`), и само окно игроков не пишет ничего.",
   "windows": ["players"],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-set-fullscreen",
-    "core:window:allow-is-fullscreen"
+    "core:window:allow-is-fullscreen",
+    "allow-players-map-get"
   ]
 }

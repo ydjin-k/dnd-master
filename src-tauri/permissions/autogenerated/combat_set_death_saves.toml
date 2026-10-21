@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-set-death-saves"
+description = "Enables the combat_set_death_saves command without any pre-configured scope."
+commands.allow = ["combat_set_death_saves"]
+
+[[permission]]
+identifier = "deny-combat-set-death-saves"
+description = "Denies the combat_set_death_saves command without any pre-configured scope."
+commands.deny = ["combat_set_death_saves"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-roll-dice"
+description = "Enables the roll_dice command without any pre-configured scope."
+commands.allow = ["roll_dice"]
+
+[[permission]]
+identifier = "deny-roll-dice"
+description = "Denies the roll_dice command without any pre-configured scope."
+commands.deny = ["roll_dice"]

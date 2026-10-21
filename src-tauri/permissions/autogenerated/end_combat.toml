@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-end-combat"
+description = "Enables the end_combat command without any pre-configured scope."
+commands.allow = ["end_combat"]
+
+[[permission]]
+identifier = "deny-end-combat"
+description = "Denies the end_combat command without any pre-configured scope."
+commands.deny = ["end_combat"]

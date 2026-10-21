@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-remove"
+description = "Enables the combat_remove command without any pre-configured scope."
+commands.allow = ["combat_remove"]
+
+[[permission]]
+identifier = "deny-combat-remove"
+description = "Denies the combat_remove command without any pre-configured scope."
+commands.deny = ["combat_remove"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-bestiary-image"
+description = "Enables the get_bestiary_image command without any pre-configured scope."
+commands.allow = ["get_bestiary_image"]
+
+[[permission]]
+identifier = "deny-get-bestiary-image"
+description = "Denies the get_bestiary_image command without any pre-configured scope."
+commands.deny = ["get_bestiary_image"]

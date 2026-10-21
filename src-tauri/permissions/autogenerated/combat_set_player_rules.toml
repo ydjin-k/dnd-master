@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-set-player-rules"
+description = "Enables the combat_set_player_rules command without any pre-configured scope."
+commands.allow = ["combat_set_player_rules"]
+
+[[permission]]
+identifier = "deny-combat-set-player-rules"
+description = "Denies the combat_set_player_rules command without any pre-configured scope."
+commands.deny = ["combat_set_player_rules"]

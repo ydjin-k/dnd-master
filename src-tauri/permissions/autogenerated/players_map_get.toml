@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-players-map-get"
+description = "Enables the players_map_get command without any pre-configured scope."
+commands.allow = ["players_map_get"]
+
+[[permission]]
+identifier = "deny-players-map-get"
+description = "Denies the players_map_get command without any pre-configured scope."
+commands.deny = ["players_map_get"]

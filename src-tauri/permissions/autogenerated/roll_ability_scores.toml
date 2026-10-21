@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-roll-ability-scores"
+description = "Enables the roll_ability_scores command without any pre-configured scope."
+commands.allow = ["roll_ability_scores"]
+
+[[permission]]
+identifier = "deny-roll-ability-scores"
+description = "Denies the roll_ability_scores command without any pre-configured scope."
+commands.deny = ["roll_ability_scores"]

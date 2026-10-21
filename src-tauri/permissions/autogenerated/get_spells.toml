@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-spells"
+description = "Enables the get_spells command without any pre-configured scope."
+commands.allow = ["get_spells"]
+
+[[permission]]
+identifier = "deny-get-spells"
+description = "Denies the get_spells command without any pre-configured scope."
+commands.deny = ["get_spells"]

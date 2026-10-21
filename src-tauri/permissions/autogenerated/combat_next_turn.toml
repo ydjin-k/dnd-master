@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-next-turn"
+description = "Enables the combat_next_turn command without any pre-configured scope."
+commands.allow = ["combat_next_turn"]
+
+[[permission]]
+identifier = "deny-combat-next-turn"
+description = "Denies the combat_next_turn command without any pre-configured scope."
+commands.deny = ["combat_next_turn"]

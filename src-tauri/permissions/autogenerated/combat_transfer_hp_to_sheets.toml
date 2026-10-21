@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-transfer-hp-to-sheets"
+description = "Enables the combat_transfer_hp_to_sheets command without any pre-configured scope."
+commands.allow = ["combat_transfer_hp_to_sheets"]
+
+[[permission]]
+identifier = "deny-combat-transfer-hp-to-sheets"
+description = "Denies the combat_transfer_hp_to_sheets command without any pre-configured scope."
+commands.deny = ["combat_transfer_hp_to_sheets"]

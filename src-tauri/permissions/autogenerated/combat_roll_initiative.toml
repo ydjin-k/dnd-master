@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-combat-roll-initiative"
+description = "Enables the combat_roll_initiative command without any pre-configured scope."
+commands.allow = ["combat_roll_initiative"]
+
+[[permission]]
+identifier = "deny-combat-roll-initiative"
+description = "Denies the combat_roll_initiative command without any pre-configured scope."
+commands.deny = ["combat_roll_initiative"]
