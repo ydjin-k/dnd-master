@@ -5,6 +5,7 @@ import { SoundtrackProvider } from "./state/SoundtrackContext";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
 import { useFullscreenHotkey } from "./ui/appWindow";
+import { LoadingScreen } from "./ui/LoadingScreen";
 import { AdventuresPage } from "./ui/pages/AdventuresPage";
 import { DungeonsPage } from "./ui/pages/DungeonsPage";
 import { CombatPage } from "./ui/pages/CombatPage";
@@ -78,23 +79,32 @@ function App() {
     setPhase("playing");
   }
 
-  if (phase === "launcher") {
-    return <Launcher onEnter={enterCampaign} />;
-  }
-
   // SoundtrackProvider — снаружи AppShell (и снаружи пере-ключаемого
   // CampaignProvider): <audio> живут выше свитча вкладок, поэтому уход со
   // «Саундборда» на «Бой» не обрывает музыку.
+  const screen =
+    phase === "launcher" ? (
+      <Launcher onEnter={enterCampaign} />
+    ) : (
+      <SoundtrackProvider>
+        <CampaignProvider key={campaignKey}>
+          {/* DiceLogProvider — внутри CampaignProvider, но над AppShell: журнал
+              бросков переживает смену вкладки и обнуляется вместе с кампанией. */}
+          <DiceLogProvider>
+            <AppContent onSwitchCampaign={() => setPhase("launcher")} />
+          </DiceLogProvider>
+        </CampaignProvider>
+      </SoundtrackProvider>
+    );
+
+  // Заставка стоит в одном и том же месте дерева при любой фазе: она
+  // показывается один раз за запуск и не возвращается, когда мастер выходит
+  // из кампании на главную.
   return (
-    <SoundtrackProvider>
-      <CampaignProvider key={campaignKey}>
-        {/* DiceLogProvider — внутри CampaignProvider, но над AppShell: журнал
-            бросков переживает смену вкладки и обнуляется вместе с кампанией. */}
-        <DiceLogProvider>
-          <AppContent onSwitchCampaign={() => setPhase("launcher")} />
-        </DiceLogProvider>
-      </CampaignProvider>
-    </SoundtrackProvider>
+    <>
+      {screen}
+      <LoadingScreen />
+    </>
   );
 }
 

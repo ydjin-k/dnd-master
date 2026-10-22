@@ -1,0 +1,68 @@
+/* Заставка при запуске (LoadingScreen.tsx): плотная, поверх главной, которая грузится под ней. */
+.loading-screen {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0 3rem 2.5rem 0;
+  background: #05080f;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.loading-screen--fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-screen__label {
+  color: var(--dm-gold);
+  font-family: var(--dm-font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  line-height: 40px;
+}
+
+.loading-screen__orbit {
+  width: 40px;
+  height: 40px;
+  overflow: visible;
+}
+
+.loading-screen__ring {
+  fill: none;
+  stroke: color-mix(in srgb, var(--dm-gold-line) 35%, transparent);
+  stroke-width: 1;
+}
+
+.loading-screen__runner {
+  transform-origin: 20px 20px;
+  animation: loading-screen-orbit 1.4s linear infinite;
+}
+
+/* Хвостик точки — четверть кольца ЗА ней: точка стоит сверху (70.7 по дуге от
+   трёх часов), бег по часовой, поэтому дуга — от девяти часов (47.1) до точки. */
+.loading-screen__tail {
+  fill: none;
+  stroke: var(--dm-gold);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0 47.1 23.6 23.6;
+  opacity: 0.45;
+}
+
+.loading-screen__dot {
+  fill: var(--dm-gold);
+  filter: drop-shadow(0 0 4px var(--dm-gold));
+}
+
+@keyframes loading-screen-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen__runner { animation-duration: 4s; }
+}
