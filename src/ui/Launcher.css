@@ -1,6 +1,10 @@
 .launcher { position: relative; isolation: isolate; width: min(75rem, 100%); min-height: 100%; margin: 0 auto; padding: clamp(1rem, 2.6vh, 2rem) 1rem 2.25rem; overflow-x: clip; }
 .launcher::after { content: ""; position: fixed; z-index: -1; inset: 0; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--dm-bg) 8%, transparent) 0 29%, color-mix(in srgb, var(--dm-bg) 38%, transparent) 68%), linear-gradient(180deg, color-mix(in srgb, var(--dm-bg) 16%, transparent), color-mix(in srgb, var(--dm-bg) 58%, transparent)); backdrop-filter: saturate(0.9); }
-.launcher__background { position: fixed; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.launcher__background { position: fixed; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; opacity: 0; }
+/* Шов цикла: идущий клип лежит внизу, следующий проявляется поверх (LoopingBackground). */
+.launcher__background--base { z-index: -3; }
+.launcher__background--shown { opacity: 1; transition: opacity 1.2s linear; }
+.launcher__background--base.launcher__background--shown { transition: none; }
 
 .launcher__music-toggle { position: fixed; z-index: 20; top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); display: grid; place-items: center; width: 50px; min-width: 50px; height: 50px; padding: 0; color: var(--dm-text-muted); background: var(--dm-panel-raised); border: 1px solid color-mix(in srgb, var(--dm-gold-line) 54%, transparent); border-radius: 50%; backdrop-filter: blur(8px); }
 .launcher__music-toggle:hover, .launcher__music-toggle:focus-visible { color: var(--dm-gold); background: var(--dm-panel-raised); border-color: var(--dm-gold-line); box-shadow: 0 0 18px color-mix(in srgb, var(--dm-gold) 20%, transparent); }
