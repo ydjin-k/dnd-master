@@ -40,6 +40,9 @@
       "bestiary/images/*": "bestiary/images/"
     },
     "windows": {
+      "nsis": {
+        "installerHooks": "./windows/installer-hooks.nsh"
+      },
       "webviewInstallMode": {
         "type": "offlineInstaller",
         "silent": true
