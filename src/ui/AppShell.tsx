@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useCampaign } from "../state/CampaignContext";
 import { NowPlaying } from "./NowPlaying";
 import { UIIcon } from "./UIIcon";
+import { exitApp } from "./appWindow";
 import "./AppShell.css";
 
 export type Tab =
@@ -68,6 +69,9 @@ export function AppShell({
         <NowPlaying />
         <button className="app-shell__switch-campaign" onClick={onSwitchCampaign}>
           <UIIcon name="campaign" />Кампании
+        </button>
+        <button type="button" className="app-shell__exit" onClick={() => void exitApp()}>
+          Выйти
         </button>
         <span className="app-shell__header-rule" aria-hidden="true"><i /><i /><i /></span>
       </header>

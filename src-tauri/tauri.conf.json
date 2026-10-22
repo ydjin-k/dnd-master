@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "D&D Master",
-        "width": 800,
-        "height": 600
+        "width": 1280,
+        "height": 800,
+        "center": true,
+        "fullscreen": true
       }
     ],
     "security": {

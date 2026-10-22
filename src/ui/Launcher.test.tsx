@@ -169,6 +169,12 @@ describe("Launcher", () => {
     fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
   });
 
+  it("«Выйти» закрывает приложение целиком: оно стартует на весь экран без крестика", () => {
+    render(<Launcher onEnter={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
+    expect(invoke).toHaveBeenCalledWith("app_exit");
+  });
+
   it("renders the bundled video as a silent looping background", () => {
     const { container } = render(<Launcher onEnter={() => {}} />);
     const video = container.querySelector("video.launcher__background");

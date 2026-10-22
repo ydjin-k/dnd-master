@@ -2,6 +2,9 @@
 .launcher::after { content: ""; position: fixed; z-index: -1; inset: 0; background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--dm-bg) 8%, transparent) 0 29%, color-mix(in srgb, var(--dm-bg) 38%, transparent) 68%), linear-gradient(180deg, color-mix(in srgb, var(--dm-bg) 16%, transparent), color-mix(in srgb, var(--dm-bg) 58%, transparent)); backdrop-filter: saturate(0.9); }
 .launcher__background { position: fixed; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 
+/* «Выйти» — в углу напротив кнопки музыки: приложение стартует на весь экран, крестика заголовка нет. */
+.launcher__exit { position: fixed; z-index: 20; top: max(1rem, env(safe-area-inset-top)); left: max(1rem, env(safe-area-inset-left)); min-height: 50px; padding: 0 1.2rem; color: var(--dm-text-muted); font-weight: 700; background: var(--dm-panel-raised); border: 1px solid color-mix(in srgb, var(--dm-gold-line) 54%, transparent); border-radius: 25px; }
+.launcher__exit:hover, .launcher__exit:focus-visible { color: var(--dm-gold); border-color: var(--dm-gold-line); }
 .launcher__music-toggle { position: fixed; z-index: 20; top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); display: grid; place-items: center; width: 50px; min-width: 50px; height: 50px; padding: 0; color: var(--dm-text-muted); background: var(--dm-panel-raised); border: 1px solid color-mix(in srgb, var(--dm-gold-line) 54%, transparent); border-radius: 50%; backdrop-filter: blur(8px); }
 .launcher__music-toggle:hover, .launcher__music-toggle:focus-visible { color: var(--dm-gold); background: var(--dm-panel-raised); border-color: var(--dm-gold-line); box-shadow: 0 0 18px color-mix(in srgb, var(--dm-gold) 20%, transparent); }
 .launcher__sound-icon { width: 25px; height: 25px; overflow: visible; fill: currentColor; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }

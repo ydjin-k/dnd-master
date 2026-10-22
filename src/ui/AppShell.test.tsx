@@ -5,6 +5,9 @@ import { SoundtrackProvider } from "../state/SoundtrackContext";
 import type { CampaignState } from "../state/types";
 
 const setCampaignName = vi.fn();
+const exitApp = vi.fn(async () => {});
+vi.mock("./appWindow", () => ({ exitApp: () => exitApp() }));
+
 vi.mock("../state/CampaignContext", () => ({
   useCampaign: () => ({
     state: { campaignName: "Тест" } as CampaignState,
@@ -63,5 +66,15 @@ describe("AppShell", () => {
     const nameInput = screen.getByPlaceholderText("Название кампании");
     fireEvent.change(nameInput, { target: { value: "Новое имя" } });
     expect(setCampaignName).toHaveBeenCalledWith("Новое имя");
+  });
+
+  it("«Выйти» в шапке закрывает приложение", () => {
+    render(
+      <SoundtrackProvider>
+        <AppShell onSwitchCampaign={() => {}}>{() => null}</AppShell>
+      </SoundtrackProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
+    expect(exitApp).toHaveBeenCalledTimes(1);
   });
 });

@@ -291,6 +291,16 @@ fn end_combat(app: AppHandle) -> Result<CampaignState, String> {
 /// руками: окно появлялось пустым (`about:blank`), а главное окно перестало
 /// отвечать на вызовы вовсе. С `async` команда уходит в асинхронный
 /// исполнитель, создание окна отдаётся циклу событий, и тот его выполняет.
+/// Кнопка «Выйти»: приложение запускается на весь экран, как игра, и
+/// крестика заголовка у него нет (владелец 22.10.2026). Выход — всего
+/// приложения, а не окна мастера: иначе открытое окно игроков держало бы
+/// процесс живым без единого окна, из которого им управлять. Сохранять перед
+/// выходом нечего — кампания пишется на диск при каждой правке.
+#[tauri::command]
+fn app_exit(app: AppHandle) {
+    app.exit(0);
+}
+
 #[tauri::command]
 async fn players_window_open(app: AppHandle) -> Result<(), String> {
     players::open(&app)
@@ -351,7 +361,8 @@ pub fn run() {
             save_png_file,
             players_window_open,
             players_map_set,
-            players_map_get
+            players_map_get,
+            app_exit
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

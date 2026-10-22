@@ -32,6 +32,9 @@
     "allow-save-png-file",
     "allow-players-window-open",
     "allow-players-map-set",
-    "allow-players-map-get"
+    "allow-players-map-get",
+    "allow-app-exit",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen"
   ]
 }

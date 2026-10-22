@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "app": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "gate": "npm run typecheck && npm test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml"

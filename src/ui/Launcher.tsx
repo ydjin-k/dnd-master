@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CampaignState, CampaignSummary } from "../state/types";
+import { exitApp } from "./appWindow";
 import "./Launcher.css";
 
 const MAX_CAMPAIGNS = 6;
@@ -203,6 +204,9 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
   return (
     <div className="launcher">
       <video className="launcher__background" src="/video/launcher-background.mp4" autoPlay loop muted playsInline aria-hidden="true" />
+      <button type="button" className="launcher__exit" onClick={() => void exitApp()}>
+        Выйти
+      </button>
       <button type="button" className="launcher__music-toggle" aria-label={isMusicMuted ? "Включить музыку" : "Выключить музыку"} aria-pressed={isMusicMuted} title={isMusicMuted ? "Включить музыку" : "Выключить музыку"} onClick={toggleMusic}>
         <SoundIcon muted={isMusicMuted} />
       </button>

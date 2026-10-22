@@ -50,6 +50,7 @@ const COMMANDS: &[&str] = &[
     "players_window_open",
     "players_map_set",
     "players_map_get",
+    "app_exit",
 ];
 
 fn main() {

@@ -4,6 +4,7 @@ import { DiceLogProvider } from "./state/DiceLogContext";
 import { SoundtrackProvider } from "./state/SoundtrackContext";
 import { AppShell } from "./ui/AppShell";
 import { Launcher } from "./ui/Launcher";
+import { useFullscreenHotkey } from "./ui/appWindow";
 import { AdventuresPage } from "./ui/pages/AdventuresPage";
 import { DungeonsPage } from "./ui/pages/DungeonsPage";
 import { CombatPage } from "./ui/pages/CombatPage";
@@ -70,6 +71,7 @@ function App() {
   // Меняется при каждом входе в кампанию — форсирует пересоздание
   // CampaignProvider, чтобы он не тащил состояние предыдущей кампании.
   const [campaignKey, setCampaignKey] = useState(0);
+  useFullscreenHotkey();
 
   function enterCampaign() {
     setCampaignKey((k) => k + 1);

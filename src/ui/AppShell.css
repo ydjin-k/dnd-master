@@ -160,6 +160,25 @@
   box-shadow: inset 0 0 0 3px #b88a45, inset 0 0 0 4px rgba(26, 18, 4, 0.45), 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* «Выйти» — рядом с «Кампании», но не золотом: это не главное действие
+   шапки. Приложение стартует на весь экран, и крестика заголовка нет. */
+.app-shell__exit {
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding-inline: 1.2em;
+  color: var(--dm-text);
+  font-weight: 700;
+  background: var(--dm-panel-raised);
+  border: 1px solid var(--dm-border);
+  border-radius: 6px;
+}
+
+.app-shell__exit:hover,
+.app-shell__exit:focus-visible {
+  color: var(--dm-gold);
+  border-color: var(--dm-gold);
+}
+
 .app-shell__switch-campaign .ui-icon { color: var(--dm-gold-ink); filter: none; }
 
 .app-shell__switch-campaign:hover,
