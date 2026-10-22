@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { DungeonRecord } from "../../state/types";
 import type { DungeonPlan } from "./dungeonGenerator";
+import { withLootChoice } from "./dungeonLootChoice";
 import {
+  lootShown,
   markerShown,
   playersRecord,
   roomShown,
@@ -248,6 +250,28 @@ describe("копия записи для окна игроков", () => {
     ]) {
       expect(text).not.toContain(secret);
     }
+  });
+
+  it("выбранного мастером лута в копии нет вовсе", () => {
+    // engine-dungeon-loot-master-choice, решение владельца 22.10.2026: в окне
+    // игроков и на их листе выбор мастера не показывается. Ключ взят у
+    // отметки, которая в копии ОСТАЁТСЯ (`door-1`), — иначе проба зеленела бы
+    // на том, что отметку выбросили по другому правилу.
+    const chosen = withLootChoice(dungeon(), "door-1", {
+      kinds: ["magic", "artifact"],
+      rarities: { magic: "легендарный" },
+      text: "жезл владыки гробницы",
+    });
+    const copyWithLoot = playersRecord(chosen, 1);
+    expect(copyWithLoot.plan.markers.map((m) => m.id)).toEqual(["door-1"]);
+    expect(copyWithLoot.loot).toBeUndefined();
+    const text = JSON.stringify(copyWithLoot);
+    for (const secret of ["жезл владыки", "легендарный", "artifact", "loot"]) {
+      expect(text, secret).not.toContain(secret);
+    }
+    // Признака лута на листе игроков нет и у схемы — спрошено тем же правилом.
+    expect(lootShown("players")).toBe(false);
+    expect(lootShown("master")).toBe(true);
   });
 
   it("статусы — только у того, что в копии осталось", () => {

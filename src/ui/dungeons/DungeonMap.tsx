@@ -8,8 +8,10 @@ import {
   type MarkerKind,
   type StairsDirection,
 } from "./dungeonGenerator";
+import { hasLootChoice } from "./dungeonLootChoice";
 import { hasNote } from "./dungeonNotes";
 import {
+  lootShown,
   markerShown,
   notesShown,
   roomShown,
@@ -79,6 +81,20 @@ export function NoteMark({ cx, cy }: { cx: number; cy: number }) {
     <g className="dungeon-map__note">
       <circle cx={cx} cy={cy} r={4.2} fill={PAPER} stroke={INK} strokeWidth={1} />
       <circle cx={cx} cy={cy} r={1.8} fill={INK} />
+    </g>
+  );
+}
+
+/**
+ * Признак выбранного лута — квадрат в кольце «пергамента», рядом с точкой
+ * заметки и нарочно НЕ такой же: у мастера на листе это две разные строки
+ * легенды, и путать «здесь записано» с «здесь выбран лут» он не должен.
+ */
+export function LootMark({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <g className="dungeon-map__loot">
+      <rect x={cx - 4.2} y={cy - 4.2} width={8.4} height={8.4} fill={PAPER} stroke={INK} strokeWidth={1} />
+      <rect x={cx - 1.8} y={cy - 1.8} width={3.6} height={3.6} fill={INK} />
     </g>
   );
 }
@@ -500,6 +516,7 @@ export function DungeonMap({
             data-kind={m.kind}
             data-status={status}
             data-note={notesShown(audience) && hasNote(dungeon, m.id) ? "yes" : undefined}
+            data-loot={lootShown(audience) && hasLootChoice(dungeon, m.id) ? "yes" : undefined}
             aria-label={
               captions ? `${index + 1}. ${markerLabel(m)}: ${MARKER_STATUS_LABELS[status]}` : undefined
             }
@@ -516,6 +533,11 @@ export function DungeonMap({
             )}
             {notesShown(audience) && hasNote(dungeon, m.id) && (
               <NoteMark cx={cx - 10} cy={cy - 9} />
+            )}
+            {/* Снизу справа: сверху справа стоит номер отметки, а слева —
+                точка заметки, и признаки не должны налезать друг на друга. */}
+            {lootShown(audience) && hasLootChoice(dungeon, m.id) && (
+              <LootMark cx={cx + 10} cy={cy + 9} />
             )}
           </g>
         );

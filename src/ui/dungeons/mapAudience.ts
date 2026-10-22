@@ -278,3 +278,14 @@ export function secretPathShown(audience: MapAudience): boolean {
 export function notesShown(audience: MapAudience): boolean {
   return audience === "master";
 }
+
+/**
+ * Признак выбранного мастером лута — по образцу точек заметок, и прячется так
+ * же: решение владельца 22.10.2026 — в окне игроков и на их листе выбор
+ * мастера не показывается вовсе. Своя функция, а не чужая `notesShown`:
+ * заметка и лут — разные вещи, и у легенды на них две разные строки, которые
+ * не должны уметь разойтись с тем, что нарисовано.
+ */
+export function lootShown(audience: MapAudience): boolean {
+  return audience === "master";
+}

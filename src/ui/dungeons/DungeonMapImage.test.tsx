@@ -278,6 +278,13 @@ describe("легенда листа", () => {
     expect(legendRows("players").some((r) => r.row === "note")).toBe(false);
   });
 
+  it("выбранный лут объяснён только на листе мастера", () => {
+    // engine-dungeon-loot-master-choice: признак лута на схеме мастера есть, и
+    // легенда обязана его назвать — своей строкой, а не строкой заметки.
+    expect(legendRows("master").some((r) => r.row === "loot")).toBe(true);
+    expect(legendRows("players").some((r) => r.row === "loot")).toBe(false);
+  });
+
   it("статус объясняется значком, который на листе есть", () => {
     const sample = legendRows("players").filter((r) => r.row === "marker");
     for (const row of sample) {

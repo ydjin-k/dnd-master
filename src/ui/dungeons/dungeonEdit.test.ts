@@ -11,6 +11,7 @@ import {
   withDungeonRebuilt,
   withDungeonRenamed,
 } from "./dungeonEdit";
+import { EMPTY_LOOT_CHOICE, withLootChoice } from "./dungeonLootChoice";
 import { withNote } from "./dungeonNotes";
 import { generateDungeon, lineTitle } from "./dungeonGenerator";
 import { roomKey } from "./markerStatus";
@@ -161,6 +162,36 @@ describe("пересборка", () => {
     expect(rebuildLosses(noted)).toEqual(["заметок мастера: 2"]);
     // Стёртая заметка в записи не лежит и в перечень не попадает.
     expect(rebuildLosses(withNote(noted, "door-1", ""))).toEqual(["заметок мастера: 1"]);
+  });
+
+  it("перечень называет находки с выбранным лутом — отдельно от заметок", () => {
+    // engine-dungeon-loot-master-choice: выбор мастера лежит тем же ключом,
+    // что заметка, но теряется своим: строка «заметок мастера» о нём не
+    // сказала бы ничего.
+    const plain = record();
+    const chosen = withLootChoice(
+      withLootChoice(plain, "loot-1", { kinds: ["money"], text: "40 зм" }),
+      "loot-2",
+      { kinds: ["magic"], rarities: { magic: "редкий" }, text: "" },
+    );
+    expect(rebuildLosses(chosen)).toEqual(["находок с выбранным лутом: 2"]);
+    // Снятый выбор в записи не лежит и в перечень не попадает.
+    expect(rebuildLosses(withLootChoice(chosen, "loot-2", EMPTY_LOOT_CHOICE))).toEqual([
+      "находок с выбранным лутом: 1",
+    ]);
+    // Рядом с заметкой — две строки, а не одна.
+    expect(rebuildLosses(withNote(chosen, "loot-1", "сундук под плитой"))).toEqual([
+      "заметок мастера: 1",
+      "находок с выбранным лутом: 2",
+    ]);
+  });
+
+  it("выбранный лут уходит вместе со старой схемой", () => {
+    const before = withLootChoice(record(), "loot-1", { kinds: ["artifact"], text: "чаша" });
+    const after = withDungeonRebuilt(before, 4242 + 2, numbers, bestiary);
+    expect(after.loot).toEqual({});
+    // Старая запись не тронута: пересборка возвращает новую.
+    expect(before.loot).toEqual({ "loot-1": { kinds: ["artifact"], text: "чаша" } });
   });
 
   it("новое семя, те же уровень, опасность, размер и назначение", () => {

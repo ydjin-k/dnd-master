@@ -2,8 +2,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { DungeonRecord } from "../../state/types";
 import { floorCount, floorLabel, floorPlan } from "./dungeonFloors";
 import { dungeonSizeOf, MARKER_KIND_LABELS, type MarkerKind } from "./dungeonGenerator";
-import { DungeonMap, MARKER_COLORS, MarkerGlyph, mapViewBox, RoomFloorSwatch } from "./DungeonMap";
 import {
+  DungeonMap,
+  LootMark,
+  MARKER_COLORS,
+  MarkerGlyph,
+  mapViewBox,
+  NoteMark,
+  RoomFloorSwatch,
+} from "./DungeonMap";
+import {
+  lootShown,
   MAP_AUDIENCE_LABELS,
   notesShown,
   secretPathShown,
@@ -60,7 +69,8 @@ type LegendRow =
   | { readonly row: "marker"; readonly kind: MarkerKind; readonly status: MarkerStatus; readonly text: string }
   | { readonly row: "floor"; readonly status: MarkerStatus; readonly text: string }
   | { readonly row: "secret"; readonly text: string }
-  | { readonly row: "note"; readonly text: string };
+  | { readonly row: "note"; readonly text: string }
+  | { readonly row: "loot"; readonly text: string };
 
 /**
  * Легенда листа — ровно то, что на листе бывает. Виды и статусы берутся из
@@ -92,6 +102,9 @@ export function legendRows(audience: MapAudience): LegendRow[] {
   const extras: LegendRow[] = [];
   if (secretPathShown(audience)) extras.push({ row: "secret", text: "Потайной ход" });
   if (notesShown(audience)) extras.push({ row: "note", text: "Заметка мастера" });
+  // Выбранный лут — своя строка, а не «ещё одна заметка»: на схеме у него свой
+  // признак, и легенда обязана называть то, что на листе нарисовано.
+  if (lootShown(audience)) extras.push({ row: "loot", text: "Выбранный мастером лут" });
   if (extras.length > 0) rows.push({ row: "head", text: "Только для мастера" }, ...extras);
   return rows;
 }
@@ -135,12 +148,10 @@ function MapLegend({ audience, x, y }: { audience: MapAudience; x: number; y: nu
                 strokeDasharray="6 5"
               />
             )}
-            {r.row === "note" && (
-              <>
-                <circle cx={cx} cy={cy} r={4.2} fill={SHEET_BG} stroke={INK} strokeWidth={1} />
-                <circle cx={cx} cy={cy} r={1.8} fill={INK} />
-              </>
-            )}
+            {/* Значки признаков — те же, что на схеме: своей копии круга и
+                квадрата здесь нет, иначе легенда и лист разошлись бы. */}
+            {r.row === "note" && <NoteMark cx={cx} cy={cy} />}
+            {r.row === "loot" && <LootMark cx={cx} cy={cy} />}
             <text x={x + 34} y={cy + 5} fontSize={13} fill={INK}>
               {r.text}
             </text>

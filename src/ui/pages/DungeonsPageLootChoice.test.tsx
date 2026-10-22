@@ -213,6 +213,18 @@ describe("вкладка «Подземелья»: лут выбирает ма�
     expect(stored(FIND.id)?.text).toBe("свиток на незнакомом языке");
   });
 
+  it("у находки с выбранным лутом на схеме мастера появляется признак", async () => {
+    const map = await openFixture();
+    expect(map.querySelector(`[data-marker="${FIND.id}"]`)).not.toHaveAttribute("data-loot");
+    const loot = lootBlock(openMarker(map, FIND.id));
+    fireEvent.click(within(loot).getByLabelText("Драгоценности"));
+    expect(map.querySelector(`[data-marker="${FIND.id}"]`)).toHaveAttribute("data-loot", "yes");
+    expect(map.querySelector(`[data-marker="${OTHER_FIND.id}"]`)).not.toHaveAttribute("data-loot");
+    // Снятый выбор уносит и признак.
+    fireEvent.click(within(lootBlock(openMarker(map, FIND.id))).getByLabelText("Драгоценности"));
+    expect(map.querySelector(`[data-marker="${FIND.id}"]`)).not.toHaveAttribute("data-loot");
+  });
+
   it("у отметки другого вида выбора лута нет вовсе", async () => {
     const map = await openFixture();
     const door = made.markers.find((m) => m.kind === "door")!;
@@ -221,4 +233,16 @@ describe("вкладка «Подземелья»: лут выбирает ма�
     expect(detail.textContent).not.toContain("Лут не выбран");
   });
 
+  it("«Пересобрать» называет потерю выбранного лута и уносит его", async () => {
+    const map = await openFixture();
+    const loot = lootBlock(openMarker(map, FIND.id));
+    fireEvent.click(within(loot).getByLabelText("Деньги"));
+    expect(stored(FIND.id)).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Пересобрать" }));
+    expect(screen.getByText(/Пропадёт:/)).toHaveTextContent("находок с выбранным лутом: 1");
+    fireEvent.click(screen.getByRole("button", { name: "Да, пересобрать" }));
+    expect(await screen.findByRole("img", { name: /^Схема:/ })).toBeInTheDocument();
+    expect(disk.dungeons?.[0].loot ?? {}, "лут уехал в новую схему").toEqual({});
+  });
 });
