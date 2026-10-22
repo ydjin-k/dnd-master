@@ -143,10 +143,10 @@ describe("Launcher", () => {
     );
     await screen.findByRole("button", { name: /Выбрать кампанию/ });
     expect(audioInstances[0].play, "заиграла под заставкой").not.toHaveBeenCalled();
-    // Заставка держится 3 с и ждёт фоновое видео — в jsdom оно не грузится.
+    // Заставка держится 5 с и ждёт фоновое видео — в jsdom оно не грузится.
     fireEvent(document.querySelector("video.launcher__background")!, new Event("canplaythrough"));
-    await waitFor(() => expect(audioInstances[0].play).toHaveBeenCalledOnce(), { timeout: 4500 });
-  });
+    await waitFor(() => expect(audioInstances[0].play).toHaveBeenCalledOnce(), { timeout: 6500 });
+  }, 9000);
 
   it("loops launcher music and stops it when the launcher closes", async () => {
     const { unmount } = render(<Launcher onEnter={() => {}} />);

@@ -6,7 +6,8 @@ describe("LoadingScreen", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("держится 3 секунды даже при мгновенной загрузке, затем растворяется и уходит", async () => {
+  it("держится 5 секунд даже при мгновенной загрузке, затем растворяется и уходит", async () => {
+    expect(LOADING_MIN_MS, "решение владельца 22.10 — 5 секунд").toBe(5000);
     render(<LoadingScreen />);
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Загрузка");
@@ -27,7 +28,7 @@ describe("LoadingScreen", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("ждёт фоновое видео главной, если оно грузится дольше трёх секунд", async () => {
+  it("ждёт фоновое видео главной, если оно грузится дольше пяти секунд", async () => {
     const video = document.createElement("video");
     video.className = "launcher__background";
     document.body.appendChild(video);
