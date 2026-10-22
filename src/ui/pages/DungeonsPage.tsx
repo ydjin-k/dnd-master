@@ -859,6 +859,29 @@ function DungeonView({
     if (dweller) creatureRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [dwellerId, dweller]);
 
+  /**
+   * Правая колонка липнет к верху видимой области и листается внутри себя:
+   * владелец 22.10 — листать всю страницу ради легенды значит прятать схему.
+   * Высоту берём у прокручиваемой области оболочки (её задаёт окно, а не
+   * CSS), за вычетом её верхнего и нижнего полей. `ResizeObserver` под
+   * проверкой — в jsdom его нет.
+   */
+  const sideRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const side = sideRef.current;
+    const scroller = side?.closest<HTMLElement>(".app-shell__content");
+    if (!side || !scroller || typeof ResizeObserver === "undefined") return;
+    const fit = () => {
+      const style = getComputedStyle(scroller);
+      const room = scroller.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      side.style.setProperty("--dungeons-side-max", `${Math.max(room, 240)}px`);
+    };
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(scroller);
+    return () => watch.disconnect();
+  }, []);
+
   /** Что пропадёт при пересборке; пустой перечень — спрашивать не о чем. */
   const losses = rebuildLosses(dungeon);
 
@@ -1129,7 +1152,7 @@ function DungeonView({
             </section>
           )}
         </div>
-        <aside className="dungeons-page__side">
+        <aside ref={sideRef} className="dungeons-page__side">
           <Legend />
           <DungeonRooms
             dungeon={dungeon}

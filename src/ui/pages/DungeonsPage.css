@@ -496,9 +496,29 @@
   }
 }
 
-/* Плотная подложка правой колонки: фото остаётся только в промежутке у карты. */
+/* Плотная подложка правой колонки: фото остаётся только в промежутке у карты.
+   Поля внутри — владелец 22.10: текст шёл впритык к краю. Колонка липнет к
+   верху и листается сама, чтобы легенда читалась без прокрутки страницы, то
+   есть рядом со схемой; высоту `--dungeons-side-max` ставит DungeonsPage. */
 .dungeons-page__side {
+  position: sticky;
+  top: 0;
+  max-height: var(--dungeons-side-max, none);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.35rem 1.1rem 1rem;
+  border: 1px solid var(--dm-border);
+  border-radius: var(--dm-radius-panel);
   background: var(--dm-panel);
+}
+
+/* В один столбец колонка уходит под схему — липнуть там не к чему. */
+@media (max-width: 900px) {
+  .dungeons-page__side {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 /* Вкладки этажей — над схемой, той же полосой, что размер и опасность.
