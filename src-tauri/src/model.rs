@@ -451,6 +451,20 @@ pub struct DungeonRecord {
     /// правила здесь быть не должно. Подземелья, записанные до заметок,
     /// читаются пустым словарём тем же структурным `#[serde(default)]`.
     pub notes: BTreeMap<String, String>,
+    /// Что мастер выбрал в находках: `id` отметки находки — его выбор (виды
+    /// лута, редкости предметов, описание своими словами). Rust его не
+    /// толкует и не чистит, как и `plan`: список видов, правило «чем выбор
+    /// пуст» и удаление пустого живут на стороне показа
+    /// (`dungeonLootChoice.ts`), и второго владельца этих правил здесь быть не
+    /// должно — иначе Rust однажды решал бы «пусто» иначе, чем экран.
+    ///
+    /// Подземелья, записанные до выбора лута, читаются пустым словарём тем же
+    /// структурным `#[serde(default)]`, что заметки и этажи. Имя поля (`loot`)
+    /// сторожит проба: разъехавшись, оно молча прочиталось бы пустым словарём,
+    /// то есть выбранный мастером лут пропадал бы при каждой загрузке
+    /// кампании — ровно так же тихо, как уже ловили на `hitDiceSpent`, `size`,
+    /// `notes` и `lowerFloors`.
+    pub loot: BTreeMap<String, serde_json::Value>,
     /// Размер («Малое»/«Среднее»/«Большое») и выбранное мастером назначение —
     /// номер броска строки таблицы `dungeon-purpose`, `None` — «Случайно».
     /// Нужны «Пересобрать»: оно берёт новое семя теми же параметрами.
@@ -925,6 +939,64 @@ mod tests {
                 .expect("свежая запись должна читаться обратно");
         assert_eq!(round_trip.notes, written.notes, "заметки должны пережить перезапуск");
         assert_eq!(round_trip.statuses, written.statuses);
+    }
+
+    /// engine-dungeon-loot-master-choice: подземелья, записанные ДО выбора
+    /// лута (и все, где мастер ничего не выбирал), обязаны открываться пустым
+    /// словарём выбора, а не падать на отсутствующем поле; а выбранный лут —
+    /// доживать до следующего запуска целиком, со всеми видами, редкостями и
+    /// описанием, набранным мастером.
+    ///
+    /// Проба сторожит ИМЯ поля в файле (`loot`) и ключи внутри него, включая
+    /// ключ нижнего этажа (`f2-loot-1`): разъехавшееся имя молча прочиталось
+    /// бы умолчанием — то есть весь выбранный мастером лут пропадал бы при
+    /// каждой загрузке кампании, ровно так же тихо, как уже ловили на
+    /// `hitDiceSpent`, `size`, `notes` и `lowerFloors`.
+    ///
+    /// Внутрь выбора Rust не смотрит и смотреть не должен: виды и правило
+    /// «чем выбор пуст» живут в `dungeonLootChoice.ts`. Поэтому проба требует
+    /// от него только одного — довезти набранное без потерь.
+    #[test]
+    fn dungeon_without_loot_reads_as_empty_and_keeps_written_loot() {
+        let old_json = r#"{
+            "id": "d-1", "name": "Старая шахта", "createdAt": "2026-10-18T10:00:00Z",
+            "seed": 20261018, "partyLevel": 3, "danger": "Опасная",
+            "plan": { "rooms": [] }, "statuses": { "loot-1": "discovered" },
+            "notes": { "loot-1": "сундук под плитой" }
+        }"#;
+        let old: DungeonRecord =
+            serde_json::from_str(old_json).expect("подземелье без выбора лута должно читаться");
+        assert!(old.loot.is_empty(), "нет поля — значит лут мастер не выбирал");
+        assert_eq!(old.statuses.get("loot-1").map(String::as_str), Some("discovered"));
+        assert_eq!(old.notes.get("loot-1").map(String::as_str), Some("сундук под плитой"));
+
+        let written: DungeonRecord = serde_json::from_str(&old_json.replace(
+            r#""notes": { "loot-1": "сундук под плитой" }"#,
+            r#""notes": { "loot-1": "сундук под плитой" },
+               "loot": {
+                 "loot-1": { "kinds": ["money", "valuables"], "text": "40 зм и серебряный кубок" },
+                 "loot-2": { "kinds": ["item", "magic"],
+                             "rarities": { "item": "обычный", "magic": "редкий" },
+                             "text": "кольчуга +1" },
+                 "f2-loot-1": { "kinds": ["artifact"], "text": "" }
+               }"#,
+        ))
+        .expect("запись с выбранным лутом должна читаться");
+        assert_eq!(written.loot.len(), 3, "три находки с выбором, включая нижний этаж");
+        assert_eq!(written.loot["loot-1"]["kinds"][1], "valuables");
+        assert_eq!(written.loot["loot-1"]["text"], "40 зм и серебряный кубок");
+        assert_eq!(written.loot["loot-2"]["rarities"]["magic"], "редкий");
+        assert_eq!(written.loot["f2-loot-1"]["kinds"][0], "artifact");
+
+        let round_trip: DungeonRecord =
+            serde_json::from_str(&serde_json::to_string(&written).expect("запись"))
+                .expect("свежая запись должна читаться обратно");
+        assert_eq!(round_trip.loot, written.loot, "выбранный лут должен пережить перезапуск");
+        assert_eq!(round_trip.notes, written.notes, "заметки рядом с ним — тоже");
+        assert_eq!(
+            round_trip.loot["f2-loot-1"]["kinds"][0], "artifact",
+            "ключ нижнего этажа приставку не теряет"
+        );
     }
 
     /// engine-dungeon-floors: подземелье, записанное ДО этажей, обязано

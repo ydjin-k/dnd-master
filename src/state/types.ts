@@ -1,4 +1,5 @@
 import type { DungeonPlan, DungeonSize } from "../ui/dungeons/dungeonGenerator";
+import type { LootChoice } from "../ui/dungeons/dungeonLootChoice";
 import type { MarkerStatus } from "../ui/dungeons/markerStatus";
 import type { TrapDanger } from "../ui/dungeons/trapNumbers";
 
@@ -447,6 +448,15 @@ export interface DungeonRecord {
    * заметок: читать через `noteOf`.
    */
   notes?: Record<string, string>;
+  /**
+   * Что мастер выбрал в находках: `id` отметки находки → его выбор (виды лута,
+   * редкости предметов и описание своими словами). Пустой выбор в записи не
+   * лежит вовсе — его удаляет `withLootChoice` из `dungeonLootChoice.ts`, там
+   * же живут и остальные правила выбора. Поля нет у подземелий, записанных до
+   * выбора лута (и у всех, где мастер ничего не выбирал): читать через
+   * `lootChoiceOf`.
+   */
+  loot?: Record<string, LootChoice>;
   /**
    * Размер и выбранное назначение хранятся, чтобы «Пересобрать» повторило их
    * при новом семени. У записей, созданных до выбора, полей нет: размер читает

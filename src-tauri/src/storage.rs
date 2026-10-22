@@ -1150,6 +1150,9 @@ mod tests {
             // journal-dungeon-room-status-and-notes: заметок эта проба не
             // касается — пустые, как у подземелья без заметок мастера.
             notes: Default::default(),
+            // engine-dungeon-loot-master-choice: выбранного лута эта проба не
+            // касается — пустой, как у подземелья, где мастер его не выбирал.
+            loot: Default::default(),
         }
     }
 
