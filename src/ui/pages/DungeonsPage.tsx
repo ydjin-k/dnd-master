@@ -30,6 +30,12 @@ import {
   type FloorCount,
 } from "../dungeons/dungeonFloors";
 import { noteOf, withNote } from "../dungeons/dungeonNotes";
+import {
+  lootChoiceOf,
+  suggestLootChoice,
+  withLootChoice,
+  type LootChoice,
+} from "../dungeons/dungeonLootChoice";
 import { dungeonMapPngBase64, pngFileName, sheetTitle } from "../dungeons/DungeonMapImage";
 import {
   openPlayersWindow,
@@ -38,6 +44,8 @@ import {
 } from "../dungeons/playersMap";
 import { MAP_AUDIENCES, MAP_AUDIENCE_LABELS, type MapAudience } from "../dungeons/mapAudience";
 import { DungeonRooms, RoomLegend } from "../dungeons/DungeonRooms";
+import { LootChoiceField } from "../dungeons/LootChoiceField";
+import { seededDice } from "../dungeons/seededRandom";
 import { NoteField } from "../dungeons/NoteField";
 import { findDungeonTable } from "../eventTables/dungeonTables";
 import {
@@ -659,6 +667,8 @@ function MarkerDetail({
   doors,
   onAdvance,
   onNote,
+  onLoot,
+  onSuggestLoot,
   onRemove,
   onFloor,
 }: {
@@ -672,6 +682,10 @@ function MarkerDetail({
   doors: ObjectToughness | null;
   onAdvance: () => void;
   onNote: (text: string) => void;
+  /** Новый выбор лута в находке; у отметок других видов не зовётся. */
+  onLoot: (choice: LootChoice) => void;
+  /** «Предложить»: кость берёт экран, а не поле выбора. */
+  onSuggestLoot: () => void;
   onRemove: () => void;
   /** Переход по лестнице: экран открывает названный этаж. */
   onFloor: (floor: number) => void;
@@ -728,6 +742,17 @@ function MarkerDetail({
             <TrapLayers trap={marker.trap} />
           </>
         ))}
+      {/* Лут находки — выбор мастера, под строкой таблицы: что внутри, решает
+          он, а не приложение (владелец 22.10.2026). У отметок других видов
+          этого блока нет вовсе — выбирать там нечего. */}
+      {marker.kind === "loot" && (
+        <LootChoiceField
+          label={`Лут находки ${number}`}
+          choice={lootChoiceOf(dungeon, marker.id)}
+          onChange={onLoot}
+          onSuggest={onSuggestLoot}
+        />
+      )}
       {/* Заметка мастера — под описанием отметки, чем бы оно ни было: числами
           собранной ловушки, текстом готовой или строкой «Выбить» у двери. */}
       <NoteField
@@ -920,6 +945,21 @@ function DungeonView({
   /** Заметка к отметке или комнате; ключ даёт тот, кто её показывает. */
   const note = (id: string, text: string) =>
     setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withNote(d, id, text) : d)));
+
+  /**
+   * Выбор лута в находке: ключ даёт тот, кто его показывает, а правила —
+   * `dungeonLootChoice.ts`. Экран не решает ни что пусто, ни что удалять.
+   */
+  const chooseLoot = (id: string, choice: LootChoice) =>
+    setDungeons((list) => list.map((d) => (d.id === dungeon.id ? withLootChoice(d, id, choice) : d)));
+
+  /**
+   * «Предложить»: подсказка бросается СВОИМ случаем, а не семенем схемы —
+   * иначе схема того же семени сдвигалась бы от нажатия кнопки, да и повторное
+   * нажатие предлагало бы то же самое. Ступень отряда — у записи подземелья.
+   */
+  const suggestLoot = (id: string) =>
+    chooseLoot(id, suggestLootChoice(seededDice(randomSeed()), dungeon.partyLevel));
 
   const rename = async (name: string) => {
     setRenaming(false);
@@ -1117,6 +1157,8 @@ function DungeonView({
               doors={doors}
               onAdvance={() => advance(selected.id)}
               onNote={(text) => note(selected.id, text)}
+              onLoot={(choice) => chooseLoot(selected.id, choice)}
+              onSuggestLoot={() => suggestLoot(selected.id)}
               onRemove={() => removeMarker(selected.id)}
               onFloor={goToFloor}
             />

@@ -416,6 +416,23 @@
   overflow-wrap: anywhere;
 }
 
+/* Выбор лута: отметки видов в ряд с переносом, редкость — рядом со своим
+   видом. Своих цветов и рамок у блока нет нарочно: он живёт внутри описания
+   отметки и берёт его подложку, а вид и раскладку страницы ведёт ui-developer. */
+.dungeons-page__loot-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  align-items: center;
+  margin: 0.35rem 0;
+}
+
+.dungeons-page__loot-kind {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
 /* Заметка мастера: во всю ширину своего места и растяжимая вниз — мастер
    дописывает её за столом, а узкая колонка списка и так тесная. */
 .dungeons-page__note {
