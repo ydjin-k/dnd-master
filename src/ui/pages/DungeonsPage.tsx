@@ -34,6 +34,7 @@ import {
   lootChoiceOf,
   suggestLootChoice,
   withLootChoice,
+  withLootSuggestion,
   type LootChoice,
 } from "../dungeons/dungeonLootChoice";
 import { dungeonMapPngBase64, pngFileName, sheetTitle } from "../dungeons/DungeonMapImage";
@@ -957,9 +958,16 @@ function DungeonView({
    * «Предложить»: подсказка бросается СВОИМ случаем, а не семенем схемы —
    * иначе схема того же семени сдвигалась бы от нажатия кнопки, да и повторное
    * нажатие предлагало бы то же самое. Ступень отряда — у записи подземелья.
+   * Набранное мастером описание подсказка не затирает (`withLootSuggestion`).
    */
   const suggestLoot = (id: string) =>
-    chooseLoot(id, suggestLootChoice(seededDice(randomSeed()), dungeon.partyLevel));
+    chooseLoot(
+      id,
+      withLootSuggestion(
+        lootChoiceOf(dungeon, id),
+        suggestLootChoice(seededDice(randomSeed()), dungeon.partyLevel),
+      ),
+    );
 
   const rename = async (name: string) => {
     setRenaming(false);

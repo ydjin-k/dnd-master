@@ -213,6 +213,18 @@ describe("вкладка «Подземелья»: лут выбирает ма�
     expect(stored(FIND.id)?.text).toBe("свиток на незнакомом языке");
   });
 
+  it("«Предложить» не затирает набранное мастером описание (владелец 22.10)", async () => {
+    const map = await openFixture();
+    const loot = lootBlock(openMarker(map, FIND.id));
+    fireEvent.change(within(loot).getByLabelText(/описание$/), { target: { value: "кольчуга +1" } });
+
+    for (let k = 0; k < 10; k += 1) {
+      fireEvent.click(within(lootBlock(openMarker(map, FIND.id))).getByRole("button", { name: "Предложить" }));
+      expect(stored(FIND.id)?.text, `нажатие ${k + 1}`).toBe("кольчуга +1");
+      expect(stored(FIND.id)?.kinds.length, "подсказка не отметила ни одного вида").toBeGreaterThan(0);
+    }
+  });
+
   it("у находки с выбранным лутом на схеме мастера появляется признак", async () => {
     const map = await openFixture();
     expect(map.querySelector(`[data-marker="${FIND.id}"]`)).not.toHaveAttribute("data-loot");

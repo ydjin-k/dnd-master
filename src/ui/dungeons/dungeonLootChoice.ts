@@ -210,6 +210,17 @@ export function lootChoiceLine(choice: LootChoice): string {
  * приходит одной редкостью и без описания — какой это предмет, не знает ни
  * бросок, ни приложение, и выдумывать за мастера нечего.
  */
+/**
+ * Подсказка поверх того, что мастер уже выбрал (владелец 22.10): виды и
+ * редкость берутся из подсказки, а набранное описание остаётся. Описание
+ * подсказки (суммы монет, камни) ложится только в пустое поле — иначе «кольчуга
+ * +1», написанная до нажатия из любопытства, пропадала бы.
+ */
+export function withLootSuggestion(current: LootChoice, suggested: LootChoice): LootChoice {
+  const text = current.text.trim().length > 0 ? current.text : suggested.text;
+  return normalized({ ...suggested, text });
+}
+
 export function suggestLootChoice(dice: SeededDice, partyLevel: number): LootChoice {
   const contents = rollLootContents(dice, partyLevel);
   if (contents.kind === "magic") {
