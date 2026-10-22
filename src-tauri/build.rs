@@ -54,6 +54,10 @@ const COMMANDS: &[&str] = &[
 ];
 
 fn main() {
+    // Значок вшивается в exe сборкой, но в список «пересобрать, если
+    // изменился» tauri-build его не вносит: 23.10.2026 новый значок лёг в
+    // `icons/`, а установщик поставил exe и ярлык со старым.
+    println!("cargo:rerun-if-changed=icons/icon.ico");
     tauri_build::try_build(
         Attributes::new().app_manifest(AppManifest::new().commands(COMMANDS)),
     )
