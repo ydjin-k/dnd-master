@@ -479,17 +479,7 @@
     "text": "Копилка под плитой — Монеты сложены столбиками, один столбик разобран."
    },
    "trap": null,
-   "connects": null,
-   "contents": {
-    "kind": "coins",
-    "coins": {
-     "silver": 2,
-     "copper": 16
-    },
-    "gems": [
-     "топаз"
-    ]
-   }
+   "connects": null
   },
   {
    "id": "loot-2",
@@ -501,17 +491,7 @@
     "text": "Плащ на гвозде — В подкладку вшиты бумаги на чужое имя."
    },
    "trap": null,
-   "connects": null,
-   "contents": {
-    "kind": "coins",
-    "coins": {
-     "silver": 8,
-     "copper": 6
-    },
-    "gems": [
-     "аметист"
-    ]
-   }
+   "connects": null
   },
   {
    "id": "loot-3",
@@ -523,17 +503,7 @@
     "text": "Связка ключей — Ключей больше, чем дверей, и три из них одинаковые."
    },
    "trap": null,
-   "connects": null,
-   "contents": {
-    "kind": "coins",
-    "coins": {
-     "silver": 3,
-     "copper": 23
-    },
-    "gems": [
-     "обсидиан"
-    ]
-   }
+   "connects": null
   },
   {
    "id": "feature-1",
