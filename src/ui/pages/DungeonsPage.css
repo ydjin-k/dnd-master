@@ -433,6 +433,13 @@
   align-items: center;
 }
 
+/* Подпись вида — рядом со своей галочкой, а не вплотную к ней. */
+.dungeons-page__loot-kind label {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 /* Заметка мастера: во всю ширину своего места и растяжимая вниз — мастер
    дописывает её за столом, а узкая колонка списка и так тесная. */
 .dungeons-page__note {
