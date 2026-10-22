@@ -1324,6 +1324,21 @@ function DungeonList({ onBack, startLevel }: { onBack: () => void; startLevel: n
           onPurpose={setPurposeRoll}
           onSeed={setSeedText}
         />
+        {/* Владелец 23.10: «сноску про код генерации, чтобы было понятно, для
+            чего он нужен». */}
+        <p className="dungeons-page__seed-hint dm-hint">
+          <span>
+            <span className="dm-hint__title">
+              Номер схемы — код подземелья: тот же номер при тех же настройках строит ту же самую схему.
+            </span>
+            <span className="dm-hint__text">
+              Оставьте поле пустым — получится новая случайная схема. Номер готового подземелья написан в
+              его шапке: впишите его сюда, чтобы повторить схему в другой кампании или передать другому
+              мастеру. Настройки должны совпасть: уровень отряда, ловушки, размер, этажи и назначение.
+              Ваши заметки и выбранный лут номер не переносит.
+            </span>
+          </span>
+        </p>
         <button type="button" className="dm-button--primary" onClick={create} disabled={!numbers || !bestiary}>
           Создать подземелье
         </button>

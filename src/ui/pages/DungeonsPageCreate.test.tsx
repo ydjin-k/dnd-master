@@ -133,6 +133,15 @@ describe("создание подземелья: размер, назначен�
     expect(second.seed).not.toBe(first.seed);
   });
 
+  it("сноска объясняет, для чего номер схемы и что он не переносит", async () => {
+    await mount();
+    await openList();
+    const hint = screen.getByText(/Номер схемы — код подземелья/).closest(".dm-hint")!;
+    expect(hint).toHaveTextContent("тот же номер при тех же настройках строит ту же самую схему");
+    expect(hint).toHaveTextContent("Оставьте поле пустым — получится новая случайная схема");
+    expect(hint).toHaveTextContent("Ваши заметки и выбранный лут номер не переносит");
+  });
+
   it("мусор в поле семени — отказ с объяснением, подземелье не создаётся", async () => {
     await mount();
     const create = await openList();
