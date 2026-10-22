@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { getDialPositions, Launcher } from "./Launcher";
+import { LoadingScreen } from "./LoadingScreen";
 import type { CampaignSummary, CampaignState } from "../state/types";
 
 const { audioInstances, AudioMock } = vi.hoisted(() => {
@@ -131,6 +132,20 @@ describe("Launcher", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("delete_campaign", { id: "c1" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Выбрать кампанию Старая кампания" })).not.toBeInTheDocument());
     expect(screen.getAllByRole("button", { name: /Свободное место/ })).toHaveLength(6);
+  });
+
+  it("под заставкой загрузки музыка молчит и начинается, когда заставка ушла", async () => {
+    render(
+      <>
+        <Launcher onEnter={() => {}} />
+        <LoadingScreen />
+      </>,
+    );
+    await screen.findByRole("button", { name: /Выбрать кампанию/ });
+    expect(audioInstances[0].play, "заиграла под заставкой").not.toHaveBeenCalled();
+    // Заставка держится 3 с и ждёт фоновое видео — в jsdom оно не грузится.
+    fireEvent(document.querySelector("video.launcher__background")!, new Event("canplaythrough"));
+    await waitFor(() => expect(audioInstances[0].play).toHaveBeenCalledOnce(), { timeout: 4500 });
   });
 
   it("loops launcher music and stops it when the launcher closes", async () => {

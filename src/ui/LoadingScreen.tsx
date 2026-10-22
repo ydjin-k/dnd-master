@@ -8,6 +8,19 @@ const FADE_MS = 600;
 /** Дольше видео не ждём: без фона главная всё равно рабочая. */
 const VIDEO_WAIT_CAP_MS = 10000;
 
+/**
+ * Конец заставки для тех, кому до него рано звучать (музыка главной: под
+ * заставкой — тишина, владелец 22.10). Обещание заводит заставка при первой
+ * отрисовке; заставки нет вовсе (пробы, повторный вход на главную) — ждать
+ * нечего.
+ */
+let loadingDone: Promise<void> | null = null;
+let finishLoading: () => void = () => {};
+
+export function whenLoadingDone(): Promise<void> {
+  return loadingDone ?? Promise.resolve();
+}
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Фоновое видео главной готово играть без остановки — или ждать его хватит. */
@@ -29,7 +42,13 @@ function launcherVideoReady(): Promise<void> {
  * готовой. Держится LOADING_MIN_MS, но не меньше настоящей загрузки.
  */
 export function LoadingScreen() {
-  const [phase, setPhase] = useState<"shown" | "fading" | "gone">("shown");
+  const [phase, setPhase] = useState<"shown" | "fading" | "gone">(() => {
+    // Заводится при отрисовке, а не в эффекте: эффект главной, которая стоит
+    // в дереве раньше заставки, срабатывает первым и обязан уже застать
+    // обещание.
+    if (!loadingDone) loadingDone = new Promise((resolve) => (finishLoading = resolve));
+    return "shown";
+  });
 
   // Пока заставка стоит, главная под ней ещё догружается и бывает выше экрана;
   // полоса прокрутки страницы рисуется поверх любого слоя и торчала бы сквозь
@@ -49,6 +68,7 @@ export function LoadingScreen() {
     void Promise.all([delay(LOADING_MIN_MS), document.fonts?.ready, launcherVideoReady()]).then(async () => {
       if (!alive) return;
       setPhase("fading");
+      finishLoading();
       await delay(FADE_MS);
       if (alive) setPhase("gone");
     });

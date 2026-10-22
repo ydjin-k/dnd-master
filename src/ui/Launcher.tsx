@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CampaignState, CampaignSummary } from "../state/types";
 import { exitApp } from "./appWindow";
+import { whenLoadingDone } from "./LoadingScreen";
 import "./Launcher.css";
 
 const MAX_CAMPAIGNS = 6;
@@ -156,8 +157,14 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
     music.volume = 0.32;
     music.muted = isLauncherMusicMuted;
     musicRef.current = music;
-    void music.play().catch(() => undefined);
+    // Под заставкой загрузки — тишина (владелец 22.10): музыка начинается,
+    // когда главный экран показался.
+    let alive = true;
+    void whenLoadingDone().then(() => {
+      if (alive) void music.play().catch(() => undefined);
+    });
     return () => {
+      alive = false;
       music.pause();
       music.currentTime = 0;
       musicRef.current = null;
