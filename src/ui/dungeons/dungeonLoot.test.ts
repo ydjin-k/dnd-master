@@ -10,18 +10,24 @@ import {
   LOOT_GEMS,
   LOOT_RARITIES,
   LOOT_TIERS,
+  rollLootContents,
   type CoinsFind,
   type LootContents,
 } from "./dungeonLoot";
+import { seededDice } from "./seededRandom";
 import { readTrapNumbers, type TrapNumbers } from "./trapNumbers";
 import oldLoot from "./__fixtures__/oldLoot.20261018.json";
 
 /**
- * Содержимое находок подземелья: вид, редкости, суммы монет и строка показа.
+ * Числа подсказки к находке: вид, редкости, суммы монет и строка показа.
+ *
+ * С 22.10.2026 эти числа бросает ТОЛЬКО кнопка «Предложить», поэтому проба
+ * зовёт `rollLootContents` своей костью, а не вынимает содержимое из схемы:
+ * генератор его больше не кладёт, и первая проба здесь сторожит именно это.
  *
  * Семян много и они не подобраны — доля и порог обязаны держаться на любом, а
  * не на одном удачном. Где проверяется «не выпадает», рядом проверяется и
- * «выпадает»: иначе проба зеленела бы на пустоте, не выдав ни одной находки.
+ * «выпадает»: иначе проба зеленела бы на пустоте, не выдав ни одной подсказки.
  *
  * Суммы монет проба считает САМА, в медных эквивалентах по курсу листа
  * персонажа (`COIN_DENOMINATIONS`), а не по вилкам из `LOOT_TIERS`: число,
@@ -32,30 +38,20 @@ const numbers = readTrapNumbers(bundledRules as RuleTopic[]) as TrapNumbers;
 const bestiary = bundledBestiary as DwellerSource[];
 const SEEDS = Array.from({ length: 120 }, (_, i) => i * 7919 + 13);
 
-/** Находки всех схем этого уровня, большим размером — их там больше. */
-function findsAt(partyLevel: number): DungeonMarker[] {
-  return SEEDS.flatMap((seed) =>
-    generateDungeon({
-      seed,
-      partyLevel,
-      danger: "Опасная",
-      numbers,
-      bestiary,
-      size: "Большое",
-    }).markers.filter((m) => m.kind === "loot"),
-  );
-}
+/** Сколько подсказок бросает одно семя: всего их выходит 120 × 8. */
+const PER_SEED = 8;
 
+/** Подсказки этой ступени — своей костью, по многим семенам. */
 const contentsAt = (partyLevel: number): LootContents[] =>
-  findsAt(partyLevel).map((m) => {
-    expect(m.contents, `находка ${m.id} без содержимого`).toBeDefined();
-    return m.contents!;
+  SEEDS.flatMap((seed) => {
+    const dice = seededDice(seed);
+    return Array.from({ length: PER_SEED }, () => rollLootContents(dice, partyLevel));
   });
 
 const coinsOnly = (list: readonly LootContents[]): CoinsFind[] =>
   list.flatMap((c) => (c.kind === "coins" ? [c] : []));
 
-/** Сколько медных стоит находка — курс берётся у листа персонажа. */
+/** Сколько медных стоит подсказка — курс берётся у листа персонажа. */
 function copperValue(find: CoinsFind): number {
   return COIN_DENOMINATIONS.reduce(
     (sum, d) => sum + (find.coins[d.key] ?? 0) * d.copperValue,
@@ -65,32 +61,42 @@ function copperValue(find: CoinsFind): number {
 
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1];
 
-describe("содержимое находки подземелья", () => {
-  it("у каждой находки новой схемы есть содержимое, и видов его два", () => {
-    const list = contentsAt(7);
-    expect(list.length).toBeGreaterThan(400);
-    const kinds = new Set(list.map((c) => c.kind));
-    expect([...kinds].sort()).toEqual(["coins", "magic"]);
-    // У отметок других видов содержимого нет вовсе — это находки, а не двери.
-    const others = SEEDS.slice(0, 20).flatMap((seed) =>
-      generateDungeon({ seed, partyLevel: 7, danger: "Опасная", numbers, bestiary }).markers.filter(
-        (m) => m.kind !== "loot",
+describe("подсказка к находке подземелья", () => {
+  it("генератор не кладёт содержимое ни одной отметке — ни находке, ни двери", () => {
+    // Отрицательная проба к решению владельца 22.10.2026: верни генератору
+    // бросок содержимого — и она покраснеет на первой же находке.
+    const markers = SEEDS.slice(0, 30).flatMap((seed) =>
+      [3, 19].flatMap(
+        (partyLevel) =>
+          generateDungeon({
+            seed,
+            partyLevel,
+            danger: "Опасная",
+            numbers,
+            bestiary,
+            size: "Большое",
+          }).markers,
       ),
     );
-    expect(others.length).toBeGreaterThan(0);
-    expect(others.filter((m) => m.contents !== undefined)).toEqual([]);
+    const finds = markers.filter((m) => m.kind === "loot");
+    expect(finds.length, "находок на 30 семенах не выпало вовсе").toBeGreaterThan(100);
+    for (const marker of markers) {
+      expect("contents" in (marker as object), `${marker.id} несёт содержимое`).toBe(false);
+    }
+    // Строка таблицы у находки осталась: она говорит, ГДЕ находка лежит.
+    for (const find of finds) expect(find.line?.text ?? "").not.toBe("");
   });
 
-  it("то же семя — то же содержимое, другое семя — другое", () => {
-    const params = { partyLevel: 9, danger: "Опасная", numbers, bestiary, size: "Большое" } as const;
-    const once = generateDungeon({ seed: 20261020, ...params }).markers;
-    expect(generateDungeon({ seed: 20261020, ...params }).markers).toEqual(once);
-    const other = generateDungeon({ seed: 20261021, ...params }).markers;
-    const inside = (ms: readonly DungeonMarker[]) =>
-      JSON.stringify(ms.filter((m) => m.kind === "loot").map((m) => m.contents!));
-    // Сравнивать нечего, если содержимого нет вовсе: пустые списки равны.
-    expect(inside(once)).toMatch(/"(coins|magic)"/);
-    expect(inside(other)).not.toBe(inside(once));
+  it("у подсказки два вида, и та же кость даёт ту же подсказку", () => {
+    const list = contentsAt(7);
+    expect(list.length).toBe(SEEDS.length * PER_SEED);
+    const kinds = new Set(list.map((c) => c.kind));
+    expect([...kinds].sort()).toEqual(["coins", "magic"]);
+    // Чистая функция кости: то же семя — та же подсказка, другое — другая.
+    const once = rollLootContents(seededDice(20261022), 7);
+    expect(rollLootContents(seededDice(20261022), 7)).toEqual(once);
+    const many = SEEDS.map((seed) => JSON.stringify(rollLootContents(seededDice(seed), 7)));
+    expect(new Set(many).size, "все семена дали одну и ту же подсказку").toBeGreaterThan(50);
   });
 
   it("доля магических предметов растёт со ступенью", () => {
@@ -150,7 +156,7 @@ describe("содержимое находки подземелья", () => {
     const high = coinsOnly(contentsAt(19)).map(copperValue);
     expect(low.length).toBeGreaterThan(100);
     expect(high.length).toBeGreaterThan(100);
-    // «На многих семенах» — на всех: самая богатая находка 1–4 беднее самой
+    // «На многих семенах» — на всех: самая богатая подсказка 1–4 беднее самой
     // скудной на 17–20, и сравнивать медианы уже незачем.
     expect(Math.max(...low)).toBeLessThan(Math.min(...high));
     expect(median(low), `медианы: ${median(low)} против ${median(high)} мм`).toBeLessThan(
@@ -185,11 +191,11 @@ describe("содержимое находки подземелья", () => {
       expect(new Set(find.gems).size, `повтор камня: ${find.gems.join(", ")}`).toBe(find.gems.length);
       for (const gem of find.gems) expect(LOOT_GEMS as readonly string[]).toContain(gem);
     }
-    // Список расходуется, а не стоит одним камнем на все находки.
+    // Список расходуется, а не стоит одним камнем на все подсказки.
     expect(new Set(finds.flatMap((c) => c.gems)).size).toBe(LOOT_GEMS.length);
   });
 
-  it("строка содержимого — как в образце владельца, без пустых частей", () => {
+  it("строка подсказки — как в образце владельца, без пустых частей", () => {
     const finds = [3, 7, 14, 19].flatMap((level) => contentsAt(level));
     for (const contents of finds) {
       const line = lootContentsLine(contents);
@@ -213,7 +219,7 @@ describe("содержимое находки подземелья", () => {
     expect(
       lootContentsLine({ kind: "coins", coins: { gold: 5, silver: 10 }, gems: ["аметист"] }),
     ).toBe("5 зм, 10 см, аметист");
-    // Номинала, которого в находке нет, в строке нет: «0 мм» не пишется.
+    // Номинала, которого в подсказке нет, в строке нет: «0 мм» не пишется.
     expect(lootContentsLine({ kind: "coins", coins: { copper: 0, gold: 5 }, gems: [] })).toBe("5 зм");
   });
 
@@ -226,15 +232,14 @@ describe("содержимое находки подземелья", () => {
     expect(line).toBe("3 пм, 4 зм, 5 эм, 6 см, 7 мм, оникс");
   });
 
-  it("находка, записанная до содержимого, читается без него", () => {
-    // Отметки взяты из схемы, записанной СТАРЫМ генератором (семя 20261018):
-    // поля `contents` в них нет вовсе, и показ обязан открыть такую находку
-    // одной строкой таблицы, как раньше.
+  it("находка записи, снятой до содержимого, читается одной строкой таблицы", () => {
+    // Отметки взяты из схемы, записанной генератором ДО содержимого (семя
+    // 20261018): поля `contents` в них нет вовсе — ровно то, что генератор
+    // отдаёт и теперь, после его сноса.
     const old = oldLoot as unknown as DungeonMarker[];
     expect(old.length).toBeGreaterThan(0);
     for (const marker of old) {
       expect("contents" in (marker as object), marker.id).toBe(false);
-      expect(marker.contents).toBeUndefined();
       expect(marker.line?.text ?? "").not.toBe("");
     }
   });

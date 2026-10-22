@@ -11,7 +11,6 @@ import {
   type RuleTopic,
 } from "../../state/types";
 import { generateDungeon, lineTitle, type DungeonPlan } from "../dungeons/dungeonGenerator";
-import { lootContentsLine } from "../dungeons/dungeonLoot";
 import { readTrapNumbers } from "../dungeons/trapNumbers";
 import { DungeonsPage } from "./DungeonsPage";
 
@@ -19,12 +18,15 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../../audio/uiSounds", () => ({ playDiceRollSound: vi.fn() }));
 
 /**
- * Содержимое находки на живом экране: строка «Внутри: …» под строкой таблицы.
+ * Находка на живом экране: строка таблицы — и ни одного самопридуманного
+ * содержимого.
  *
- * Сами числа и строка проверены своими пробами в `dungeonLoot.test.ts`; здесь
- * проверяется, что экран их зовёт, что описание отметки показывает И где
- * находка лежит, И что внутри, и что подземелье, записанное ДО содержимого,
- * открывается по-прежнему.
+ * Решение владельца 22.10.2026: содержимое находки больше не бросается само.
+ * Здесь проверяется ОБЕ половины этого: что строка таблицы на месте (она
+ * говорит, где находка лежит) и что брошенное содержимое на экран не выходит —
+ * ни у свежей схемы, где его больше нет вовсе, ни у записи, в которой оно
+ * успело улечься до этой карточки. Выбор мастера, пришедший на его место,
+ * проверяет `DungeonsPageLootChoice.test.tsx`.
  */
 
 let disk: CampaignState;
@@ -96,8 +98,8 @@ function openMarker(map: HTMLElement, id: string): HTMLElement {
   return screen.getByRole("article", { name: "Описание отметки" });
 }
 
-describe("вкладка «Подземелья»: содержимое находки", () => {
-  it("описание находки показывает и строку таблицы, и строку «Внутри»", async () => {
+describe("вкладка «Подземелья»: находка без самодельного содержимого", () => {
+  it("описание находки показывает строку таблицы и ни одной брошенной суммы", async () => {
     const made = plan(3);
     const map = await openFixture(record(made, 3));
     const finds = made.markers.filter((m) => m.kind === "loot");
@@ -107,43 +109,40 @@ describe("вкладка «Подземелья»: содержимое нахо
       const detail = openMarker(map, find.id);
       // Строка таблицы осталась на месте: она говорит, ГДЕ находка лежит.
       expect(within(detail).getByText(lineTitle(find.line!.text))).toBeInTheDocument();
-      expect(within(detail).getByText("Внутри:")).toBeInTheDocument();
-      expect(detail).toHaveTextContent(`Внутри: ${lootContentsLine(find.contents!)}`);
-      // Цены камня в описании нет — камень назван и только.
-      expect(detail.textContent).not.toMatch(/\d+ зм за|стоит/);
+      // Ни монет, ни камней, ни редкости: выдумывать содержимое больше нечем.
+      expect(detail.textContent).not.toMatch(/\d+ (зм|см|мм|эм|пм)/);
+      expect(detail.textContent).not.toMatch(/магический предмет, редкость/);
     }
   });
 
-  it("на 17–20 находка бывает магическим предметом с одной редкостью", async () => {
-    const made = plan(19);
-    const map = await openFixture(record(made, 19));
-    const magic = made.markers.find((m) => m.kind === "loot" && m.contents?.kind === "magic");
-    expect(magic, "на семени 20261020 ни одна находка не вышла магической").toBeDefined();
-    const detail = openMarker(map, magic!.id);
-    expect(detail).toHaveTextContent(/Внутри: магический предмет, редкость: (редкий|очень редкий|легендарный)/);
+  it("содержимое, записанное в схему до этой карточки, на экран не выходит", async () => {
+    // Отрицательная проба: запись, сделанная между 20.10 и 22.10.2026, несёт у
+    // находок поле `contents` — показ обязан его не заметить. Верни на экран
+    // строку «Внутри: …» из броска, и проба покраснеет на «40 зм».
+    const made = plan(3);
+    const stale: DungeonPlan = {
+      ...made,
+      markers: made.markers.map((m) =>
+        m.kind === "loot"
+          ? ({ ...m, contents: { kind: "coins", coins: { gold: 40 }, gems: ["аметист"] } } as typeof m)
+          : m,
+      ),
+    };
+    const map = await openFixture(record(stale, 3));
+    const find = stale.markers.find((m) => m.kind === "loot")!;
+    const detail = openMarker(map, find.id);
+    expect(within(detail).getByText(lineTitle(find.line!.text))).toBeInTheDocument();
+    expect(detail.textContent).not.toContain("40 зм");
+    expect(detail.textContent).not.toContain("аметист");
+    // Экран при этом цел: статус у находки по-прежнему меняется.
+    expect(within(detail).getByText(/^Отметить:/)).toBeInTheDocument();
   });
 
-  it("у отметки другого вида строки «Внутри» нет", async () => {
+  it("у отметки другого вида строки содержимого нет и не было", async () => {
     const made = plan(3);
     const map = await openFixture(record(made, 3));
     const other = made.markers.find((m) => m.kind === "door")!;
-    expect(within(openMarker(map, other.id)).queryByText("Внутри:")).toBeNull();
-  });
-
-  it("подземелье, записанное до содержимого, открывается находкой как раньше", async () => {
-    // Запись старого вида: та же схема без поля `contents` у находок — ровно
-    // то, что лежит в кампаниях, созданных до этой карточки.
-    const made = plan(3);
-    const old: DungeonPlan = {
-      ...made,
-      markers: made.markers.map(({ contents: _drop, ...rest }) => rest),
-    };
-    const map = await openFixture(record(old, 3));
-    const find = old.markers.find((m) => m.kind === "loot")!;
-    const detail = openMarker(map, find.id);
-    expect(within(detail).getByText(lineTitle(find.line!.text))).toBeInTheDocument();
-    expect(within(detail).queryByText("Внутри:")).toBeNull();
-    // Экран при этом цел: статус у находки по-прежнему меняется.
-    expect(within(detail).getByText(/^Отметить:/)).toBeInTheDocument();
+    const detail = openMarker(map, other.id);
+    expect(detail.textContent).not.toMatch(/магический предмет, редкость/);
   });
 });
