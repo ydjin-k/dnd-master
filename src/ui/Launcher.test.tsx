@@ -169,20 +169,13 @@ describe("Launcher", () => {
     fireEvent.click(screen.getByRole("button", { name: "Включить музыку" }));
   });
 
-  it("renders the bundled video as a silent seamless background", () => {
+  it("renders the bundled video as a silent looping background", () => {
     const { container } = render(<Launcher onEnter={() => {}} />);
-    const videos = container.querySelectorAll("video.launcher__background");
-    // Два экземпляра клипа сменяют друг друга наплывом; встроенный loop дал бы шов.
-    expect(videos).toHaveLength(2);
-    for (const video of videos) {
-      expect(video).toHaveAttribute("src", "/video/launcher-background.mp4");
-      expect(video).not.toHaveAttribute("loop");
-      expect(video).toHaveProperty("muted", true);
-      expect(video).toHaveAttribute("playsinline");
-    }
-    expect(videos[0]).toHaveAttribute("autoplay");
-    expect(videos[0]).toHaveClass("launcher__background--shown");
-    expect(videos[1]).not.toHaveAttribute("autoplay");
-    expect(videos[1]).not.toHaveClass("launcher__background--shown");
+    const video = container.querySelector("video.launcher__background");
+    expect(video).toHaveAttribute("src", "/video/launcher-background.mp4");
+    expect(video).toHaveAttribute("autoplay");
+    expect(video).toHaveAttribute("loop");
+    expect(video).toHaveProperty("muted", true);
+    expect(video).toHaveAttribute("playsinline");
   });
 });

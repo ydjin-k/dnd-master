@@ -123,65 +123,6 @@ function CompassRose() {
   );
 }
 
-/** Сколько секунд конец клипа растворяется в его начале. */
-const LOOP_FADE_S = 1.2;
-
-/**
- * Фоновое видео без шва (просьба владельца 22.10). Встроенный `loop` прыгает
- * с последнего кадра на первый, и это видно: в начале клипа дракон уже висит
- * в небе, а в конце его нет. Здесь два экземпляра одного клипа: за
- * LOOP_FADE_S до конца идущего второй стартует с нуля поверх и проявляется,
- * по `ended` они меняются ролями. В jsdom `duration` — NaN, и цикл молчит.
- */
-function LoopingBackground({ src }: { src: string }) {
-  const firstRef = useRef<HTMLVideoElement>(null);
-  const secondRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const first = firstRef.current;
-    const second = secondRef.current;
-    if (!first || !second) return;
-    let current = first;
-    let next = second;
-    let fading = false;
-    let frame = 0;
-
-    const tick = () => {
-      if (!fading && current.duration > 0 && current.currentTime >= current.duration - LOOP_FADE_S) {
-        fading = true;
-        next.currentTime = 0;
-        void next.play()?.catch(() => {});
-        next.classList.add("launcher__background--shown");
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    const onEnded = (event: Event) => {
-      if (event.target !== current) return;
-      // Ушедший прячется мгновенно: он уже под проявленным, глазу не видно.
-      current.classList.remove("launcher__background--shown", "launcher__background--base");
-      next.classList.add("launcher__background--base");
-      [current, next] = [next, current];
-      fading = false;
-    };
-
-    first.addEventListener("ended", onEnded);
-    second.addEventListener("ended", onEnded);
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      first.removeEventListener("ended", onEnded);
-      second.removeEventListener("ended", onEnded);
-    };
-  }, []);
-
-  return (
-    <>
-      <video ref={firstRef} className="launcher__background launcher__background--base launcher__background--shown" src={src} autoPlay muted playsInline preload="auto" aria-hidden="true" />
-      <video ref={secondRef} className="launcher__background" src={src} muted playsInline preload="auto" aria-hidden="true" />
-    </>
-  );
-}
-
 export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void }) {
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -261,7 +202,7 @@ export function Launcher({ onEnter }: { onEnter: (state: CampaignState) => void 
 
   return (
     <div className="launcher">
-      <LoopingBackground src="/video/launcher-background.mp4" />
+      <video className="launcher__background" src="/video/launcher-background.mp4" autoPlay loop muted playsInline aria-hidden="true" />
       <button type="button" className="launcher__music-toggle" aria-label={isMusicMuted ? "Включить музыку" : "Выключить музыку"} aria-pressed={isMusicMuted} title={isMusicMuted ? "Включить музыку" : "Выключить музыку"} onClick={toggleMusic}>
         <SoundIcon muted={isMusicMuted} />
       </button>
