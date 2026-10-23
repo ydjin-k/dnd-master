@@ -9,7 +9,7 @@
 ## Скачать
 
 Установщик для Windows — на странице [Releases](https://github.com/ydjin-k/dnd-master/releases/latest):
-файл `DnD Master_…_x64-setup.exe`.
+файл `DnD-Master_…_x64-setup.exe`.
 
 ## Что умеет
 
