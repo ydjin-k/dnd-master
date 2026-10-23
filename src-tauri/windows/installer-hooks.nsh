@@ -13,3 +13,11 @@
     Delete "$SMPROGRAMS\${PRODUCTNAME}.lnk"
   ${EndIf}
 !macroend
+
+; Старый значок на ярлыке после обновления (владелец 23.10.2026: «ярлык не
+; подтягивается» — даже после перезагрузки). В exe значок новый, но Проводник
+; берёт картинку из своего кэша по пути программы, а путь при обновлении тот же.
+; SHCNE_ASSOCCHANGED (0x08000000) велит оболочке перечитать значки.
+!macro NSIS_HOOK_POSTINSTALL
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+!macroend
